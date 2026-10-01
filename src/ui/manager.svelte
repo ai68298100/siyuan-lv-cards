@@ -3,10 +3,10 @@
     import { openTab, showMessage } from "siyuan";
     import { getRiffCards, removeRiffCards, resetRiffCards, type SearchBlock } from "@/api/riff";
     import { confirmDialog } from "@/libs/dialog";
+    import CardDetail from "./card-detail.svelte";
     import LvPage from "./kit/LvPage.svelte";
     import LvEmpty from "./kit/LvEmpty.svelte";
     import LvChip from "./kit/LvChip.svelte";
-    import CardDetail from "./card-detail.svelte";
 
     export interface ManagerCtx {
         i18n: any;
