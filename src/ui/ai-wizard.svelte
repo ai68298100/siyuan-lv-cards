@@ -6,7 +6,7 @@
     import LvRow from "./kit/LvRow.svelte";
     import LvChip from "./kit/LvChip.svelte";
 
-    let { i18n, initialSource = "", generate, onCreate, onClose }: {
+    let { i18n, initialSource = "", loadCurrentDoc, generate, onCreate, onClose }: {
         i18n: any;
         /** 预填材料（leech 改写联动） */
         initialSource?: string;
@@ -14,6 +14,8 @@
         generate: (source: string, cfg: { count: number; language: string; type: "qa" | "cloze" }) => Promise<{ q: string; a: string }[]>;
         onCreate: (cards: { q: string; a: string }[], deckID: string, deckName: string) => Promise<void>;
         onClose: () => void;
+        /** 载入当前打开文档（M2·FR6 输入源扩展；不可用时返回 null） */
+        loadCurrentDoc?: () => Promise<{ name: string; content: string } | null>;
     } = $props();
     const t = $derived(i18n);
 
@@ -30,6 +32,27 @@
     let busy = $state(false);
     let creating = $state(false);
     let errorMsg = $state("");
+
+    let loadDocBusy = $state(false);
+
+    async function loadActiveDoc() {
+        if (loadDocBusy || !loadCurrentDoc) {
+            return;
+        }
+        loadDocBusy = true;
+        try {
+            const doc = loadCurrentDoc ? await loadCurrentDoc() : null;
+            if (doc?.content) {
+                source = source ? `${source}\n\n${doc.content}` : doc.content;
+            } else {
+                errorMsg = t.aiWizard.noDoc;
+            }
+        } catch (e: any) {
+            errorMsg = e?.message ?? String(e);
+        } finally {
+            loadDocBusy = false;
+        }
+    }
 
     onMount(async () => {
         try {
@@ -101,6 +124,11 @@
     {#if step === 1}
         <div transition:fade={{ duration: 160 }}>
             <LvSection title={t.aiWizard.source}>
+                {#if loadCurrentDoc}
+                    <div style="margin-bottom: var(--lv-sp-2)">
+                        <button class="b3-button b3-button--small" onclick={loadActiveDoc}>{t.aiWizard.loadDoc}</button>
+                    </div>
+                {/if}
                 <textarea class="b3-text-field fn__block" rows="8" bind:value={source}
                     placeholder={t.aiWizard.sourcePlaceholder}></textarea>
                 {#if source}

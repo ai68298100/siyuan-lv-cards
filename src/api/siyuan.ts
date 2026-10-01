@@ -52,3 +52,13 @@ export const setBlockAttrs = async (id: string, attrs: Record<string, string>): 
         throw new Error(resp?.msg || `kernel error (code=${resp?.code ?? "unknown"})`);
     }
 };
+
+/** 导出文档为 Markdown（AI 向导「当前文档」源） */
+export const exportMdContent = async (id: string): Promise<{ hPath: string; content: string }> => {
+    const resp = await fetchSyncPost("/api/export/exportMdContent", { id });
+    if (!resp || resp.code !== 0) {
+        throw new Error(resp?.msg || `kernel error (code=${resp?.code ?? "unknown"})`);
+    }
+    const d = resp.data ?? {};
+    return { hPath: String(d.hPath ?? ""), content: String(d.content ?? "") };
+};

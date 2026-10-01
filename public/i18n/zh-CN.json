@@ -283,7 +283,9 @@
         "generating": "生成中…",
         "emptyResult": "AI 未返回可用卡片，请调整材料重试",
         "back": "上一步",
-        "import": "落库所选"
+        "import": "落库所选",
+        "loadDoc": "载入当前文档",
+        "noDoc": "未找到打开的文档"
     },
     "aiSystemPrompt": "你是记忆卡片专家。根据用户提供的材料生成闪卡。只输出 JSON 数组，格式为 [{\"q\":\"问题\",\"a\":\"答案\"}]，不要输出任何其他内容。要求：问题具体、可主动回忆；答案简洁准确。",
     "aiUserPrompt": "材料：\n${source}\n\n请生成 ${count} 张${language}闪卡。题型要求：${type}。",

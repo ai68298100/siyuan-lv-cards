@@ -1,7 +1,7 @@
 import "./index.scss";
 
 import { mount, unmount } from "svelte";
-import { Plugin, Menu, showMessage } from "siyuan";
+import { Plugin, Menu, getAllEditor, showMessage } from "siyuan";
 
 import { svelteDialog } from "./libs/dialog";
 import { defaultSettings, normalizeSettings, type LvCardsSettings } from "./core/settings";
@@ -12,7 +12,7 @@ import {
 } from "./core/revlog";
 import { detectFlashcardV2, type MigrationStatus } from "./api/flashcardV2";
 import { addRiffCards, createRiffDeck, getDueCount, getRiffCardsByBlockIDs, removeRiffCards } from "./api/riff";
-import { appendBlock, createDocWithMd, getNotebooks } from "./api/siyuan";
+import { appendBlock, createDocWithMd, getNotebooks, exportMdContent } from "./api/siyuan";
 import { aiChat, estimateTokens, parseCards } from "./api/ai";
 import { normalizeSuspendToday, rollDateIfNeeded, isSuspended, suspend, type SuspendTodayData } from "./core/suspend-today";
 import { normalizeExamPlans, daysLeft, type ExamPlan, type ExamPlansData } from "./core/exam";
@@ -590,6 +590,24 @@ export default class LvCardsPlugin extends Plugin {
         });
     }
 
+    /** 当前打开的文档（M2·FR6 输入源扩展，🧪 getAllEditor 行为真机验证） */
+    private async loadCurrentDoc(): Promise<{ name: string; content: string } | null> {
+        // name 字段由 hPath 提供
+        const editors: any[] = (getAllEditor() as any) ?? [];
+        if (editors.length === 0) {
+            return null;
+        }
+        const active =
+            editors.find(e => e?.headElement?.classList?.contains("item--focus")) ??
+            editors[editors.length - 1];
+        const rootID: string = active?.protyle?.block?.rootID ?? "";
+        if (!rootID) {
+            return null;
+        }
+        const md = await exportMdContent(rootID);
+        return { name: md.hPath, content: md.content };
+    }
+
     private openOnboarding() {
         svelteDialog({
             title: this.i18n.onboardingTitle,
@@ -672,6 +690,7 @@ export default class LvCardsPlugin extends Plugin {
             props: {
                 i18n: this.i18n,
                 initialSource,
+                loadCurrentDoc: () => this.loadCurrentDoc(),
                 generate: async (source: string, cfg: { count: number; language: string; type: "qa" | "cloze" }) => {
                     const system = this.i18n.aiSystemPrompt;
                     const user = this.i18n.aiUserPrompt
