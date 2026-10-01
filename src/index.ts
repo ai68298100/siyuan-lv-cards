@@ -234,6 +234,7 @@ export default class LvCardsPlugin extends Plugin {
                             ttsVoice: plugin.settings.ttsVoice,
                             dictationEnabled: plugin.settings.dictationEnabled,
                             requeueAgain: plugin.settings.requeueAgain,
+                            dailyReviewTarget: plugin.settings.dailyReviewTarget,
                             sfxEnabled: plugin.settings.sfxEnabled,
                             batchLimit: plugin.settings.batchLimit,
                             typingEnabled: plugin.settings.typingEnabled,
@@ -407,6 +408,7 @@ export default class LvCardsPlugin extends Plugin {
             this.refreshDueBadge();
             this.checkDailyReminder();
             this.checkBacklogWarn();
+            this.checkExamMilestones();
         }, 60_000);
         // Onboarding 首启自动弹出（M12：!onboarded 时延迟 2s 弹出，避免与布局渲染竞争）
         if (!this.settings.onboarded) {
@@ -417,6 +419,7 @@ export default class LvCardsPlugin extends Plugin {
     /** 每日到期提醒：到设定时间且仍有到期卡时通知一次（X 组，基础版） */
     private reminderShownFor = "";
     private backlogWarnedFor = "";
+    private examNotifiedFor = "";
 
     /** 免打扰时段（跨午夜支持）：quiet 时段内不弹积压/庆祝类提示 */
     private inQuietHours(): boolean {
@@ -451,8 +454,34 @@ export default class LvCardsPlugin extends Plugin {
             showMessage(this.i18n.backlogWarn.replace("${n}", String(days)), 4000, "info");
         }
     }
-    private checkDailyReminder() {
-        if (!this.settings.reminderEnabled) {
+    /** 考试里程碑提醒（X·372/382）：30/7/1 天各提醒一次，同日同计划去重 */
+    private checkExamMilestones() {
+        if (!this.settings.examEnabled || !this.settings.reminderEnabled || this.inQuietHours()) {
+            return;
+        }
+        const plan = this.examPlans.plans.find(p => p.enabled && p.examDate && !p.archived);
+        if (!plan) {
+            return;
+        }
+        const left = daysLeft(plan.examDate);
+        if (left === null || ![30, 7, 1].includes(left)) {
+            return;
+        }
+        const today = localDate(Date.now());
+        const key = `${plan.id}:${left}:${today}`;
+        if (this.examNotifiedFor === key) {
+            return;
+        }
+        this.examNotifiedFor = key;
+        try {
+            const n = new Notification(this.i18n.examNotifTitle, {
+                body: this.i18n.examNotifBody.replace("${name}", plan.name).replace("${n}", String(left)),
+            });
+            n.onclick = () => this.openTabOf(TAB_DASHBOARD);
+        } catch { /* 通知不可用则静默跳过 */ }
+    }
+
+    private checkDailyReminder() {        if (!this.settings.reminderEnabled) {
             return;
         }
         const today = localDate(Date.now());

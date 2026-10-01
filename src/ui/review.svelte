@@ -31,6 +31,8 @@
         batchLimit: number;
         dictationEnabled: boolean;
         requeueAgain: boolean;
+        /** 每日复习目标（完成页进度展示） */
+        dailyReviewTarget: number;
     }
 
     export interface ReviewCtx {
@@ -418,6 +420,25 @@
             : `${m}:${String(s).padStart(2, "0")}`;
     }
 
+    /** 完成页会话时长（544）：本页面挂载即会话起点，恢复会话也从恢复点起算 */
+    let sessionStartedAt = Date.now();
+    function sessionDurationText(): string {
+        const total = Math.max(0, Math.round((Date.now() - sessionStartedAt) / 1000));
+        const m = Math.floor(total / 60);
+        const s = total % 60;
+        return `${m}:${String(s).padStart(2, "0")}`;
+    }
+
+    /** 完成页今日目标进度（544）：本次会话有效评分 vs 每日复习目标 */
+    function targetProgressText(): string {
+        const target = ctx.settings().dailyReviewTarget;
+        const done = sessionNew + sessionReview;
+        if (target <= 0) {
+            return "";
+        }
+        return t.review.doneTarget.replace("${a}", String(done)).replace("${b}", String(target));
+    }
+
     // —— 评分 / 跳过 / 屏蔽 ——
 
     function pushHistory() {
@@ -659,6 +680,13 @@
         if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || (e.target as HTMLElement)?.isContentEditable) {
             return;
         }
+        // 交互控件防护（541）：焦点在按钮/下拉/链接上时不抢按键——
+        // 面板外的控件（如思源工具栏按钮）Space 触发其自身行为；面板内的由下方 preventDefault 接管避免双动作
+        const el = e.target as HTMLElement;
+        const interactive = el instanceof HTMLButtonElement || el instanceof HTMLSelectElement || el instanceof HTMLAnchorElement;
+        if (interactive && !(rootEl && rootEl.contains(el))) {
+            return;
+        }
         if (e.code === "Space" || e.code === "Enter") {
             e.preventDefault();
             if (!showAnswer) { showAnswer = true; } else { rate(3); }
@@ -768,6 +796,9 @@
             <div class="lv-done-title lv-anim-rise">{t.review.done}</div>
             <div class="lv-done-desc lv-anim-rise" style="animation-delay: 60ms">
                 {t.review.doneNew} {sessionNew} · {t.review.doneReview} {sessionReview} · {t.review.doneForget} {sessionForget} · {t.review.doneSkip} {sessionSkip}
+            </div>
+            <div class="lv-done-desc lv-anim-rise" style="animation-delay: 90ms">
+                ⏱ {sessionDurationText()}{#if targetProgressText()} · {targetProgressText()}{/if}
             </div>
             <div class="fn__flex lv-done-actions lv-anim-rise" style="animation-delay: 120ms">
                 <button class="b3-button b3-button--text" onclick={loadQueue}>{t.review.again}</button>
@@ -1002,7 +1033,9 @@
         display: flex;
         flex-direction: column;
         box-sizing: border-box;
-        padding: var(--lv-sp-4) var(--lv-sp-5);
+        /* 移动端安全区（306）：刘海屏/手势条不遮挡内容 */
+        padding: calc(var(--lv-sp-4) + env(safe-area-inset-top, 0px)) calc(var(--lv-sp-5) + env(safe-area-inset-right, 0px))
+            calc(var(--lv-sp-4) + env(safe-area-inset-bottom, 0px)) calc(var(--lv-sp-5) + env(safe-area-inset-left, 0px));
         gap: var(--lv-sp-3);
         position: relative;
         max-width: 880px;

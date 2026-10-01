@@ -1,5 +1,7 @@
 {
     "topbarTitle": "小驴闪卡",
+    "examNotifTitle": "考试倒计时",
+    "examNotifBody": "「${name}」还剩 ${n} 天，按计划的每日目标继续推进吧。",
     "menuDashboard": "闪卡中心",
     "menuReview": "开始复习",
     "menuManager": "闪卡管理器",
@@ -92,6 +94,7 @@
         "peekNone": "还没有已作答的上一张",
         "requeueChip": "本批重现",
         "requeueTip": "忘记的卡在本批末尾再出现一次，仅会话内强化，不影响内核调度",
+        "doneTarget": "今日目标 ${a}/${b}",
         "showAnswer": "显示答案",
         "revealHint": "空格 翻面",
         "againBtn": "遗忘",

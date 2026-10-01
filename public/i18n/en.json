@@ -1,5 +1,7 @@
 {
     "topbarTitle": "Lv Cards",
+    "examNotifTitle": "Exam countdown",
+    "examNotifBody": "\"${name}\" is ${n} day(s) away — keep pace with your daily target.",
     "menuDashboard": "Card Hub",
     "menuReview": "Start Review",
     "menuManager": "Card Manager",
@@ -92,6 +94,7 @@
         "peekNone": "No answered card to peek yet",
         "requeueChip": "Re-queued",
         "requeueTip": "Forgotten card re-appears at the end of this batch for in-session reinforcement; kernel scheduling untouched",
+        "doneTarget": "Today's goal ${a}/${b}",
         "showAnswer": "Show Answer",
         "revealHint": "Space to flip",
         "againBtn": "Again",
