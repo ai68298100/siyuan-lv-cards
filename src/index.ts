@@ -14,6 +14,7 @@ import { detectFlashcardV2, type MigrationStatus } from "./api/flashcardV2";
 import { addRiffCards, createRiffDeck, getDueCount, getRiffCardsByBlockIDs, removeRiffCards } from "./api/riff";
 import { appendBlock, createDocWithMd, getNotebooks } from "./api/siyuan";
 import { normalizeSuspendToday, rollDateIfNeeded, isSuspended, suspend, type SuspendTodayData } from "./core/suspend-today";
+import { normalizeExamPlans, type ExamPlan, type ExamPlansData } from "./core/exam";
 import Review from "./ui/review.svelte";
 import Hub from "./ui/hub.svelte";
 import SettingsPanel from "./ui/settings.svelte";
@@ -26,6 +27,7 @@ const TAB_REVIEW = "lv-cards-review";
 const SETTINGS_DATA = "settings.json";
 const REVLOG_DATA = "revlog.json";
 const SUSPEND_TODAY_DATA = "suspend-today.json";
+const EXAM_PLANS_DATA = "exam-plans.json";
 
 export default class LvCardsPlugin extends Plugin {
 
@@ -37,6 +39,7 @@ export default class LvCardsPlugin extends Plugin {
     private topBarElement: HTMLElement | null = null;
     private badgeTimer: ReturnType<typeof setInterval> | null = null;
     private suspendToday: SuspendTodayData = { date: "", cardIDs: [] };
+    private examPlans: ExamPlansData = { version: 1, plans: [] };
     /** 最近一次到期数（角标点击行为统一用：>0 开复习，否则开中心） */
     private lastDue = 0;
 
@@ -47,15 +50,17 @@ export default class LvCardsPlugin extends Plugin {
 <path d="M11 16h6M11 20h10" stroke="currentColor" stroke-width="2"></path>
 </symbol>`);
 
-        const [loadedSettings, loadedRevlog, loadedSuspend] = await Promise.all([
+        const [loadedSettings, loadedRevlog, loadedSuspend, loadedExam] = await Promise.all([
             this.loadData(SETTINGS_DATA),
             this.loadData(REVLOG_DATA),
             this.loadData(SUSPEND_TODAY_DATA),
+            this.loadData(EXAM_PLANS_DATA),
         ]);
         this.settings = normalizeSettings(loadedSettings);
         this.revlog = normalizeRevlog(loadedRevlog);
         recalcDays(this.revlog); // AJ1 迁移：由明细重建每日聚合（幂等）
         this.suspendToday = normalizeSuspendToday(loadedSuspend);
+        this.examPlans = normalizeExamPlans(loadedExam);
         if (rollDateIfNeeded(this.suspendToday)) {
             await this.saveData(SUSPEND_TODAY_DATA, this.suspendToday);
         }
@@ -91,6 +96,13 @@ export default class LvCardsPlugin extends Plugin {
                             openOnboarding: () => plugin.openOnboarding(),
                         },
                         managerCtx: { i18n: plugin.i18n, app: plugin.app },
+                        exam: plugin.settings.modules.exam ? {
+                            plans: plugin.examPlans,
+                            onSavePlan: (plan: ExamPlan) => plugin.saveExamPlan(plan),
+                            onDeletePlan: (id: string) => plugin.deleteExamPlan(id),
+                            onReviewScope: (kind: "all" | "deck" | "notebook", scopeId: string, cram: boolean) =>
+                                plugin.openReviewScope(kind, scopeId, cram),
+                        } : null,
                     },
                 });
                 this.element.appendChild(div);
@@ -391,6 +403,28 @@ export default class LvCardsPlugin extends Plugin {
         } finally {
             this.sampleBusy = false;
         }
+    }
+
+    private saveExamPlan(plan: ExamPlan): ExamPlansData {
+        const i = this.examPlans.plans.findIndex(x => x.id === plan.id);
+        if (i >= 0) {
+            this.examPlans.plans[i] = plan;
+        } else {
+            this.examPlans.plans.push(plan);
+        }
+        this.saveData(EXAM_PLANS_DATA, this.examPlans).catch(() => { /* 旁路 */ });
+        return this.examPlans;
+    }
+
+    private deleteExamPlan(id: string): ExamPlansData {
+        this.examPlans.plans = this.examPlans.plans.filter(p => p.id !== id);
+        this.saveData(EXAM_PLANS_DATA, this.examPlans).catch(() => { /* 旁路 */ });
+        return this.examPlans;
+    }
+
+    private openReviewScope(scopeKind: "all" | "deck" | "notebook", scopeId: string, cram: boolean) {
+        const scope = scopeKind === "all" ? "all" : scopeKind + ":" + scopeId;
+        this.openTabOf(TAB_REVIEW, { scope, cram });
     }
 
     private onNativeCardAction = (event: CustomEvent) => {        try {

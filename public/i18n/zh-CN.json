@@ -202,5 +202,30 @@
     "onboardingNoNotebook": "没有已打开的笔记本，请先创建一个",
     "onboardingDeckName": "示例卡组",
     "onboardingSample1": "间隔重复（SRS）是什么？——==按记忆规律安排复习时点的学习方法==",
-    "onboardingSample2": "小驴闪卡用的调度算法是？==FSRS（思源内核原生）=="
+    "onboardingSample2": "小驴闪卡用的调度算法是？==FSRS（思源内核原生）==",
+    "hubTabExam": "考试",
+    "exam": {
+        "newPlan": "新建考试计划",
+        "emptyHint": "还没有考试计划。创建一个，让每天该学多少一目了然。",
+        "untitled": "未命名计划",
+        "cramOn": "考前 cram",
+        "daysLeft": "剩 ${n} 天",
+        "passed": "已过考试日",
+        "startToday": "开始今日应学",
+        "resume": "恢复计划",
+        "pause": "暂停计划",
+        "enable": "启用",
+        "edit": "编辑",
+        "delete": "删除",
+        "editPlan": "编辑考试计划",
+        "planName": "计划名称",
+        "examDateLabel": "考试日期",
+        "scopeLabel": "复习范围",
+        "scopeAll": "全部范围",
+        "totalCardsLabel": "范围总卡量（可选）",
+        "totalCardsHint": "留空则卡组范围自动取卡片数；用于倒排每日建议量",
+        "cramDaysLabel": "考前 cram 天数",
+        "dailyTarget": "每日建议学习量",
+        "cardsUnit": "张"
+    }
 }

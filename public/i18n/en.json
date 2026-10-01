@@ -202,5 +202,30 @@
     "onboardingNoNotebook": "No open notebook — please create one first",
     "onboardingDeckName": "Sample deck",
     "onboardingSample1": "What is spaced repetition? — ==A learning method that schedules reviews along the memory curve==",
-    "onboardingSample2": "Which scheduler does Lv Cards use? ==FSRS, native in the SiYuan kernel=="
+    "onboardingSample2": "Which scheduler does Lv Cards use? ==FSRS, native in the SiYuan kernel==",
+    "hubTabExam": "Exam",
+    "exam": {
+        "newPlan": "New exam plan",
+        "emptyHint": "No exam plans yet. Create one to see daily pacing at a glance.",
+        "untitled": "Untitled plan",
+        "cramOn": "Pre-exam cram",
+        "daysLeft": "${n} days left",
+        "passed": "Exam date passed",
+        "startToday": "Start today's share",
+        "resume": "Resume",
+        "pause": "Pause",
+        "enable": "Enable",
+        "edit": "Edit",
+        "delete": "Delete",
+        "editPlan": "Edit exam plan",
+        "planName": "Plan name",
+        "examDateLabel": "Exam date",
+        "scopeLabel": "Scope",
+        "scopeAll": "All scopes",
+        "totalCardsLabel": "Total cards in scope (optional)",
+        "totalCardsHint": "Blank = auto from deck size; used for daily pacing",
+        "cramDaysLabel": "Pre-exam cram days",
+        "dailyTarget": "Daily target",
+        "cardsUnit": "cards"
+    }
 }

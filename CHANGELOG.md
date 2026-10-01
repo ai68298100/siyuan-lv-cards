@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.8.0 2026-10-02 · 考试模式（M7 主旗舰）
+
+* 考试计划数据层：exam-plans.json + normalize 迁移（core/exam.ts）
+* 考试子页（LvTabs 第三页）：计划 CRUD、暂停/恢复、编辑器（名称/考试日/范围/总量/cram 天数）
+* 倒排建议：每日建议学习量 = ceil(范围总量 ÷ 剩余天数)（卡组范围自动取规模，其他范围可手填总量）
+* 今日应学队列：计划范围直达复习（全部/卡组/笔记本三粒度）
+* 考前 cram：进入 cram 窗口（剩余 ≤ cramDays）自动激活，队列按 lapses 降序 + 红色徽章
+* 倒计时 chip：30 天内 warn 色、cram 窗口 error 色
+* 已知项：进度指标待接入会话历史；构建体积评审入册（AP）
+
 ## v0.7.0 2026-10-02 · 数据可携带 + 每日提醒 + 排序
 
 * revlog CSV 导出（带 BOM，Excel 友好）+ 导入合并（ts+cardID+rating+source 去重、5MB/5 万条上限、结构清洗、合并后自动重算聚合）（M10·FR1）

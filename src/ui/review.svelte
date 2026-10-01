@@ -22,6 +22,10 @@
         app: any;
         /** 实时读取设置（保存后热生效，无需重建面板） */
         settings: () => ReviewSettings;
+        /** 初始范围（考试模式直达）："" 或 "deck:<id>" / "notebook:<id>" */
+        initialScope?: string;
+        /** 初始 cram 模式（考前：lapses 降序） */
+        initialCram?: boolean;
         appendRevlog: (entry: { cardID: string; deckID: string; blockID: string; rating: number; source: "plugin" }) => void;
         getRevlog: () => RevlogData;
         isSuspendedToday: (cardID: string) => boolean;
@@ -30,7 +34,11 @@
         emitSessionFinished: (summary: { new: number; review: number; forget: number; skip: number }) => void;
     }
 
-    let { ctx }: { ctx: ReviewCtx } = $props();
+    let { ctx, initialScope = "all", initialCram = false }: {
+        ctx: ReviewCtx;
+        initialScope?: string;
+        initialCram?: boolean;
+    } = $props();
     const t = $derived(ctx.i18n);
 
     let queue: RiffDueCard[] = $state([]);
@@ -39,7 +47,8 @@
     let showAnswer = $state(false);
     let cardHtml = $state("");
     // 复习范围（M3·FR1）：all | deck:<id> | notebook:<id>
-    let scopeKey = $state("all");
+    let scopeKey = $state(initialScope ?? "all");
+    let cramActive = $state(initialCram === true);
     let decks: RiffDeck[] = $state([]);
     let notebooks: Notebook[] = $state([]);
     let sessionNew = $state(0);
@@ -110,7 +119,10 @@
             let cards = data.cards ?? [];
             // 「今天不学」+ 本场已跳过的卡本地过滤（内核调度不受影响，AJ9）
             cards = cards.filter(c => !ctx.isSuspendedToday(c.cardID) && !sessionSkipped.includes(c.cardID));
-            if (ctx.settings().randomOrder) {
+            if (cramActive) {
+                // 考前 cram：遗忘多的卡优先（M7·FR4）
+                cards = [...cards].sort((a, b) => b.lapses - a.lapses);
+            } else if (ctx.settings().randomOrder) {
                 cards = shuffle(cards);
             }
             queue = cards;
@@ -409,6 +421,7 @@
                 {/if}
             </select>
             <span class="lv-progress">{reviewedIDs.length + 1} / {reviewedIDs.length + queue.length}</span>
+            {#if cramActive}<span class="b3-chip b3-chip--error">{t.exam.cramOn}</span>{/if}
             {#if ctx.settings().timeoutMode !== "off" && !showAnswer}
                 <span class="lv-timeout" class:lv-timeout-low={timeoutLeft <= 10}>⏱ {timeoutText()}</span>
             {/if}
