@@ -90,6 +90,8 @@
         "peekPrev": "Peek previous",
         "peekTitle": "Previous card (read-only, Esc to close)",
         "peekNone": "No answered card to peek yet",
+        "requeueChip": "Re-queued",
+        "requeueTip": "Forgotten card re-appears at the end of this batch for in-session reinforcement; kernel scheduling untouched",
         "showAnswer": "Show Answer",
         "revealHint": "Space to flip",
         "againBtn": "Again",
@@ -231,6 +233,8 @@
         "restoreDefaults": "Restore all defaults",
         "batchLimit": "Per-batch fetch size (0 = kernel default)",
         "batchLimitHint": "Set 5-20 to pace yourself",
+        "requeueAgain": "Re-queue forgotten cards in batch",
+        "requeueAgainHint": "Cards rated Again re-appear once at the end of this batch; local reinforcement only, scheduling untouched",
         "importCsv": "Import CSV (review log)",
         "dictationEnabled": "Dictation mode (auto-speak answer, type what you hear; requires typing mode + TTS)",
         "sfxEnabled": "Rating SFX (Web Audio)",
@@ -246,6 +250,8 @@
     "deckNewName": "New deck name (blank = use selection above)",
     "deckConfirm": "OK",
     "deckAdded": "${n} card(s) added to deck",
+    "dupTitle": "Some blocks are already cards",
+    "dupConfirm": "${n} of the selected blocks are already flashcards. Add anyway? (The kernel is idempotent on duplicates — this is just a heads-up.)",
     "deckRemoved": "${n} card(s) removed",
     "deckNotCard": "This block is not a flashcard",
     "cmdQuickCard": "Quick card",
@@ -347,6 +353,15 @@
         "curveNone": "Not enough samples — re-review the same card after a few days.",
         "theory": "dashed: theoretical exp(-t/5d) (personalized S awaits V2 Stability)"
     },
+    "weekcmp": {
+        "title": "Week over week",
+        "sub": "This week (7d) vs last week · last week's value in parens",
+        "new": "New",
+        "review": "Review",
+        "forget": "Forgotten",
+        "last": "last",
+        "none": "No data yet — shows up after a few reviews."
+    },
     "aiQuality": {
         "title": "AI batch quality",
         "sub": "Measured retention per AI generation batch",
@@ -381,6 +396,9 @@
         "occlusionSaved": "Occlusion card created"
     },
     "menuMakeOcclusion": "Create occlusion",
+    "menuMakeCloze": "Cloze & make card (wrap selection in == ==)",
+    "clozeNeedSelection": "Select the text to cloze inside the block first",
+    "clozeFail": "Cloze insert failed (editor not ready), please retry",
     "breadcrumbReview": "Review this doc's cards",
     "cmdCramNew": "Evening cram (new cards)",
     "challenge": {

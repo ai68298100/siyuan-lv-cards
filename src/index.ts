@@ -3,7 +3,7 @@ import "./index.scss";
 import { mount, unmount } from "svelte";
 import { Plugin, Menu, getAllEditor, showMessage } from "siyuan";
 
-import { svelteDialog } from "./libs/dialog";
+import { svelteDialog, confirmDialogBool } from "./libs/dialog";
 import { defaultSettings, normalizeSettings, type LvCardsSettings } from "./core/settings";
 import { PERSONA_PRESETS } from "./core/personas";
 import {
@@ -220,6 +220,7 @@ export default class LvCardsPlugin extends Plugin {
                             ttsRate: plugin.settings.ttsRate,
                             ttsVoice: plugin.settings.ttsVoice,
                             dictationEnabled: plugin.settings.dictationEnabled,
+                            requeueAgain: plugin.settings.requeueAgain,
                             sfxEnabled: plugin.settings.sfxEnabled,
                             batchLimit: plugin.settings.batchLimit,
                             typingEnabled: plugin.settings.typingEnabled,
@@ -513,6 +514,16 @@ export default class LvCardsPlugin extends Plugin {
                 click: () => this.openDeckPicker(blockIDs),
             });
             if (blockIDs.length === 1) {
+                // 挖空可视化（M2）：捕获编辑器当前选区（菜单弹出会抢焦点，须在构建期捕获）
+                const clozeRange = document.getSelection()?.rangeCount
+                    ? document.getSelection()!.getRangeAt(0).cloneRange()
+                    : null;
+                const clozeText = clozeRange?.toString().trim() ?? "";
+                detail.menu.addItem({
+                    icon: "iconLvCards",
+                    label: this.i18n.menuMakeCloze,
+                    click: () => this.makeClozeCard(blockIDs[0], clozeRange, clozeText),
+                });
                 detail.menu.addItem({
                     icon: "iconLvCards",
                     label: this.i18n.menuMakeOcclusion,
@@ -532,8 +543,7 @@ export default class LvCardsPlugin extends Plugin {
         }
     };
 
-    private openDeckPicker(blockIDs: string[], opts: { skipAdd?: boolean; onPicked?: (deckID: string) => void } = {}) {
-        svelteDialog({
+    private openDeckPicker(blockIDs: string[], opts: { skipAdd?: boolean; onPicked?: (deckID: string) => void } = {}) {        svelteDialog({
             title: this.i18n.deckPickerTitle,
             component: DeckPicker,
             width: "min(420px, 92vw)",
@@ -542,6 +552,20 @@ export default class LvCardsPlugin extends Plugin {
                 confirmLabel: this.i18n.deckConfirm,
                 onConfirm: async (deckID: string) => {
                     if (!opts.skipAdd) {
+                        // 重复提示（M2）：目标块已在复习集时 warning，用户可选仍要添加
+                        try {
+                            const { blocks } = await getRiffCardsByBlockIDs(blockIDs);
+                            const dupes = (blocks ?? []).filter(b => !!b.id).length;
+                            if (dupes > 0) {
+                                const ok = await confirmDialogBool({
+                                    title: this.i18n.dupTitle,
+                                    content: `<div class="b3-typography">${this.i18n.dupConfirm.replace("${n}", String(dupes))}</div>`,
+                                });
+                                if (!ok) {
+                                    return;
+                                }
+                            }
+                        } catch { /* 查询失败不阻塞制卡 */ }
                         await addRiffCards(deckID, blockIDs);
                         showMessage(this.i18n.deckAdded.replace("${n}", String(blockIDs.length)), 2000, "info");
                     }
@@ -550,6 +574,28 @@ export default class LvCardsPlugin extends Plugin {
                 onClose: () => { /* svelteDialog 自理销毁 */ },
             },
         });
+    }
+
+    /** 挖空并制卡（M2·FR5）：选中文本一键包 ==...== 后走常规入组流程 */
+    private makeClozeCard(blockID: string, range: Range | null, text: string) {
+        if (!range || !text) {
+            showMessage(this.i18n.clozeNeedSelection, 2500, "error");
+            return;
+        }
+        const sel = document.getSelection();
+        sel?.removeAllRanges();
+        sel?.addRange(range);
+        let ok = false;
+        try {
+            ok = document.execCommand("insertText", false, `==${text}==`);
+        } catch {
+            ok = false;
+        }
+        if (!ok) {
+            showMessage(this.i18n.clozeFail, 2500, "error");
+            return;
+        }
+        this.openDeckPicker([blockID]);
     }
 
     /** 图片遮挡编辑器（M4·FR4 riff 先行）：保存块属性后入卡组 */

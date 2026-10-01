@@ -30,6 +30,8 @@ export interface LvCardsSettings {
     dictationEnabled: boolean;
     /** 选择题练习模式：问题态可将本卡转为四选一（干扰项取自同队列） */
     choiceEnabled: boolean;
+    /** 忘记卡本批重现：评 1 的卡在批尾再出现一次（会话内强化，不动内核调度） */
+    requeueAgain: boolean;
     /** leech 判定阈值（遗忘次数） */
     leechThreshold: number;
     /** 答案朗读（TTS，Web Speech） */
@@ -95,6 +97,7 @@ export function defaultSettings(): LvCardsSettings {
         typingStrict: true,
         dictationEnabled: false,
         choiceEnabled: false,
+        requeueAgain: true,
         leechThreshold: 8,
         ttsEnabled: true,
         ttsRate: 1,

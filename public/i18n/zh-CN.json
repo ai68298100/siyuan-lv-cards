@@ -90,6 +90,8 @@
         "peekPrev": "回看上一张",
         "peekTitle": "上一张（只读，Esc 关闭）",
         "peekNone": "还没有已作答的上一张",
+        "requeueChip": "本批重现",
+        "requeueTip": "忘记的卡在本批末尾再出现一次，仅会话内强化，不影响内核调度",
         "showAnswer": "显示答案",
         "revealHint": "空格 翻面",
         "againBtn": "遗忘",
@@ -231,6 +233,8 @@
         "restoreDefaults": "恢复全部默认设置",
         "batchLimit": "每批拉取数量（0=跟随内核）",
         "batchLimitHint": "自己控制节奏时设为 5-20",
+        "requeueAgain": "忘记卡本批重现",
+        "requeueAgainHint": "评「遗忘」的卡在本批末尾再出现一次，仅本地强化，不计入调度",
         "importCsv": "导入 CSV（复习日志）",
         "dictationEnabled": "听写模式（自动朗读答案，输入听写；需开启打字模式+TTS）",
         "sfxEnabled": "评分音效（Web Audio 合成）",
@@ -246,6 +250,8 @@
     "deckNewName": "新建卡组名称（留空则用上方选择）",
     "deckConfirm": "确定",
     "deckAdded": "已将 ${n} 张加入卡组",
+    "dupTitle": "部分块已在复习集",
+    "dupConfirm": "选中的块中有 ${n} 张已是闪卡，仍要重复添加吗？（内核对重复添加幂等，但提醒你避免误操作）",
     "deckRemoved": "已从卡组移除 ${n} 张",
     "deckNotCard": "该块不是闪卡",
     "cmdQuickCard": "快速制卡",
@@ -347,6 +353,15 @@
         "curveNone": "样本不足：同一张卡间隔数天后复习几次即可生成。",
         "theory": "虚线：理论参考 exp(-t/5d)（个人化参数待 V2 Stability）"
     },
+    "weekcmp": {
+        "title": "周期对比",
+        "sub": "本周（近 7 天）vs 上周 · 括号内为上周值",
+        "new": "新学",
+        "review": "复习",
+        "forget": "遗忘",
+        "last": "上周",
+        "none": "暂无数据：完成几次复习后自动生成。"
+    },
     "aiQuality": {
         "title": "AI 批次质量",
         "sub": "AI 制卡批次的实测保持率（反哺制卡策略）",
@@ -381,6 +396,9 @@
         "occlusionSaved": "遮挡卡已创建"
     },
     "menuMakeOcclusion": "制作遮挡卡",
+    "menuMakeCloze": "挖空并制卡（选中文本包 == ==）",
+    "clozeNeedSelection": "请先在块内选中要挖空的文字",
+    "clozeFail": "挖空插入失败（编辑器未就绪），请重试",
     "breadcrumbReview": "复习本文档闪卡",
     "cmdCramNew": "睡前巩固（只学新卡）",
     "challenge": {

@@ -2,7 +2,7 @@
     import { onMount } from "svelte";
     import { getRiffDecks, getRiffDueCards, type RiffDeck } from "@/api/riff";
     import { getFlashcardStatistics, summarizeStatistics, type MigrationStatus } from "@/api/flashcardV2";
-    import { calcStreak, lastNDays, localDate, computeRetention, computeRetentionCurve, reviewStatsFor, type RevlogData, type RetentionResult, type CurvePoint } from "@/core/revlog";
+    import { calcStreak, lastNDays, localDate, computeRetention, computeRetentionCurve, reviewStatsFor, weekCompare, type RevlogData, type RetentionResult, type CurvePoint, type WeekDelta } from "@/core/revlog";
     import { openTab } from "siyuan";
     import LvPage from "./kit/LvPage.svelte";
     import LvSection from "./kit/LvSection.svelte";
@@ -44,6 +44,7 @@
     let v2Stats: { key: string; value: string }[] = $state([]);
     let retention: RetentionResult | null = $state(null);
     let curve: CurvePoint[] = $state([]);
+    let week: WeekDelta | null = $state(null);
     let aiQuality = $state<{ date: string; cards: number; reviews: number; rate: number | null }[]>([]);
     let leech: { blockID: string; lapses: number }[] = $state([]);
     let examChip = $state<{ name: string; days: number } | null>(null);
@@ -153,6 +154,7 @@
             revlogNote = first ? new Date(first).toLocaleDateString() : "";
             retention = computeRetention(revlog);
             curve = computeRetentionCurve(revlog);
+            week = weekCompare(revlog);
             aiQuality = ctx
                 .getAIBatches()
                 .filter(b => b.blockIDs.length > 0)
@@ -263,6 +265,35 @@
 
         <LvSection title={t.dashboard.heatmap} sub={revlogNote ? `${t.dashboard.since} ${revlogNote}` : ""}>
             <LvHeatmap days={heat} />
+        </LvSection>
+
+        <LvSection title={t.weekcmp.title} sub={t.weekcmp.sub}>
+            {#if week && (week.thisWeek.new + week.thisWeek.review + week.lastWeek.new + week.lastWeek.review) > 0}
+                <div class="lv-ret">
+                    {#each [
+                        { label: t.weekcmp.new, cur: week.thisWeek.new, prev: week.lastWeek.new, d: week.delta.new, good: 1 },
+                        { label: t.weekcmp.review, cur: week.thisWeek.review, prev: week.lastWeek.review, d: week.delta.review, good: 1 },
+                        { label: t.weekcmp.forget, cur: week.thisWeek.forget, prev: week.lastWeek.forget, d: week.delta.forget, good: -1 },
+                    ] as row (row.label)}
+                        <div class="lv-ret-row">
+                            <span>{row.label}</span>
+                            <span class="lv-ret-rate">
+                                {row.cur}
+                                <span class="ft__smaller ft__on-surface" style="opacity:.65">({t.weekcmp.last} {row.prev})</span>
+                                {#if row.d !== 0}
+                                    <span
+                                        class="ft__smaller lv-weekdelta"
+                                        class:lv-weekdelta--good={row.d * row.good > 0}
+                                        class:lv-weekdelta--bad={row.d * row.good < 0}
+                                    >{row.d > 0 ? "+" : ""}{row.d}</span>
+                                {/if}
+                            </span>
+                        </div>
+                    {/each}
+                </div>
+            {:else}
+                <div class="lv-hint">{t.weekcmp.none}</div>
+            {/if}
         </LvSection>
 
         <LvSection title={t.retention.title} sub={t.retention.sub}>
@@ -441,6 +472,13 @@
         }
         .lv-ret-row:last-child { border-bottom: none; }
         .lv-ret-rate { font-variant-numeric: tabular-nums; font-weight: 600; }
+
+    .lv-weekdelta {
+        margin-left: var(--lv-sp-1);
+        font-variant-numeric: tabular-nums;
+        &--good { color: var(--b3-theme-primary); }
+        &--bad { color: var(--b3-theme-error); }
+    }
 
     .lv-airow {
         align-items: center;

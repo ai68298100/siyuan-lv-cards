@@ -358,3 +358,33 @@ export function lastNDays(data: RevlogData, n: number): { date: string; stat: Da
     }
     return out;
 }
+
+export interface WeekDelta {
+    thisWeek: DayStat;
+    lastWeek: DayStat;
+    delta: DayStat;
+}
+
+/** 周期对比（M5）：本周（近 7 天）vs 上周（其前 7 天），含三项 delta */
+export function weekCompare(data: RevlogData): WeekDelta {
+    const sum = (arr: { stat: DayStat }[]): DayStat =>
+        arr.reduce<DayStat>(
+            (acc, d) => ({
+                new: acc.new + d.stat.new,
+                review: acc.review + d.stat.review,
+                forget: acc.forget + d.stat.forget,
+            }),
+            { new: 0, review: 0, forget: 0 },
+        );
+    const thisWeek = sum(lastNDays(data, 7));
+    const lastWeek = sum(lastNDays(data, 14).slice(0, 7));
+    return {
+        thisWeek,
+        lastWeek,
+        delta: {
+            new: thisWeek.new - lastWeek.new,
+            review: thisWeek.review - lastWeek.review,
+            forget: thisWeek.forget - lastWeek.forget,
+        },
+    };
+}

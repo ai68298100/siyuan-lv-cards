@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-    appendRevlog, emptyRevlog, mergeRevlog, recalcDays, calcStreak, localDate,
+    appendRevlog, emptyRevlog, mergeRevlog, recalcDays, calcStreak, localDate, weekCompare,
     type RevlogData,
 } from "../src/core/revlog";
 
@@ -76,5 +76,34 @@ describe("calcStreak", () => {
         appendRevlog(d, entry(y.getTime(), "c1", 3));
         appendRevlog(d, entry(now.getTime(), "c2", 3));
         expect(calcStreak(d)).toBe(2);
+    });
+});
+
+describe("weekCompare（M5·周期对比）", () => {
+    it("本周计入近 7 天，上周只取其前 7 天，delta 为差值", () => {
+        const d = emptyRevlog();
+        const now = new Date();
+        const day = 86400000;
+        // 本周：c1/c2 各两次（首次 new，后续 review）
+        appendRevlog(d, entry(now.getTime(), "c1", 3));
+        appendRevlog(d, entry(now.getTime() + 1, "c1", 3));
+        appendRevlog(d, entry(now.getTime() + 2, "c2", 3));
+        appendRevlog(d, entry(now.getTime() + 3, "c2", 1));
+        // 上周：8 天前 c4 两次（不在本周窗口，在上周窗口）
+        appendRevlog(d, entry(now.getTime() - 8 * day, "c4", 3));
+        appendRevlog(d, entry(now.getTime() - 8 * day + 1, "c4", 3));
+        const w = weekCompare(d);
+        expect(w.thisWeek.new).toBe(2);
+        expect(w.thisWeek.review).toBe(2);
+        expect(w.thisWeek.forget).toBe(1);
+        expect(w.lastWeek.review).toBe(1);
+        expect(w.delta.review).toBe(1);
+    });
+
+    it("空日志返回全零", () => {
+        const w = weekCompare(emptyRevlog());
+        expect(w.thisWeek.review).toBe(0);
+        expect(w.lastWeek.new).toBe(0);
+        expect(w.delta.forget).toBe(0);
     });
 });

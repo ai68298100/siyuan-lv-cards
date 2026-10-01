@@ -121,6 +121,12 @@ export const confirmDialogSync = async (args: IConfirmDialogArgs) => {
     });
 };
 
+/** 布尔化确认框：true=确认，false=取消（重复提示等需要分支的流程用） */
+export const confirmDialogBool = (args: Omit<IConfirmDialogArgs, "confirm" | "cancel">) =>
+    new Promise<boolean>((resolve) => {
+        confirmDialog({ ...args, confirm: () => resolve(true), cancel: () => resolve(false) });
+    });
+
 
 export const simpleDialog = (args: {
     title: string, ele: HTMLElement | DocumentFragment,

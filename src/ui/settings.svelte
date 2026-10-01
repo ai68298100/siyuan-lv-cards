@@ -204,6 +204,9 @@
         <LvRow label={t.settings.batchLimit} hint={t.settings.batchLimitHint}>
             <input class="b3-text-field fn__size-60" type="number" min="0" bind:value={draft.batchLimit} />
         </LvRow>
+        <LvRow label={t.settings.requeueAgain} hint={t.settings.requeueAgainHint}>
+            <input class="b3-switch" type="checkbox" bind:checked={draft.requeueAgain} />
+        </LvRow>
         <LvRow label={t.settings.typingEnabled}>
             <input class="b3-switch" type="checkbox" bind:checked={draft.typingEnabled} />
         </LvRow>

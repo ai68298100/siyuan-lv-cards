@@ -29,6 +29,7 @@
         ttsVoice: string;
         batchLimit: number;
         dictationEnabled: boolean;
+        requeueAgain: boolean;
     }
 
     export interface ReviewCtx {
@@ -59,9 +60,11 @@
     } = $props();
     const t = $derived(ctx.i18n);
 
-    let queue: RiffDueCard[] = $state([]);
+    /** 会话内重现标记：lvRequeue>0 表示本卡由「忘记卡本批重现」追加 */
+    type QueueCard = RiffDueCard & { lvRequeue?: number };
+    let queue: QueueCard[] = $state([]);
     let reviewedIDs: string[] = $state([]);
-    let current: RiffDueCard | null = $state(null);
+    let current: QueueCard | null = $state(null);
     let showAnswer = $state(false);
     let cardHtml = $state("");
     // 复习范围（M3·FR1）：all | deck:<id> | notebook:<id>
@@ -449,6 +452,13 @@
         }
         submitting = true;
         pushHistory();
+        // 会话强化重现卡（M3）：仅本地翻牌推进，不重复评内核、不计 revlog（调度不变）
+        if (current.lvRequeue) {
+            playSfx(rating);
+            await next();
+            submitting = false;
+            return;
+        }
         try {
             const wasNew = isCardNew(ctx.getRevlog(), current.cardID);
             playSfx(rating);
@@ -462,6 +472,10 @@
             });
             if (rating === 1) {
                 sessionForget += 1;
+                // 忘记卡本批重现（M3）：评 1 的卡在批尾再出现一次，会话内强化，不动内核调度
+                if (ctx.settings().requeueAgain) {
+                    queue = [...queue, { ...current, lvRequeue: 1 }];
+                }
             } else if (wasNew) {
                 sessionNew += 1;
             } else {
@@ -483,7 +497,10 @@
         submitting = true;
         pushHistory();
         try {
-            await skipReviewRiffCard(current.deckID, current.cardID);
+            // 重现卡不计内核跳过（同评分类：调度不变）
+            if (!current.lvRequeue) {
+                await skipReviewRiffCard(current.deckID, current.cardID);
+            }
             sessionSkip += 1;
             sessionSkipped = [...sessionSkipped, current.cardID];
             await next();
@@ -731,6 +748,7 @@
                 <div class="lv-progress-fill" style={`width:${reviewedIDs.length / Math.max(1, reviewedIDs.length + queue.length) * 100}%`}></div>
             </div>
             {#if cramActive}<span class="b3-chip b3-chip--error">{t.exam.cramOn}</span>{/if}
+            {#if current.lvRequeue}<span class="b3-chip b3-chip--warning" title={t.review.requeueTip}>{t.review.requeueChip}</span>{/if}
             {#if ctx.settings().timeoutMode !== "off" && !showAnswer}
                 <span class="lv-timeout" class:lv-timeout-low={timeoutLeft <= 10}>⏱ {timeoutText()}</span>
             {/if}
