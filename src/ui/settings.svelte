@@ -8,6 +8,8 @@
     import LvSection from "./kit/LvSection.svelte";
     import LvRow from "./kit/LvRow.svelte";
     import LvChip from "./kit/LvChip.svelte";
+    import LvSegmented from "./kit/LvSegmented.svelte";
+    import LvSlider from "./kit/LvSlider.svelte";
 
     export interface SettingsCtx {
         i18n: any;
@@ -240,10 +242,14 @@
             <input class="b3-text-field fn__size-60" type="number" min="0" bind:value={draft.dailyReviewTarget} />
         </LvRow>
         <LvRow label={t.settings.ratingStyle}>
-            <select class="b3-select fn__size-200" bind:value={draft.ratingStyle}>
-                <option value="four">{t.settings.ratingFour}</option>
-                <option value="three">{t.settings.ratingThree}</option>
-            </select>
+            <LvSegmented
+                options={[
+                    { value: "four", label: t.settings.ratingFour },
+                    { value: "three", label: t.settings.ratingThree },
+                ]}
+                value={draft.ratingStyle}
+                onchange={(v) => (draft.ratingStyle = v as "four" | "three")}
+            />
         </LvRow>
         <LvRow label={t.settings.timeoutMode}>
             <select class="b3-select fn__size-200" bind:value={draft.timeoutMode}>
@@ -254,7 +260,7 @@
         </LvRow>
         {#if draft.timeoutMode !== "off"}
             <LvRow label={t.settings.timeoutSeconds}>
-                <input class="b3-text-field fn__size-60" type="number" min="5" max="3600" bind:value={draft.timeoutSeconds} />
+                <LvSlider value={draft.timeoutSeconds} min={5} max={600} step={5} suffix="s" onchange={(v) => (draft.timeoutSeconds = v)} />
             </LvRow>
         {/if}
         <LvRow label={t.settings.randomOrder}>

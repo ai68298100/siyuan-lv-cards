@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.48.0 2026-10-01 · 键盘双触发修复 + Kit 三新组件 + count-up 收敛
+
+* 修复（真实 bug）：复习键盘双通道双触发（AJ 复核）——容器与 window 同时绑定 onKeydown，焦点在面板内时回看键「开即关」、连续 skip 误跳两张；改为互斥去重（容器管面板内，window 管面板外）
+* Kit +3：LvSegmented（分段选择器，接评分风格）、LvSlider（数值滑杆，接超时秒数）、LvDrawer（右侧抽屉，卡片详情迁移至此）
+* LvSection 头部操作插槽（曲线导出 PNG 按钮已用）；LvStat animate 收敛：dashboard 删除局部 tween，六个统计卡统一 count-up
+* docs/16 Kit 规范更新（10→13 组件）；测试 21/21
+
 ## v0.47.0 2026-10-01 · 管理器状态过滤 + 画像导入导出
 
 * 卡片管理：状态下拉过滤（M6·FR2）——全部/新卡（本地 revlog 无记录）/已复习/今日到期（内核到期清单按需加载）

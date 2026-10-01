@@ -622,6 +622,16 @@
         return due.replace(/^\d{4}-0?/, "").replace(/:\d{2}$/, "");
     }
 
+    /** 键盘双通道去重（AJ 复核）：容器与 window 都绑了 onKeydown，
+     * 焦点在面板内时事件会冒泡到 window 造成双触发（如 [ 开回看又立即关闭）。
+     * 约定：容器通道处理焦点在面板内的按键；window 通道只处理面板外的。 */
+    function onWindowKeydown(e: KeyboardEvent) {
+        if (rootEl && e.target instanceof Node && rootEl.contains(e.target)) {
+            return;
+        }
+        onKeydown(e);
+    }
+
     function onKeydown(e: KeyboardEvent) {
         if (peek) {
             if (e.key === "Escape" || e.key === "[") {
@@ -726,7 +736,7 @@
     });
 </script>
 
-<svelte:window on:keydown={onKeydown} />
+<svelte:window on:keydown={onWindowKeydown} />
 <svelte:document on:pointerdown={onPanelPointerDown} />
 
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->

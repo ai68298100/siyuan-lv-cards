@@ -153,25 +153,7 @@
         setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
 
-    /** 数字滚动（reduced-motion 时直接落值） */
-    function tween(setter: (v: number) => void, to: number) {
-        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches || to === 0) {
-            setter(to);
-            return;
-        }
-        const dur = 420;
-        const t0 = performance.now();
-        const step = (now: number) => {
-            const p = Math.min(1, (now - t0) / dur);
-            const eased = 1 - Math.pow(1 - p, 3);
-            setter(Math.round(to * eased));
-            if (p < 1) {
-                requestAnimationFrame(step);
-            }
-        };
-        requestAnimationFrame(step);
-    }
-
+    /** 数字滚动统一由 LvStat 的 animate 承担（reduced-motion 直落） */
     function targetPct(): number {
         const target = targets.review;
         if (target <= 0) {
@@ -195,10 +177,10 @@
             heat = lastNDays(revlog, 119);
             const todayKey = heat[heat.length - 1]?.date;
             const reviewedToday = todayKey ? (revlog.days[todayKey]?.review ?? 0) : 0;
-            tween(v => (todayReview = v), reviewedToday);
-            tween(v => (dueCount = v), due.unreviewedCount);
-            tween(v => (newCount = v), due.unreviewedNewCardCount);
-            tween(v => (oldCount = v), due.unreviewedOldCardCount);
+            todayReview = reviewedToday;
+            dueCount = due.unreviewedCount;
+            newCount = due.unreviewedNewCardCount;
+            oldCount = due.unreviewedOldCardCount;
             const first = revlog.entries[0]?.ts;
             revlogNote = first ? new Date(first).toLocaleDateString() : "";
             retention = computeRetention(revlog);
@@ -277,17 +259,17 @@
         <div class="fn__flex fn__flex-wrap lv-cards">
             <div class="fn__flex-1" style="min-width: 140px; display: flex;">
                 <div style="flex: 1">
-                    <LvStat label={t.dashboard.todayDue} value={dueCount} tone="error" />
+                    <LvStat label={t.dashboard.todayDue} value={dueCount} tone="error" animate />
                 </div>
             </div>
             <div class="fn__flex-1" style="min-width: 140px; display: flex;">
                 <div style="flex: 1">
-                    <LvStat label={t.dashboard.newCards} value={newCount} tone="warn" />
+                    <LvStat label={t.dashboard.newCards} value={newCount} tone="warn" animate />
                 </div>
             </div>
             <div class="fn__flex-1" style="min-width: 140px; display: flex;">
                 <div style="flex: 1">
-                    <LvStat label={t.dashboard.reviewCards} value={oldCount} tone="primary" />
+                    <LvStat label={t.dashboard.reviewCards} value={oldCount} tone="primary" animate />
                 </div>
             </div>
             <div class="fn__flex-1" style="min-width: 140px; display: flex;">
@@ -303,12 +285,12 @@
             </div>
             <div class="fn__flex-1" style="min-width: 140px; display: flex;">
                 <div style="flex: 1">
-                    <LvStat label={t.dashboard.streak} value={streak} tone="warn" />
+                    <LvStat label={t.dashboard.streak} value={streak} tone="warn" animate />
                 </div>
             </div>
             <div class="fn__flex-1" style="min-width: 140px; display: flex;">
                 <div style="flex: 1">
-                    <LvStat label={t.dashboard.totalCards} value={totalCards} tone="neutral" />
+                    <LvStat label={t.dashboard.totalCards} value={totalCards} tone="neutral" animate />
                 </div>
             </div>
         </div>
