@@ -36,6 +36,7 @@ const lazyComp = (loader: () => Promise<{ default: any }>) => {
 const loadAIWizard = lazyComp(() => import("./ui/ai-wizard.svelte"));
 const loadOcclusionEditor = lazyComp(() => import("./ui/occlusion-editor.svelte"));
 const loadOnboarding = lazyComp(() => import("./ui/onboarding.svelte"));
+const loadChallengeMode = lazyComp(() => import("./ui/challenge-mode.svelte"));
 // 重组件对话框懒加载（AN 体积评审）：打开时才拉取对应 chunk
 
 const TAB_DASHBOARD = "lv-cards-dashboard";
@@ -290,6 +291,20 @@ export default class LvCardsPlugin extends Plugin {
             langText: this.i18n.cmdDiagnostics,
             hotkey: "",
             callback: () => this.copyDiagnostics(),
+        });
+        this.addCommand({
+            langKey: "challenge",
+            langText: this.i18n.cmdChallenge,
+            hotkey: "",
+            callback: async () => {
+                const ChallengeMode = await loadChallengeMode();
+                svelteDialog({
+                    title: (this.i18n as any).challenge.title,
+                    component: ChallengeMode,
+                    width: "min(560px, 94vw)",
+                    props: { i18n: this.i18n, onExit: () => { /* svelteDialog 自理销毁 */ } },
+                });
+            },
         });
 
         // 入口矩阵（docs/12 §1.1）：左键 = 有到期开复习、无到期开中心；右键 = 菜单

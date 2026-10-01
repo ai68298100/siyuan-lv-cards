@@ -375,5 +375,18 @@
     },
     "menuMakeOcclusion": "制作遮挡卡",
     "breadcrumbReview": "复习本文档闪卡",
-    "cmdCramNew": "睡前巩固（只学新卡）"
+    "cmdCramNew": "睡前巩固（只学新卡）",
+    "challenge": {
+        "title": "限时挑战",
+        "desc": "3 分钟快答挑战——看看你能回忆起多少张卡片",
+        "start": "开始挑战",
+        "stop": "结束",
+        "loading": "加载卡片中…",
+        "known": "记得",
+        "unknown": "忘了",
+        "doneTitle": "挑战结束！",
+        "closeBtn": "完成",
+        "skipped": "跳过"
+    },
+    "cmdChallenge": "限时挑战（3 分钟快答）"
 }

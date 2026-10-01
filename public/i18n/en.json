@@ -375,5 +375,18 @@
     },
     "menuMakeOcclusion": "Create occlusion",
     "breadcrumbReview": "Review this doc's cards",
-    "cmdCramNew": "Evening cram (new cards)"
+    "cmdCramNew": "Evening cram (new cards)",
+    "challenge": {
+        "title": "Timed Challenge",
+        "desc": "3-minute speed drill — see how many cards you can recall",
+        "start": "Start",
+        "stop": "Stop",
+        "loading": "Loading cards…",
+        "known": "Known",
+        "unknown": "Forgot",
+        "doneTitle": "Challenge complete!",
+        "closeBtn": "Done",
+        "skipped": "Skipped"
+    },
+    "cmdChallenge": "Timed challenge (3-min speed drill)"
 }
