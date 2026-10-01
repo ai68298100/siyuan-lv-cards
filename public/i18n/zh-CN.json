@@ -67,7 +67,9 @@
         "loading": "加载中…",
         "onboardingHint": "五分钟上手：三步创建你的第一组复习卡",
         "onboardingStart": "开始引导",
-        "report": "学习报告"
+        "report": "学习报告",
+        "writeDoc": "写入思源文档",
+        "reportWritten": "学习报告已写入思源文档"
     },
     "review": {
         "done": "本场完成！",

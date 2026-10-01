@@ -152,6 +152,7 @@ export default class LvCardsPlugin extends Plugin {
                                 return items.map(i => ({ blockID: i.blockID, lapses: i.lapses }));
                             },
                             rewriteWithAI: (blockID: string) => plugin.openAIWizard(blockID),
+                            writeReportDoc: (md: string) => plugin.writeReportDoc(md),
                             getExamCountdown: () => {
                                 const plan = plugin.examPlans.plans.find(p => p.enabled && p.examDate && !p.archived);
                                 const left = plan ? daysLeft(plan.examDate) : null;
@@ -1080,8 +1081,20 @@ export default class LvCardsPlugin extends Plugin {
     /** 清空本地复习日志（热力图与连击归零；不影响内核调度） */
     private clearRevlog() {
         this.revlog = emptyRevlog();
-        this.saveData(REVLOG_DATA, this.revlog).catch(() => { /* 忽略 */ });
+        this.saveData(REVLOG_DATA, this.revlog).catch(() => { /* 旁路 */ });
         this.refreshDueBadge();
         showMessage(this.i18n.settingsSaved, 2000, "info");
+    }
+
+    /** 学习报告写入思源文档（M5·FR6 深化） */
+    private async writeReportDoc(md: string) {
+        const notebooks = await getNotebooks();
+        if (notebooks.length === 0) {
+            throw new Error(this.i18n.onboardingNoNotebook);
+        }
+        const docID = await createDocWithMd(notebooks[0].id, `小驴闪卡/学习报告/${localDate(Date.now())}`, md);
+        if (!docID) {
+            throw new Error(this.i18n.quickCardFail);
+        }
     }
 }

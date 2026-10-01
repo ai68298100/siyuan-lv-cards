@@ -23,6 +23,7 @@
         getAIBatches: () => { id: string; date: string; deckID: string; blockIDs: string[] }[];
         getLeechCards: () => { blockID: string; lapses: number }[];
         rewriteWithAI: (blockID: string) => void;
+        writeReportDoc: (md: string) => Promise<void>;
         getExamCountdown: () => { name: string; days: number } | null;
     }
 
@@ -59,8 +60,8 @@
         return pts.map(p => `${10 + (p.days / maxD) * 290},${90 - Math.exp(-p.days / 5) * 80}`).join(" ");
     }
 
-    /** 学习报告导出（M5·FR6 简版）：总览数据 Markdown 下载 */
-    function downloadReport() {
+    /** 构建 Markdown 报告内容（总览+复习集+曲线+AI 批次） */
+    function buildReportMd(): string {
         const today = new Date().toLocaleDateString();
         const rows: string[] = [
             `# 小驴闪卡 · 学习报告（${today}）`, "",
@@ -87,7 +88,13 @@
             }
         }
         rows.push("", `> 由小驴闪卡生成 · ${new Date().toLocaleString()}`);
-        const blob = new Blob([rows.join("\n")], { type: "text/markdown" });
+        return rows.join("\n");
+    }
+
+    /** 学习报告下载 Markdown 文件 */
+    function downloadReport() {
+        const md = buildReportMd();
+        const blob = new Blob([md], { type: "text/markdown" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
@@ -180,6 +187,7 @@
 <LvPage title={t.dashboard.title} subtitle={revlogNote ? `${t.dashboard.since} ${revlogNote}` : ""} dot>
     {#snippet actions()}
         <button class="b3-button b3-button--outline" onclick={downloadReport}>{t.dashboard.report}</button>
+        <button class="b3-button b3-button--outline" onclick={() => ctx.writeReportDoc(buildReportMd())}>{t.dashboard.writeDoc}</button>
         <button class="b3-button b3-button--outline" onclick={() => ctx.openManager()}>{t.menuManager}</button>
         <button class="b3-button b3-button--text lv-btn-primary" onclick={() => ctx.openReview()}>{t.dashboard.openReview}</button>
         <button class="b3-button b3-button--outline" onclick={refresh}>{t.dashboard.refresh}</button>
