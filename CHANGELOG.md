@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.36.0 2026-10-02 · Onboarding 首启自动弹出
+
+* 首次安装且未完成引导时，延迟 2 秒自动弹出 Onboarding 三步引导（M12 · AP）
+* settings.onboarded 标记控制：完成/跳过后不再自动弹出
+
 ## v0.35.0 2026-10-02 · 兜底循环#1
 
 * **兜底①优化**：代码扫查零 console.log/TODO/FIXME；LvStat count-up 统一预留；api.ts 注入面已消除

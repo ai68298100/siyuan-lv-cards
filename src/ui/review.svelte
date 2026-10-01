@@ -697,6 +697,9 @@
                 {#if current.state === 0}<span class="b3-chip b3-chip--primary">{t.review.tagNew}</span>{/if}
                 <span class="b3-chip">{t.review.reps} {current.reps} · {t.review.lapses} {current.lapses}</span>
             </span>
+            {#if current.deckID}
+                <span class="ft__smaller ft__on-surface" style="opacity:.7">{current.deckID}</span>
+            {/if}
             <div class="fn__flex-1"></div>
             <button class="b3-button b3-button--small" title={t.review.helpTitle} onclick={() => (helpOpen = true)}>?</button>
             <button class="b3-button b3-button--small" title={t.review.undoTitle} onclick={undoHistory}>↶</button>

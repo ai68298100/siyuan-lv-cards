@@ -36,6 +36,7 @@ const lazyComp = (loader: () => Promise<{ default: any }>) => {
 const loadAIWizard = lazyComp(() => import("./ui/ai-wizard.svelte"));
 const loadOcclusionEditor = lazyComp(() => import("./ui/occlusion-editor.svelte"));
 const loadOnboarding = lazyComp(() => import("./ui/onboarding.svelte"));
+// 重组件对话框懒加载（AN 体积评审）：打开时才拉取对应 chunk
 
 const TAB_DASHBOARD = "lv-cards-dashboard";
 const TAB_REVIEW = "lv-cards-review";
@@ -332,8 +333,10 @@ export default class LvCardsPlugin extends Plugin {
             this.checkDailyReminder();
             this.checkBacklogWarn();
         }, 60_000);
-        this.checkDailyReminder();
-        this.checkBacklogWarn();
+        // Onboarding 首启自动弹出（M12：!onboarded 时延迟 2s 弹出，避免与布局渲染竞争）
+        if (!this.settings.onboarded) {
+            setTimeout(() => this.openOnboarding(), 2000);
+        }
     }
 
     /** 每日到期提醒：到设定时间且仍有到期卡时通知一次（X 组，基础版） */
