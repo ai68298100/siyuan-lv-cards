@@ -234,13 +234,29 @@
         {/each}
     </LvSection>
 
-    <LvSection title={t.settings.study}>
+    <!-- 学习偏好四区（13-W10）：节奏与目标 / 评分与作答 / 朗读与音效 / 提醒与免打扰 -->
+    <LvSection title={t.settings.studyRhythm}>
         <LvRow label={t.settings.dailyNewTarget}>
             <input class="b3-text-field fn__size-60" type="number" min="0" bind:value={draft.dailyNewTarget} />
         </LvRow>
         <LvRow label={t.settings.dailyReviewTarget}>
             <input class="b3-text-field fn__size-60" type="number" min="0" bind:value={draft.dailyReviewTarget} />
         </LvRow>
+        <LvRow label={t.settings.batchLimit} hint={t.settings.batchLimitHint}>
+            <input class="b3-text-field fn__size-60" type="number" min="0" bind:value={draft.batchLimit} />
+        </LvRow>
+        <LvRow label={t.settings.randomOrder}>
+            <input class="b3-switch" type="checkbox" bind:checked={draft.randomOrder} />
+        </LvRow>
+        <LvRow label={t.settings.requeueAgain} hint={t.settings.requeueAgainHint}>
+            <input class="b3-switch" type="checkbox" bind:checked={draft.requeueAgain} />
+        </LvRow>
+        <LvRow label={t.settings.leechThreshold}>
+            <input class="b3-text-field fn__size-60" type="number" min="1" bind:value={draft.leechThreshold} />
+        </LvRow>
+    </LvSection>
+
+    <LvSection title={t.settings.studyAnswer}>
         <LvRow label={t.settings.ratingStyle}>
             <LvSegmented
                 options={[
@@ -263,15 +279,6 @@
                 <LvSlider value={draft.timeoutSeconds} min={5} max={600} step={5} suffix="s" onchange={(v) => (draft.timeoutSeconds = v)} />
             </LvRow>
         {/if}
-        <LvRow label={t.settings.randomOrder}>
-            <input class="b3-switch" type="checkbox" bind:checked={draft.randomOrder} />
-        </LvRow>
-        <LvRow label={t.settings.batchLimit} hint={t.settings.batchLimitHint}>
-            <input class="b3-text-field fn__size-60" type="number" min="0" bind:value={draft.batchLimit} />
-        </LvRow>
-        <LvRow label={t.settings.requeueAgain} hint={t.settings.requeueAgainHint}>
-            <input class="b3-switch" type="checkbox" bind:checked={draft.requeueAgain} />
-        </LvRow>
         <LvRow label={t.settings.typingEnabled}>
             <input class="b3-switch" type="checkbox" bind:checked={draft.typingEnabled} />
         </LvRow>
@@ -283,6 +290,12 @@
                 <input class="b3-switch" type="checkbox" bind:checked={draft.dictationEnabled} />
             </LvRow>
         {/if}
+        <LvRow label={t.settings.choiceEnabled}>
+            <input class="b3-switch" type="checkbox" bind:checked={draft.choiceEnabled} />
+        </LvRow>
+    </LvSection>
+
+    <LvSection title={t.settings.studyVoice}>
         <LvRow label={t.settings.ttsEnabled}>
             <input class="b3-switch" type="checkbox" bind:checked={draft.ttsEnabled} />
         </LvRow>
@@ -299,21 +312,14 @@
                 {/snippet}
             </LvRow>
         {/if}
-        <LvRow label={t.settings.choiceEnabled}>
-            <input class="b3-switch" type="checkbox" bind:checked={draft.choiceEnabled} />
-        </LvRow>
-        <LvRow label={t.settings.quietSection} hint={t.settings.quietHint}> </LvRow>
-        <LvRow label={t.settings.quietStart}>
+    </LvSection>
+
+    <LvSection title={t.settings.studyNotify}>
+        <LvRow label={t.settings.quietStart} hint={t.settings.quietHint}>
             <input class="b3-text-field fn__size-60" type="time" bind:value={draft.quietStart} />
         </LvRow>
         <LvRow label={t.settings.quietEnd}>
             <input class="b3-text-field fn__size-60" type="time" bind:value={draft.quietEnd} />
-        </LvRow>
-        <LvRow label={t.settings.leechThreshold}>
-            <input class="b3-text-field fn__size-60" type="number" min="1" bind:value={draft.leechThreshold} />
-        </LvRow>
-        <LvRow label={t.settings.ttsEnabled}>
-            <input class="b3-switch" type="checkbox" bind:checked={draft.ttsEnabled} />
         </LvRow>
         <LvRow label={t.settings.reminderEnabled}>
             <input class="b3-switch" type="checkbox" bind:checked={draft.reminderEnabled} />
