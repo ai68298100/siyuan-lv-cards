@@ -27,7 +27,7 @@
         exportSettings: () => void;
         exportRevlogCsv: () => void;
         importRevlogCsv: (fileText: string) => Promise<{ added: number; skipped: number }>;
-        importRevlogMerge: (fileText: string) => Promise<{ added: number; skipped: number }>;
+        importRevlogMerge: (fileText: string, onFork?: "skip" | "preferImport") => Promise<{ added: number; skipped: number; forks: number }>;
     }
 
     let { ctx }: { ctx: SettingsCtx } = $props();
@@ -158,6 +158,17 @@
         file.text().then(async (text) => {
             try {
                 const r = await ctx.importRevlogMerge(text);
+                if (r.forks > 0) {
+                    // 分叉预览（M10·FR3）：检测到多设备评分冲突，用户可选以导入为准重放合并（合并幂等，重复条目自动跳过）
+                    confirmDialog({
+                        title: t.settings.forkTitle,
+                        content: `<div class="b3-typography">${t.settings.forkConfirm.replace("${n}", String(r.forks))}</div>`,
+                        confirm: async () => {
+                            const r2 = await ctx.importRevlogMerge(text, "preferImport");
+                            showMessage(t.settings.importResult.replace("${a}", String(r2.added)).replace("${s}", String(r2.skipped)), 3000, "info");
+                        },
+                    });
+                }
                 showMessage(t.settings.importResult.replace("${a}", String(r.added)).replace("${s}", String(r.skipped)), 3000, "info");
             } catch (e: any) {
                 showMessage(e?.message || t.settings.importInvalid, 3000, "error");

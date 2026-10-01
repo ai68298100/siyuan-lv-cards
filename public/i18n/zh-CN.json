@@ -206,6 +206,8 @@
         "exportCsv": "导出 CSV",
         "importMerge": "导入合并（JSON）",
         "importMergeHint": "与现有日志按时间+卡片去重后合并，单文件 ≤5MB",
+        "forkTitle": "检测到复习记录分叉",
+        "forkConfirm": "有 ${n} 条记录在多设备上对同一时刻存在不同评分（默认已跳过）。要以导入文件为准覆盖这些记录吗？（合并可重复执行，其余条目不受影响）",
         "importResult": "合并 ${a} 条，跳过 ${s} 条",
         "importInvalid": "文件格式无效",
         "importTooLarge": "文件超过 5MB",

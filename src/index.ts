@@ -1143,9 +1143,9 @@ export default class LvCardsPlugin extends Plugin {
                         this.refreshDueBadge();
                         return result;
                     },
-                    importRevlogMerge: async (fileText: string) => {
+                    importRevlogMerge: async (fileText: string, onFork?: "skip" | "preferImport") => {
                         const imported = JSON.parse(fileText);
-                        const result = mergeRevlog(this.revlog, imported);
+                        const result = mergeRevlog(this.revlog, imported, { onFork });
                         await this.saveData(REVLOG_DATA, this.revlog);
                         this.refreshDueBadge();
                         return result;

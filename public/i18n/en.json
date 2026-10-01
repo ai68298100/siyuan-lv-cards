@@ -206,6 +206,8 @@
         "exportCsv": "Export CSV",
         "importMerge": "Import & merge (JSON)",
         "importMergeHint": "Merged with dedupe by time+card; file ≤5MB",
+        "forkTitle": "Review log forks detected",
+        "forkConfirm": "${n} records have different ratings for the same timestamp across devices (skipped by default). Override them with the imported file? (Merging is idempotent; other entries are unaffected.)",
         "importResult": "Merged ${a}, skipped ${s}",
         "importInvalid": "Invalid file",
         "importTooLarge": "File exceeds 5MB",

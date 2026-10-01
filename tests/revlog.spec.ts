@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-    appendRevlog, emptyRevlog, mergeRevlog, recalcDays, calcStreak, localDate, weekCompare, calcMilestones,
+    appendRevlog, emptyRevlog, mergeRevlog, recalcDays, calcStreak, localDate, lastNDays, weekCompare, calcMilestones,
     type RevlogData,
 } from "../src/core/revlog";
-
 const entry = (ts: number, cardID: string, rating: number, source: "native" | "plugin" = "plugin") =>
     ({ ts, cardID, deckID: "deck", blockID: "blk", rating, source });
 
@@ -136,5 +135,66 @@ describe("calcMilestones（M5·里程碑）", () => {
         expect(m.totalReviews).toBe(0);
         expect(m.bestDay).toBeNull();
         expect(m.nextGoal?.at).toBe(1000);
+    });
+});
+
+describe("mergeRevlog 分叉检测（M10·FR3）", () => {
+    it("同 ts+cardID 评分冲突计 forks，默认跳过；幂等重放 preferImport 覆盖", () => {
+        const d = emptyRevlog();
+        const t = Date.now();
+        appendRevlog(d, entry(t, "c1", 3));
+        // 第一次导入：c1 同刻评 1（分叉）+ c2 新记录
+        const r1 = mergeRevlog(d, {
+            entries: [
+                { ts: t, cardID: "c1", rating: 1, source: "plugin" },
+                { ts: t + 1, cardID: "c2", rating: 3, source: "plugin" },
+            ],
+        });
+        expect(r1.forks).toBe(1);
+        expect(r1.added).toBe(1);
+        expect(r1.forkSamples[0]).toMatchObject({ cardID: "c1", imported: 1, local: 3 });
+        expect(d.entries.find(e => e.cardID === "c1")?.rating).toBe(3);
+        // 第二次重放同一文件（preferImport）：分叉以导入为准
+        const r2 = mergeRevlog(d, {
+            entries: [
+                { ts: t, cardID: "c1", rating: 1, source: "plugin" },
+                { ts: t + 1, cardID: "c2", rating: 3, source: "plugin" },
+            ],
+        }, { onFork: "preferImport" });
+        expect(r2.forks).toBe(1);
+        expect(r2.added).toBe(1);
+        expect(d.entries.find(e => e.cardID === "c1")?.rating).toBe(1);
+    });
+
+    it("同 ts+cardID 同评分不同 source 不算分叉（正常双端记录）", () => {
+        const d = emptyRevlog();
+        const t = Date.now();
+        appendRevlog(d, entry(t, "c1", 3, "plugin"));
+        const r = mergeRevlog(d, { entries: [{ ts: t, cardID: "c1", rating: 3, source: "native" }] });
+        expect(r.forks).toBe(0);
+        expect(r.added).toBe(1);
+    });
+});
+
+describe("revlog 2 万条性能预算（G 组·内存审计）", () => {
+    it("2 万条写入 + 全量重算 + 聚合推导在 2s 内", () => {
+        const t0 = performance.now();
+        const d = emptyRevlog();
+        const now = Date.now();
+        const ratings = [1, 2, 3, 4];
+        for (let i = 0; i < 20000; i++) {
+            // 每小时一条，覆盖 ~833 天；评分循环 1-4
+            appendRevlog(d, entry(now - i * 3600000, `c${i % 500}`, ratings[i % 4]));
+        }
+        recalcDays(d);
+        expect(calcStreak(d)).toBeGreaterThanOrEqual(0);
+        expect(lastNDays(d, 119)).toHaveLength(119);
+        const m = calcMilestones(d);
+        expect(m.totalReviews).toBe(20000);
+        const w = weekCompare(d);
+        expect(w.thisWeek.review).toBeGreaterThanOrEqual(0);
+        const elapsed = performance.now() - t0;
+        // 宽松预算（CI 波动安全）：2 万条全链路 < 2000ms
+        expect(elapsed).toBeLessThan(2000);
     });
 });

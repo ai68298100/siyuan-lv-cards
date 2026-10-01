@@ -105,21 +105,41 @@ export function recalcDays(data: RevlogData): void {
 export interface MergeResult {
     added: number;
     skipped: number;
+    /** 分叉数（M10·FR3）：同 ts+cardID 但评分不同——多设备对同一时刻的不同记录，默认跳过并计数 */
+    forks: number;
+    /** 分叉明细（同 ts+cardID 的 导入评分 vs 本地评分），供合并预览展示 */
+    forkSamples: { ts: number; cardID: string; imported: number; local: number }[];
 }
 
-/** 导入合并（M10·FR1）：按 ts+cardID+rating+source 去重，带结构/数值清洗与批量上限（AK 组要求） */
-export function mergeRevlog(data: RevlogData, imported: unknown): MergeResult {
+export interface MergeOptions {
+    /** 分叉处理：skip=跳过导入侧（默认，保守）；preferImport=以导入为准覆盖本地同刻记录 */
+    onFork?: "skip" | "preferImport";
+}
+
+/** 导入合并（M10·FR1）：按 ts+cardID+rating+source 去重，带结构/数值清洗与批量上限（AK 组要求）；
+ * 分叉检测（M10·FR3）：同 ts+cardID 评分冲突时按 onFork 策略处理并回报明细 */
+export function mergeRevlog(data: RevlogData, imported: unknown, opts: MergeOptions = {}): MergeResult {
     if (!imported || typeof imported !== "object" || !Array.isArray((imported as any).entries)) {
         throw new Error("invalid revlog file");
     }
     const key = (e: RevlogEntry) => `${e.ts}|${e.cardID}|${e.rating}|${e.source}`;
+    const pairKey = (ts: number, cardID: string) => `${ts}|${cardID}`;
     const seen = new Set(data.entries.map(key));
+    const localPairs = new Map<string, number>();
+    for (const e of data.entries) {
+        const pk = pairKey(e.ts, e.cardID);
+        if (!localPairs.has(pk)) {
+            localPairs.set(pk, e.rating);
+        }
+    }
     const incoming = (imported as any).entries as any[];
     if (incoming.length > 50000) {
         throw new Error("file too large");
     }
     let added = 0;
     let skipped = 0;
+    let forks = 0;
+    const forkSamples: MergeResult["forkSamples"] = [];
     for (const raw of incoming) {
         const ts = Number(raw?.ts);
         const rating = Number(raw?.rating);
@@ -141,7 +161,29 @@ export function mergeRevlog(data: RevlogData, imported: unknown): MergeResult {
             skipped += 1;
             continue;
         }
+        // 分叉：同 ts+cardID 本地已有不同评分记录
+        const pk = pairKey(ts, entry.cardID);
+        const localRating = localPairs.get(pk);
+        if (localRating !== undefined && localRating !== rating) {
+            forks += 1;
+            if (forkSamples.length < 20) {
+                forkSamples.push({ ts, cardID: entry.cardID, imported: rating, local: localRating });
+            }
+            if ((opts.onFork ?? "skip") === "skip") {
+                skipped += 1;
+                continue;
+            }
+            // preferImport：移除本地同刻记录后按导入写入（recalcDays 由调用方尾部统一执行）
+            const before = data.entries.length;
+            data.entries = data.entries.filter(e => !(e.ts === ts && e.cardID === entry.cardID));
+            seen.clear();
+            for (const e of data.entries) {
+                seen.add(key(e));
+            }
+            skipped += before - data.entries.length;
+        }
         seen.add(k);
+        localPairs.set(pk, rating);
         data.entries.push(entry);
         added += 1;
     }
@@ -149,7 +191,7 @@ export function mergeRevlog(data: RevlogData, imported: unknown): MergeResult {
         data.entries = data.entries.slice(-20000);
     }
     recalcDays(data);
-    return { added, skipped };
+    return { added, skipped, forks, forkSamples };
 }
 
 /** CSV 导出行（M10·FR1）：date,ts,cardID,deckID,blockID,rating,source */
