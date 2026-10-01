@@ -122,7 +122,11 @@
         "batchDone": "已移除 ${n} 张",
         "batchResetDone": "已重置 ${n} 张",
         "detailTitle": "卡片详情",
-        "detailBlockId": "块 ID"
+        "detailBlockId": "块 ID",
+        "sortLabel": "排序",
+        "sortDefault": "默认顺序",
+        "sortPath": "按文档路径",
+        "sortContent": "按内容 A-Z"
     },
     "settings": {
         "personaSection": "画像预设",
@@ -154,7 +158,15 @@
         "storageNote": "插件私有数据随思源同步；卡片本体永远保存在内核，不受影响。",
         "suspendedManage": "今日屏蔽的卡片",
         "suspendedHint": "已屏蔽 ${n} 张，明天 0 点自动恢复",
-        "suspendedRestore": "恢复全部"
+        "suspendedRestore": "恢复全部",
+        "exportCsv": "导出 CSV",
+        "importMerge": "导入合并（JSON）",
+        "importMergeHint": "与现有日志按时间+卡片去重后合并，单文件 ≤5MB",
+        "importResult": "合并 ${a} 条，跳过 ${s} 条",
+        "importInvalid": "文件格式无效",
+        "importTooLarge": "文件超过 5MB",
+        "reminderEnabled": "每日到期提醒（通知）",
+        "reminderTime": "提醒时间"
     },
     "hubTabOverview": "总览",
     "hubTabManage": "管理",

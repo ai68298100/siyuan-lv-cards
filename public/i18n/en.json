@@ -122,7 +122,11 @@
         "batchDone": "Removed ${n} cards",
         "batchResetDone": "Reset ${n} cards",
         "detailTitle": "Card detail",
-        "detailBlockId": "Block ID"
+        "detailBlockId": "Block ID",
+        "sortLabel": "Sort",
+        "sortDefault": "Default order",
+        "sortPath": "By doc path",
+        "sortContent": "By content A-Z"
     },
     "settings": {
         "personaSection": "Persona Presets",
@@ -154,7 +158,15 @@
         "storageNote": "Plugin data syncs with SiYuan; the cards themselves always live in the kernel and are not affected.",
         "suspendedManage": "Cards hidden today",
         "suspendedHint": "${n} hidden; auto-restores at midnight",
-        "suspendedRestore": "Restore all"
+        "suspendedRestore": "Restore all",
+        "exportCsv": "Export CSV",
+        "importMerge": "Import & merge (JSON)",
+        "importMergeHint": "Merged with dedupe by time+card; file ≤5MB",
+        "importResult": "Merged ${a}, skipped ${s}",
+        "importInvalid": "Invalid file",
+        "importTooLarge": "File exceeds 5MB",
+        "reminderEnabled": "Daily due reminder (notification)",
+        "reminderTime": "Reminder time"
     },
     "hubTabOverview": "Overview",
     "hubTabManage": "Manage",

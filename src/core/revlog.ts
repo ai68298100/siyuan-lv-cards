@@ -102,6 +102,66 @@ export function recalcDays(data: RevlogData): void {
     }
 }
 
+export interface MergeResult {
+    added: number;
+    skipped: number;
+}
+
+/** 导入合并（M10·FR1）：按 ts+cardID+rating+source 去重，带结构/数值清洗与批量上限（AK 组要求） */
+export function mergeRevlog(data: RevlogData, imported: unknown): MergeResult {
+    if (!imported || typeof imported !== "object" || !Array.isArray((imported as any).entries)) {
+        throw new Error("invalid revlog file");
+    }
+    const key = (e: RevlogEntry) => `${e.ts}|${e.cardID}|${e.rating}|${e.source}`;
+    const seen = new Set(data.entries.map(key));
+    const incoming = (imported as any).entries as any[];
+    if (incoming.length > 50000) {
+        throw new Error("file too large");
+    }
+    let added = 0;
+    let skipped = 0;
+    for (const raw of incoming) {
+        const ts = Number(raw?.ts);
+        const rating = Number(raw?.rating);
+        if (!Number.isFinite(ts) || typeof raw?.cardID !== "string" || !raw.cardID ||
+            !Number.isInteger(rating) || rating < 0 || rating > 4) {
+            skipped += 1;
+            continue;
+        }
+        const entry: RevlogEntry = {
+            ts,
+            cardID: raw.cardID,
+            deckID: String(raw.deckID ?? ""),
+            blockID: String(raw.blockID ?? ""),
+            rating,
+            source: raw.source === "native" ? "native" : "plugin",
+        };
+        const k = key(entry);
+        if (seen.has(k)) {
+            skipped += 1;
+            continue;
+        }
+        seen.add(k);
+        data.entries.push(entry);
+        added += 1;
+    }
+    if (data.entries.length > 20000) {
+        data.entries = data.entries.slice(-20000);
+    }
+    recalcDays(data);
+    return { added, skipped };
+}
+
+/** CSV 导出行（M10·FR1）：date,ts,cardID,deckID,blockID,rating,source */
+export function revlogToCsv(data: RevlogData): string {
+    const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
+    const rows = ["date,ts,cardID,deckID,blockID,rating,source"];
+    for (const e of data.entries) {
+        rows.push(`${localDate(e.ts)},${e.ts},${esc(e.cardID)},${esc(e.deckID)},${esc(e.blockID)},${e.rating},${e.source}`);
+    }
+    return rows.join("\n");
+}
+
 export function isCardNew(data: RevlogData, cardID: string): boolean {
     return !data.entries.some(e => e.cardID === cardID && e.rating > 0);
 }

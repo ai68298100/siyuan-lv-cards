@@ -7,7 +7,7 @@ import { svelteDialog } from "./libs/dialog";
 import { defaultSettings, normalizeSettings, type LvCardsSettings } from "./core/settings";
 import { PERSONA_PRESETS } from "./core/personas";
 import {
-    appendRevlog, emptyRevlog, localDate, normalizeRevlog, recalcDays,
+    appendRevlog, emptyRevlog, localDate, normalizeRevlog, recalcDays, revlogToCsv, mergeRevlog,
     type RevlogData, type RevlogEntry,
 } from "./core/revlog";
 import { detectFlashcardV2, type MigrationStatus } from "./api/flashcardV2";
@@ -177,8 +177,43 @@ export default class LvCardsPlugin extends Plugin {
 
     onLayoutReady() {
         this.refreshDueBadge();
-        // 到期数心跳（60s）；移动端同样适用（悬浮球入口在 v1.0 接入）
-        this.badgeTimer = setInterval(() => this.refreshDueBadge(), 60_000);
+        // 到期数心跳（60s）；顺带执行每日到期提醒（X 组）
+        this.badgeTimer = setInterval(() => {
+            this.refreshDueBadge();
+            this.checkDailyReminder();
+        }, 60_000);
+        this.checkDailyReminder();
+    }
+
+    /** 每日到期提醒：到设定时间且仍有到期卡时通知一次（X 组，基础版） */
+    private reminderShownFor = "";
+    private checkDailyReminder() {
+        if (!this.settings.reminderEnabled) {
+            return;
+        }
+        const today = localDate(Date.now());
+        if (this.reminderShownFor === today) {
+            return;
+        }
+        const [h, m] = this.settings.reminderTime.split(":").map(Number);
+        const now = new Date();
+        const nowMin = now.getHours() * 60 + now.getMinutes();
+        if (!Number.isFinite(h) || nowMin < h * 60 + (m || 0)) {
+            return;
+        }
+        getDueCount().then(count => {
+            if (count <= 0) {
+                this.reminderShownFor = today;
+                return;
+            }
+            try {
+                const n = new Notification(this.i18n.topbarTitle, {
+                    body: this.i18n.badgeDue.replace("${n}", String(count)),
+                });
+                n.onclick = () => this.openTabOf(TAB_REVIEW);
+            } catch { /* 通知不可用则静默跳过 */ }
+            this.reminderShownFor = today;
+        }).catch(() => { /* 旁路 */ });
     }
 
     onunload() {
@@ -488,6 +523,14 @@ export default class LvCardsPlugin extends Plugin {
                         this.saveData(SUSPEND_TODAY_DATA, this.suspendToday).catch(() => { /* 旁路 */ });
                         showMessage(this.i18n.settingsSaved, 2000, "info");
                     },
+                    exportRevlogCsv: () => this.exportRevlogCsv(),
+                    importRevlogMerge: async (fileText: string) => {
+                        const imported = JSON.parse(fileText);
+                        const result = mergeRevlog(this.revlog, imported);
+                        await this.saveData(REVLOG_DATA, this.revlog);
+                        this.refreshDueBadge();
+                        return result;
+                    },
                 },
             },
         });
@@ -501,6 +544,18 @@ export default class LvCardsPlugin extends Plugin {
         const a = document.createElement("a");
         a.href = url;
         a.download = `lv-cards-revlog-${stamp}.json`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    /** 导出 CSV（带 BOM，Excel 友好） */
+    private exportRevlogCsv() {
+        const stamp = localDate(Date.now());
+        const blob = new Blob(["\ufeff" + revlogToCsv(this.revlog)], { type: "text/csv" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `lv-cards-revlog-${stamp}.csv`;
         a.click();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
     }

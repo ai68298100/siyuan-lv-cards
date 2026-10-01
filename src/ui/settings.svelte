@@ -19,6 +19,8 @@
         getV2Status: () => string;
         getSuspendedCount: () => number;
         restoreAllSuspended: () => void;
+        exportRevlogCsv: () => void;
+        importRevlogMerge: (fileText: string) => Promise<{ added: number; skipped: number }>;
     }
 
     let { ctx }: { ctx: SettingsCtx } = $props();
@@ -47,6 +49,28 @@
     async function redetectV2() {
         v2Label = await ctx.redetectV2();
         showMessage(t.settings.redetectOk, 1500, "info");
+    }
+
+    function importMerge(ev: Event) {
+        const input = ev.target as HTMLInputElement;
+        const file = input.files?.[0];
+        if (!file) {
+            return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            showMessage(t.settings.importTooLarge, 3000, "error");
+            input.value = "";
+            return;
+        }
+        file.text().then(async (text) => {
+            try {
+                const r = await ctx.importRevlogMerge(text);
+                showMessage(t.settings.importResult.replace("${a}", String(r.added)).replace("${s}", String(r.skipped)), 3000, "info");
+            } catch (e: any) {
+                showMessage(e?.message || t.settings.importInvalid, 3000, "error");
+            }
+            input.value = "";
+        });
     }
 
     function save() {
@@ -125,6 +149,14 @@
         <LvRow label={t.settings.leechThreshold}>
             <input class="b3-text-field fn__size-60" type="number" min="1" bind:value={draft.leechThreshold} />
         </LvRow>
+        <LvRow label={t.settings.reminderEnabled}>
+            <input class="b3-switch" type="checkbox" bind:checked={draft.reminderEnabled} />
+        </LvRow>
+        {#if draft.reminderEnabled}
+            <LvRow label={t.settings.reminderTime}>
+                <input class="b3-text-field fn__size-60" type="time" bind:value={draft.reminderTime} />
+            </LvRow>
+        {/if}
     </LvSection>
 
     <LvSection title={t.settings.exam}>
@@ -153,7 +185,13 @@
         </LvRow>
         <LvRow label={t.settings.exportRevlog} hint={t.settings.storageNote}>
             {#snippet children()}
-                <button class="b3-button b3-button--outline" onclick={ctx.exportRevlog}>{t.settings.exportRevlog}</button>
+                <button class="b3-button b3-button--outline" onclick={ctx.exportRevlog}>JSON</button>
+                <button class="b3-button b3-button--outline" onclick={ctx.exportRevlogCsv}>CSV</button>
+            {/snippet}
+        </LvRow>
+        <LvRow label={t.settings.importMerge} hint={t.settings.importMergeHint}>
+            {#snippet children()}
+                <input class="b3-button b3-button--outline" type="file" accept=".json,application/json" onchange={importMerge} />
             {/snippet}
         </LvRow>
         <LvRow label={t.settings.clearRevlog}>

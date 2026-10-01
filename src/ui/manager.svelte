@@ -24,11 +24,21 @@
     let blocks: SearchBlock[] = $state([]);
     let errorMsg = $state("");
     let filterText = $state("");
+    let sortMode = $state<"default" | "path" | "content">("default");
     let selected: string[] = $state([]);
     let detail: SearchBlock | null = $state(null);
 
     let filteredBlocks = $derived(
-        blocks.filter(b => !filterText || stripHtml(b.content).toLowerCase().includes(filterText.toLowerCase()))
+        (() => {
+            const arr = blocks.filter(b => !filterText || stripHtml(b.content).toLowerCase().includes(filterText.toLowerCase()));
+            if (sortMode === "path") {
+                return [...arr].sort((a, b) => ((a.hPath as string) ?? "").localeCompare((b.hPath as string) ?? ""));
+            }
+            if (sortMode === "content") {
+                return [...arr].sort((a, b) => stripHtml(a.content).localeCompare(stripHtml(b.content)));
+            }
+            return arr;
+        })()
     );
 
     function stripHtml(html: string): string {
@@ -109,6 +119,11 @@
 <LvPage title={t.manager.title} subtitle={`${t.manager.total}: ${total}`}>
     {#snippet actions()}
         <input class="b3-text-field lv-filter" type="text" placeholder={t.manager.filterPlaceholder} bind:value={filterText} />
+        <select class="b3-select lv-sort" bind:value={sortMode} title={t.manager.sortLabel}>
+            <option value="default">{t.manager.sortDefault}</option>
+            <option value="path">{t.manager.sortPath}</option>
+            <option value="content">{t.manager.sortContent}</option>
+        </select>
         <button class="b3-button b3-button--outline" disabled={page <= 1} onclick={() => goto(page - 1)}>{t.manager.prev}</button>
         <span class="lv-pager">{page} / {pageCount}</span>
         <button class="b3-button b3-button--outline" disabled={page >= pageCount} onclick={() => goto(page + 1)}>{t.manager.next}</button>
@@ -173,6 +188,7 @@
 
 <style lang="scss">
     .lv-filter { width: 200px; border-radius: 999px; padding-left: 14px; }
+    .lv-sort { font-size: 12px; padding: 4px 8px; }
     .lv-pager { font-size: 12px; color: var(--b3-theme-on-surface); font-variant-numeric: tabular-nums; }
     .lv-hint { color: var(--b3-theme-on-surface); }
     .lv-error { color: var(--b3-theme-error); }

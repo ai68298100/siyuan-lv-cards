@@ -22,6 +22,10 @@ export interface LvCardsSettings {
     randomOrder: boolean;
     /** leech 判定阈值（遗忘次数） */
     leechThreshold: number;
+    /** 每日到期提醒（Notification） */
+    reminderEnabled: boolean;
+    /** 提醒时间 HH:mm */
+    reminderTime: string;
     /** 考试模式 */
     examEnabled: boolean;
     /** 考试日期 YYYY-MM-DD，空为未设置 */
@@ -46,6 +50,8 @@ export function defaultSettings(): LvCardsSettings {
         timeoutSeconds: 60,
         randomOrder: false,
         leechThreshold: 8,
+        reminderEnabled: true,
+        reminderTime: "20:00",
         examEnabled: false,
         examDate: "",
     };
