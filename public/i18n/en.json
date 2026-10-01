@@ -66,7 +66,8 @@
         "v2Active": "Kernel Flashcard V2 detected: official statistics API available; the plugin will migrate to V2 data sources.",
         "loading": "Loading…",
         "onboardingHint": "Get started in 5 minutes: create your first review cards in three steps",
-        "onboardingStart": "Start guide"
+        "onboardingStart": "Start guide",
+        "report": "Study report"
     },
     "review": {
         "done": "Session complete!",
@@ -109,7 +110,16 @@
         "choiceLoading": "Generating options…",
         "choiceCorrect": "✓ Correct!",
         "choiceWrong": "✗ Wrong",
-        "speak": "Speak"
+        "speak": "Speak",
+        "helpTitle": "Keyboard shortcuts",
+        "helpFlipRate": "Flip / flip & rate Good",
+        "helpRate": "Rate 1-4",
+        "helpUndo": "Undo last",
+        "helpSkip": "Skip",
+        "helpSuspend": "Skip today",
+        "helpPeek": "Peek previous",
+        "helpReschedule": "Reschedule",
+        "helpEdit": "Edit source"
     },
     "manager": {
         "title": "Card Manager",

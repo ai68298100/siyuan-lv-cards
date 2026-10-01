@@ -66,7 +66,8 @@
         "v2Active": "检测到内核闪卡 V2：官方统计 API 可用，插件将逐步切换 V2 数据源。",
         "loading": "加载中…",
         "onboardingHint": "五分钟上手：三步创建你的第一组复习卡",
-        "onboardingStart": "开始引导"
+        "onboardingStart": "开始引导",
+        "report": "学习报告"
     },
     "review": {
         "done": "本场完成！",
@@ -109,7 +110,16 @@
         "choiceLoading": "正在生成选项…",
         "choiceCorrect": "✓ 回答正确！",
         "choiceWrong": "✗ 回答错误",
-        "speak": "朗读"
+        "speak": "朗读",
+        "helpTitle": "常用快捷键",
+        "helpFlipRate": "翻面 / 翻面并评良好",
+        "helpRate": "评分 1-4",
+        "helpUndo": "撤销上一步",
+        "helpSkip": "跳过",
+        "helpSuspend": "今天不学",
+        "helpPeek": "回看上一张",
+        "helpReschedule": "快速改期",
+        "helpEdit": "编辑原块"
     },
     "manager": {
         "title": "闪卡管理器",

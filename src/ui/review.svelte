@@ -98,6 +98,8 @@
     let typingInput = $state("");
     let typingGrade = $state<{ chars: { ch: string; ok: boolean }[]; suggested: Rating1to4 } | null>(null);
     let expectedText = $state("");
+    // 快捷键帮助覆盖层（AB 组）
+    let helpOpen = $state(false);
     // 图片遮挡（M4·FR4 riff 先行）：数据来自块属性 lv-occlusion，坐标相对图片包围盒
     let cardEl: HTMLDivElement | null = $state(null);
     let occl = $state<OcclusionData | null>(null);
@@ -490,6 +492,16 @@
             }
             return;
         }
+        if (e.key === "?") {
+            helpOpen = !helpOpen;
+            return;
+        }
+        if (helpOpen) {
+            if (e.key === "Escape") {
+                helpOpen = false;
+            }
+            return;
+        }
         if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || (e.target as HTMLElement)?.isContentEditable) {
             return;
         }
@@ -608,6 +620,7 @@
                 <span class="b3-chip">{t.review.reps} {current.reps} · {t.review.lapses} {current.lapses}</span>
             </span>
             <div class="fn__flex-1"></div>
+            <button class="b3-button b3-button--small" title={t.review.helpTitle} onclick={() => (helpOpen = true)}>?</button>
             <button class="b3-button b3-button--small" title={t.review.undoTitle} onclick={undoHistory}>↶</button>
             <button class="b3-button b3-button--small" title={t.review.peekPrev} onclick={togglePeek}>[{t.review.peekPrev.slice(0, 2)}]</button>
             <button class="b3-button b3-button--small" title={t.review.openInEditor} onclick={openInEditor}>{t.review.open}</button>
@@ -721,6 +734,30 @@
         </div>
     {/if}
 
+    {#if helpOpen}
+        <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+        <div class="lv-help lv-glass" tabindex="-1" transition:fade={{ duration: 160 }} onclick={(e: Event) => e.stopPropagation()}>
+            <div class="lv-help-head">
+                <span>{t.review.helpTitle}</span>
+                <div class="fn__flex-1"></div>
+                <button class="b3-button b3-button--small" onclick={() => (helpOpen = false)}>✕</button>
+            </div>
+            <div class="lv-help-body">
+                {#each [
+                    { k: "Space / Enter", d: t.review.helpFlipRate },
+                    { k: "1-4", d: t.review.helpRate },
+                    { k: "p / q / u", d: t.review.helpUndo },
+                    { k: "x / 0", d: t.review.helpSkip },
+                    { k: "s", d: t.review.helpSuspend },
+                    { k: "[", d: t.review.helpPeek },
+                    { k: "f", d: t.review.helpReschedule },
+                    { k: "e", d: t.review.helpEdit },
+                ] as row (row.k)}
+                    <div class="lv-help-row"><span class="lv-kbd2">{row.k}</span><span class="fn__flex-1">{row.d}</span></div>
+                {/each}
+            </div>
+        </div>
+    {/if}
     {#if peek}
         <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
         <div
@@ -924,6 +961,32 @@
                 font-size: 12px; color: var(--b3-theme-on-surface);
             }
             .lv-peek-body { flex: 1; overflow: auto; padding: var(--lv-sp-4); }
+        }
+
+        .lv-help {
+            position: absolute;
+            inset: var(--lv-sp-4) var(--lv-sp-5);
+            border: 1px solid var(--lv-border);
+            border-radius: var(--lv-r-l);
+            box-shadow: var(--lv-shadow-2);
+            display: flex;
+            flex-direction: column;
+            z-index: 11;
+            overflow: hidden;
+            .lv-help-head {
+                display: flex; align-items: center; gap: var(--lv-sp-2);
+                padding: var(--lv-sp-2) var(--lv-sp-4);
+                border-bottom: 1px solid var(--lv-border);
+                font-size: 12px; color: var(--b3-theme-on-surface);
+            }
+            .lv-help-body { flex: 1; overflow: auto; padding: var(--lv-sp-4); }
+            .lv-help-row {
+                display: flex; gap: var(--lv-sp-3); align-items: center;
+                padding: var(--lv-sp-2) 0;
+                border-bottom: 1px solid var(--lv-border);
+                font-size: 13px;
+                &:last-child { border-bottom: none; }
+            }
         }
     }
 </style>

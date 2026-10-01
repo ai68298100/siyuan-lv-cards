@@ -2,7 +2,7 @@
     import { onMount } from "svelte";
     import { getRiffDecks, getRiffDueCards, type RiffDeck } from "@/api/riff";
     import { getFlashcardStatistics, summarizeStatistics, type MigrationStatus } from "@/api/flashcardV2";
-    import { calcStreak, lastNDays, computeRetention, computeRetentionCurve, reviewStatsFor, type RevlogData, type RetentionResult, type CurvePoint } from "@/core/revlog";
+    import { calcStreak, lastNDays, localDate, computeRetention, computeRetentionCurve, reviewStatsFor, type RevlogData, type RetentionResult, type CurvePoint } from "@/core/revlog";
     import { openTab } from "siyuan";
     import LvPage from "./kit/LvPage.svelte";
     import LvSection from "./kit/LvSection.svelte";
@@ -56,6 +56,43 @@
     function theoryPoints(pts: CurvePoint[]): string {
         const maxD = Math.max(...pts.map(p => p.days), 1);
         return pts.map(p => `${10 + (p.days / maxD) * 290},${90 - Math.exp(-p.days / 5) * 80}`).join(" ");
+    }
+
+    /** 学习报告导出（M5·FR6 简版）：总览数据 Markdown 下载 */
+    function downloadReport() {
+        const today = new Date().toLocaleDateString();
+        const rows: string[] = [
+            `# 小驴闪卡 · 学习报告（${today}）`, "",
+            "## 总览", "",
+            `- 今日到期：${dueCount}（新 ${newCount} / 复习 ${oldCount}）`,
+            `- 今日已复习：${todayReview} / 目标 ${ctx.getDailyTargets().review}`,
+            `- 连续天数：${streak}`,
+            `- 卡片总数：${totalCards}`, "",
+            "## 复习集", "",
+        ];
+        for (const d of decks) {
+            rows.push(`- ${d.name}：${d.size} 张（更新 ${d.updated}）`);
+        }
+        if (curve.length >= 2) {
+            rows.push("", "## 保持曲线（实测）", "");
+            for (const p of curve) {
+                rows.push(`- 间隔 ${p.days} 天：${Math.round(p.rate * 100)}%（n=${p.n}）`);
+            }
+        }
+        if (aiQuality.length > 0) {
+            rows.push("", "## AI 批次质量", "");
+            for (const q of aiQuality) {
+                rows.push(`- ${q.date}：${q.cards} 张 / 复习 ${q.reviews} / ${q.rate === null ? "样本积累中" : Math.round(q.rate * 100) + "%"}`);
+            }
+        }
+        rows.push("", `> 由小驴闪卡生成 · ${new Date().toLocaleString()}`);
+        const blob = new Blob([rows.join("\n")], { type: "text/markdown" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `lv-cards-report-${localDate(Date.now())}.md`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
 
     /** 数字滚动（reduced-motion 时直接落值） */
@@ -140,6 +177,7 @@
 
 <LvPage title={t.dashboard.title} subtitle={revlogNote ? `${t.dashboard.since} ${revlogNote}` : ""} dot>
     {#snippet actions()}
+        <button class="b3-button b3-button--outline" onclick={downloadReport}>{t.dashboard.report}</button>
         <button class="b3-button b3-button--outline" onclick={() => ctx.openManager()}>{t.menuManager}</button>
         <button class="b3-button b3-button--text lv-btn-primary" onclick={() => ctx.openReview()}>{t.dashboard.openReview}</button>
         <button class="b3-button b3-button--outline" onclick={refresh}>{t.dashboard.refresh}</button>
