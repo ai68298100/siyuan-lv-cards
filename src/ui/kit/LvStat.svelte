@@ -1,7 +1,8 @@
 <script lang="ts">
+    import { onMount } from "svelte";
     import LvProgress from "./LvProgress.svelte";
 
-    let { label, value, denom = "", tone = "primary", progress = -1 }: {
+    let { label, value, denom = "", tone = "primary", progress = -1, animate = false }: {
         label: string;
         value: number | string;
         /** 分母（如目标值），空则不显示 */
@@ -10,6 +11,8 @@
         tone?: "primary" | "error" | "warn" | "neutral";
         /** 0-100，<0 不渲染进度条 */
         progress?: number;
+        /** 数字滚动动画（reduced-motion 时直落） */
+        animate?: boolean;
     } = $props();
 
     const toneColor = {
@@ -18,13 +21,38 @@
         warn: "var(--b3-theme-warning)",
         neutral: "var(--b3-theme-on-surface)",
     };
+
+    let display = $state(value);
+
+    $effect(() => {
+        if (!animate || typeof value !== "number") {
+            display = value;
+            return;
+        }
+        if (typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+            display = value;
+            return;
+        }
+        const from = 0;
+        const dur = 420;
+        const t0 = performance.now();
+        const step = (now: number) => {
+            const p = Math.min(1, (now - t0) / dur);
+            const eased = 1 - Math.pow(1 - p, 3);
+            display = Math.round(from + (value - from) * eased);
+            if (p < 1) {
+                requestAnimationFrame(step);
+            }
+        };
+        requestAnimationFrame(step);
+    });
 </script>
 
 <div class="lv-card2 lv-card2--hover lv-stat">
     <div class="lv-stat-label">
         <span class="lv-stat-dot" style={`background:${toneColor[tone]}`}></span>{label}
     </div>
-    <div class="lv-hero-num">{value}{#if denom}<span class="lv-stat-denom">/ {denom}</span>{/if}</div>
+    <div class="lv-hero-num">{display}{#if denom}<span class="lv-stat-denom">/ {denom}</span>{/if}</div>
     {#if progress >= 0}
         <div class="lv-stat-progress"><LvProgress value={progress} /></div>
     {/if}
