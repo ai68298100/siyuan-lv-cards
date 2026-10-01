@@ -8,6 +8,7 @@
     import LvStat from "./kit/LvStat.svelte";
     import LvHeatmap from "./kit/LvHeatmap.svelte";
     import LvChip from "./kit/LvChip.svelte";
+    import LvEmpty from "./kit/LvEmpty.svelte";
 
     export interface DashboardCtx {
         i18n: any;
@@ -16,6 +17,7 @@
         getDailyTargets: () => { new: number; review: number };
         openReview: () => void;
         openManager: () => void;
+        openOnboarding: () => void;
     }
 
     let { ctx }: { ctx: DashboardCtx } = $props();
@@ -125,6 +127,10 @@
     {:else}
         {#if errorMsg}
             <div class="lv-card2 lv-hint lv-error">{errorMsg}</div>
+        {/if}
+
+        {#if totalCards === 0}
+            <LvEmpty text={t.dashboard.onboardingHint} actionLabel={t.dashboard.onboardingStart} onaction={ctx.openOnboarding} />
         {/if}
 
         <div class="fn__flex fn__flex-wrap lv-cards">

@@ -64,7 +64,9 @@
         "forecast": "Future Load",
         "forecastTbd": "30-day due forecast arrives in v1.0 (official statistics once V2 is active).",
         "v2Active": "Kernel Flashcard V2 detected: official statistics API available; the plugin will migrate to V2 data sources.",
-        "loading": "Loading…"
+        "loading": "Loading…",
+        "onboardingHint": "Get started in 5 minutes: create your first review cards in three steps",
+        "onboardingStart": "Start guide"
     },
     "review": {
         "done": "Session complete!",
@@ -96,7 +98,11 @@
         "easy": "Easy",
         "scopeAll": "All scopes",
         "scopeNotebooks": "Notebooks",
-        "scopeTitle": "Choose review scope"
+        "scopeTitle": "Choose review scope",
+        "undoDone": "Undone — rate again",
+        "undoNone": "Nothing to undo",
+        "undoTitle": "Undo last (p/q)",
+        "undoLast": "Undo last rating"
     },
     "manager": {
         "title": "Card Manager",
@@ -142,5 +148,38 @@
         "suspendedRestore": "Restore all"
     },
     "hubTabOverview": "Overview",
-    "hubTabManage": "Manage"
+    "hubTabManage": "Manage",
+    "menuAddToDeck": "Add to deck",
+    "menuRemoveFromDeck": "Remove from deck",
+    "menuQuickCard": "Quick card",
+    "deckPickerTitle": "Choose deck",
+    "deckNewName": "New deck name (blank = use selection above)",
+    "deckConfirm": "OK",
+    "deckAdded": "${n} card(s) added to deck",
+    "deckRemoved": "${n} card(s) removed",
+    "deckNotCard": "This block is not a flashcard",
+    "cmdQuickCard": "Quick card",
+    "quickCardTitle": "Quick card",
+    "quickCardQ": "Question",
+    "quickCardA": "Answer",
+    "quickCardCreate": "Create",
+    "quickCardNeedDeck": "Pick or create a deck first",
+    "quickCardDone": "Card created and added",
+    "quickCardFail": "Card creation failed, please retry",
+    "onboardingTitle": "Get started with Lv Cards",
+    "onboardingStep": "Step",
+    "onboardingSkip": "Skip",
+    "onboardingPersonaHint": "Pick a persona — modules & parameters configured in one click (changeable in settings)",
+    "onboardingSampleTitle": "Create two sample cards",
+    "onboardingSampleHint": "Written to the 'Lv Cards/Samples' doc and added to a sample deck",
+    "onboardingNotebook": "Notebook",
+    "onboardingBack": "Back",
+    "onboardingCreate": "Create samples",
+    "onboardingDoneTitle": "All set!",
+    "onboardingDoneDesc": "Sample cards are ready. Tip: clear due reviews daily before learning new cards.",
+    "onboardingFinish": "Finish & review",
+    "onboardingNoNotebook": "No open notebook — please create one first",
+    "onboardingDeckName": "Sample deck",
+    "onboardingSample1": "What is spaced repetition? — ==A learning method that schedules reviews along the memory curve==",
+    "onboardingSample2": "Which scheduler does Lv Cards use? ==FSRS, native in the SiYuan kernel=="
 }

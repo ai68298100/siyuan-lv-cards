@@ -53,6 +53,17 @@
     let sessionSkipped: string[] = []; // 本场跳过排除集（AJ9：跳过的卡不再被下一批拉回）
     let lastAnswered: { html: string; card: RiffDueCard } | null = null; // 回看数据源（AJ2：不再自动打开）
 
+    // 撤销历史栈（M3·FR7，ZY 技法：快照恢复 + 内核重评时按官方缓存恢复原状态）
+    interface HistorySnapshot {
+        queue: RiffDueCard[];
+        reviewedIDs: string[];
+        current: RiffDueCard;
+        showAnswer: boolean;
+        cardHtml: string;
+        counters: { new: number; review: number; forget: number; skip: number };
+    }
+    let history: HistorySnapshot[] = [];
+
     // 回看上一张（M3·FR6）
     let peek = $state<{ html: string; card: RiffDueCard } | null>(null);
     // 超时倒计时（M3·FR8）
@@ -166,11 +177,47 @@
 
     // —— 评分 / 跳过 / 屏蔽 ——
 
+    function pushHistory() {
+        history.push({
+            queue: [...queue],
+            reviewedIDs: [...reviewedIDs],
+            current: current!,
+            showAnswer,
+            cardHtml,
+            counters: { new: sessionNew, review: sessionReview, forget: sessionForget, skip: sessionSkip },
+        });
+        if (history.length > 50) {
+            history.shift();
+        }
+    }
+
+    function undoHistory() {
+        const snap = history.pop();
+        if (!snap) {
+            showMessage(t.review.undoNone, 1800, "info");
+            return;
+        }
+        errorMsg = "";
+        sessionDone = false;
+        queue = snap.queue;
+        reviewedIDs = snap.reviewedIDs;
+        current = snap.current;
+        showAnswer = false;
+        cardHtml = snap.cardHtml;
+        sessionNew = snap.counters.new;
+        sessionReview = snap.counters.review;
+        sessionForget = snap.counters.forget;
+        sessionSkip = snap.counters.skip;
+        restartTimeout();
+        showMessage(t.review.undoDone, 1500, "info");
+    }
+
     async function rate(rating: Rating, force = false) {
         if (!current || (!showAnswer && !force) || submitting) {
             return;
         }
         submitting = true;
+        pushHistory();
         try {
             const wasNew = isCardNew(ctx.getRevlog(), current.cardID);
             await reviewRiffCard(current.deckID, current.cardID, rating, reviewedIDs);
@@ -197,6 +244,7 @@
             return;
         }
         submitting = true;
+        pushHistory();
         try {
             await skipReviewRiffCard(current.deckID, current.cardID);
             sessionSkip += 1;
@@ -282,6 +330,7 @@
             if (["1", "2", "3", "4"].includes(e.key)) { rate(Number(e.key) as Rating); }
         }
         if (e.key === "x" || e.key === "0") { skip(); }
+        if (e.key === "p" || e.key === "q") { undoHistory(); }
         if (e.key === "s") { suspendToday(); }
     }
 
@@ -331,6 +380,7 @@
             </div>
             <div class="fn__flex lv-done-actions lv-anim-rise" style="animation-delay: 120ms">
                 <button class="b3-button b3-button--text" onclick={loadQueue}>{t.review.again}</button>
+                <button class="b3-button b3-button--outline" onclick={undoHistory}>{t.review.undoLast}</button>
                 <button class="b3-button b3-button--outline" onclick={ctx.openDashboard}>{t.review.viewStats}</button>
             </div>
         </div>
@@ -362,6 +412,7 @@
                 <span class="b3-chip">{t.review.reps} {current.reps} · {t.review.lapses} {current.lapses}</span>
             </span>
             <div class="fn__flex-1"></div>
+            <button class="b3-button b3-button--small" title={t.review.undoTitle} onclick={undoHistory}>↶</button>
             <button class="b3-button b3-button--small" title={t.review.peekPrev} onclick={togglePeek}>[{t.review.peekPrev.slice(0, 2)}]</button>
             <button class="b3-button b3-button--small" title={t.review.openInEditor} onclick={openInEditor}>{t.review.open}</button>
             <button class="b3-button b3-button--small" title={t.review.suspendToday} onclick={suspendToday}>✕</button>

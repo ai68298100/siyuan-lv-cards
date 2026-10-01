@@ -64,7 +64,9 @@
         "forecast": "未来负荷",
         "forecastTbd": "未来 30 天到期分布将于 v1.0 提供（V2 激活后接官方统计）。",
         "v2Active": "检测到内核闪卡 V2：官方统计 API 可用，插件将逐步切换 V2 数据源。",
-        "loading": "加载中…"
+        "loading": "加载中…",
+        "onboardingHint": "五分钟上手：三步创建你的第一组复习卡",
+        "onboardingStart": "开始引导"
     },
     "review": {
         "done": "本场完成！",
@@ -96,7 +98,11 @@
         "easy": "简单",
         "scopeAll": "全部范围",
         "scopeNotebooks": "笔记本",
-        "scopeTitle": "选择复习范围"
+        "scopeTitle": "选择复习范围",
+        "undoDone": "已撤销，请重新评分",
+        "undoNone": "没有可撤销的步骤",
+        "undoTitle": "撤销上一步 (p/q)",
+        "undoLast": "撤销最后一评"
     },
     "manager": {
         "title": "闪卡管理器",
@@ -142,5 +148,38 @@
         "suspendedRestore": "恢复全部"
     },
     "hubTabOverview": "总览",
-    "hubTabManage": "管理"
+    "hubTabManage": "管理",
+    "menuAddToDeck": "添加到卡组",
+    "menuRemoveFromDeck": "从卡组移除",
+    "menuQuickCard": "快速制卡",
+    "deckPickerTitle": "选择卡组",
+    "deckNewName": "新建卡组名称（留空则用上方选择）",
+    "deckConfirm": "确定",
+    "deckAdded": "已将 ${n} 张加入卡组",
+    "deckRemoved": "已从卡组移除 ${n} 张",
+    "deckNotCard": "该块不是闪卡",
+    "cmdQuickCard": "快速制卡",
+    "quickCardTitle": "快速制卡",
+    "quickCardQ": "问题",
+    "quickCardA": "答案",
+    "quickCardCreate": "制卡",
+    "quickCardNeedDeck": "请选择或新建卡组",
+    "quickCardDone": "已制卡并加入卡组",
+    "quickCardFail": "制卡失败，请重试",
+    "onboardingTitle": "开始使用小驴闪卡",
+    "onboardingStep": "步骤",
+    "onboardingSkip": "跳过",
+    "onboardingPersonaHint": "选一个画像，一键配好模块与参数（设置里可随时改）",
+    "onboardingSampleTitle": "创建两张示例卡",
+    "onboardingSampleHint": "写入「小驴闪卡/示例卡」文档并加入示例卡组",
+    "onboardingNotebook": "笔记本",
+    "onboardingBack": "上一步",
+    "onboardingCreate": "创建示例卡",
+    "onboardingDoneTitle": "准备完成！",
+    "onboardingDoneDesc": "示例卡已就绪。建议每天先清空到期卡，再学少量新卡。",
+    "onboardingFinish": "完成并开始复习",
+    "onboardingNoNotebook": "没有已打开的笔记本，请先创建一个",
+    "onboardingDeckName": "示例卡组",
+    "onboardingSample1": "间隔重复（SRS）是什么？——==按记忆规律安排复习时点的学习方法==",
+    "onboardingSample2": "小驴闪卡用的调度算法是？==FSRS（思源内核原生）=="
 }

@@ -5,16 +5,21 @@ import { Plugin, Menu, showMessage } from "siyuan";
 
 import { svelteDialog } from "./libs/dialog";
 import { defaultSettings, normalizeSettings, type LvCardsSettings } from "./core/settings";
+import { PERSONA_PRESETS } from "./core/personas";
 import {
     appendRevlog, emptyRevlog, localDate, normalizeRevlog, recalcDays,
     type RevlogData, type RevlogEntry,
 } from "./core/revlog";
 import { detectFlashcardV2, type MigrationStatus } from "./api/flashcardV2";
-import { getDueCount } from "./api/riff";
+import { addRiffCards, createRiffDeck, getDueCount, getRiffCardsByBlockIDs, removeRiffCards } from "./api/riff";
+import { appendBlock, createDocWithMd, getNotebooks } from "./api/siyuan";
 import { normalizeSuspendToday, rollDateIfNeeded, isSuspended, suspend, type SuspendTodayData } from "./core/suspend-today";
 import Review from "./ui/review.svelte";
 import Hub from "./ui/hub.svelte";
 import SettingsPanel from "./ui/settings.svelte";
+import DeckPicker from "./ui/deck-picker.svelte";
+import QuickCard from "./ui/quick-card.svelte";
+import Onboarding from "./ui/onboarding.svelte";
 
 const TAB_DASHBOARD = "lv-cards-dashboard";
 const TAB_REVIEW = "lv-cards-review";
@@ -60,6 +65,8 @@ export default class LvCardsPlugin extends Plugin {
 
         // 原生复习界面的评分事件 → 本地 revlog（宽容解析，事件结构变化不致崩）
         this.eventBus.on("click-flashcard-action", this.onNativeCardAction);
+        // 块图标菜单 → 制卡入口（M2·FR1）
+        this.eventBus.on("click-blockicon", this.onBlockIcon);
 
         const plugin = this;
         this.addTab({
@@ -81,6 +88,7 @@ export default class LvCardsPlugin extends Plugin {
                                 review: plugin.settings.dailyReviewTarget,
                             }),
                             openReview: () => plugin.openTabOf(TAB_REVIEW),
+                            openOnboarding: () => plugin.openOnboarding(),
                         },
                         managerCtx: { i18n: plugin.i18n, app: plugin.app },
                     },
@@ -135,6 +143,12 @@ export default class LvCardsPlugin extends Plugin {
             hotkey: "",
             callback: () => this.openTabOf(TAB_REVIEW),
         });
+        this.addCommand({
+            langKey: "quickCard",
+            langText: this.i18n.cmdQuickCard,
+            hotkey: "",
+            callback: () => this.openQuickCard(),
+        });
 
         // 入口矩阵（docs/12 §1.1）：左键 = 有到期开复习、无到期开中心；右键 = 菜单
         this.topBarElement = this.addTopBar({
@@ -164,6 +178,7 @@ export default class LvCardsPlugin extends Plugin {
 
     onunload() {
         this.eventBus.off("click-flashcard-action", this.onNativeCardAction);
+        this.eventBus.off("click-blockicon", this.onBlockIcon);
         this.flushRevlogSave();
         if (this.badgeTimer) {
             clearInterval(this.badgeTimer);
@@ -200,8 +215,145 @@ export default class LvCardsPlugin extends Plugin {
         badge.title = this.i18n.badgeDue.replace("${n}", String(count));
     }
 
-    private onNativeCardAction = (event: CustomEvent) => {
+    /** 块图标菜单：制卡入口（M2·FR1）。菜单构建必须同步，耗时操作放 click 回调 */
+    private onBlockIcon = ({ detail }: any) => {
         try {
+            const els: HTMLElement[] = detail?.blockElements ?? [];
+            const blockIDs: string[] = els
+                .map((el: HTMLElement) => el.getAttribute("data-node-id") || el.dataset?.nodeId || "")
+                .filter(Boolean);
+            if (blockIDs.length === 0 || !detail?.menu) {
+                return;
+            }
+            detail.menu.addItem({
+                icon: "iconLvCards",
+                label: this.i18n.menuAddToDeck + (blockIDs.length > 1 ? ` ×${blockIDs.length}` : ""),
+                click: () => this.openDeckPicker(blockIDs),
+            });
+            detail.menu.addItem({
+                icon: "iconLvCards",
+                label: this.i18n.menuRemoveFromDeck,
+                click: () => this.removeCardsFromDeck(blockIDs),
+            });
+        } catch {
+            // 菜单旁路，绝不影响编辑器
+        }
+    };
+
+    private openDeckPicker(blockIDs: string[]) {
+        svelteDialog({
+            title: this.i18n.deckPickerTitle,
+            component: DeckPicker,
+            width: "420px",
+            props: {
+                newNamePlaceholder: this.i18n.deckNewName,
+                confirmLabel: this.i18n.deckConfirm,
+                onConfirm: async (deckID: string) => {
+                    await addRiffCards(deckID, blockIDs);
+                    showMessage(this.i18n.deckAdded.replace("${n}", String(blockIDs.length)), 2000, "info");
+                },
+                onClose: () => { /* svelteDialog 自理销毁 */ },
+            },
+        });
+    }
+
+    private async removeCardsFromDeck(blockIDs: string[]) {
+        try {
+            const { blocks } = await getRiffCardsByBlockIDs(blockIDs);
+            const ids = (blocks ?? []).map(b => b.id).filter(Boolean);
+            if (ids.length === 0) {
+                showMessage(this.i18n.deckNotCard, 2000, "info");
+                return;
+            }
+            // 🧪 deckID 传空的跨集删除语义待 docs/18 实测确认
+            await removeRiffCards("", ids);
+            showMessage(this.i18n.deckRemoved.replace("${n}", String(ids.length)), 2000, "info");
+        } catch (e: any) {
+            showMessage(e?.message ?? String(e), 3000, "error");
+        }
+    }
+
+    private openQuickCard() {
+        svelteDialog({
+            title: this.i18n.quickCardTitle,
+            component: QuickCard,
+            width: "520px",
+            props: {
+                i18n: this.i18n,
+                onCreate: async (markdown: string, deckID: string) => {
+                    const notebooks = await getNotebooks();
+                    if (notebooks.length === 0) {
+                        throw new Error(this.i18n.onboardingNoNotebook);
+                    }
+                    // 同路径重复创建复用既有文档（内核语义），返回其文档 ID
+                    const docID = await createDocWithMd(notebooks[0].id, "小驴闪卡/快速制卡", "");
+                    if (!docID) {
+                        throw new Error(this.i18n.quickCardFail);
+                    }
+                    const ids = await appendBlock("markdown", markdown, docID);
+                    if (ids.length === 0) {
+                        throw new Error(this.i18n.quickCardFail);
+                    }
+                    await addRiffCards(deckID, ids.slice(0, 1));
+                    showMessage(this.i18n.quickCardDone, 2000, "info");
+                },
+                onClose: () => { /* svelteDialog 自理销毁 */ },
+            },
+        });
+    }
+
+    private openOnboarding() {
+        svelteDialog({
+            title: this.i18n.onboardingTitle,
+            component: Onboarding,
+            width: "560px",
+            props: {
+                i18n: this.i18n,
+                applyPersona: (id: "exam" | "notes" | "language") => {
+                    const preset = PERSONA_PRESETS.find(p => p.id === id);
+                    if (!preset) {
+                        return;
+                    }
+                    this.settings = {
+                        ...this.settings,
+                        modules: { ...this.settings.modules, ...preset.modules },
+                        ...preset.params,
+                        persona: id,
+                    };
+                    this.saveData(SETTINGS_DATA, this.settings).catch(() => { /* 旁路 */ });
+                },
+                createSampleCards: (nbId: string) => this.createSampleCards(nbId),
+                openReview: () => this.openTabOf(TAB_REVIEW),
+                onClose: () => { /* svelteDialog 自理销毁 */ },
+            },
+        });
+    }
+
+    private sampleBusy = false;
+    private async createSampleCards(nbId: string) {
+        if (this.sampleBusy) {
+            return;
+        }
+        this.sampleBusy = true;
+        try {
+            const deck = await createRiffDeck(this.i18n.onboardingDeckName);
+            const docID = await createDocWithMd(nbId, "小驴闪卡/示例卡", "");
+            if (!docID) {
+                throw new Error(this.i18n.quickCardFail);
+            }
+            const ids1 = await appendBlock("markdown", this.i18n.onboardingSample1, docID);
+            const ids2 = await appendBlock("markdown", this.i18n.onboardingSample2, docID);
+            const ids = [...ids1, ...ids2].slice(0, 2);
+            if (ids.length === 0) {
+                throw new Error(this.i18n.quickCardFail);
+            }
+            await addRiffCards(deck.id, ids);
+        } finally {
+            this.sampleBusy = false;
+        }
+    }
+
+    private onNativeCardAction = (event: CustomEvent) => {        try {
             const detail: any = event?.detail ?? {};
             const cardID: string = detail?.cardID ?? detail?.id ?? "";
             if (!cardID) {
@@ -268,6 +420,11 @@ export default class LvCardsPlugin extends Plugin {
             menu.addItem({ icon: "iconLvCards", label: this.i18n.menuManager, click: () => this.openTabOf(TAB_DASHBOARD, { tab: "manage" }) });
         }
         menu.addSeparator();
+        menu.addItem({
+            icon: "iconLvCards",
+            label: this.i18n.menuQuickCard,
+            click: () => this.openQuickCard(),
+        });
         menu.addItem({
             label: this.i18n.menuSettings,
             icon: "iconSettings",
