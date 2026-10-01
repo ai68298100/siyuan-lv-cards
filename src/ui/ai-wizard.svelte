@@ -6,7 +6,7 @@
     import LvRow from "./kit/LvRow.svelte";
     import LvChip from "./kit/LvChip.svelte";
 
-    let { i18n, initialSource = "", loadCurrentDoc, generate, onCreate, onClose }: {
+    let { i18n, initialSource = "", loadCurrentDoc, loadNotebookMaterial, generate, onCreate, onClose }: {
         i18n: any;
         /** 预填材料（leech 改写联动） */
         initialSource?: string;
@@ -16,6 +16,8 @@
         onClose: () => void;
         /** 载入当前打开文档（M2·FR6 输入源扩展；不可用时返回 null） */
         loadCurrentDoc?: () => Promise<{ name: string; content: string } | null>;
+        /** 载入笔记本范围材料（M2·FR6 扩展） */
+        loadNotebookMaterial?: (nbId: string) => Promise<string>;
     } = $props();
     const t = $derived(i18n);
 
@@ -34,6 +36,31 @@
     let errorMsg = $state("");
 
     let loadDocBusy = $state(false);
+
+    // 笔记本范围源（M2·FR6 扩展）
+    let nbOptions = $state<{ id: string; name: string }[]>([]);
+    let nbId = $state("");
+
+    async function loadNotebookContent() {
+        if (loadDocBusy || !loadNotebookMaterial || !nbId) {
+            errorMsg = t.aiWizard.noNotebook;
+            return;
+        }
+        loadDocBusy = true;
+        try {
+            const material = await loadNotebookMaterial(nbId);
+            if (material) {
+                source = source ? `${source}\n\n${material}` : material;
+                errorMsg = "";
+            } else {
+                errorMsg = t.aiWizard.noDoc;
+            }
+        } catch (e: any) {
+            errorMsg = e?.message ?? String(e);
+        } finally {
+            loadDocBusy = false;
+        }
+    }
 
     async function loadActiveDoc() {
         if (loadDocBusy || !loadCurrentDoc) {
@@ -143,10 +170,14 @@
                     {#if loadCurrentDoc}
                         <button class="b3-button b3-button--small" onclick={loadActiveDoc}>{t.aiWizard.loadDoc}</button>
                     {/if}
+                    {#if loadNotebookMaterial}
+                        <button class="b3-button b3-button--small" onclick={loadNotebookContent}>{t.aiWizard.loadNotebook}</button>
+                        <select class="b3-select" bind:value={nbId} style="max-width: 160px">
+                            {#each nbOptions as n (n.id)}<option value={n.id}>{n.name}</option>{/each}
+                        </select>
+                    {/if}
                     <button class="b3-button b3-button--small" onclick={loadSelection}>{t.aiWizard.loadSelection}</button>
                 </div>
-                <textarea class="b3-text-field fn__block" rows="8" bind:value={source}
-                    placeholder={t.aiWizard.sourcePlaceholder}></textarea>
                 {#if source}
                     <div class="ft__smaller ft__on-surface" style="margin-top: 4px">≈ {Math.ceil(source.length / 4)} tokens</div>
                 {/if}

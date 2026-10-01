@@ -62,3 +62,18 @@ export const exportMdContent = async (id: string): Promise<{ hPath: string; cont
     const d = resp.data ?? {};
     return { hPath: String(d.hPath ?? ""), content: String(d.content ?? "") };
 };
+
+/** SQL 查询（只读；AI 向导笔记本范围源用） */
+export const sqlQuery = async (stmt: string): Promise<Record<string, unknown>[]> => {
+    const resp = await fetchSyncPost("/api/query/sql", { stmt });
+    if (!resp || resp.code !== 0) {
+        throw new Error(resp?.msg || `kernel error (code=${resp?.code ?? "unknown"})`);
+    }
+    return (resp.data ?? []) as Record<string, unknown>[];
+};
+
+/** 思源内核版本号（自诊断用） */
+export const kernelVersion = async (): Promise<string> => {
+    const resp = await fetchSyncPost("/api/system/version", {});
+    return String(resp?.data ?? "?");
+};

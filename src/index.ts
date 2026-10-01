@@ -12,7 +12,7 @@ import {
 } from "./core/revlog";
 import { detectFlashcardV2, type MigrationStatus } from "./api/flashcardV2";
 import { addRiffCards, createRiffDeck, getDueCount, getRiffCardsByBlockIDs, removeRiffCards } from "./api/riff";
-import { appendBlock, createDocWithMd, getNotebooks, exportMdContent } from "./api/siyuan";
+import { appendBlock, createDocWithMd, getNotebooks, exportMdContent, sqlQuery, kernelVersion } from "./api/siyuan";
 import { aiChat, estimateTokens, parseCards } from "./api/ai";
 import { normalizeSuspendToday, rollDateIfNeeded, isSuspended, suspend, type SuspendTodayData } from "./core/suspend-today";
 import { normalizeSessionState, type SessionState } from "./core/session-state";
@@ -535,10 +535,15 @@ export default class LvCardsPlugin extends Plugin {
     }
 
     /** 自诊断（AD）：脱敏环境信息复制到剪贴板，供 issue 附带 */
-    private copyDiagnostics() {
+    private async copyDiagnostics() {
+        let kv = "?";
+        try {
+            kv = await kernelVersion();
+        } catch { /* 旁路 */ }
         const text = [
             "Lv Cards diagnostics",
-            "plugin version: 0.14.0",
+            "plugin version: 0.26.0",
+            "siyuan/kernel: " + kv,
             "V2 state: " + (this.flashcardV2 ? this.flashcardV2.state : "N/A (<3.9.0)"),
             "modules on: " + Object.entries(this.settings.modules).filter(([, v]) => v).map(([k]) => k).join(", "),
             "revlog entries: " + this.revlog.entries.length,
@@ -666,6 +671,15 @@ export default class LvCardsPlugin extends Plugin {
         return { name: md.hPath, content: md.content };
     }
 
+    /** 笔记本范围材料（M2·FR6 扩展，AI 向导用）：聚合最近 200 个文本块 */
+    private async loadNotebookMaterial(nbId: string): Promise<string> {
+        const safe = nbId.replace(/'/g, "''");
+        const rows = await sqlQuery(
+            "SELECT markdown FROM blocks WHERE root_id IN (SELECT id FROM blocks WHERE box='" + safe + "' AND type IN ('p','h','c','t')) AND markdown != '' ORDER BY created DESC LIMIT 200"
+        );
+        return rows.map(r => String(r.markdown ?? "")).filter(Boolean).join("\n\n");
+    }
+
     private async openOnboarding() {
         const Onboarding = await loadOnboarding();
         svelteDialog({
@@ -751,6 +765,7 @@ export default class LvCardsPlugin extends Plugin {
                 i18n: this.i18n,
                 initialSource,
                 loadCurrentDoc: () => this.loadCurrentDoc(),
+                loadNotebookMaterial: (nbId: string) => this.loadNotebookMaterial(nbId),
                 generate: async (source: string, cfg: { count: number; language: string; type: "qa" | "cloze" }) => {
                     const system = this.i18n.aiSystemPrompt;
                     const user = this.i18n.aiUserPrompt
