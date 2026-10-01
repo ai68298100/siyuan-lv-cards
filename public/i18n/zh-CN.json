@@ -124,7 +124,10 @@
         "helpEdit": "编辑原块",
         "scopeNew": "仅新卡",
         "scopeOld": "仅旧卡",
-        "refreshCard": "刷新卡面"
+        "refreshCard": "刷新卡面",
+        "rescheduleIn": "改期至",
+        "rescheduleDays": "天后",
+        "rescheduled": "已改期至 ${n} 天后"
     },
     "manager": {
         "title": "闪卡管理器",
@@ -222,15 +225,16 @@
         "quietStart": "免打扰开始",
         "quietEnd": "免打扰结束",
         "ttsVoice": "朗读语音",
-        "ttsVoiceHint": "留空使用系统默认",
+        "ttsVoiceHint": "",
         "ttsVoiceDefault": "系统默认",
         "restoreDefaults": "恢复全部默认设置",
         "batchLimit": "每批拉取数量（0=跟随内核）",
         "batchLimitHint": "自己控制节奏时设为 5-20",
         "importCsv": "导入 CSV（复习日志）",
-        "dictationEnabled": "听写模式",
-        "sfxEnabled": "评分音效",
-        "exportSettings": "导出设置（JSON）"
+        "dictationEnabled": "听写模式（自动朗读答案，输入听写；需开启打字模式+TTS）",
+        "sfxEnabled": "评分音效（Web Audio 合成）",
+        "exportSettings": "导出设置（JSON）",
+        "ttsVoiceDefaultPlaceholder": ""
     },
     "hubTabOverview": "总览",
     "hubTabManage": "管理",

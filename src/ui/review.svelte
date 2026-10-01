@@ -4,6 +4,7 @@
     import { fetchSyncPost, openTab, showMessage } from "siyuan";
     import {
         getRiffDueCards, getRiffDecks, getNotebookRiffDueCards, getTreeRiffDueCards, reviewRiffCard, skipReviewRiffCard,
+        batchSetRiffCardsDueTime,
         type RiffDueCard, type RiffDeck, type Rating,
     } from "@/api/riff";
     import { getNotebooks, getBlockAttrs, type Notebook } from "@/api/siyuan";
@@ -104,6 +105,8 @@
     let audioCtx: AudioContext | null = null;
     // 快捷键帮助覆盖层（AB 组）
     let helpOpen = $state(false);
+    let showReschedule = $state(false);
+    let rescheduleDays = $state(1);
     // 图片遮挡（M4·FR4 riff 先行）：数据来自块属性 lv-occlusion，坐标相对图片包围盒
     let cardEl: HTMLDivElement | null = $state(null);
     let occl = $state<OcclusionData | null>(null);
@@ -529,6 +532,22 @@
         openTab({ app: ctx.app, doc: { id: current.blockID, zoomIn: true } });
     }
 
+    /** 快速改期（M3·FR5，f 键/按钮）：N 天后到期 */
+    async function reschedule() {
+        if (!current || submitting || rescheduleDays < 1) return;
+        const d = new Date(Date.now() + rescheduleDays * 86400000);
+        const due = "" + d.getFullYear() + String(d.getMonth() + 1).padStart(2, "0") + String(d.getDate()).padStart(2, "0") +
+            String(d.getHours()).padStart(2, "0") + String(d.getMinutes()).padStart(2, "0") + String(d.getSeconds()).padStart(2, "0");
+        try {
+            await batchSetRiffCardsDueTime([{ id: current.cardID, due }]);
+            showMessage(t.review.rescheduled.replace("${n}", String(rescheduleDays)), 2000, "info");
+            showReschedule = false;
+            await next();
+        } catch (e: any) {
+            errorMsg = e?.message ?? String(e);
+        }
+    }
+
     /** 刷新当前卡内容（编辑返回后手动/自动触发） */
     async function refreshCard() {
         if (!current) return;
@@ -593,6 +612,7 @@
         }
         if (e.key === "x" || e.key === "0") { skip(); }
         if (e.key === "p" || e.key === "q") { undoHistory(); }
+        if (e.key === "f") { showReschedule = !showReschedule; return; }
         if (e.key === "s") { suspendToday(); }
     }
 
@@ -758,6 +778,14 @@
                 </svg>
             {/if}
             {#if !showAnswer}
+                {#if showReschedule}
+                    <div class="lv-reschedule" style="display:flex;gap:var(--lv-sp-2);align-items:center;margin:var(--lv-sp-2) 0">
+                        <span class="ft__smaller ft__on-surface">{t.review.rescheduleIn}</span>
+                        <input class="b3-text-field" style="width:60px" type="number" min="1" bind:value={rescheduleDays} />
+                        <span class="ft__smaller ft__on-surface">{t.review.rescheduleDays}</span>
+                        <button class="b3-button b3-button--text" onclick={reschedule}>{window.siyuan.languages.confirm}</button>
+                    </div>
+                {/if}
                 {#if ctx.settings().typingEnabled}
                     <div class="lv-typing">
                         <input

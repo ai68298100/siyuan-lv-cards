@@ -124,7 +124,10 @@
         "helpEdit": "Edit source",
         "scopeNew": "New only",
         "scopeOld": "Review only",
-        "refreshCard": "Refresh card"
+        "refreshCard": "Refresh card",
+        "rescheduleIn": "Reschedule in",
+        "rescheduleDays": "days",
+        "rescheduled": "Rescheduled to ${n} days later"
     },
     "manager": {
         "title": "Card Manager",
@@ -222,15 +225,16 @@
         "quietStart": "Quiet start",
         "quietEnd": "Quiet end",
         "ttsVoice": "TTS voice",
-        "ttsVoiceHint": "Blank = system default",
+        "ttsVoiceHint": "",
         "ttsVoiceDefault": "System default",
         "restoreDefaults": "Restore all defaults",
         "batchLimit": "Per-batch fetch size (0 = kernel default)",
         "batchLimitHint": "Set 5-20 to pace yourself",
         "importCsv": "Import CSV (review log)",
-        "dictationEnabled": "Dictation mode",
-        "sfxEnabled": "Rating SFX",
-        "exportSettings": "Export settings (JSON)"
+        "dictationEnabled": "Dictation mode (auto-speak answer, type what you hear; requires typing mode + TTS)",
+        "sfxEnabled": "Rating SFX (Web Audio)",
+        "exportSettings": "Export settings (JSON)",
+        "ttsVoiceDefaultPlaceholder": ""
     },
     "hubTabOverview": "Overview",
     "hubTabManage": "Manage",
