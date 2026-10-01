@@ -13,6 +13,7 @@ import {
 import { detectFlashcardV2, type MigrationStatus } from "./api/flashcardV2";
 import { addRiffCards, createRiffDeck, getDueCount, getRiffCardsByBlockIDs, removeRiffCards } from "./api/riff";
 import { appendBlock, createDocWithMd, getNotebooks } from "./api/siyuan";
+import { aiChat, estimateTokens, parseCards } from "./api/ai";
 import { normalizeSuspendToday, rollDateIfNeeded, isSuspended, suspend, type SuspendTodayData } from "./core/suspend-today";
 import { normalizeExamPlans, type ExamPlan, type ExamPlansData } from "./core/exam";
 import Review from "./ui/review.svelte";
@@ -21,6 +22,7 @@ import SettingsPanel from "./ui/settings.svelte";
 import DeckPicker from "./ui/deck-picker.svelte";
 import QuickCard from "./ui/quick-card.svelte";
 import Onboarding from "./ui/onboarding.svelte";
+import AIWizard from "./ui/ai-wizard.svelte";
 
 const TAB_DASHBOARD = "lv-cards-dashboard";
 const TAB_REVIEW = "lv-cards-review";
@@ -28,6 +30,7 @@ const SETTINGS_DATA = "settings.json";
 const REVLOG_DATA = "revlog.json";
 const SUSPEND_TODAY_DATA = "suspend-today.json";
 const EXAM_PLANS_DATA = "exam-plans.json";
+const AI_BATCHES_DATA = "ai-batches.json";
 
 export default class LvCardsPlugin extends Plugin {
 
@@ -40,6 +43,7 @@ export default class LvCardsPlugin extends Plugin {
     private badgeTimer: ReturnType<typeof setInterval> | null = null;
     private suspendToday: SuspendTodayData = { date: "", cardIDs: [] };
     private examPlans: ExamPlansData = { version: 1, plans: [] };
+    private aiBatches: { version: 1; batches: { id: string; date: string; deckID: string; blockIDs: string[] }[] } = { version: 1, batches: [] };
     /** 最近一次到期数（角标点击行为统一用：>0 开复习，否则开中心） */
     private lastDue = 0;
 
@@ -55,12 +59,17 @@ export default class LvCardsPlugin extends Plugin {
             this.loadData(REVLOG_DATA),
             this.loadData(SUSPEND_TODAY_DATA),
             this.loadData(EXAM_PLANS_DATA),
+            this.loadData(AI_BATCHES_DATA),
         ]);
         this.settings = normalizeSettings(loadedSettings);
         this.revlog = normalizeRevlog(loadedRevlog);
         recalcDays(this.revlog); // AJ1 迁移：由明细重建每日聚合（幂等）
         this.suspendToday = normalizeSuspendToday(loadedSuspend);
         this.examPlans = normalizeExamPlans(loadedExam);
+        const loadedBatches = await this.loadData(AI_BATCHES_DATA);
+        if (loadedBatches && typeof loadedBatches === "object" && Array.isArray((loadedBatches as any).batches)) {
+            this.aiBatches = loadedBatches;
+        }
         if (rollDateIfNeeded(this.suspendToday)) {
             await this.saveData(SUSPEND_TODAY_DATA, this.suspendToday);
         }
@@ -427,6 +436,78 @@ export default class LvCardsPlugin extends Plugin {
         this.openTabOf(TAB_REVIEW, { scope, cram });
     }
 
+    /** AI 制卡向导（M2·FR6-10）：生成回调 + 批次记录落库 */
+    private openAIWizard() {
+        svelteDialog({
+            title: this.i18n.aiWizardTitle,
+            component: AIWizard,
+            width: "680px",
+            props: {
+                i18n: this.i18n,
+                generate: async (source: string, cfg: { count: number; language: string; type: "qa" | "cloze" }) => {
+                    const system = this.i18n.aiSystemPrompt;
+                    const user = this.i18n.aiUserPrompt
+                        .replace("${source}", source)
+                        .replace("${count}", String(cfg.count))
+                        .replace("${language}", cfg.language)
+                        .replace("${type}", cfg.type === "cloze" ? this.i18n.aiTypeClozeHint : this.i18n.aiTypeQaHint);
+                    if (estimateTokens(source) > 24000) {
+                        throw new Error(this.i18n.aiTooLong);
+                    }
+                    const raw = await aiChat(
+                        { mode: this.settings.aiMode, endpoint: this.settings.aiEndpoint, apiKey: this.settings.aiKey, model: this.settings.aiModel },
+                        system, user,
+                    );
+                    const cards = parseCards(raw).slice(0, cfg.count);
+                    // 批次元数据（质量反哺数据源，P2 消费）
+                    this.aiBatches.batches.push({
+                        id: `ai-${Date.now().toString(36)}`,
+                        date: localDate(Date.now()),
+                        deckID: "",
+                        blockIDs: [],
+                    });
+                    if (this.aiBatches.batches.length > 200) {
+                        this.aiBatches.batches = this.aiBatches.batches.slice(-200);
+                    }
+                    this.saveData(AI_BATCHES_DATA, this.aiBatches).catch(() => { /* 旁路 */ });
+                    return cards;
+                },
+                onCreate: (cards: { q: string; a: string }[], deckID: string, deckName: string) =>
+                    this.createAICards(cards, deckID, deckName),
+                onClose: () => { /* svelteDialog 自理销毁 */ },
+            },
+        });
+    }
+
+    /** AI 卡落库：挖空式单块写入「小驴闪卡/AI 制卡」文档 → addRiffCards（M2·FR9，riff 路径） */
+    private async createAICards(cards: { q: string; a: string }[], deckID: string, _deckName: string) {
+        const notebooks = await getNotebooks();
+        if (notebooks.length === 0) {
+            throw new Error(this.i18n.onboardingNoNotebook);
+        }
+        const date = localDate(Date.now());
+        const docID = await createDocWithMd(notebooks[0].id, `小驴闪卡/AI 制卡/${date}`, "");
+        if (!docID) {
+            throw new Error(this.i18n.quickCardFail);
+        }
+        const blockIDs: string[] = [];
+        for (const c of cards) {
+            const ids = await appendBlock("markdown", `${c.q} ==${c.a}==`, docID);
+            blockIDs.push(...ids.slice(0, 1));
+        }
+        if (blockIDs.length === 0) {
+            throw new Error(this.i18n.quickCardFail);
+        }
+        await addRiffCards(deckID, blockIDs);
+        const batch = this.aiBatches.batches[this.aiBatches.batches.length - 1];
+        if (batch && batch.blockIDs.length === 0) {
+            batch.deckID = deckID;
+            batch.blockIDs = blockIDs;
+            this.saveData(AI_BATCHES_DATA, this.aiBatches).catch(() => { /* 旁路 */ });
+        }
+        showMessage(this.i18n.deckAdded.replace("${n}", String(blockIDs.length)), 2000, "info");
+    }
+
     private onNativeCardAction = (event: CustomEvent) => {        try {
             const detail: any = event?.detail ?? {};
             const cardID: string = detail?.cardID ?? detail?.id ?? "";
@@ -514,6 +595,13 @@ export default class LvCardsPlugin extends Plugin {
             label: this.i18n.menuQuickCard,
             click: () => this.openQuickCard(),
         });
+        if (this.settings.modules.create) {
+            menu.addItem({
+                icon: "iconLvCards",
+                label: this.i18n.menuAICard,
+                click: () => this.openAIWizard(),
+            });
+        }
         menu.addItem({
             label: this.i18n.menuSettings,
             icon: "iconSettings",

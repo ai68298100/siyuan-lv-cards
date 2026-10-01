@@ -166,7 +166,16 @@
         "importInvalid": "Invalid file",
         "importTooLarge": "File exceeds 5MB",
         "reminderEnabled": "Daily due reminder (notification)",
-        "reminderTime": "Reminder time"
+        "reminderTime": "Reminder time",
+        "aiSection": "AI config (for AI cards)",
+        "aiSectionHint": "SiYuan built-in AI recommended; custom = OpenAI-compatible",
+        "aiMode": "Provider",
+        "aiModeSiyuan": "SiYuan built-in AI",
+        "aiModeCustom": "Custom endpoint (OpenAI-compatible)",
+        "aiEndpoint": "API URL",
+        "aiModel": "Model",
+        "aiKey": "API Key",
+        "aiKeyHint": "Stored in plaintext in local settings — prefer SiYuan built-in AI"
     },
     "hubTabOverview": "Overview",
     "hubTabManage": "Manage",
@@ -227,5 +236,30 @@
         "cramDaysLabel": "Pre-exam cram days",
         "dailyTarget": "Daily target",
         "cardsUnit": "cards"
-    }
+    },
+    "aiWizardTitle": "AI Cards",
+    "aiWizard": {
+        "step": "Step",
+        "stepCfg": "Source & config",
+        "stepPreview": "Preview & import",
+        "source": "Material",
+        "sourcePlaceholder": "Paste lecture / notes / article…",
+        "config": "Generation config",
+        "count": "Count",
+        "language": "Language",
+        "cardType": "Card type",
+        "typeQa": "Q&A (stored as cloze-style)",
+        "typeCloze": "Cloze style",
+        "generate": "Generate",
+        "generating": "Generating…",
+        "emptyResult": "AI returned no usable cards — adjust material and retry",
+        "back": "Back",
+        "import": "Import selected"
+    },
+    "aiSystemPrompt": "You are a flashcard expert. Generate flashcards from the user's material. Output ONLY a JSON array in the form [{\"q\":\"question\",\"a\":\"answer\"}] with no other text. Questions must be specific and actively recallable; answers concise and accurate.",
+    "aiUserPrompt": "Material:\n${source}\n\nGenerate ${count} flashcards in ${language}. Card style: ${type}.",
+    "aiTypeQaHint": "Q&A: specific, actively recallable questions with concise accurate answers",
+    "aiTypeClozeHint": "Cloze: answers should be key terms or numbers from the material",
+    "aiTooLong": "Material too long — split it and generate in parts",
+    "menuAICard": "AI cards"
 }

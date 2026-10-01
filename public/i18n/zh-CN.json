@@ -166,7 +166,16 @@
         "importInvalid": "文件格式无效",
         "importTooLarge": "文件超过 5MB",
         "reminderEnabled": "每日到期提醒（通知）",
-        "reminderTime": "提醒时间"
+        "reminderTime": "提醒时间",
+        "aiSection": "AI 配置（AI 制卡用）",
+        "aiSectionHint": "优先推荐思源内置 AI；自定义端点为 OpenAI 兼容格式",
+        "aiMode": "提供方式",
+        "aiModeSiyuan": "思源内置 AI",
+        "aiModeCustom": "自定义端点（OpenAI 兼容）",
+        "aiEndpoint": "API 地址",
+        "aiModel": "模型",
+        "aiKey": "API Key",
+        "aiKeyHint": "明文存储于本地设置，请谨慎；更推荐使用思源内置 AI"
     },
     "hubTabOverview": "总览",
     "hubTabManage": "管理",
@@ -227,5 +236,30 @@
         "cramDaysLabel": "考前 cram 天数",
         "dailyTarget": "每日建议学习量",
         "cardsUnit": "张"
-    }
+    },
+    "aiWizardTitle": "AI 制卡",
+    "aiWizard": {
+        "step": "步骤",
+        "stepCfg": "来源与配置",
+        "stepPreview": "预览与落库",
+        "source": "材料",
+        "sourcePlaceholder": "粘贴讲义/笔记/文章……",
+        "config": "生成配置",
+        "count": "题量",
+        "language": "语言",
+        "cardType": "题型",
+        "typeQa": "问答式（落库为挖空卡）",
+        "typeCloze": "完形填空式",
+        "generate": "AI 生成",
+        "generating": "生成中…",
+        "emptyResult": "AI 未返回可用卡片，请调整材料重试",
+        "back": "上一步",
+        "import": "落库所选"
+    },
+    "aiSystemPrompt": "你是记忆卡片专家。根据用户提供的材料生成闪卡。只输出 JSON 数组，格式为 [{\"q\":\"问题\",\"a\":\"答案\"}]，不要输出任何其他内容。要求：问题具体、可主动回忆；答案简洁准确。",
+    "aiUserPrompt": "材料：\n${source}\n\n请生成 ${count} 张${language}闪卡。题型要求：${type}。",
+    "aiTypeQaHint": "问答式：问题应具体、可主动回忆；答案简洁准确",
+    "aiTypeClozeHint": "完形填空式：答案应是材料中的关键术语或数字",
+    "aiTooLong": "材料过长，请分段生成",
+    "menuAICard": "AI 制卡"
 }

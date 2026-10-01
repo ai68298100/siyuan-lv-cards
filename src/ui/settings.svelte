@@ -159,6 +159,28 @@
         {/if}
     </LvSection>
 
+    <LvSection title={t.settings.aiSection} sub={t.settings.aiSectionHint}>
+        <LvRow label={t.settings.aiMode}>
+            {#snippet children()}
+                <select class="b3-select fn__size-200" bind:value={draft.aiMode}>
+                    <option value="siyuan">{t.settings.aiModeSiyuan}</option>
+                    <option value="custom">{t.settings.aiModeCustom}</option>
+                </select>
+            {/snippet}
+        </LvRow>
+        {#if draft.aiMode === "custom"}
+            <LvRow label={t.settings.aiEndpoint}>
+                <input class="b3-text-field fn__size-200" placeholder="https://api.example.com/v1" bind:value={draft.aiEndpoint} />
+            </LvRow>
+            <LvRow label={t.settings.aiModel}>
+                <input class="b3-text-field fn__size-200" placeholder="gpt-4o-mini" bind:value={draft.aiModel} />
+            </LvRow>
+            <LvRow label={t.settings.aiKey} hint={t.settings.aiKeyHint}>
+                <input class="b3-text-field fn__size-200" type="password" bind:value={draft.aiKey} />
+            </LvRow>
+        {/if}
+    </LvSection>
+
     <LvSection title={t.settings.exam}>
         <LvRow label={t.settings.examEnabled}>
             <input class="b3-switch" type="checkbox" bind:checked={draft.examEnabled} />

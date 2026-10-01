@@ -30,6 +30,11 @@ export interface LvCardsSettings {
     examEnabled: boolean;
     /** 考试日期 YYYY-MM-DD，空为未设置 */
     examDate: string;
+    /** AI 配置（M2·FR7）：siyuan=思源内置 AI；custom=OpenAI 兼容端点 */
+    aiMode: "siyuan" | "custom";
+    aiEndpoint: string;
+    aiKey: string;
+    aiModel: string;
 }
 
 const SETTINGS_VERSION = 1;
@@ -54,6 +59,10 @@ export function defaultSettings(): LvCardsSettings {
         reminderTime: "20:00",
         examEnabled: false,
         examDate: "",
+        aiMode: "siyuan",
+        aiEndpoint: "",
+        aiKey: "",
+        aiModel: "",
     };
 }
 

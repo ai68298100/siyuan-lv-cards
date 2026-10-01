@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.9.0 2026-10-02 · AI 制卡向导（M2 双旗舰之二）
+
+* 双 provider：思源内置 AI 直连（宽容解析 🧪）+ OpenAI 兼容自定义端点（endpoint/key/model）
+* 两步向导：材料粘贴 + 生成配置（题量/语言/题型）→ 候选卡预览编辑器（逐卡编辑/删除/勾选）
+* 落库：挖空式单块写入「小驴闪卡/AI 制卡/<日期>」→ addRiffCards → ai-batches 批次记录（质量反哺数据源）
+* token 预估显示；生成失败草稿保留（向导不关闭）
+* 顶栏菜单「AI 制卡」入口（create 模块门控）；设置新增 AI 配置区（key 明文风险提示）
+* i18n +39 键（249 对齐）
+
 ## v0.8.0 2026-10-02 · 考试模式（M7 主旗舰）
 
 * 考试计划数据层：exam-plans.json + normalize 迁移（core/exam.ts）
