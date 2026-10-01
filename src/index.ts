@@ -22,9 +22,19 @@ import Hub from "./ui/hub.svelte";
 import SettingsPanel from "./ui/settings.svelte";
 import DeckPicker from "./ui/deck-picker.svelte";
 import QuickCard from "./ui/quick-card.svelte";
-import Onboarding from "./ui/onboarding.svelte";
-import AIWizard from "./ui/ai-wizard.svelte";
-import OcclusionEditor from "./ui/occlusion-editor.svelte";
+// 重组件对话框懒加载（AN 体积评审）：打开时才拉取对应 chunk
+const lazyComp = (loader: () => Promise<{ default: any }>) => {
+    let cached: any = null;
+    return async () => {
+        if (!cached) {
+            cached = (await loader()).default;
+        }
+        return cached;
+    };
+};
+const loadAIWizard = lazyComp(() => import("./ui/ai-wizard.svelte"));
+const loadOcclusionEditor = lazyComp(() => import("./ui/occlusion-editor.svelte"));
+const loadOnboarding = lazyComp(() => import("./ui/onboarding.svelte"));
 
 const TAB_DASHBOARD = "lv-cards-dashboard";
 const TAB_REVIEW = "lv-cards-review";
@@ -490,7 +500,8 @@ export default class LvCardsPlugin extends Plugin {
     }
 
     /** 图片遮挡编辑器（M4·FR4 riff 先行）：保存块属性后入卡组 */
-    private openOcclusionEditor(blockID: string, deckID: string) {
+    private async openOcclusionEditor(blockID: string, deckID: string) {
+        const OcclusionEditor = await loadOcclusionEditor();
         svelteDialog({
             title: (this.i18n as any).occlusion.title,
             component: OcclusionEditor,
@@ -655,7 +666,8 @@ export default class LvCardsPlugin extends Plugin {
         return { name: md.hPath, content: md.content };
     }
 
-    private openOnboarding() {
+    private async openOnboarding() {
+        const Onboarding = await loadOnboarding();
         svelteDialog({
             title: this.i18n.onboardingTitle,
             component: Onboarding,
@@ -729,7 +741,8 @@ export default class LvCardsPlugin extends Plugin {
     }
 
     /** AI 制卡向导（M2·FR6-10）：生成回调 + 批次记录落库；initialSource 用于 leech 改写预填 */
-    private openAIWizard(initialSource = "") {
+    private async openAIWizard(initialSource = "") {
+        const AIWizard = await loadAIWizard();
         svelteDialog({
             title: this.i18n.aiWizardTitle,
             component: AIWizard,

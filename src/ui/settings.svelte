@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { onMount } from "svelte";
     import { showMessage } from "siyuan";
     import { MODULE_DEFS } from "@/core/modules";
     import { PERSONA_PRESETS, type PersonaPreset } from "@/core/personas";
@@ -30,6 +31,17 @@
 
     let draft: LvCardsSettings = $state(JSON.parse(JSON.stringify(ctx.settings)));
     let v2Label = $state(ctx.getV2Status());
+    let voices = $state<{ name: string }[]>([]);
+
+    onMount(() => {
+        try {
+            if ("speechSynthesis" in window) {
+                const load = () => (voices = speechSynthesis.getVoices().map(v => ({ name: v.name })));
+                load();
+                speechSynthesis.onvoiceschanged = load;
+            }
+        } catch { /* 旁路 */ }
+    });
     let ankiLabel = $state("");
 
     function toggleModule(id: string, ev: Event) {
@@ -179,6 +191,14 @@
         {#if draft.ttsEnabled}
             <LvRow label={t.settings.ttsRate}>
                 <input class="b3-text-field fn__size-60" type="number" min="0.5" max="2" step="0.1" bind:value={draft.ttsRate} />
+            </LvRow>
+            <LvRow label={t.settings.ttsVoice} hint={t.settings.ttsVoiceHint}>
+                {#snippet children()}
+                    <select class="b3-select fn__size-200" bind:value={draft.ttsVoice}>
+                        <option value="">{t.settings.ttsVoiceDefault}</option>
+                        {#each voices as v (v.name)}<option value={v.name}>{v.name}</option>{/each}
+                    </select>
+                {/snippet}
             </LvRow>
         {/if}
         <LvRow label={t.settings.choiceEnabled}>

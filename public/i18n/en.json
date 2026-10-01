@@ -205,7 +205,10 @@
         "quietSection": "Quiet hours",
         "quietHint": "No backlog/celebration toasts during this window",
         "quietStart": "Quiet start",
-        "quietEnd": "Quiet end"
+        "quietEnd": "Quiet end",
+        "ttsVoice": "TTS voice",
+        "ttsVoiceHint": "Blank = system default",
+        "ttsVoiceDefault": "System default"
     },
     "hubTabOverview": "Overview",
     "hubTabManage": "Manage",
