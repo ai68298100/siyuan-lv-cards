@@ -43,6 +43,11 @@ export interface LvCardsSettings {
     aiEndpoint: string;
     aiKey: string;
     aiModel: string;
+    /** AnkiConnect 客户端（M9·FR1）：连本机 Anki Desktop */
+    ankiClientUrl: string;
+    ankiClientKey: string;
+    /** 复习舞台最大宽度 px（AC） */
+    cardMaxWidth: number;
 }
 
 const SETTINGS_VERSION = 1;
@@ -75,6 +80,9 @@ export function defaultSettings(): LvCardsSettings {
         aiEndpoint: "",
         aiKey: "",
         aiModel: "",
+        ankiClientUrl: "http://127.0.0.1:8765",
+        ankiClientKey: "",
+        cardMaxWidth: 880,
     };
 }
 

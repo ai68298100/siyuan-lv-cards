@@ -19,6 +19,7 @@
         getV2Status: () => string;
         getSuspendedCount: () => number;
         restoreAllSuspended: () => void;
+        testAnkiClient: () => Promise<string>;
         exportRevlogCsv: () => void;
         importRevlogMerge: (fileText: string) => Promise<{ added: number; skipped: number }>;
     }
@@ -28,6 +29,7 @@
 
     let draft: LvCardsSettings = $state(JSON.parse(JSON.stringify(ctx.settings)));
     let v2Label = $state(ctx.getV2Status());
+    let ankiLabel = $state("");
 
     function toggleModule(id: string, ev: Event) {
         draft.modules[id] = (ev.target as HTMLInputElement).checked;
@@ -71,6 +73,10 @@
             }
             input.value = "";
         });
+    }
+
+    async function testAnki() {
+        ankiLabel = await ctx.testAnkiClient();
     }
 
     function save() {
@@ -200,6 +206,21 @@
             <input class="b3-text-field fn__size-200" type="date" bind:value={draft.examDate} disabled={!draft.examEnabled} />
         </LvRow>
         <div class="ft__smaller ft__on-surface">{t.settings.examHint}</div>
+    </LvSection>
+
+    <LvSection title={t.settings.ankiSection} sub={t.settings.ankiSectionHint}>
+        <LvRow label={t.settings.ankiUrl}>
+            <input class="b3-text-field fn__size-200" bind:value={draft.ankiClientUrl} />
+        </LvRow>
+        <LvRow label={t.settings.ankiKey}>
+            <input class="b3-text-field fn__size-200" type="password" bind:value={draft.ankiClientKey} />
+        </LvRow>
+        <LvRow label={t.settings.ankiTest}>
+            {#snippet children()}
+                {#if ankiLabel}<span class="ft__smaller ft__on-surface">{ankiLabel}</span>{/if}
+                <button class="b3-button b3-button--outline" onclick={testAnki}>{t.settings.ankiTest}</button>
+            {/snippet}
+        </LvRow>
     </LvSection>
 
     <LvSection title={t.settings.dataSection}>

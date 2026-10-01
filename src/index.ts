@@ -155,6 +155,7 @@ export default class LvCardsPlugin extends Plugin {
                             timeoutMode: plugin.settings.timeoutMode,
                             timeoutSeconds: plugin.settings.timeoutSeconds,
                             randomOrder: plugin.settings.randomOrder,
+                            cardMaxWidth: plugin.settings.cardMaxWidth,
                             choiceEnabled: plugin.settings.choiceEnabled,
                             typingEnabled: plugin.settings.typingEnabled,
                             typingStrict: plugin.settings.typingStrict,
@@ -198,6 +199,18 @@ export default class LvCardsPlugin extends Plugin {
             langText: this.i18n.cmdQuickCard,
             hotkey: "",
             callback: () => this.openQuickCard(),
+        });
+        this.addCommand({
+            langKey: "openExam",
+            langText: this.i18n.cmdOpenExam,
+            hotkey: "",
+            callback: () => this.openTabOf(TAB_DASHBOARD, { tab: "exam" }),
+        });
+        this.addCommand({
+            langKey: "diagnostics",
+            langText: this.i18n.cmdDiagnostics,
+            hotkey: "",
+            callback: () => this.copyDiagnostics(),
         });
 
         // 入口矩阵（docs/12 §1.1）：左键 = 有到期开复习、无到期开中心；右键 = 菜单
@@ -388,6 +401,46 @@ export default class LvCardsPlugin extends Plugin {
             showMessage(this.i18n.deckRemoved.replace("${n}", String(ids.length)), 2000, "info");
         } catch (e: any) {
             showMessage(e?.message ?? String(e), 3000, "error");
+        }
+    }
+
+    /** 自诊断（AD）：脱敏环境信息复制到剪贴板，供 issue 附带 */
+    private copyDiagnostics() {
+        const text = [
+            "Lv Cards diagnostics",
+            "plugin version: 0.14.0",
+            "V2 state: " + (this.flashcardV2 ? this.flashcardV2.state : "N/A (<3.9.0)"),
+            "modules on: " + Object.entries(this.settings.modules).filter(([, v]) => v).map(([k]) => k).join(", "),
+            "revlog entries: " + this.revlog.entries.length,
+            "streak: " + calcStreak(this.revlog),
+            "due today (badge): " + this.lastDue,
+            "plans: " + this.examPlans.plans.length,
+        ].join("\n");
+        navigator.clipboard.writeText(text).then(
+            () => showMessage(this.i18n.diagCopied, 2000, "info"),
+            () => showMessage(this.i18n.diagFail, 3000, "error"),
+        );
+    }
+
+    /** AnkiConnect 客户端连接测试（M9·FR1） */
+    private async testAnkiClient(): Promise<string> {
+        try {
+            const resp = await fetch(this.settings.ankiClientUrl, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    action: "version",
+                    version: 6,
+                    ...(this.settings.ankiClientKey ? { key: this.settings.ankiClientKey } : {}),
+                }),
+            });
+            const j: any = await resp.json();
+            if (j?.error) {
+                return `${this.i18n.ankiTestFail}: ${j.error}`;
+            }
+            return `${this.i18n.ankiTestOk} (v${j?.result ?? "?"})`;
+        } catch (e: any) {
+            return `${this.i18n.ankiTestFail}: ${e?.message ?? e}`;
         }
     }
 
@@ -707,6 +760,7 @@ export default class LvCardsPlugin extends Plugin {
                         this.saveData(SUSPEND_TODAY_DATA, this.suspendToday).catch(() => { /* 旁路 */ });
                         showMessage(this.i18n.settingsSaved, 2000, "info");
                     },
+                    testAnkiClient: () => this.testAnkiClient(),
                     exportRevlogCsv: () => this.exportRevlogCsv(),
                     importRevlogMerge: async (fileText: string) => {
                         const imported = JSON.parse(fileText);

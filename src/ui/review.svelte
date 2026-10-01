@@ -17,6 +17,7 @@
         timeoutMode: "off" | "reveal" | "forget";
         timeoutSeconds: number;
         randomOrder: boolean;
+        cardMaxWidth: number;
         typingEnabled: boolean;
         typingStrict: boolean;
         choiceEnabled: boolean;
@@ -529,7 +530,7 @@
             <button class="b3-button b3-button--small" title={t.review.suspendToday} onclick={suspendToday}>✕</button>
             <button class="b3-button b3-button--small" onclick={skip}>{t.review.skip}</button>
         </div>
-        <div class="lv-card b3-typography" class:lv-anim-glow={showAnswer}>
+        <div class="lv-card b3-typography" class:lv-anim-glow={showAnswer} style={`max-width:${ctx.settings().cardMaxWidth}px; width:100%; margin:0 auto;`}>
             <div class="lv-card-content" class:lv-masked={!showAnswer}>{@html cardHtml}</div>
             {#if !showAnswer}
                 {#if ctx.settings().typingEnabled}

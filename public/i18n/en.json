@@ -188,7 +188,13 @@
         "aiKeyHint": "Stored in plaintext in local settings — prefer SiYuan built-in AI",
         "typingEnabled": "Typing mode (answer first, compare after — applies to all cards)",
         "typingStrict": "Strict grading (case, spaces & punctuation matter)",
-        "choiceEnabled": "Multiple-choice mode (distractors from same queue)"
+        "choiceEnabled": "Multiple-choice mode (distractors from same queue)",
+        "ankiSection": "AnkiConnect client (connect to local Anki Desktop)",
+        "ankiSectionHint": "For probing & status; SiYuan itself can also act as an AnkiConnect server (kernel settings)",
+        "ankiUrl": "AnkiConnect URL",
+        "ankiKey": "AnkiConnect key (optional)",
+        "ankiTest": "Test connection",
+        "cardMaxWidth": "Review card max width (640-1200 px)"
     },
     "hubTabOverview": "Overview",
     "hubTabManage": "Manage",
@@ -301,5 +307,11 @@
         "lapses": "lapses",
         "rewrite": "Open & rewrite",
         "none": "No leeches above threshold ✓"
-    }
+    },
+    "cmdOpenExam": "Open exam center",
+    "cmdDiagnostics": "Copy diagnostics to clipboard",
+    "ankiTestOk": "Connected",
+    "ankiTestFail": "Connection failed",
+    "diagCopied": "Diagnostics copied",
+    "diagFail": "Copy failed — copy manually"
 }

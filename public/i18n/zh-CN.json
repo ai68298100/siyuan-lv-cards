@@ -188,7 +188,13 @@
         "aiKeyHint": "明文存储于本地设置，请谨慎；更推荐使用思源内置 AI",
         "typingEnabled": "打字模式（先作答再对照，全卡生效）",
         "typingStrict": "严格判分（区分大小写、空白与标点）",
-        "choiceEnabled": "选择题练习模式（干扰项取自同队列）"
+        "choiceEnabled": "选择题练习模式（干扰项取自同队列）",
+        "ankiSection": "AnkiConnect 客户端（连接本机 Anki Desktop）",
+        "ankiSectionHint": "用于探测与状态查看；思源自身也可作为 AnkiConnect 服务端（内核设置）",
+        "ankiUrl": "AnkiConnect 地址",
+        "ankiKey": "AnkiConnect Key（可选）",
+        "ankiTest": "测试连接",
+        "cardMaxWidth": "复习卡面最大宽度（640-1200 px）"
     },
     "hubTabOverview": "总览",
     "hubTabManage": "管理",
@@ -301,5 +307,11 @@
         "lapses": "遗忘",
         "rewrite": "打开改写",
         "none": "没有达到阈值的烂卡 ✓"
-    }
+    },
+    "cmdOpenExam": "打开考试中心",
+    "cmdDiagnostics": "复制诊断信息到剪贴板",
+    "ankiTestOk": "连接成功",
+    "ankiTestFail": "连接失败",
+    "diagCopied": "诊断信息已复制",
+    "diagFail": "复制失败，请手动复制"
 }
