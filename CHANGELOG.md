@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.35.0 2026-10-02 · 兜底循环#1
+
+* **兜底①优化**：代码扫查零 console.log/TODO/FIXME；LvStat count-up 统一预留；api.ts 注入面已消除
+* **兜底②新增待办**：docs/17 AP 组扩展——MCP Server 模式 / AI 导师模式 / 助记媒介 / AI 词汇构建器（来源：兜底③调研）
+* **兜底③调研**：GitHub 四路高星项目搜索（anki-mcp-server ★502 / ai-vocabulary-builder ★997 / Orbit ★1835 / hashcards ★1168），提炼 4 项 P3 立项候选
+* settings.ts 旧 ID 迁移完整覆盖确认
+
 ## v0.34.0 2026-10-02 · 自主待办清零
 
 * LvCardsSettings 新增 onboarded 标记（Onboarding 完成状态持久化）

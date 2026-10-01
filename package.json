@@ -1,6 +1,6 @@
 {
     "name": "siyuan-lv-cards",
-    "version": "0.34.0",
+    "version": "0.35.0",
     "type": "module",
     "description": "Lv Cards (小驴闪卡) - the all-in-one flashcard plugin for SiYuan, on top of the native FSRS scheduler",
     "repository": "https://github.com/ai68298100/siyuan-lv-cards",
