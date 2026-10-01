@@ -218,7 +218,8 @@
         "quietEnd": "免打扰结束",
         "ttsVoice": "朗读语音",
         "ttsVoiceHint": "留空使用系统默认",
-        "ttsVoiceDefault": "系统默认"
+        "ttsVoiceDefault": "系统默认",
+        "restoreDefaults": "恢复全部默认设置"
     },
     "hubTabOverview": "总览",
     "hubTabManage": "管理",
@@ -282,7 +283,9 @@
         "report": "复盘报告",
         "archive": "归档",
         "today": "考试日",
-        "examChipHint": "点击「考试」子页查看每日应学"
+        "examChipHint": "点击「考试」子页查看每日应学",
+        "writeDoc": "写入复盘文档",
+        "examReportWritten": "复盘报告已写入「小驴闪卡/考试复盘」文档"
     },
     "aiWizardTitle": "AI 制卡",
     "aiWizard": {

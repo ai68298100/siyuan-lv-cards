@@ -158,6 +158,7 @@ export default class LvCardsPlugin extends Plugin {
                             onSavePlan: (plan: ExamPlan) => plugin.saveExamPlan(plan),
                             onDeletePlan: (id: string) => plugin.deleteExamPlan(id),
                             onReport: (plan: ExamPlan) => plugin.generateExamReport(plan),
+                            onWriteReport: (plan: ExamPlan) => plugin.writeExamReportDoc(plan),
                             onReviewScope: (kind: "all" | "deck" | "notebook", scopeId: string, cram: boolean) =>
                                 plugin.openReviewScope(kind, scopeId, cram),
                         } : null,
@@ -601,7 +602,21 @@ export default class LvCardsPlugin extends Plugin {
     }
 
     /** 考后复盘报告（M7·FR6）：计划窗口内的复习统计 Markdown，复制到剪贴板 */
-    private async generateExamReport(plan: ExamPlan) {
+    /** 复盘报告写入复盘文档（M7·FR6 深化）：除剪贴板外可一键写入「小驴闪卡/考试复盘」文档 */
+    private async writeExamReportDoc(plan: ExamPlan): Promise<void> {
+        const notebooks = await getNotebooks();
+        if (notebooks.length === 0) {
+            throw new Error(this.i18n.onboardingNoNotebook);
+        }
+        const md = await this.buildExamReportMd(plan);
+        const docID = await createDocWithMd(notebooks[0].id, `小驴闪卡/考试复盘/${plan.name}`, md);
+        if (!docID) {
+            throw new Error(this.i18n.quickCardFail);
+        }
+        showMessage(this.i18n.examReportWritten, 2000, "info");
+    }
+
+    private async buildExamReportMd(plan: ExamPlan): Promise<string> {
         const left = daysLeft(plan.examDate);
         const examTs = new Date(plan.examDate + "T23:59:59").getTime();
         const from = Math.min(plan.createdAt, examTs - 90 * 86400000);
@@ -610,7 +625,7 @@ export default class LvCardsPlugin extends Plugin {
         const reviews = entries.filter(e => e.rating > 0).length;
         const forgets = entries.filter(e => e.rating === 1).length;
         const activeDays = new Set(entries.filter(e => e.rating > 0).map(e => localDate(e.ts))).size;
-        const md = [
+        return [
             `# 考试复盘：${plan.name}`,
             `- 考试日期：${plan.examDate}（${left !== null && left < 0 ? "已结束" : `剩 ${left} 天`}）`,
             `- 范围：${plan.scopeName}`,
@@ -620,6 +635,10 @@ export default class LvCardsPlugin extends Plugin {
             "",
             `> 由小驴闪卡生成 · ${new Date().toLocaleString()}`,
         ].join("\n");
+    }
+
+    private async generateExamReport(plan: ExamPlan) {
+        const md = await this.buildExamReportMd(plan);
         await navigator.clipboard.writeText(md);
         showMessage(this.i18n.examReportCopied, 2500, "info");
     }

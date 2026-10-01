@@ -218,7 +218,8 @@
         "quietEnd": "Quiet end",
         "ttsVoice": "TTS voice",
         "ttsVoiceHint": "Blank = system default",
-        "ttsVoiceDefault": "System default"
+        "ttsVoiceDefault": "System default",
+        "restoreDefaults": "Restore all defaults"
     },
     "hubTabOverview": "Overview",
     "hubTabManage": "Manage",
@@ -282,7 +283,9 @@
         "report": "Report",
         "archive": "Archive",
         "today": "Exam day",
-        "examChipHint": "Open the Exam tab for daily pacing"
+        "examChipHint": "Open the Exam tab for daily pacing",
+        "writeDoc": "Write to doc",
+        "examReportWritten": "Report written to 'Lv Cards/Exam recap' doc"
     },
     "aiWizardTitle": "AI Cards",
     "aiWizard": {

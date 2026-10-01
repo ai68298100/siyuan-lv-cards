@@ -19,6 +19,7 @@
             onDeletePlan: (id: string) => ExamPlansData;
             onReviewScope: (scopeKind: ExamScopeKind, scopeId: string, cram: boolean) => void;
             onReport: (plan: ExamPlan) => void;
+            onWriteReport: (plan: ExamPlan) => void;
         } | null;
         initialTab?: string;
         onTabChange?: (id: string) => void;
@@ -55,6 +56,7 @@
                 onDeletePlan={(id) => (plans = exam!.onDeletePlan(id))}
                 onReviewScope={exam.onReviewScope}
                 onReport={exam.onReport}
+                onWriteReport={exam.onWriteReport}
             />
         {/if}
     </div>
