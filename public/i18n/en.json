@@ -119,7 +119,9 @@
         "helpSuspend": "Skip today",
         "helpPeek": "Peek previous",
         "helpReschedule": "Reschedule",
-        "helpEdit": "Edit source"
+        "helpEdit": "Edit source",
+        "scopeNew": "New only",
+        "scopeOld": "Review only"
     },
     "manager": {
         "title": "Card Manager",
@@ -368,5 +370,6 @@
         "occlusionSaved": "Occlusion card created"
     },
     "menuMakeOcclusion": "Create occlusion",
-    "breadcrumbReview": "Review this doc's cards"
+    "breadcrumbReview": "Review this doc's cards",
+    "cmdCramNew": "Evening cram (new cards)"
 }

@@ -119,7 +119,9 @@
         "helpSuspend": "今天不学",
         "helpPeek": "回看上一张",
         "helpReschedule": "快速改期",
-        "helpEdit": "编辑原块"
+        "helpEdit": "编辑原块",
+        "scopeNew": "仅新卡",
+        "scopeOld": "仅旧卡"
     },
     "manager": {
         "title": "闪卡管理器",
@@ -368,5 +370,6 @@
         "occlusionSaved": "遮挡卡已创建"
     },
     "menuMakeOcclusion": "制作遮挡卡",
-    "breadcrumbReview": "复习本文档闪卡"
+    "breadcrumbReview": "复习本文档闪卡",
+    "cmdCramNew": "睡前巩固（只学新卡）"
 }

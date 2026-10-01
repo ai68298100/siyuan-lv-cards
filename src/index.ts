@@ -257,6 +257,12 @@ export default class LvCardsPlugin extends Plugin {
             callback: () => this.openTabOf(TAB_DASHBOARD, { tab: "exam" }),
         });
         this.addCommand({
+            langKey: "cramNew",
+            langText: this.i18n.cmdCramNew,
+            hotkey: "",
+            callback: () => this.openTabOf(TAB_REVIEW, { scope: "new" }),
+        });
+        this.addCommand({
             langKey: "diagnostics",
             langText: this.i18n.cmdDiagnostics,
             hotkey: "",

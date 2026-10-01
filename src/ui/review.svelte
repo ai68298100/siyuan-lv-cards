@@ -242,6 +242,10 @@
             let cards = data.cards ?? [];
             // 「今天不学」+ 本场已跳过的卡本地过滤（内核调度不受影响，AJ9）
             cards = cards.filter(c => !ctx.isSuspendedToday(c.cardID) && !sessionSkipped.includes(c.cardID));
+            // 仅新卡 / 仅旧卡模式（睡前巩固包，W 组）
+            if (scopeKey === "new" || scopeKey === "old") {
+                cards = cards.filter(c => (scopeKey === "new") === (c.state === 0));
+            }
             const bl = ctx.settings().batchLimit;
             if (bl > 0) {
                 cards = cards.slice(0, bl);
@@ -600,6 +604,8 @@
         <div class="lv-head">
             <select class="b3-select lv-scope" bind:value={scopeKey} onchange={() => { ctx.onScopePersist(scopeKey); loadQueue(); }} title={t.review.scopeTitle}>
                 <option value="all">{t.review.scopeAll}</option>
+                <option value="new">{t.review.scopeNew}</option>
+                <option value="old">{t.review.scopeOld}</option>
                 {#if decks.length > 0}
                     <optgroup label={t.dashboard.decks}>
                         {#each decks as d (d.id)}
