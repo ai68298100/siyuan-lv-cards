@@ -480,3 +480,19 @@ export function calcMilestones(data: RevlogData): Milestones {
         nextGoal: goalAt ? { at: goalAt, remaining: goalAt - totalReviews } : null,
     };
 }
+
+export interface XpResult {
+    xp: number;
+    level: number;
+    /** 距下一级还差多少 XP */
+    toNext: number;
+}
+
+/** XP/等级（M8·FR3，默认关）：xp = 复习×2 + 最长连击×15 + 活跃天×5；等级 = √(xp/50)+1 */
+export function calcXp(data: RevlogData): XpResult {
+    const m = calcMilestones(data);
+    const xp = m.totalReviews * 2 + m.longestStreak * 15 + m.daysActive * 5;
+    const level = Math.floor(Math.sqrt(xp / 50)) + 1;
+    const nextLevelXp = 50 * level * level;
+    return { xp, level, toNext: nextLevelXp - xp };
+}

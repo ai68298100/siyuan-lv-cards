@@ -32,6 +32,10 @@ export interface LvCardsSettings {
     choiceEnabled: boolean;
     /** 忘记卡本批重现：评 1 的卡在批尾再出现一次（会话内强化，不动内核调度） */
     requeueAgain: boolean;
+    /** XP/等级激励（M8·FR3，默认关）：由本地复习日志推导 */
+    xpEnabled: boolean;
+    /** 标记符制卡（M2·FR4）：`术语:: 定义` 与 以「？」结尾的块可扫描成卡，命令触发 */
+    markerEnabled: boolean;
     /** leech 判定阈值（遗忘次数） */
     leechThreshold: number;
     /** 答案朗读（TTS，Web Speech） */
@@ -98,6 +102,8 @@ export function defaultSettings(): LvCardsSettings {
         dictationEnabled: false,
         choiceEnabled: false,
         requeueAgain: true,
+        xpEnabled: false,
+        markerEnabled: true,
         leechThreshold: 8,
         ttsEnabled: true,
         ttsRate: 1,

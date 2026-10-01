@@ -37,6 +37,8 @@ const loadAIWizard = lazyComp(() => import("./ui/ai-wizard.svelte"));
 const loadOcclusionEditor = lazyComp(() => import("./ui/occlusion-editor.svelte"));
 const loadOnboarding = lazyComp(() => import("./ui/onboarding.svelte"));
 const loadChallengeMode = lazyComp(() => import("./ui/challenge-mode.svelte"));
+const loadMarkerCards = lazyComp(() => import("./ui/marker-cards.svelte"));
+const loadPairingGame = lazyComp(() => import("./ui/pairing-game.svelte"));
 // 重组件对话框懒加载（AN 体积评审）：打开时才拉取对应 chunk
 
 const TAB_DASHBOARD = "lv-cards-dashboard";
@@ -159,6 +161,7 @@ export default class LvCardsPlugin extends Plugin {
                                 const left = plan ? daysLeft(plan.examDate) : null;
                                 return plan && left !== null && left >= 0 ? { name: plan.name, days: left } : null;
                             },
+                            getXpEnabled: () => plugin.settings.xpEnabled,
                         },
                         managerCtx: {
                             i18n: plugin.i18n,
@@ -338,6 +341,26 @@ export default class LvCardsPlugin extends Plugin {
                     title: (this.i18n as any).challenge.title,
                     component: ChallengeMode,
                     width: "min(560px, 94vw)",
+                    props: { i18n: this.i18n, onExit: () => { /* svelteDialog 自理销毁 */ } },
+                });
+            },
+        });
+        this.addCommand({
+            langKey: "markerCards",
+            langText: this.i18n.cmdMarkerCards,
+            hotkey: "",
+            callback: () => this.openMarkerCards(),
+        });
+        this.addCommand({
+            langKey: "pairing",
+            langText: this.i18n.cmdPairing,
+            hotkey: "",
+            callback: async () => {
+                const PairingGame = await loadPairingGame();
+                svelteDialog({
+                    title: (this.i18n as any).pairing.title,
+                    component: PairingGame,
+                    width: "min(720px, 94vw)",
                     props: { i18n: this.i18n, onExit: () => { /* svelteDialog 自理销毁 */ } },
                 });
             },
@@ -817,6 +840,99 @@ export default class LvCardsPlugin extends Plugin {
         }
         const md = await exportMdContent(rootID);
         return { name: md.hPath, content: md.content };
+    }
+
+    /** 标记符制卡（M2·FR4）：活动文档 → 选卡组 → 扫描 `术语:: 定义` 与「？」结尾块 → 勾选入组 */
+    private openMarkerCards() {
+        if (!this.settings.markerEnabled) {
+            showMessage(this.i18n.markerDisabled, 2500, "info");
+            return;
+        }
+        const editors: any[] = (getAllEditor() as any) ?? [];
+        const active =
+            editors.find(e => e?.headElement?.classList?.contains("item--focus")) ??
+            editors[editors.length - 1];
+        const rootID: string = active?.protyle?.block?.rootID ?? "";
+        if (!rootID) {
+            showMessage(this.i18n.markerNoDoc, 2500, "error");
+            return;
+        }
+        this.openDeckPicker([], {
+            skipAdd: true,
+            onPicked: (deckID: string) => this.scanMarkerCards(rootID, deckID),
+        });
+    }
+
+    private async scanMarkerCards(rootID: string, deckID: string) {
+        const safe = rootID.replace(/'/g, "''");
+        const rows = await sqlQuery(`SELECT id, markdown FROM blocks WHERE root_id='${safe}' AND type IN ('p','h') ORDER BY sort, id`);
+        type MarkerItem = { blockID: string; kind: "qa" | "whole"; front: string; back: string };
+        const items: MarkerItem[] = [];
+        const wholeIds: string[] = [];
+        for (const r of rows) {
+            const md = String(r.markdown ?? "").trim();
+            if (!md) {
+                continue;
+            }
+            // `术语:: 定义`：单行、分隔符恰好一处、两侧非空
+            if (!md.includes("\n")) {
+                const idx = md.indexOf("::");
+                if (idx > 0 && idx < md.length - 2 && md.indexOf("::", idx + 2) < 0) {
+                    const front = md.slice(0, idx).trim().replace(/[*`#]/g, "");
+                    const back = md.slice(idx + 2).trim().replace(/[*`#]/g, "");
+                    if (front && back) {
+                        items.push({ blockID: String(r.id), kind: "qa", front, back });
+                        continue;
+                    }
+                }
+            }
+            // 以「？」结尾的块：整块直接入组
+            if (md.endsWith("？")) {
+                items.push({ blockID: String(r.id), kind: "whole", front: md.replace(/[*`#]/g, ""), back: "" });
+                wholeIds.push(String(r.id));
+            }
+        }
+        if (items.length === 0) {
+            showMessage(this.i18n.markerNone, 2500, "info");
+            return;
+        }
+        const MarkerCards = await loadMarkerCards();
+        svelteDialog({
+            title: this.i18n.markerTitle,
+            component: MarkerCards,
+            width: "min(640px, 94vw)",
+            props: {
+                i18n: this.i18n,
+                items,
+                onCreate: async (picked: MarkerItem[]) => {
+                    const notebooks = await getNotebooks();
+                    if (notebooks.length === 0) {
+                        throw new Error(this.i18n.onboardingNoNotebook);
+                    }
+                    // 问答块统一落在「小驴闪卡/标记制卡/<日期>」文档（同路径复用既有文档）
+                    const today = localDate(Date.now());
+                    const docID = await createDocWithMd(notebooks[0].id, `小驴闪卡/标记制卡/${today}`, "");
+                    if (!docID) {
+                        throw new Error(this.i18n.quickCardFail);
+                    }
+                    const qaIds: string[] = [];
+                    for (const it of picked.filter(p => p.kind === "qa")) {
+                        // 单块问答：软换行分隔问/答（与快速制卡同构）
+                        const ids = await appendBlock("markdown", `${it.front}\n${it.back}`, docID);
+                        if (ids?.length) {
+                            qaIds.push(ids[0]);
+                        }
+                    }
+                    const wholePicked = picked.filter(p => p.kind === "whole").map(p => p.blockID);
+                    const all = [...qaIds, ...wholePicked];
+                    if (all.length > 0) {
+                        await addRiffCards(deckID, all);
+                    }
+                    showMessage(this.i18n.markerCreated.replace("${n}", String(all.length)), 2500, "info");
+                },
+                onClose: () => { /* svelteDialog 自理销毁 */ },
+            },
+        });
     }
 
     /** 笔记本范围材料（M2·FR6 扩展，AI 向导用）：聚合最近 200 个文本块 */

@@ -2,7 +2,7 @@
     import { onMount } from "svelte";
     import { getRiffDecks, getRiffDueCards, type RiffDeck } from "@/api/riff";
     import { getFlashcardStatistics, summarizeStatistics, type MigrationStatus } from "@/api/flashcardV2";
-    import { calcStreak, lastNDays, localDate, computeRetention, computeRetentionCurve, reviewStatsFor, weekCompare, calcMilestones, type RevlogData, type RetentionResult, type CurvePoint, type WeekDelta, type Milestones } from "@/core/revlog";
+    import { calcStreak, lastNDays, localDate, computeRetention, computeRetentionCurve, reviewStatsFor, weekCompare, calcMilestones, calcXp, type RevlogData, type RetentionResult, type CurvePoint, type WeekDelta, type Milestones, type XpResult } from "@/core/revlog";
     import { openTab } from "siyuan";
     import LvPage from "./kit/LvPage.svelte";
     import LvSection from "./kit/LvSection.svelte";
@@ -25,6 +25,8 @@
         rewriteWithAI: (blockID: string) => void;
         writeReportDoc: (md: string) => Promise<void>;
         getExamCountdown: () => { name: string; days: number } | null;
+        /** XP 激励开关（M8·FR3） */
+        getXpEnabled: () => boolean;
     }
 
     let { ctx }: { ctx: DashboardCtx } = $props();
@@ -46,6 +48,7 @@
     let curve: CurvePoint[] = $state([]);
     let week: WeekDelta | null = $state(null);
     let milestones: Milestones | null = $state(null);
+    let xp: XpResult | null = $state(null);
     let curveEl: SVGSVGElement | null = $state(null);
 
     /** 图表导出 PNG（M5）：SVG→canvas，CSS 变量先解析为具体色值（独立渲染无级联上下文） */
@@ -187,6 +190,7 @@
             curve = computeRetentionCurve(revlog);
             week = weekCompare(revlog);
             milestones = calcMilestones(revlog);
+            xp = ctx.getXpEnabled() ? calcXp(revlog) : null;
             aiQuality = ctx
                 .getAIBatches()
                 .filter(b => b.blockIDs.length > 0)
@@ -329,6 +333,13 @@
         </LvSection>
 
         <LvSection title={t.milestones.title} sub={t.milestones.sub}>
+            {#snippet actions()}
+                {#if xp}
+                    <span title={t.milestones.xpTip.replace("${n}", String(xp.toNext))}>
+                        <LvChip tone="warn">Lv.{xp.level} · {xp.xp} XP</LvChip>
+                    </span>
+                {/if}
+            {/snippet}
             {#if milestones && milestones.totalReviews > 0}
                 <div class="lv-ms-grid">
                     <div class="lv-ms-cell">

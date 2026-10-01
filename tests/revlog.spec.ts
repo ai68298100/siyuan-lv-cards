@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-    appendRevlog, emptyRevlog, mergeRevlog, recalcDays, calcStreak, localDate, lastNDays, weekCompare, calcMilestones,
+    appendRevlog, emptyRevlog, mergeRevlog, recalcDays, calcStreak, calcXp, localDate, lastNDays, weekCompare, calcMilestones,
     type RevlogData,
 } from "../src/core/revlog";
 const entry = (ts: number, cardID: string, rating: number, source: "native" | "plugin" = "plugin") =>
@@ -176,8 +176,31 @@ describe("mergeRevlog 分叉检测（M10·FR3）", () => {
     });
 });
 
-describe("revlog 2 万条性能预算（G 组·内存审计）", () => {
-    it("2 万条写入 + 全量重算 + 聚合推导在 2s 内", () => {
+describe("calcXp（M8·FR3）", () => {
+    it("xp = 复习×2 + 最长连击×15 + 活跃天×5，等级 √(xp/50)+1", () => {
+        const d = emptyRevlog();
+        const now = new Date();
+        const day = 86400000;
+        // 连续 2 天，各 2 条有效评分 → total=4, active=2, longest=2
+        for (let i = 0; i < 2; i++) {
+            appendRevlog(d, entry(now.getTime() - i * day, `c${i}`, 3));
+            appendRevlog(d, entry(now.getTime() - i * day + 1, `c${i}`, 3));
+        }
+        const x = calcXp(d);
+        expect(x.xp).toBe(4 * 2 + 2 * 15 + 2 * 5);
+        expect(x.level).toBe(Math.floor(Math.sqrt(x.xp / 50)) + 1);
+        expect(x.toNext).toBe(50 * x.level * x.level - x.xp);
+    });
+
+    it("空日志为 0 XP / 1 级", () => {
+        const x = calcXp(emptyRevlog());
+        expect(x.xp).toBe(0);
+        expect(x.level).toBe(1);
+        expect(x.toNext).toBe(50);
+    });
+});
+
+describe("revlog 2 万条性能预算（G 组·内存审计）", () => {    it("2 万条写入 + 全量重算 + 聚合推导在 2s 内", () => {
         const t0 = performance.now();
         const d = emptyRevlog();
         const now = Date.now();

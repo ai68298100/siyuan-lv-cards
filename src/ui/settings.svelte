@@ -262,6 +262,9 @@
         <LvRow label={t.settings.requeueAgain} hint={t.settings.requeueAgainHint}>
             <input class="b3-switch" type="checkbox" bind:checked={draft.requeueAgain} />
         </LvRow>
+        <LvRow label={t.settings.xpEnabled} hint={t.settings.xpEnabledHint}>
+            <input class="b3-switch" type="checkbox" bind:checked={draft.xpEnabled} />
+        </LvRow>
         <LvRow label={t.settings.leechThreshold}>
             <input class="b3-text-field fn__size-60" type="number" min="1" bind:value={draft.leechThreshold} />
         </LvRow>
@@ -346,6 +349,9 @@
     </LvSection>
 
     <LvSection title={t.settings.aiSection} sub={t.settings.aiSectionHint}>
+        <LvRow label={t.settings.markerEnabled} hint={t.settings.markerEnabledHint}>
+            <input class="b3-switch" type="checkbox" bind:checked={draft.markerEnabled} />
+        </LvRow>
         <LvRow label={t.settings.aiMode}>
             {#snippet children()}
                 <select class="b3-select fn__size-200" bind:value={draft.aiMode}>
