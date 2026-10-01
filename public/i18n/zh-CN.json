@@ -108,7 +108,8 @@
         "choiceMake": "用选择题作答",
         "choiceLoading": "正在生成选项…",
         "choiceCorrect": "✓ 回答正确！",
-        "choiceWrong": "✗ 回答错误"
+        "choiceWrong": "✗ 回答错误",
+        "speak": "朗读"
     },
     "manager": {
         "title": "闪卡管理器",
@@ -197,7 +198,9 @@
         "cardMaxWidth": "复习卡面最大宽度（640-1200 px）",
         "storageLastWrite": "最近写入",
         "unsavedTitle": "未保存的更改",
-        "unsavedDesc": "设置有改动尚未保存，放弃并关闭？"
+        "unsavedDesc": "设置有改动尚未保存，放弃并关闭？",
+        "ttsEnabled": "答案朗读（TTS）",
+        "backlogDays": "积压预警阈值（天）"
     },
     "hubTabOverview": "总览",
     "hubTabManage": "管理",
@@ -259,7 +262,9 @@
         "dailyTarget": "每日建议学习量",
         "cardsUnit": "张",
         "report": "复盘报告",
-        "archive": "归档"
+        "archive": "归档",
+        "today": "考试日",
+        "examChipHint": "点击「考试」子页查看每日应学"
     },
     "aiWizardTitle": "AI 制卡",
     "aiWizard": {

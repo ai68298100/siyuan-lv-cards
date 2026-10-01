@@ -23,6 +23,7 @@
         getAIBatches: () => { id: string; date: string; deckID: string; blockIDs: string[] }[];
         getLeechCards: () => { blockID: string; lapses: number }[];
         rewriteWithAI: (blockID: string) => void;
+        getExamCountdown: () => { name: string; days: number } | null;
     }
 
     let { ctx }: { ctx: DashboardCtx } = $props();
@@ -44,6 +45,7 @@
     let curve: CurvePoint[] = $state([]);
     let aiQuality = $state<{ date: string; cards: number; reviews: number; rate: number | null }[]>([]);
     let leech: { blockID: string; lapses: number }[] = $state([]);
+    let examChip = $state<{ name: string; days: number } | null>(null);
 
     function curvePoints(pts: CurvePoint[]): string {
         const maxD = Math.max(...pts.map(p => p.days), 1);
@@ -116,6 +118,7 @@
                     return { date: b.date, cards: b.blockIDs.length, reviews: stat.reviews, rate: stat.rate };
                 });
             leech = ctx.getLeechCards().slice(0, 8);
+            examChip = ctx.getExamCountdown();
             // 内核 V2（3.9.0）激活时，顺带拉取官方统计摘要（宽容解析，失败静默）
             const v2 = ctx.getV2Status();
             if (v2) {
@@ -147,6 +150,12 @@
             <span class="lv-dot"></span>
             <LvChip tone="primary">V2 · {ctx.getV2Status()!.state}</LvChip>
             <span class="ft__smaller ft__on-surface">{t.dashboard.v2Active}</span>
+        </div>
+    {/if}
+    {#if examChip}
+        <div class="lv-glass lv-v2banner">
+            <LvChip tone={examChip.days <= 7 ? "error" : "warn"}>🎓 {examChip.name} · {t.exam.daysLeft.replace("${n}", String(examChip.days))}</LvChip>
+            <span class="ft__smaller ft__on-surface">{t.exam.examChipHint}</span>
         </div>
     {/if}
 

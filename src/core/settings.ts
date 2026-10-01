@@ -28,10 +28,14 @@ export interface LvCardsSettings {
     choiceEnabled: boolean;
     /** leech 判定阈值（遗忘次数） */
     leechThreshold: number;
+    /** 答案朗读（TTS，Web Speech） */
+    ttsEnabled: boolean;
     /** 每日到期提醒（Notification） */
     reminderEnabled: boolean;
     /** 提醒时间 HH:mm */
     reminderTime: string;
+    /** 积压预警阈值（天） */
+    backlogDays: number;
     /** 考试模式 */
     examEnabled: boolean;
     /** 考试日期 YYYY-MM-DD，空为未设置 */
@@ -74,8 +78,10 @@ export function defaultSettings(): LvCardsSettings {
         typingStrict: true,
         choiceEnabled: false,
         leechThreshold: 8,
+        ttsEnabled: true,
         reminderEnabled: true,
         reminderTime: "20:00",
+        backlogDays: 3,
         examEnabled: false,
         examDate: "",
         savedFilters: [],

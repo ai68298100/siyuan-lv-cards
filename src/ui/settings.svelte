@@ -179,12 +179,18 @@
         <LvRow label={t.settings.leechThreshold}>
             <input class="b3-text-field fn__size-60" type="number" min="1" bind:value={draft.leechThreshold} />
         </LvRow>
+        <LvRow label={t.settings.ttsEnabled}>
+            <input class="b3-switch" type="checkbox" bind:checked={draft.ttsEnabled} />
+        </LvRow>
         <LvRow label={t.settings.reminderEnabled}>
             <input class="b3-switch" type="checkbox" bind:checked={draft.reminderEnabled} />
         </LvRow>
         {#if draft.reminderEnabled}
             <LvRow label={t.settings.reminderTime}>
                 <input class="b3-text-field fn__size-60" type="time" bind:value={draft.reminderTime} />
+            </LvRow>
+            <LvRow label={t.settings.backlogDays}>
+                <input class="b3-text-field fn__size-60" type="number" min="1" bind:value={draft.backlogDays} />
             </LvRow>
         {/if}
     </LvSection>

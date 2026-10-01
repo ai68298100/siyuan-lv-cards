@@ -22,6 +22,7 @@
         typingEnabled: boolean;
         typingStrict: boolean;
         choiceEnabled: boolean;
+        ttsEnabled: boolean;
     }
 
     export interface ReviewCtx {
@@ -268,6 +269,21 @@
         occlHidden = [];
         await loadBlockDOM(card.blockID);
         restartTimeout();
+    }
+
+    /** TTS 朗读答案（C9 朗读部分，Web Speech，防御式） */
+    function speakAnswer() {
+        if (!ctx.settings().ttsEnabled || !("speechSynthesis" in window)) {
+            return;
+        }
+        try {
+            const text = expectedText || (cardHtml || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+            if (!text) return;
+            const u = new SpeechSynthesisUtterance(text);
+            u.lang = /[\u4e00-\u9fa5]/.test(text) ? "zh-CN" : "en-US";
+            speechSynthesis.cancel();
+            speechSynthesis.speak(u);
+        } catch { /* 旁路 */ }
     }
 
     /** 打字题提交：判分并亮出答案（评分仍由用户按键确认，建议值显示为 chip） */
@@ -655,6 +671,10 @@
                         {/each}
                     </span>
                 </div>
+            {:else if showAnswer && ctx.settings().ttsEnabled}
+                <div class="lv-tts-row">
+                    <button class="b3-button b3-button--small" title={t.review.speak} onclick={speakAnswer}>🔊 {t.review.speak}</button>
+                </div>
             {/if}
         </div>
         <div class="lv-actions">
@@ -754,6 +774,8 @@
             // 问题态遮罩规则已移至 index.scss 全局（scoped 编译会误剪 :global 结尾选择器）
 
             .lv-typing { margin-top: var(--lv-sp-3); }
+
+            .lv-tts-row { display: flex; justify-content: flex-end; margin-top: var(--lv-sp-2); }
 
             .lv-choice-btn { margin-top: var(--lv-sp-3); }
             .lv-choices {

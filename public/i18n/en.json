@@ -108,7 +108,8 @@
         "choiceMake": "Answer as multiple choice",
         "choiceLoading": "Generating options…",
         "choiceCorrect": "✓ Correct!",
-        "choiceWrong": "✗ Wrong"
+        "choiceWrong": "✗ Wrong",
+        "speak": "Speak"
     },
     "manager": {
         "title": "Card Manager",
@@ -197,7 +198,9 @@
         "cardMaxWidth": "Review card max width (640-1200 px)",
         "storageLastWrite": "Last write",
         "unsavedTitle": "Unsaved changes",
-        "unsavedDesc": "Settings have unsaved changes. Discard and close?"
+        "unsavedDesc": "Settings have unsaved changes. Discard and close?",
+        "ttsEnabled": "Answer TTS",
+        "backlogDays": "Backlog nudge threshold (days)"
     },
     "hubTabOverview": "Overview",
     "hubTabManage": "Manage",
@@ -259,7 +262,9 @@
         "dailyTarget": "Daily target",
         "cardsUnit": "cards",
         "report": "Report",
-        "archive": "Archive"
+        "archive": "Archive",
+        "today": "Exam day",
+        "examChipHint": "Open the Exam tab for daily pacing"
     },
     "aiWizardTitle": "AI Cards",
     "aiWizard": {

@@ -87,7 +87,13 @@
     {#if plans.plans.length === 0}
         <LvEmpty text={t.exam.emptyHint} />
     {:else}
-        {#each plans.plans as plan (plan.id)}
+        {@const sorted = [...plans.plans].sort((a, b) => {
+            const ar = a.enabled && !a.archived ? 0 : 1;
+            const br = b.enabled && !b.archived ? 0 : 1;
+            if (ar !== br) return ar - br;
+            return (daysLeft(a.examDate) ?? 9999) - (daysLeft(b.examDate) ?? 9999);
+        })}
+        {#each sorted as plan (plan.id)}
             {@const left = daysLeft(plan.examDate)}
             {@const cram = plan.enabled && isCramActive(plan)}
             {@const target = plan.enabled ? targetFor(plan) : null}

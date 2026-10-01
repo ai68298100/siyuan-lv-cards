@@ -115,6 +115,11 @@ export default class LvCardsPlugin extends Plugin {
                                 return items.map(i => ({ blockID: i.blockID, lapses: i.lapses }));
                             },
                             rewriteWithAI: (blockID: string) => plugin.openAIWizard(blockID),
+                            getExamCountdown: () => {
+                                const plan = plugin.examPlans.plans.find(p => p.enabled && p.examDate && !p.archived);
+                                const left = plan ? daysLeft(plan.examDate) : null;
+                                return plan && left !== null && left >= 0 ? { name: plan.name, days: left } : null;
+                            },
                         },
                         managerCtx: {
                             i18n: plugin.i18n,
@@ -167,6 +172,7 @@ export default class LvCardsPlugin extends Plugin {
                             randomOrder: plugin.settings.randomOrder,
                             cardMaxWidth: plugin.settings.cardMaxWidth,
                             choiceEnabled: plugin.settings.choiceEnabled,
+                            ttsEnabled: plugin.settings.ttsEnabled,
                             typingEnabled: plugin.settings.typingEnabled,
                             typingStrict: plugin.settings.typingStrict,
                         }),
