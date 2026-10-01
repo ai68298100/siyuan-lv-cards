@@ -66,14 +66,26 @@
         return dailyTarget(plan, size);
     }
 
+    let formError = $state("");
+
     function save() {
         if (!editing) {
             return;
         }
-        if (!editing.name.trim() || !editing.examDate) {
-            editing = { ...editing, name: editing.name.trim() };
+        // 内联校验（AP·671）：缺失项红字提示而非静默 return
+        if (!editing.name.trim() && !editing.examDate) {
+            formError = t.exam.needNameAndDate;
             return;
         }
+        if (!editing.name.trim()) {
+            formError = t.exam.needName;
+            return;
+        }
+        if (!editing.examDate) {
+            formError = t.exam.needDate;
+            return;
+        }
+        formError = "";
         onSavePlan({ ...editing, name: editing.name.trim() });
         editing = null;
     }
@@ -153,6 +165,9 @@
     <div class="lv-editmask" role="presentation">
         <div class="lv-card2 lv-editcard">
             <div class="lv-secthead">{editing.id && plans.plans.some(p => p.id === editing.id) ? t.exam.editPlan : t.exam.newPlan}</div>
+            {#if formError}
+                <div class="lv-form-error" role="alert">{formError}</div>
+            {/if}
             <LvRow label={t.exam.planName}>
                 <input class="b3-text-field fn__size-200" bind:value={editing.name} placeholder={t.exam.untitled} />
             </LvRow>
@@ -219,4 +234,9 @@
         padding: var(--lv-sp-5);
     }
     .lv-editcard { width: 520px; max-width: 94vw; margin-top: 6vh; }
+    .lv-form-error {
+        color: var(--b3-theme-error);
+        font-size: 12px;
+        margin-bottom: var(--lv-sp-2);
+    }
 </style>

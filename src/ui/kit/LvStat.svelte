@@ -51,7 +51,7 @@
     <div class="lv-stat-label">
         <span class="lv-stat-dot" style={`background:${toneColor[tone]}`}></span>{label}
     </div>
-    <div class="lv-hero-num">{display}{#if denom}<span class="lv-stat-denom">/ {denom}</span>{/if}</div>
+    <div class="lv-hero-num">{display}{#if denom && denom !== "0"}<span class="lv-stat-denom">/ {denom}</span>{/if}</div>
     {#if progress >= 0}
         <div class="lv-stat-progress"><LvProgress value={progress} /></div>
     {/if}

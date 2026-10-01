@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.53.0 2026-10-01 · 陈旧项大扫账 + 细节修复
+
+* 待办审计：12 项「已实现未归档」条目核实归档（DeckPicker 内联新建/睡前巩固包/batchLimit/count-up 统一/tween 竞态消解/onboarded/诊断版本/CI test 门禁/backlogDays/TTS 设置/键位内核覆盖/空态制卡引导）
+* 修复：考试编辑器名称/日期缺失静默不保存 → 内联红字三态提示（role=alert）
+* 细节：LvStat 分母为 "0" 时隐藏；超时倒计时 >1 小时显示 H:MM:SS
+* i18n +3 键（444 对齐）；测试 26/26
+
 ## v0.52.0 2026-10-01 · LvError 统一错误态 + a11y 补齐
 
 * Kit +1：LvError（错误信息 + 重试按钮 + role=alert），复习/管理/总览三屏统一接入（G 组·异常边界）
