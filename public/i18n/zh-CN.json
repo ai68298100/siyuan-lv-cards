@@ -339,5 +339,6 @@
         "noImage": "块内没有图片",
         "occlusionSaved": "遮挡卡已创建"
     },
-    "menuMakeOcclusion": "制作遮挡卡"
+    "menuMakeOcclusion": "制作遮挡卡",
+    "breadcrumbReview": "复习本文档闪卡"
 }

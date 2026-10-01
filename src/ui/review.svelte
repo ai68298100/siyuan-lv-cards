@@ -3,7 +3,7 @@
     import { fade } from "svelte/transition";
     import { fetchSyncPost, openTab, showMessage } from "siyuan";
     import {
-        getRiffDueCards, getRiffDecks, getNotebookRiffDueCards, reviewRiffCard, skipReviewRiffCard,
+        getRiffDueCards, getRiffDecks, getNotebookRiffDueCards, getTreeRiffDueCards, reviewRiffCard, skipReviewRiffCard,
         type RiffDueCard, type RiffDeck, type Rating,
     } from "@/api/riff";
     import { getNotebooks, getBlockAttrs, type Notebook } from "@/api/siyuan";
@@ -230,6 +230,8 @@
                 data = await getRiffDueCards(scopeKey.slice(5), reviewedIDs);
             } else if (scopeKey.startsWith("notebook:")) {
                 data = await getNotebookRiffDueCards(scopeKey.slice(9), reviewedIDs);
+            } else if (scopeKey.startsWith("doc:")) {
+                data = await getTreeRiffDueCards(scopeKey.slice(4), reviewedIDs);
             } else {
                 data = await getRiffDueCards("", reviewedIDs);
             }

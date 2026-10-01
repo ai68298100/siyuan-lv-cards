@@ -267,6 +267,20 @@ export default class LvCardsPlugin extends Plugin {
             evt.preventDefault();
             this.showTopbarMenu(evt);
         });
+        // 面包屑「复习本文档」按钮（M2·FR2，官方 API 3.8.2+；旧版静默跳过）
+        if (typeof (this as any).addBreadcrumbButton === "function" && this.settings.modules.review) {
+            (this as any).addBreadcrumbButton({
+                id: "lv-cards-review-doc",
+                icon: "iconLvCards",
+                title: this.i18n.breadcrumbReview,
+                callback: (_event: any, protyle: any) => {
+                    const rootID: string = protyle?.block?.rootID ?? "";
+                    if (rootID) {
+                        this.openTabOf(TAB_REVIEW, { scope: `doc:${rootID}` });
+                    }
+                },
+            });
+        }
     }
 
     onLayoutReady() {
@@ -830,7 +844,14 @@ export default class LvCardsPlugin extends Plugin {
             clearTimeout(this.saveRevlogTimer);
             this.saveRevlogTimer = null;
         }
-        this.saveData(REVLOG_DATA, this.revlog).then(() => this.trackSave(REVLOG_DATA)).catch(() => { /* 忽略瞬时失败，下次修改会重试 */ });
+        // AK：失败单次重试（1.5s 后），仍失败等下次修改触发
+        this.saveData(REVLOG_DATA, this.revlog)
+            .then(() => this.trackSave(REVLOG_DATA))
+            .catch(() => {
+                setTimeout(() => {
+                    this.saveData(REVLOG_DATA, this.revlog).then(() => this.trackSave(REVLOG_DATA)).catch(() => { /* 放弃本次，等下次修改 */ });
+                }, 1500);
+            });
     }
 
     private openTabOf(type: string, data?: Record<string, unknown>) {

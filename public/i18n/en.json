@@ -339,5 +339,6 @@
         "noImage": "No image in this block",
         "occlusionSaved": "Occlusion card created"
     },
-    "menuMakeOcclusion": "Create occlusion"
+    "menuMakeOcclusion": "Create occlusion",
+    "breadcrumbReview": "Review this doc's cards"
 }

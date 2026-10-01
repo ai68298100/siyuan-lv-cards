@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.21.0 2026-10-02 · 面包屑按钮 + 版本门禁 + 保存重试
+
+* 面包屑「复习本文档闪卡」按钮（M2·FR2）：官方 addBreadcrumbButton API（3.8.2+，旧版静默跳过）——点击以当前文档为范围直达复习
+* revlog 保存失败单次重试（AK）
+* 版本事实源门禁：plugin/package/CHANGELOG 三处一致校验（scripts/check-versions.mjs + CI + check 串联）（AN·P0）
+* i18n +1 键（320 对齐）
+
 ## v0.20.0 2026-10-02 · 会话中断恢复 + TTS 语速
 
 * 会话中断恢复（M3）：session-state.json 按日落盘——插件重载后恢复已完成卡与计数，从剩余卡继续且不重复评分；跨日自动清空
