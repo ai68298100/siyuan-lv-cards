@@ -161,7 +161,12 @@
         "savedFilters": "Saved filters",
         "deleteSaved": "Delete this filter",
         "filterSaved": "Filter saved",
-        "leechFilter": "Leeches only"
+        "leechFilter": "Leeches only",
+        "statusLabel": "Filter by status",
+        "statusAll": "Status: All",
+        "statusNew": "Status: New",
+        "statusReview": "Status: Reviewed",
+        "statusDue": "Status: Due today"
     },
     "settings": {
         "personaSection": "Persona Presets",
@@ -242,6 +247,10 @@
         "dictationEnabled": "Dictation mode (auto-speak answer, type what you hear; requires typing mode + TTS)",
         "sfxEnabled": "Rating SFX (Web Audio)",
         "exportSettings": "Export settings (JSON)",
+        "personaExport": "Export current persona (JSON)",
+        "personaImport": "Import persona (JSON)",
+        "personaImported": "Persona imported (remember to save)",
+        "personaImportBad": "Not a valid Lv Cards persona file",
         "ttsVoiceDefaultPlaceholder": ""
     },
     "hubTabOverview": "Overview",

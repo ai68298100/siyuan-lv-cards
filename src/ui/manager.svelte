@@ -15,6 +15,10 @@
         saveFilter: (name: string, filter: string) => void;
         deleteFilter: (name: string) => void;
         getLeechCards: () => { blockID: string; lapses: number }[];
+        /** 状态过滤（M6·FR2）：新卡=本地 revlog 无记录 */
+        isNewBlock: (blockID: string) => boolean;
+        /** 今日到期块 ID 清单（内核到期卡片，含 blockID） */
+        getDueBlockIDs: () => Promise<string[]>;
     }
 
     let { ctx }: { ctx: ManagerCtx } = $props();
@@ -30,6 +34,8 @@
     let filterText = $state("");
     let sortMode = $state<"default" | "path" | "content">("default");
     let leechOnly = $state(false);
+    let statusFilter = $state<"all" | "new" | "review" | "due">("all");
+    let dueSet = new Set<string>();
     let savedList = $state<{ name: string; filter: string }[]>([]);
     let pickedSaved = $state("");
     let selected: string[] = $state([]);
@@ -41,6 +47,13 @@
             if (leechOnly) {
                 const leechSet = new Set(ctx.getLeechCards().map(l => l.blockID));
                 arr = arr.filter(b => leechSet.has(b.id));
+            }
+            if (statusFilter === "new") {
+                arr = arr.filter(b => ctx.isNewBlock(b.id));
+            } else if (statusFilter === "review") {
+                arr = arr.filter(b => !ctx.isNewBlock(b.id));
+            } else if (statusFilter === "due") {
+                arr = arr.filter(b => dueSet.has(b.id));
             }
             if (sortMode === "path") {
                 return [...arr].sort((a, b) => ((a.hPath as string) ?? "").localeCompare((b.hPath as string) ?? ""));
@@ -81,6 +94,13 @@
 
     function toggleSelect(id: string) {
         selected = selected.includes(id) ? selected.filter(x => x !== id) : [...selected, id];
+    }
+
+    /** 「今日到期」按需拉取内核到期清单（切到该过滤项时一次性加载） */
+    async function onStatusChange() {
+        if (statusFilter === "due" && dueSet.size === 0) {
+            dueSet = new Set(await ctx.getDueBlockIDs());
+        }
     }
 
     function batchRemove() {
@@ -173,6 +193,12 @@
             <option value="default">{t.manager.sortDefault}</option>
             <option value="path">{t.manager.sortPath}</option>
             <option value="content">{t.manager.sortContent}</option>
+        </select>
+        <select class="b3-select lv-sort" bind:value={statusFilter} onchange={onStatusChange} title={t.manager.statusLabel}>
+            <option value="all">{t.manager.statusAll}</option>
+            <option value="new">{t.manager.statusNew}</option>
+            <option value="review">{t.manager.statusReview}</option>
+            <option value="due">{t.manager.statusDue}</option>
         </select>
         <button class="b3-button b3-button--small" class:lv-btn-primary={leechOnly} onclick={() => (leechOnly = !leechOnly)}>
             {t.manager.leechFilter}

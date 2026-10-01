@@ -11,7 +11,7 @@ import {
     type RevlogData, type RevlogEntry,
 } from "./core/revlog";
 import { detectFlashcardV2, type MigrationStatus } from "./api/flashcardV2";
-import { addRiffCards, createRiffDeck, getDueCount, getRiffCardsByBlockIDs, removeRiffCards } from "./api/riff";
+import { addRiffCards, createRiffDeck, getDueCount, getRiffCardsByBlockIDs, getRiffDueCards, removeRiffCards } from "./api/riff";
 import { appendBlock, createDocWithMd, getNotebooks, exportMdContent, sqlQuery, kernelVersion } from "./api/siyuan";
 import { aiChat, estimateTokens, parseCards } from "./api/ai";
 import { normalizeSuspendToday, rollDateIfNeeded, isSuspended, suspend, type SuspendTodayData } from "./core/suspend-today";
@@ -178,6 +178,16 @@ export default class LvCardsPlugin extends Plugin {
                             getLeechCards: () => {
                                 const items = leechCards(plugin.revlog, plugin.settings.leechThreshold);
                                 return items.map(i => ({ blockID: i.blockID, lapses: i.lapses }));
+                            },
+                            // 状态过滤（M6·FR2）：新卡=本地 revlog 无记录；到期=内核到期清单交集
+                            isNewBlock: (blockID: string) => !plugin.revlog.entries.some(e => e.blockID === blockID),
+                            getDueBlockIDs: async () => {
+                                try {
+                                    const due = await getRiffDueCards("");
+                                    return (due.cards ?? []).map(c => c.blockID).filter(Boolean);
+                                } catch {
+                                    return [];
+                                }
                             },
                         },
                         exam: plugin.settings.modules.exam ? {

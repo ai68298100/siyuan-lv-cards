@@ -161,7 +161,12 @@
         "savedFilters": "已存筛选",
         "deleteSaved": "删除该筛选",
         "filterSaved": "筛选已收藏",
-        "leechFilter": "只看烂卡"
+        "leechFilter": "只看烂卡",
+        "statusLabel": "按状态过滤",
+        "statusAll": "状态：全部",
+        "statusNew": "状态：新卡",
+        "statusReview": "状态：已复习",
+        "statusDue": "状态：今日到期"
     },
     "settings": {
         "personaSection": "画像预设",
@@ -242,6 +247,10 @@
         "dictationEnabled": "听写模式（自动朗读答案，输入听写；需开启打字模式+TTS）",
         "sfxEnabled": "评分音效（Web Audio 合成）",
         "exportSettings": "导出设置（JSON）",
+        "personaExport": "导出当前画像（JSON）",
+        "personaImport": "导入画像（JSON）",
+        "personaImported": "画像已导入（记得保存）",
+        "personaImportBad": "不是有效的小驴画像文件",
         "ttsVoiceDefaultPlaceholder": ""
     },
     "hubTabOverview": "总览",

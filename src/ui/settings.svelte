@@ -63,6 +63,58 @@
         });
     }
 
+    /** 画像分享（M12·FR6）：导出/导入当前 模块开关+推荐参数 组合 */
+    const PERSONA_PARAM_KEYS = ["ratingStyle", "timeoutMode", "timeoutSeconds", "dailyNewTarget", "dailyReviewTarget"] as const;
+
+    function exportPersona() {
+        const params: Record<string, unknown> = {};
+        for (const k of PERSONA_PARAM_KEYS) {
+            params[k] = (draft as any)[k];
+        }
+        const payload = { app: "lv-cards", type: "persona", v: 1, persona: draft.persona, modules: { ...draft.modules }, params };
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "lv-cards-persona.json";
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    async function importPersona(ev: Event) {
+        const input = ev.target as HTMLInputElement;
+        const file = input.files?.[0];
+        if (!file) {
+            return;
+        }
+        try {
+            const obj = JSON.parse(await file.text());
+            if (obj?.app !== "lv-cards" || obj?.type !== "persona") {
+                throw new Error("not a persona file");
+            }
+            if (obj.modules && typeof obj.modules === "object") {
+                for (const [k, v] of Object.entries(obj.modules)) {
+                    if (typeof v === "boolean" && k in draft.modules) {
+                        draft.modules[k] = v as boolean;
+                    }
+                }
+            }
+            if (obj.params && typeof obj.params === "object") {
+                for (const k of PERSONA_PARAM_KEYS) {
+                    if (obj.params[k] !== undefined) {
+                        (draft as any)[k] = obj.params[k];
+                    }
+                }
+            }
+            draft.persona = "custom";
+            showMessage(t.settings.personaImported, 2500, "info");
+        } catch {
+            showMessage(t.settings.personaImportBad, 3000, "error");
+        } finally {
+            input.value = "";
+        }
+    }
+
     async function redetectV2() {
         v2Label = await ctx.redetectV2();
         showMessage(t.settings.redetectOk, 1500, "info");
@@ -155,6 +207,13 @@
                 <div class="lv-persona-name">{t.personaCustom}</div>
                 <div class="ft__smaller ft__on-surface">{t.personaCustom_desc}</div>
             </div>
+        </div>
+        <div class="fn__flex" style="gap: var(--lv-sp-2); margin-top: var(--lv-sp-2)">
+            <button class="b3-button b3-button--outline b3-button--small" onclick={exportPersona}>{t.settings.personaExport}</button>
+            <label class="b3-button b3-button--outline b3-button--small" style="cursor:pointer">
+                {t.settings.personaImport}
+                <input type="file" accept="application/json,.json" style="display:none" onchange={importPersona} />
+            </label>
         </div>
     </LvSection>
 
