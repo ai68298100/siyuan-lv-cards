@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-    appendRevlog, emptyRevlog, mergeRevlog, recalcDays, calcStreak, localDate, weekCompare,
+    appendRevlog, emptyRevlog, mergeRevlog, recalcDays, calcStreak, localDate, weekCompare, calcMilestones,
     type RevlogData,
 } from "../src/core/revlog";
 
@@ -105,5 +105,36 @@ describe("weekCompare（M5·周期对比）", () => {
         expect(w.thisWeek.review).toBe(0);
         expect(w.lastWeek.new).toBe(0);
         expect(w.delta.forget).toBe(0);
+    });
+});
+
+describe("calcMilestones（M5·里程碑）", () => {
+    it("累计/活跃/最长连续/单日之最/下一目标", () => {
+        const d = emptyRevlog();
+        const now = new Date();
+        const day = 86400000;
+        // 今天 + 昨天 + 前天：连续 3 天
+        for (let i = 0; i < 3; i++) {
+            appendRevlog(d, entry(now.getTime() - i * day, `c${i}`, 3));
+            appendRevlog(d, entry(now.getTime() - i * day + 1, `c${i}`, 3));
+        }
+        // 单日之最：今天 4 次有效评分
+        appendRevlog(d, entry(now.getTime() + 2, "cx", 3));
+        appendRevlog(d, entry(now.getTime() + 3, "cy", 3));
+        const m = calcMilestones(d);
+        expect(m.totalReviews).toBe(8);
+        expect(m.daysActive).toBe(3);
+        expect(m.longestStreak).toBe(3);
+        expect(m.currentStreak).toBe(3);
+        expect(m.bestDay?.count).toBe(4);
+        expect(m.nextGoal?.at).toBe(1000);
+        expect(m.nextGoal?.remaining).toBe(992);
+    });
+
+    it("空日志不产出目标与单日之最", () => {
+        const m = calcMilestones(emptyRevlog());
+        expect(m.totalReviews).toBe(0);
+        expect(m.bestDay).toBeNull();
+        expect(m.nextGoal?.at).toBe(1000);
     });
 });

@@ -2,7 +2,7 @@
     import { onMount } from "svelte";
     import { getRiffDecks, getRiffDueCards, type RiffDeck } from "@/api/riff";
     import { getFlashcardStatistics, summarizeStatistics, type MigrationStatus } from "@/api/flashcardV2";
-    import { calcStreak, lastNDays, localDate, computeRetention, computeRetentionCurve, reviewStatsFor, weekCompare, type RevlogData, type RetentionResult, type CurvePoint, type WeekDelta } from "@/core/revlog";
+    import { calcStreak, lastNDays, localDate, computeRetention, computeRetentionCurve, reviewStatsFor, weekCompare, calcMilestones, type RevlogData, type RetentionResult, type CurvePoint, type WeekDelta, type Milestones } from "@/core/revlog";
     import { openTab } from "siyuan";
     import LvPage from "./kit/LvPage.svelte";
     import LvSection from "./kit/LvSection.svelte";
@@ -45,6 +45,7 @@
     let retention: RetentionResult | null = $state(null);
     let curve: CurvePoint[] = $state([]);
     let week: WeekDelta | null = $state(null);
+    let milestones: Milestones | null = $state(null);
     let aiQuality = $state<{ date: string; cards: number; reviews: number; rate: number | null }[]>([]);
     let leech: { blockID: string; lapses: number }[] = $state([]);
     let examChip = $state<{ name: string; days: number } | null>(null);
@@ -155,6 +156,7 @@
             retention = computeRetention(revlog);
             curve = computeRetentionCurve(revlog);
             week = weekCompare(revlog);
+            milestones = calcMilestones(revlog);
             aiQuality = ctx
                 .getAIBatches()
                 .filter(b => b.blockIDs.length > 0)
@@ -293,6 +295,36 @@
                 </div>
             {:else}
                 <div class="lv-hint">{t.weekcmp.none}</div>
+            {/if}
+        </LvSection>
+
+        <LvSection title={t.milestones.title} sub={t.milestones.sub}>
+            {#if milestones && milestones.totalReviews > 0}
+                <div class="lv-ms-grid">
+                    <div class="lv-ms-cell">
+                        <div class="lv-ms-num">{milestones.totalReviews}</div>
+                        <div class="lv-ms-label">{t.milestones.total}</div>
+                    </div>
+                    <div class="lv-ms-cell">
+                        <div class="lv-ms-num">{milestones.longestStreak}</div>
+                        <div class="lv-ms-label">{t.milestones.longest}</div>
+                    </div>
+                    <div class="lv-ms-cell">
+                        <div class="lv-ms-num">{milestones.daysActive}</div>
+                        <div class="lv-ms-label">{t.milestones.active}</div>
+                    </div>
+                    <div class="lv-ms-cell">
+                        <div class="lv-ms-num">{milestones.bestDay ? milestones.bestDay.count : 0}</div>
+                        <div class="lv-ms-label">{t.milestones.best}</div>
+                    </div>
+                </div>
+                {#if milestones.nextGoal}
+                    <div class="lv-hint" style="margin-top: var(--lv-sp-2)">
+                        {t.milestones.goal.replace("${a}", String(milestones.nextGoal.at)).replace("${n}", String(milestones.nextGoal.remaining))}
+                    </div>
+                {/if}
+            {:else}
+                <div class="lv-hint">{t.milestones.none}</div>
             {/if}
         </LvSection>
 
@@ -472,12 +504,31 @@
         }
         .lv-ret-row:last-child { border-bottom: none; }
         .lv-ret-rate { font-variant-numeric: tabular-nums; font-weight: 600; }
+    }
 
     .lv-weekdelta {
         margin-left: var(--lv-sp-1);
         font-variant-numeric: tabular-nums;
         &--good { color: var(--b3-theme-primary); }
         &--bad { color: var(--b3-theme-error); }
+    }
+
+    .lv-ms-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: var(--lv-sp-2);
+        text-align: center;
+    }
+    .lv-ms-num {
+        font-size: 20px;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        color: var(--b3-theme-primary);
+    }
+    .lv-ms-label {
+        font-size: 12px;
+        color: var(--b3-theme-on-surface);
+        margin-top: 2px;
     }
 
     .lv-airow {
@@ -494,6 +545,5 @@
         max-width: 420px;
         .lv-curve-axis { stroke: var(--lv-border-strong); stroke-width: 1; }
         .lv-curve-dot { fill: var(--b3-theme-primary); }
-    }
     }
 </style>

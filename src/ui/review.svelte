@@ -112,6 +112,7 @@
     let rescheduleDays = $state(1);
     // 图片遮挡（M4·FR4 riff 先行）：数据来自块属性 lv-occlusion，坐标相对图片包围盒
     let cardEl: HTMLDivElement | null = $state(null);
+    let rootEl: HTMLDivElement | null = $state(null);
     let occl = $state<OcclusionData | null>(null);
     let occlBox = $state<{ l: number; t: number; w: number; h: number } | null>(null);
     let occlHidden = $state<number[]>([]);
@@ -583,6 +584,20 @@
         return () => document.removeEventListener("visibilitychange", handler);
     });
 
+    /** 应用内返回检测（M3）：思源内切回复习页不触发 visibilitychange，
+     * 以「离开面板 ≥15s 后重新点入」为编辑返回信号，节流刷新当前卡 */
+    let lastPanelPointer = 0;
+    function onPanelPointerDown(e: PointerEvent) {
+        if (!current || !(e.target instanceof Node) || !rootEl?.contains(e.target)) {
+            return;
+        }
+        const now = Date.now();
+        if (lastPanelPointer > 0 && now - lastPanelPointer >= 15000) {
+            refreshCard();
+        }
+        lastPanelPointer = now;
+    }
+
     function dueText(rating: string): string {
         const due = current?.nextDues?.[rating];
         if (!due) { return ""; }
@@ -694,10 +709,12 @@
 </script>
 
 <svelte:window on:keydown={onKeydown} />
+<svelte:document on:pointerdown={onPanelPointerDown} />
 
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 <div
     class="lv-review"
+    bind:this={rootEl}
     role="presentation"
     onclick={onContainerClick}
     onkeydown={(e) => onKeydown(e)}

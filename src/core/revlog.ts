@@ -388,3 +388,53 @@ export function weekCompare(data: RevlogData): WeekDelta {
         },
     };
 }
+
+export interface Milestones {
+    /** 有效复习总次数（不含 skip） */
+    totalReviews: number;
+    /** 活跃天数 */
+    daysActive: number;
+    /** 最长连续天数 */
+    longestStreak: number;
+    /** 当前连续天数 */
+    currentStreak: number;
+    /** 单日之最（新学+复习合计最高的一天） */
+    bestDay: { date: string; count: number } | null;
+    /** 下一里程碑（1000/5000/20000 阶梯）还差多少次 */
+    nextGoal: { at: number; remaining: number } | null;
+}
+
+/** 里程碑统计（M5·FR7）：趣味数字聚合，纯本地 revlog 推导 */
+export function calcMilestones(data: RevlogData): Milestones {
+    const totalReviews = data.entries.filter(e => e.rating > 0).length;
+    const activeDays = Object.entries(data.days)
+        .filter(([, s]) => s.new + s.review > 0)
+        .sort(([a], [b]) => a.localeCompare(b));
+    // 最长/当前连续：按日期键扫描，缺口 >1 天即断
+    let longest = 0;
+    let run = 0;
+    let prev: Date | null = null;
+    for (const [key] of activeDays) {
+        const cur = new Date(`${key}T00:00:00`);
+        if (prev && cur.getTime() - prev.getTime() <= 2 * 86400000) {
+            run += 1;
+        } else {
+            run = 1;
+        }
+        longest = Math.max(longest, run);
+        prev = cur;
+    }
+    const best = activeDays.reduce<{ date: string; count: number } | null>((acc, [key, s]) => {
+        const count = s.new + s.review;
+        return !acc || count > acc.count ? { date: key, count } : acc;
+    }, null);
+    const goalAt = [1000, 5000, 20000, 100000].find(g => g > totalReviews);
+    return {
+        totalReviews,
+        daysActive: activeDays.length,
+        longestStreak: longest,
+        currentStreak: calcStreak(data),
+        bestDay: best,
+        nextGoal: goalAt ? { at: goalAt, remaining: goalAt - totalReviews } : null,
+    };
+}

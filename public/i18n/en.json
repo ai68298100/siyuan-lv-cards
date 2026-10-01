@@ -362,6 +362,16 @@
         "last": "last",
         "none": "No data yet — shows up after a few reviews."
     },
+    "milestones": {
+        "title": "Milestones",
+        "sub": "Counting the days with you · derived from the local review log",
+        "total": "Total reviews",
+        "longest": "Longest streak",
+        "active": "Active days",
+        "best": "Best day",
+        "goal": "${n} reviews to go until your ${a}th — keep going!",
+        "none": "No data yet — lights up after your first review."
+    },
     "aiQuality": {
         "title": "AI batch quality",
         "sub": "Measured retention per AI generation batch",
