@@ -296,7 +296,8 @@
         "none": "No samples yet — shows up after a few reviews.",
         "curve": "Retention curve (measured)",
         "curveSub": "Buckets by review gap · ≥3 samples per bucket",
-        "curveNone": "Not enough samples — re-review the same card after a few days."
+        "curveNone": "Not enough samples — re-review the same card after a few days.",
+        "theory": "dashed: theoretical exp(-t/5d) (personalized S awaits V2 Stability)"
     },
     "aiQuality": {
         "title": "AI batch quality",
@@ -311,7 +312,8 @@
         "sub": "Cards whose lapses reached the threshold (set in settings); since plugin start",
         "lapses": "lapses",
         "rewrite": "Open & rewrite",
-        "none": "No leeches above threshold ✓"
+        "none": "No leeches above threshold ✓",
+        "rewriteAI": "AI rewrite"
     },
     "cmdOpenExam": "Open exam center",
     "cmdDiagnostics": "Copy diagnostics to clipboard",

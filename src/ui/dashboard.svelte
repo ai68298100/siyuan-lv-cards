@@ -22,6 +22,7 @@
         openOnboarding: () => void;
         getAIBatches: () => { id: string; date: string; deckID: string; blockIDs: string[] }[];
         getLeechCards: () => { blockID: string; lapses: number }[];
+        rewriteWithAI: (blockID: string) => void;
     }
 
     let { ctx }: { ctx: DashboardCtx } = $props();
@@ -47,6 +48,12 @@
     function curvePoints(pts: CurvePoint[]): string {
         const maxD = Math.max(...pts.map(p => p.days), 1);
         return pts.map(p => `${10 + (p.days / maxD) * 290},${90 - p.rate * 80}`).join(" ");
+    }
+
+    /** 理论参考线：固定衰减 R=exp(-t/5d)（个人化 S 待 V2 Stability） */
+    function theoryPoints(pts: CurvePoint[]): string {
+        const maxD = Math.max(...pts.map(p => p.days), 1);
+        return pts.map(p => `${10 + (p.days / maxD) * 290},${90 - Math.exp(-p.days / 5) * 80}`).join(" ");
     }
 
     /** 数字滚动（reduced-motion 时直接落值） */
@@ -227,6 +234,8 @@
             {#if curve.length >= 2}
                 <svg viewBox="0 0 320 100" class="lv-curve">
                     <line x1="8" y1="90" x2="312" y2="90" class="lv-curve-axis" />
+                    <polyline fill="none" stroke="var(--b3-theme-on-surface)" stroke-width="1" stroke-dasharray="4 3" opacity="0.5" points={theoryPoints(curve)} />
+                    <polyline fill="none" stroke="var(--b3-theme-on-surface)" stroke-width="1" stroke-dasharray="4 3" opacity="0.5" points={theoryPoints(curve)} />
                     <polyline fill="none" stroke="var(--b3-theme-primary)" stroke-width="2" points={curvePoints(curve)} />
                     {#each curve as p (p.days)}
                         <circle cx={10 + (p.days / Math.max(...curve.map(q => q.days), 1)) * 290} cy={90 - p.rate * 80} r="2.5" class="lv-curve-dot">
@@ -234,6 +243,7 @@
                         </circle>
                     {/each}
                 </svg>
+                <div class="ft__smaller ft__on-surface" style="margin-top: 4px">{t.retention.theory}</div>
             {:else}
                 <div class="lv-hint">{t.retention.curveNone}</div>
             {/if}
@@ -268,6 +278,7 @@
                         <span class="ft__smaller ft__on-surface">ID {l.blockID.slice(0, 8)}…</span>
                         <div class="fn__flex-1"></div>
                         <LvChip tone={l.lapses >= 12 ? "error" : "warn"}>{t.leech.lapses}: {l.lapses}</LvChip>
+                        <button class="b3-button b3-button--small" onclick={() => ctx.rewriteWithAI(l.blockID)}>{t.leech.rewriteAI}</button>
                         <button class="b3-button b3-button--small" onclick={() => openTab({ app: ctx.app, doc: { id: l.blockID, zoomIn: true } })}>
                             {t.leech.rewrite}
                         </button>

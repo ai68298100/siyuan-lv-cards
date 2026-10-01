@@ -92,7 +92,11 @@ export default class LvCardsPlugin extends Plugin {
                     target: div,
                     props: {
                         i18n: plugin.i18n,
-                        initialTab: (this.data?.tab as string) ?? "overview",
+                        initialTab: (this.data?.tab as string) ?? plugin.settings.lastHubTab,
+                        onTabChange: (id: string) => {
+                            plugin.settings.lastHubTab = id;
+                            plugin.saveData(SETTINGS_DATA, plugin.settings).catch(() => { /* 旁路 */ });
+                        },
                         dashboardBase: {
                             i18n: plugin.i18n,
                             app: plugin.app,
@@ -109,6 +113,7 @@ export default class LvCardsPlugin extends Plugin {
                                 const items = leechCards(plugin.revlog, plugin.settings.leechThreshold);
                                 return items.map(i => ({ blockID: i.blockID, lapses: i.lapses }));
                             },
+                            rewriteWithAI: (blockID: string) => plugin.openAIWizard(blockID),
                         },
                         managerCtx: {
                             i18n: plugin.i18n,
@@ -148,7 +153,10 @@ export default class LvCardsPlugin extends Plugin {
                 div.style.height = "100%";
                 const app = mount(Review, {
                     target: div,
-                    props: { ctx: {
+                    props: {
+                        initialScope: (this.data?.scope as string) ?? plugin.settings.lastReviewScope,
+                        initialCram: this.data?.cram === true,
+                        ctx: {
                         i18n: plugin.i18n,
                         app: plugin.app,
                         settings: () => ({
@@ -169,6 +177,10 @@ export default class LvCardsPlugin extends Plugin {
                             plugin.saveData(SUSPEND_TODAY_DATA, plugin.suspendToday).catch(() => { /* 旁路 */ });
                         },
                         openDashboard: () => plugin.openTabOf(TAB_DASHBOARD),
+                        onScopePersist: (key: string) => {
+                            plugin.settings.lastReviewScope = key;
+                            plugin.saveData(SETTINGS_DATA, plugin.settings).catch(() => { /* 旁路 */ });
+                        },
                         emitSessionFinished: (summary: { new: number; review: number; forget: number; skip: number }) => {
                             try {
                                 (plugin.eventBus as any).emit("lv-cards:session-finished", { plugin: "lv-cards", v: 1, summary });
@@ -613,14 +625,15 @@ export default class LvCardsPlugin extends Plugin {
         this.openTabOf(TAB_REVIEW, { scope, cram });
     }
 
-    /** AI 制卡向导（M2·FR6-10）：生成回调 + 批次记录落库 */
-    private openAIWizard() {
+    /** AI 制卡向导（M2·FR6-10）：生成回调 + 批次记录落库；initialSource 用于 leech 改写预填 */
+    private openAIWizard(initialSource = "") {
         svelteDialog({
             title: this.i18n.aiWizardTitle,
             component: AIWizard,
             width: "min(680px, 94vw)",
             props: {
                 i18n: this.i18n,
+                initialSource,
                 generate: async (source: string, cfg: { count: number; language: string; type: "qa" | "cloze" }) => {
                     const system = this.i18n.aiSystemPrompt;
                     const user = this.i18n.aiUserPrompt

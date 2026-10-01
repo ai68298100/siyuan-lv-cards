@@ -37,6 +37,7 @@
         isSuspendedToday: (cardID: string) => boolean;
         suspendToday: (cardID: string) => void;
         openDashboard: () => void;
+        onScopePersist: (scopeKey: string) => void;
         emitSessionFinished: (summary: { new: number; review: number; forget: number; skip: number }) => void;
     }
 
@@ -497,7 +498,7 @@
         </div>
     {:else}
         <div class="lv-head">
-            <select class="b3-select lv-scope" bind:value={scopeKey} onchange={loadQueue} title={t.review.scopeTitle}>
+            <select class="b3-select lv-scope" bind:value={scopeKey} onchange={() => { ctx.onScopePersist(scopeKey); loadQueue(); }} title={t.review.scopeTitle}>
                 <option value="all">{t.review.scopeAll}</option>
                 {#if decks.length > 0}
                     <optgroup label={t.dashboard.decks}>

@@ -7,7 +7,7 @@
     import type { ManagerCtx } from "./manager.svelte";
     import type { ExamPlan, ExamPlansData, ExamScopeKind } from "@/core/exam";
 
-    let { i18n, dashboardBase, managerCtx, exam, initialTab = "overview" }: {
+    let { i18n, dashboardBase, managerCtx, exam, initialTab = "overview", onTabChange }: {
         i18n: any;
         /** 总览页上下文（不含 openManager，由 Hub 内部切换页签实现） */
         dashboardBase: Omit<DashboardCtx, "openManager">;
@@ -21,6 +21,7 @@
             onReport: (plan: ExamPlan) => void;
         } | null;
         initialTab?: string;
+        onTabChange?: (id: string) => void;
     } = $props();
 
     const tabs = [
@@ -39,7 +40,7 @@
 
 <div class="lv-hub">
     <div class="lv-hub-bar">
-        <LvTabs {tabs} active={active} onchange={(id) => (active = id)} />
+        <LvTabs {tabs} active={active} onchange={(id) => { active = id; onTabChange?.(id); }} />
     </div>
     <div class="lv-hub-body">
         {#if active === "overview"}

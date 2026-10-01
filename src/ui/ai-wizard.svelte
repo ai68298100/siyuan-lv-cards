@@ -6,8 +6,10 @@
     import LvRow from "./kit/LvRow.svelte";
     import LvChip from "./kit/LvChip.svelte";
 
-    let { i18n, generate, onCreate, onClose }: {
+    let { i18n, initialSource = "", generate, onCreate, onClose }: {
         i18n: any;
+        /** 预填材料（leech 改写联动） */
+        initialSource?: string;
         /** 调用方实现：构造 prompt → 调 AI → 解析卡片（含批次记录） */
         generate: (source: string, cfg: { count: number; language: string; type: "qa" | "cloze" }) => Promise<{ q: string; a: string }[]>;
         onCreate: (cards: { q: string; a: string }[], deckID: string, deckName: string) => Promise<void>;
@@ -16,7 +18,7 @@
     const t = $derived(i18n);
 
     let step = $state(1);
-    let source = $state("");
+    let source = $state(initialSource);
     let count = $state(10);
     let language = $state("中文");
     let cardType = $state<"qa" | "cloze">("qa");

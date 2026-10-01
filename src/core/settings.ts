@@ -48,6 +48,9 @@ export interface LvCardsSettings {
     ankiClientKey: string;
     /** 复习舞台最大宽度 px（AC） */
     cardMaxWidth: number;
+    /** 记忆：上次所在中心子页 / 上次复习范围 */
+    lastHubTab: string;
+    lastReviewScope: string;
 }
 
 const SETTINGS_VERSION = 1;
@@ -83,6 +86,8 @@ export function defaultSettings(): LvCardsSettings {
         ankiClientUrl: "http://127.0.0.1:8765",
         ankiClientKey: "",
         cardMaxWidth: 880,
+        lastHubTab: "overview",
+        lastReviewScope: "all",
     };
 }
 
