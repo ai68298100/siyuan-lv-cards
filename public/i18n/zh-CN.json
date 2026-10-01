@@ -45,7 +45,8 @@
     "personaCustom": "⚙ 自定义",
     "personaCustom_desc": "手动调整过模块或参数",
     "personaApplyTitle": "应用画像预设",
-    "personaApplyHint": "将覆盖模块开关与推荐参数（保存后生效，可随时再改）",
+    "personaApplyHint": "将覆盖模块开关与推荐参数（保存后生效，可随时再改）。下方为将发生的改动：",
+    "personaNoChange": "当前设置与此预设一致，无需改动。",
     "dashboard": {
         "title": "闪卡中心 · 总览",
         "todayDue": "今日到期",
@@ -439,6 +440,9 @@
     "menuMakeOcclusion": "制作遮挡卡",
     "cmdMarkerCards": "扫描本文档标记符制卡（:: 与 ？）",
     "cmdPairing": "配对挑战（到期挖空卡限时配对）",
+    "cmdOpenHelp": "打开使用帮助",
+    "cmdSampleWorkspace": "生成示例工作区（5 张示例卡）",
+    "sampleDone": "已创建 ${n} 张示例卡并入「示例卡组」",
     "pairing": {
         "title": "配对挑战",
         "pairs": "已配对",

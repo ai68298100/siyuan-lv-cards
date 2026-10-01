@@ -10,17 +10,21 @@ The all-in-one flashcard cockpit for [SiYuan](https://b3log.org/siyuan/) — sta
 
 SiYuan ships a built-in FSRS flashcard system, but users have been asking for the two missing pieces ([issue #10326](https://github.com/siyuan-note/siyuan/issues/10326)): **flashcard management** and **statistics**. Meanwhile the wider ecosystem (Anki, Obsidian, RemNote, Quizlet, 墨墨…) has proven dozens of features SiYuan doesn't have yet. Lv Cards closes that gap.
 
-## Current status: v0.2.0
+## Current status: v0.55.0
 
-- `src/api/riff.ts` — typed client for all 17 kernel `/api/riff/*` endpoints
-- `src/api/flashcardV2.ts` — kernel Flashcard V2 (feature/flashcard branch, 3.9.0) wrappers with migration-state detection
-- Module registry aligned with the design docs (M1-M12, persona-affine, phase-tagged) + legacy id migration
-- **Persona presets** — Exam sprint / Card notes / Language learning apply a full module+parameter profile
-- **Entry matrix** — top-bar left click starts review instantly, right click opens the menu, and a **due-count badge** refreshes every 60s
-- **Review panel** — interval preview on every rating button, 4-button / 3-button (Know/Vague/Unknown) styles, hotkeys, peek-previous overlay, "skip today" (local, next-day auto-restore), timeout mode (reveal / rate-Again) with countdown, session summary (undo rating arrives in v1.0)
-- **Card Hub** — overview (six stats, heatmap, streak, deck table, V2 badge + official statistics summary) and paged card manager
-- Settings — persona presets, module switches, rating style, timeout, daily targets, data zone (revlog export/clear, V2 re-detect)
-- Minimal kernel plugin (`kernel.js`) for future shared-state features
+**Review**: interval preview · 4-button / 3-button styles · hotkeys (with ? cheat sheet) · peek previous · skip-today · timeout mode · forgotten-card batch re-queue · undo rating · quick reschedule · type-in grading (LCS diff) · dictation mode (TTS) · multiple choice · image occlusion · touch swipe · source-context preview · safe-area insets · session resume · session duration & goal progress
+
+**Card creation**: block cards (multi-select) · quick cloze · quick Q/A · marker scanning (`::` and `?`) · AI batch generation (4 input sources + preview editing + batch quality tracking) · image occlusion editor · duplicate warning
+
+**Stats & hub**: six animated stats · heatmap · streak · True Retention · measured retention curve (PNG export) · week-over-week · milestones & XP/levels (optional) · AI batch quality · leech list · paged manager (text/path/sort/status/leech filters, batch reset & remove, card detail drawer)
+
+**Exam**: plan countdown pacing + daily targets + cram mode + 30/7/1-day system notifications + post-exam report
+
+**Data**: review log JSON/CSV export & import (with multi-device fork detection and merge preview) · 20k-entry perf budget test · settings/persona JSON export · storage audit · diagnostics copy (with kernel version)
+
+**Engineering**: dual-track gateway (riff 3.8.x + V2 3.9.0 feature branch, persisted detection + gateway-changed event) · 14-component UI Kit + Starline design tokens · hub error boundary · main bundle 29KB gzip (32KB budget enforced by CI) · 26 unit tests · zh/en i18n, 448 keys aligned
+
+A minimal kernel plugin (`kernel.js`) keeps an echo stub for future shared-state features.
 
 ## Roadmap
 

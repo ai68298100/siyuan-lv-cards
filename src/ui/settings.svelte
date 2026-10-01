@@ -53,10 +53,39 @@
         draft.persona = "custom";
     }
 
+    /** 画像应用 diff 预览（61·P0）：确认框逐项列出将改动的模块开关与参数 */
+    const PERSONA_PARAM_LABELS: Record<string, string> = {
+        ratingStyle: "ratingStyle",
+        timeoutMode: "timeoutMode",
+        timeoutSeconds: "timeoutSeconds",
+        dailyNewTarget: "dailyNewTarget",
+        dailyReviewTarget: "dailyReviewTarget",
+    };
+
     function applyPersona(preset: PersonaPreset) {
+        const moduleMap = new Map(MODULE_DEFS.map(m => [m.id, m.nameKey]));
+        const modLines: string[] = [];
+        for (const [id, v] of Object.entries(preset.modules)) {
+            if (id in draft.modules && draft.modules[id] !== v) {
+                const label = moduleMap.get(id) ? (t.modules as any)[moduleMap.get(id)!] ?? id : id;
+                modLines.push(`<div>• ${label}：${draft.modules[id] ? "✓" : "✕"} → ${v ? "✓" : "✕"}</div>`);
+            }
+        }
+        const paramLines: string[] = [];
+        for (const [k, v] of Object.entries(preset.params)) {
+            const cur = (draft as any)[k];
+            if (cur !== undefined && cur !== v) {
+                const label = (t.settings as any)[PERSONA_PARAM_LABELS[k] ?? k] ?? k;
+                paramLines.push(`<div>• ${label}：${cur} → ${v}</div>`);
+            }
+        }
+        const diffHtml = [...modLines, ...paramLines].join("");
+        const diffBlock = diffHtml
+            ? `<hr style="margin:8px 0"><div style="max-height:180px;overflow:auto;font-size:12px">${diffHtml}</div>`
+            : `<hr style="margin:8px 0"><div style="font-size:12px">${t.settings.personaNoChange}</div>`;
         confirmDialog({
             title: t.personaApplyTitle,
-            content: `<div class="b3-typography">${t.modules[preset.nameKey]}：${t[preset.descKey]}<br><small>${t.personaApplyHint}</small></div>`,
+            content: `<div class="b3-typography">${t.modules[preset.nameKey]}：${t[preset.descKey]}<br><small>${t.personaApplyHint}</small></div>${diffBlock}`,
             confirm: () => {
                 draft.persona = preset.id;
                 draft.modules = { ...draft.modules, ...preset.modules };

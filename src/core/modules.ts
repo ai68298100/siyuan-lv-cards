@@ -18,6 +18,12 @@ export interface CardModuleDef {
     locked?: boolean;
 }
 
+// 契约对齐（docs/11 M1-M12 vs 注册表 11 项，567）：
+// M1 gateway / M2 create / M3 review / M4 cardTypes / M5 stats / M6 manager /
+// M7 exam / M8 gamify / M9 ankiBridge / M10 dataHealth / M11 ecosystem。
+// M12（设置与画像/引导）是系统层模块——它承载的正是本注册表+画像预设+设置页本身，
+// 不入表（否则自指）；其功能由 PERSONA_PRESETS、settings.svelte、onboarding 承接，
+// 开关语义由其余 10 个模块的 defaultOn 覆盖。
 export const MODULE_DEFS: CardModuleDef[] = [
     { id: "gateway", nameKey: "gateway", descKey: "gateway_desc", defaultOn: true, phase: "v0.1", personas: "all", locked: true },
     { id: "review", nameKey: "review", descKey: "review_desc", defaultOn: true, phase: "v0.1", personas: "all" },

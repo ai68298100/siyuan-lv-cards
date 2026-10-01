@@ -36,6 +36,8 @@ export interface LvCardsSettings {
     xpEnabled: boolean;
     /** 标记符制卡（M2·FR4）：`术语:: 定义` 与 以「？」结尾的块可扫描成卡，命令触发 */
     markerEnabled: boolean;
+    /** Gateway 探测结果落库（320）：最近一次 V2 探测状态（加载时刷新，重探即写+广播） */
+    gatewayState: string;
     /** leech 判定阈值（遗忘次数） */
     leechThreshold: number;
     /** 答案朗读（TTS，Web Speech） */
@@ -104,6 +106,7 @@ export function defaultSettings(): LvCardsSettings {
         requeueAgain: true,
         xpEnabled: false,
         markerEnabled: true,
+        gatewayState: "",
         leechThreshold: 8,
         ttsEnabled: true,
         ttsRate: 1,

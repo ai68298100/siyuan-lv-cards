@@ -1,7 +1,7 @@
 import "./index.scss";
 
 import { mount, unmount } from "svelte";
-import { Plugin, Menu, getAllEditor, showMessage, fetchSyncPost } from "siyuan";
+import { Plugin, Menu, getAllEditor, showMessage, fetchSyncPost, openTab } from "siyuan";
 
 import { svelteDialog, confirmDialogBool } from "./libs/dialog";
 import { defaultSettings, normalizeSettings, type LvCardsSettings } from "./core/settings";
@@ -11,7 +11,7 @@ import {
     type RevlogData, type RevlogEntry,
 } from "./core/revlog";
 import { detectFlashcardV2, type MigrationStatus } from "./api/flashcardV2";
-import { addRiffCards, createRiffDeck, getDueCount, getRiffCardsByBlockIDs, getRiffDueCards, removeRiffCards } from "./api/riff";
+import { addRiffCards, createRiffDeck, getDueCount, getRiffCardsByBlockIDs, getRiffDecks, getRiffDueCards, removeRiffCards } from "./api/riff";
 import { appendBlock, createDocWithMd, getNotebooks, exportMdContent, sqlQuery, kernelVersion } from "./api/siyuan";
 import { aiChat, estimateTokens, parseCards } from "./api/ai";
 import { normalizeSuspendToday, rollDateIfNeeded, isSuspended, suspend, type SuspendTodayData } from "./core/suspend-today";
@@ -116,6 +116,11 @@ export default class LvCardsPlugin extends Plugin {
 
         // 探测内核闪卡 V2（feature/flashcard 分支 / 3.9.0）：决定走 V2 还是 riff 兼容路径
         this.flashcardV2 = await detectFlashcardV2();
+        // Gateway 探测结果落库（320）：设置页与诊断可直接读，无需重探
+        if (this.flashcardV2 && this.settings.gatewayState !== this.flashcardV2.state) {
+            this.settings.gatewayState = this.flashcardV2.state;
+            this.saveSettingsSoon();
+        }
 
         // 原生复习界面的评分事件 → 本地 revlog（宽容解析，事件结构变化不致崩）
         this.eventBus.on("click-flashcard-action", this.onNativeCardAction);
@@ -371,6 +376,18 @@ export default class LvCardsPlugin extends Plugin {
                     props: { i18n: this.i18n, onExit: () => { /* svelteDialog 自理销毁 */ } },
                 });
             },
+        });
+        this.addCommand({
+            langKey: "openHelp",
+            langText: this.i18n.cmdOpenHelp,
+            hotkey: "",
+            callback: () => this.openHelpDoc(),
+        });
+        this.addCommand({
+            langKey: "sampleWorkspace",
+            langText: this.i18n.cmdSampleWorkspace,
+            hotkey: "",
+            callback: () => this.createSampleWorkspace(),
         });
 
         // 入口矩阵（docs/12 §1.1）：左键 = 有到期开复习、无到期开中心；右键 = 菜单
@@ -832,6 +849,67 @@ export default class LvCardsPlugin extends Plugin {
         showMessage(this.i18n.examReportCopied, 2500, "info");
     }
 
+    /** 内置帮助文档（485）：同路径复用「小驴闪卡/使用帮助」文档，内容随插件更新；
+     * 帮助文案经动态 import 走独立 chunk（不占主包体积预算） */
+    private async openHelpDoc() {
+        const notebooks = await getNotebooks();
+        if (notebooks.length === 0) {
+            showMessage(this.i18n.onboardingNoNotebook, 2500, "error");
+            return;
+        }
+        const { helpMarkdown } = await import("./help");
+        const lang = (window.siyuan as any)?.languages?.lang ?? "zh_CN";
+        const docID = await createDocWithMd(notebooks[0].id, "小驴闪卡/使用帮助", helpMarkdown(lang));
+        if (!docID) {
+            showMessage(this.i18n.quickCardFail, 2500, "error");
+            return;
+        }
+        openTab({ app: this.app, doc: { id: docID } });
+    }
+
+    /** 示例工作区（476）：创建 5 张不同形态的示例卡（普通/公式/挖空/列表/问答）并入「示例卡组」 */
+    private async createSampleWorkspace() {
+        try {
+            const notebooks = await getNotebooks();
+            if (notebooks.length === 0) {
+                showMessage(this.i18n.onboardingNoNotebook, 2500, "error");
+                return;
+            }
+            const decks = await getRiffDecks();
+            let deck = decks.find(d => d.name === "示例卡组");
+            if (!deck) {
+                const created = await createRiffDeck("示例卡组");
+                const newId = (created as any)?.id ?? (created as any);
+                deck = { id: String(newId), name: "示例卡组", size: 0, updated: "" } as any;
+            }
+            const docID = await createDocWithMd(notebooks[0].id, "小驴闪卡/示例卡片", "");
+            if (!docID) {
+                throw new Error(this.i18n.quickCardFail);
+            }
+            const samples = [
+                "示例 1 · 普通卡：思源内核的 FSRS 调度负责计算间隔，小驴闪卡负责体验增强。",
+                "示例 2 · 公式卡：质能方程 $E = mc^2$ 中 $c$ 代表什么？\n光速（约 3×10⁸ m/s）。",
+                "示例 3 · 挖空卡：FSRS 的四个核心状态是 ==未学习、学习、复习、悬置==。",
+                "示例 4 · 列表卡：FSRS 评分四档\n* 遗忘（Again）\n* 困难（Hard）\n* 良好（Good）\n* 简单（Easy）",
+                "示例 5 · 问答卡：什么是真实保持率（True Retention）？\n按卡片成熟度分层统计的记忆保持比例，比整体正确率更能反映记忆效果。",
+            ];
+            const ids: string[] = [];
+            for (const md of samples) {
+                const r = await appendBlock("markdown", md, docID);
+                if (r?.length) {
+                    ids.push(r[0]);
+                }
+            }
+            if (ids.length > 0) {
+                await addRiffCards(deck.id, ids);
+            }
+            showMessage(this.i18n.sampleDone.replace("${n}", String(ids.length)), 3000, "info");
+            openTab({ app: this.app, doc: { id: docID } });
+        } catch (e: any) {
+            showMessage(e?.message ?? String(e), 3000, "error");
+        }
+    }
+
     private async openQuickCard() {
         const QuickCard = await loadQuickCard();
         svelteDialog({
@@ -1273,7 +1351,14 @@ export default class LvCardsPlugin extends Plugin {
                     clearRevlog: () => this.clearRevlog(),
                     redetectV2: async () => {
                         this.flashcardV2 = await detectFlashcardV2();
-                        return this.flashcardV2 ? this.flashcardV2.state : "N/A (<3.9.0)";
+                        const state = this.flashcardV2 ? this.flashcardV2.state : "N/A (<3.9.0)";
+                        this.settings.gatewayState = state;
+                        this.saveSettingsSoon();
+                        // gateway-changed（M11 事件契约）：网关状态变化广播
+                        try {
+                            (this.eventBus as any).emit("lv-cards:gateway-changed", { plugin: "lv-cards", v: 1, state });
+                        } catch { /* 事件旁路 */ }
+                        return state;
                     },
                     getV2Status: () => this.flashcardV2 ? this.flashcardV2.state : "N/A (<3.9.0)",
                     getSuspendedCount: () => this.suspendToday.cardIDs.length,

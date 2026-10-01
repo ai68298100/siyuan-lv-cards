@@ -45,7 +45,8 @@
     "personaCustom": "⚙ Custom",
     "personaCustom_desc": "Manually tuned modules or parameters",
     "personaApplyTitle": "Apply persona preset",
-    "personaApplyHint": "Overwrites module switches and recommended parameters (applied on save, changeable anytime)",
+    "personaApplyHint": "Overwrites module switches and recommended parameters (applied on save, changeable anytime). Changes that will happen:",
+    "personaNoChange": "Current settings already match this preset.",
     "dashboard": {
         "title": "Card Hub · Overview",
         "todayDue": "Due Today",
@@ -439,6 +440,9 @@
     "menuMakeOcclusion": "Create occlusion",
     "cmdMarkerCards": "Scan this doc for marker cards (:: and ?)",
     "cmdPairing": "Pairing challenge (timed match for due cloze cards)",
+    "cmdOpenHelp": "Open help",
+    "cmdSampleWorkspace": "Generate sample workspace (5 sample cards)",
+    "sampleDone": "Created ${n} sample card(s) in the \"Samples\" deck",
     "pairing": {
         "title": "Pairing Challenge",
         "pairs": "Matched",

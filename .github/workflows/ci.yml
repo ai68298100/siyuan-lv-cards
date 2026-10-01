@@ -26,3 +26,5 @@ jobs:
         run: pnpm test
       - name: Build (app + kernel)
         run: pnpm build
+      - name: Gzip budget gate (index.js <= 32KB)
+        run: node -e "const{readFileSync}=require('node:fs');const{gzipSync}=require('node:zlib');const g=gzipSync(readFileSync('dist/index.js')).length;console.log('index.js gzip:',(g/1024).toFixed(2)+'KB');if(g>32*1024){console.error('over 32KB budget');process.exit(1)}"
