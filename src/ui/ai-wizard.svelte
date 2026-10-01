@@ -41,7 +41,7 @@
         }
         loadDocBusy = true;
         try {
-            const doc = loadCurrentDoc ? await loadCurrentDoc() : null;
+            const doc = await loadCurrentDoc();
             if (doc?.content) {
                 source = source ? `${source}\n\n${doc.content}` : doc.content;
             } else {
@@ -51,6 +51,21 @@
             errorMsg = e?.message ?? String(e);
         } finally {
             loadDocBusy = false;
+        }
+    }
+
+    /** 载入选中文字（防御式：选区在思源主文档同 window，通常可取到；🧪 真机确认） */
+    function loadSelection() {
+        try {
+            const sel = window.getSelection()?.toString().trim();
+            if (sel) {
+                source = source ? `${source}\n\n${sel}` : sel;
+                errorMsg = "";
+            } else {
+                errorMsg = t.aiWizard.noSelection;
+            }
+        } catch {
+            errorMsg = t.aiWizard.noSelection;
         }
     }
 
@@ -124,11 +139,12 @@
     {#if step === 1}
         <div transition:fade={{ duration: 160 }}>
             <LvSection title={t.aiWizard.source}>
-                {#if loadCurrentDoc}
-                    <div style="margin-bottom: var(--lv-sp-2)">
+                <div style="margin-bottom: var(--lv-sp-2); display: flex; gap: var(--lv-sp-2); flex-wrap: wrap">
+                    {#if loadCurrentDoc}
                         <button class="b3-button b3-button--small" onclick={loadActiveDoc}>{t.aiWizard.loadDoc}</button>
-                    </div>
-                {/if}
+                    {/if}
+                    <button class="b3-button b3-button--small" onclick={loadSelection}>{t.aiWizard.loadSelection}</button>
+                </div>
                 <textarea class="b3-text-field fn__block" rows="8" bind:value={source}
                     placeholder={t.aiWizard.sourcePlaceholder}></textarea>
                 {#if source}

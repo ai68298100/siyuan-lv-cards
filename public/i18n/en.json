@@ -293,7 +293,9 @@
         "back": "Back",
         "import": "Import selected",
         "loadDoc": "Load current doc",
-        "noDoc": "No open document found"
+        "noDoc": "No open document found",
+        "loadSelection": "Load selection",
+        "noSelection": "No selected text found"
     },
     "aiSystemPrompt": "You are a flashcard expert. Generate flashcards from the user's material. Output ONLY a JSON array in the form [{\"q\":\"question\",\"a\":\"answer\"}] with no other text. Questions must be specific and actively recallable; answers concise and accurate.",
     "aiUserPrompt": "Material:\n${source}\n\nGenerate ${count} flashcards in ${language}. Card style: ${type}.",
