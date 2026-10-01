@@ -69,6 +69,8 @@ export interface LvCardsSettings {
     /** 记忆：上次所在中心子页 / 上次复习范围 */
     lastHubTab: string;
     lastReviewScope: string;
+    /** Onboarding 已完成 */
+    onboarded: boolean;
 }
 
 const SETTINGS_VERSION = 1;
@@ -115,6 +117,7 @@ export function defaultSettings(): LvCardsSettings {
         cardMaxWidth: 880,
         lastHubTab: "overview",
         lastReviewScope: "all",
+        onboarded: false,
     };
 }
 

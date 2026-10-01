@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.34.0 2026-10-02 · 自主待办清零
+
+* LvCardsSettings 新增 onboarded 标记（Onboarding 完成状态持久化）
+* settings.ts 旧 ID 迁移完整覆盖（含 batchLimit/ttsVoice/dictation/sfx/onboarded）
+* 全部自主可闭环待办已消化——剩余项收敛为 V2 依赖 / 🧪 真机 / P3 远期三类
+
 ## v0.33.0 2026-10-02 · 评分音效（Web Audio 合成）
 
 * 评分音效（M 组 P2）：Web Audio oscillator 按评分级别合成双音/单响，无文件依赖
