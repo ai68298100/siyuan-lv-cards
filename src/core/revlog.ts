@@ -209,6 +209,62 @@ export function computeRetentionCurve(data: RevlogData, buckets: number[] = [1, 
         .map(s => ({ days: s.days, rate: 1 - s.fails / s.n, n: s.n }));
 }
 
+export interface BatchStat {
+    reviews: number;
+    fails: number;
+    /** 0-1，无样本返回 null */
+    rate: number | null;
+}
+
+/** 指定 block 集合的复习保持率（M2·FR11 批次质量反哺 / M6·FR5 leech 共用） */
+export function reviewStatsFor(data: RevlogData, blockIDs: string[]): BatchStat {
+    const ids = new Set(blockIDs);
+    const byCard = new Map<string, RevlogEntry[]>();
+    for (const e of data.entries) {
+        if (e.rating <= 0 || !ids.has(e.blockID)) {
+            continue;
+        }
+        const arr = byCard.get(e.cardID) ?? [];
+        arr.push(e);
+        byCard.set(e.cardID, arr);
+    }
+    let reviews = 0;
+    let fails = 0;
+    for (const [, entries] of byCard) {
+        entries.sort((a, b) => a.ts - b.ts);
+        for (let i = 1; i < entries.length; i++) {
+            reviews += 1;
+            if (entries[i].rating === 1) {
+                fails += 1;
+            }
+        }
+    }
+    return { reviews, fails, rate: reviews > 0 ? 1 - fails / reviews : null };
+}
+
+export interface LeechItem {
+    cardID: string;
+    blockID: string;
+    lapses: number;
+}
+
+/** leech 烂卡：revlog 中遗忘次数 ≥ 阈值的卡（M6·FR5，起点=插件启用日） */
+export function leechCards(data: RevlogData, threshold: number): LeechItem[] {
+    const acc = new Map<string, LeechItem>();
+    for (const e of data.entries) {
+        if (e.rating !== 1) {
+            continue;
+        }
+        const item = acc.get(e.cardID) ?? { cardID: e.cardID, blockID: e.blockID, lapses: 0 };
+        item.lapses += 1;
+        if (e.blockID) {
+            item.blockID = e.blockID;
+        }
+        acc.set(e.cardID, item);
+    }
+    return [...acc.values()].filter(i => i.lapses >= threshold).sort((a, b) => b.lapses - a.lapses);
+}
+
 export interface RetentionTier {
     reviews: number;
     fails: number;

@@ -2,7 +2,8 @@
     import { onMount } from "svelte";
     import { getRiffDecks, getRiffDueCards, type RiffDeck } from "@/api/riff";
     import { getFlashcardStatistics, summarizeStatistics, type MigrationStatus } from "@/api/flashcardV2";
-    import { calcStreak, lastNDays, computeRetention, computeRetentionCurve, type RevlogData, type RetentionResult, type CurvePoint } from "@/core/revlog";
+    import { calcStreak, lastNDays, computeRetention, computeRetentionCurve, reviewStatsFor, type RevlogData, type RetentionResult, type CurvePoint } from "@/core/revlog";
+    import { openTab } from "siyuan";
     import LvPage from "./kit/LvPage.svelte";
     import LvSection from "./kit/LvSection.svelte";
     import LvStat from "./kit/LvStat.svelte";
@@ -12,12 +13,15 @@
 
     export interface DashboardCtx {
         i18n: any;
+        app: any;
         getRevlog: () => RevlogData;
         getV2Status: () => MigrationStatus | null;
         getDailyTargets: () => { new: number; review: number };
         openReview: () => void;
         openManager: () => void;
         openOnboarding: () => void;
+        getAIBatches: () => { id: string; date: string; deckID: string; blockIDs: string[] }[];
+        getLeechCards: () => { blockID: string; lapses: number }[];
     }
 
     let { ctx }: { ctx: DashboardCtx } = $props();
@@ -37,6 +41,8 @@
     let v2Stats: { key: string; value: string }[] = $state([]);
     let retention: RetentionResult | null = $state(null);
     let curve: CurvePoint[] = $state([]);
+    let aiQuality = $state<{ date: string; cards: number; reviews: number; rate: number | null }[]>([]);
+    let leech: { blockID: string; lapses: number }[] = $state([]);
 
     function curvePoints(pts: CurvePoint[]): string {
         const maxD = Math.max(...pts.map(p => p.days), 1);
@@ -93,6 +99,16 @@
             revlogNote = first ? new Date(first).toLocaleDateString() : "";
             retention = computeRetention(revlog);
             curve = computeRetentionCurve(revlog);
+            aiQuality = ctx
+                .getAIBatches()
+                .filter(b => b.blockIDs.length > 0)
+                .slice(-5)
+                .reverse()
+                .map(b => {
+                    const stat = reviewStatsFor(revlog, b.blockIDs);
+                    return { date: b.date, cards: b.blockIDs.length, reviews: stat.reviews, rate: stat.rate };
+                });
+            leech = ctx.getLeechCards().slice(0, 8);
             // 内核 V2（3.9.0）激活时，顺带拉取官方统计摘要（宽容解析，失败静默）
             const v2 = ctx.getV2Status();
             if (v2) {
@@ -223,6 +239,43 @@
             {/if}
         </LvSection>
 
+        <LvSection title={t.aiQuality.title} sub={t.aiQuality.sub}>
+            {#if aiQuality.length === 0}
+                <div class="lv-hint">{t.aiQuality.none}</div>
+            {:else}
+                {#each aiQuality as q (q.date)}
+                    <div class="fn__flex lv-airow">
+                        <span class="ft__smaller">{q.date}</span>
+                        <div class="fn__flex-1"></div>
+                        <span class="ft__smaller ft__on-surface">{t.aiQuality.cards}: {q.cards}</span>
+                        <div class="lv-mini-track" style="width: 120px">
+                            <div class="lv-mini-fill" style={`width:${q.rate === null ? 0 : Math.round(q.rate * 100)}%`}></div>
+                        </div>
+                        <span class="ft__smaller lv-ai-rate">
+                            {q.rate === null ? t.aiQuality.noSample : `${Math.round(q.rate * 100)}%`} · {t.aiQuality.reviews}: {q.reviews}
+                        </span>
+                    </div>
+                {/each}
+            {/if}
+        </LvSection>
+
+        <LvSection title={t.leech.title} sub={t.leech.sub}>
+            {#if leech.length === 0}
+                <div class="lv-hint">{t.leech.none}</div>
+            {:else}
+                {#each leech as l (l.blockID)}
+                    <div class="fn__flex lv-airow">
+                        <span class="ft__smaller ft__on-surface">ID {l.blockID.slice(0, 8)}…</span>
+                        <div class="fn__flex-1"></div>
+                        <LvChip tone={l.lapses >= 12 ? "error" : "warn"}>{t.leech.lapses}: {l.lapses}</LvChip>
+                        <button class="b3-button b3-button--small" onclick={() => openTab({ app: ctx.app, doc: { id: l.blockID, zoomIn: true } })}>
+                            {t.leech.rewrite}
+                        </button>
+                    </div>
+                {/each}
+            {/if}
+        </LvSection>
+
         <LvSection title={t.dashboard.decks}>
             {#if decks.length === 0}
                 <div class="lv-hint">{t.dashboard.noDecks}</div>
@@ -320,6 +373,15 @@
         }
         .lv-ret-row:last-child { border-bottom: none; }
         .lv-ret-rate { font-variant-numeric: tabular-nums; font-weight: 600; }
+
+    .lv-airow {
+        align-items: center;
+        gap: var(--lv-sp-3);
+        padding: var(--lv-sp-2) 0;
+        border-bottom: 1px solid var(--lv-border);
+        &:last-child { border-bottom: none; }
+        .lv-ai-rate { font-variant-numeric: tabular-nums; }
+    }
 
     .lv-curve {
         width: 100%;

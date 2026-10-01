@@ -286,5 +286,20 @@
         "curve": "Retention curve (measured)",
         "curveSub": "Buckets by review gap · ≥3 samples per bucket",
         "curveNone": "Not enough samples — re-review the same card after a few days."
+    },
+    "aiQuality": {
+        "title": "AI batch quality",
+        "sub": "Measured retention per AI generation batch",
+        "cards": "cards",
+        "reviews": "reviews",
+        "noSample": "collecting samples",
+        "none": "No AI batches yet."
+    },
+    "leech": {
+        "title": "Leech rewrite list",
+        "sub": "Cards whose lapses reached the threshold (set in settings); since plugin start",
+        "lapses": "lapses",
+        "rewrite": "Open & rewrite",
+        "none": "No leeches above threshold ✓"
     }
 }

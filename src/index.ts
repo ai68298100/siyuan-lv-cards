@@ -7,7 +7,7 @@ import { svelteDialog } from "./libs/dialog";
 import { defaultSettings, normalizeSettings, type LvCardsSettings } from "./core/settings";
 import { PERSONA_PRESETS } from "./core/personas";
 import {
-    appendRevlog, calcStreak, emptyRevlog, localDate, normalizeRevlog, recalcDays, revlogToCsv, mergeRevlog,
+    appendRevlog, calcStreak, emptyRevlog, leechCards, localDate, normalizeRevlog, recalcDays, revlogToCsv, mergeRevlog,
     type RevlogData, type RevlogEntry,
 } from "./core/revlog";
 import { detectFlashcardV2, type MigrationStatus } from "./api/flashcardV2";
@@ -95,6 +95,7 @@ export default class LvCardsPlugin extends Plugin {
                         initialTab: (this.data?.tab as string) ?? "overview",
                         dashboardBase: {
                             i18n: plugin.i18n,
+                            app: plugin.app,
                             getRevlog: () => plugin.revlog,
                             getV2Status: () => plugin.flashcardV2,
                             getDailyTargets: () => ({
@@ -103,6 +104,11 @@ export default class LvCardsPlugin extends Plugin {
                             }),
                             openReview: () => plugin.openTabOf(TAB_REVIEW),
                             openOnboarding: () => plugin.openOnboarding(),
+                            getAIBatches: () => plugin.aiBatches.batches,
+                            getLeechCards: () => {
+                                const items = leechCards(plugin.revlog, plugin.settings.leechThreshold);
+                                return items.map(i => ({ blockID: i.blockID, lapses: i.lapses }));
+                            },
                         },
                         managerCtx: {
                             i18n: plugin.i18n,
