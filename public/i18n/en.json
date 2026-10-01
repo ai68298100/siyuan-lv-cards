@@ -113,7 +113,16 @@
         "openDoc": "Open Doc",
         "empty": "No flashcards found. Add flashcards to blocks in the editor first.",
         "filterEmpty": "No cards match this filter",
-        "filterClear": "Clear filter"
+        "filterClear": "Clear filter",
+        "batchSelected": "${n} selected",
+        "batchRemove": "Remove",
+        "batchReset": "Reset",
+        "batchCancel": "Cancel",
+        "batchConfirm": "This will apply to ${n} cards (document content untouched). Confirm?",
+        "batchDone": "Removed ${n} cards",
+        "batchResetDone": "Reset ${n} cards",
+        "detailTitle": "Card detail",
+        "detailBlockId": "Block ID"
     },
     "settings": {
         "personaSection": "Persona Presets",

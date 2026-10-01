@@ -113,7 +113,16 @@
         "openDoc": "打开文档",
         "empty": "没有找到闪卡。先在编辑器中为块添加闪卡吧。",
         "filterEmpty": "没有匹配当前筛选的卡片",
-        "filterClear": "清除筛选"
+        "filterClear": "清除筛选",
+        "batchSelected": "已选 ${n} 张",
+        "batchRemove": "移除",
+        "batchReset": "重置",
+        "batchCancel": "取消选择",
+        "batchConfirm": "将对 ${n} 张卡执行该操作，且不影响文档内容。确认？",
+        "batchDone": "已移除 ${n} 张",
+        "batchResetDone": "已重置 ${n} 张",
+        "detailTitle": "卡片详情",
+        "detailBlockId": "块 ID"
     },
     "settings": {
         "personaSection": "画像预设",

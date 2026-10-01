@@ -1,9 +1,12 @@
 <script lang="ts">
     import { onMount } from "svelte";
-    import { openTab } from "siyuan";
-    import { getRiffCards, type SearchBlock } from "@/api/riff";
+    import { openTab, showMessage } from "siyuan";
+    import { getRiffCards, removeRiffCards, resetRiffCards, type SearchBlock } from "@/api/riff";
+    import { confirmDialog } from "@/libs/dialog";
     import LvPage from "./kit/LvPage.svelte";
     import LvEmpty from "./kit/LvEmpty.svelte";
+    import LvChip from "./kit/LvChip.svelte";
+    import CardDetail from "./card-detail.svelte";
 
     export interface ManagerCtx {
         i18n: any;
@@ -21,6 +24,8 @@
     let blocks: SearchBlock[] = $state([]);
     let errorMsg = $state("");
     let filterText = $state("");
+    let selected: string[] = $state([]);
+    let detail: SearchBlock | null = $state(null);
 
     let filteredBlocks = $derived(
         blocks.filter(b => !filterText || stripHtml(b.content).toLowerCase().includes(filterText.toLowerCase()))
@@ -38,6 +43,7 @@
         try {
             const cards = await getRiffCards("", page, PAGE_SIZE);
             blocks = cards.blocks ?? [];
+            selected = [];
             total = cards.total;
             pageCount = Math.max(1, cards.pageCount);
         } catch (e: any) {
@@ -50,6 +56,46 @@
     function goto(p: number) {
         page = Math.min(Math.max(1, p), pageCount);
         load();
+    }
+
+    function toggleSelect(id: string) {
+        selected = selected.includes(id) ? selected.filter(x => x !== id) : [...selected, id];
+    }
+
+    function batchRemove() {
+        if (selected.length === 0) return;
+        confirmDialog({
+            title: t.manager.batchRemove,
+            content: `<div class="b3-typography">${t.manager.batchConfirm.replace("${n}", String(selected.length))}</div>`,
+            confirm: async () => {
+                // 🧪 deckID 传空的跨集删除语义待 docs/18 实测
+                await removeRiffCards("", selected);
+                showMessage(t.manager.batchDone.replace("${n}", String(selected.length)), 2000, "info");
+                await load();
+            },
+        });
+    }
+
+    function batchReset() {
+        if (selected.length === 0) return;
+        confirmDialog({
+            title: t.manager.batchReset,
+            content: `<div class="b3-typography">${t.manager.batchConfirm.replace("${n}", String(selected.length))}</div>`,
+            confirm: async () => {
+                // 🧪 type="0" + blockIDs 的块级重置语义待 docs/18 实测
+                await resetRiffCards("0", "", "", selected);
+                showMessage(t.manager.batchResetDone.replace("${n}", String(selected.length)), 2000, "info");
+                await load();
+            },
+        });
+    }
+
+    function onRowClick(e: MouseEvent, b: SearchBlock) {
+        const el = e.target as HTMLElement;
+        if (el.closest("input,button,a,select")) {
+            return;
+        }
+        detail = b;
     }
 
     function openDoc(block: SearchBlock) {
@@ -69,6 +115,16 @@
         <button class="b3-button b3-button--outline" onclick={load}>{t.dashboard.refresh}</button>
     {/snippet}
 
+    {#if selected.length > 0}
+        <div class="lv-glass lv-batchbar">
+            <LvChip tone="primary">{t.manager.batchSelected.replace("${n}", String(selected.length))}</LvChip>
+            <div class="fn__flex-1"></div>
+            <button class="b3-button b3-button--outline" onclick={batchReset}>{t.manager.batchReset}</button>
+            <button class="b3-button b3-button--outline" onclick={batchRemove}>{t.manager.batchRemove}</button>
+            <button class="b3-button b3-button--small" onclick={() => (selected = [])}>{t.manager.batchCancel}</button>
+        </div>
+    {/if}
+
     {#if loading}
         <div class="lv-card2 lv-loading">
             <div class="lv-skeleton" style="height: 44px"></div>
@@ -87,18 +143,33 @@
     {:else}
         <div class="lv-list">
             {#each filteredBlocks as b (b.id)}
-                <div class="lv-row">
+                <div class="lv-row" role="presentation" onclick={(e: MouseEvent) => onRowClick(e, b)}>
+                    <input
+                        type="checkbox"
+                        class="lv-check"
+                        checked={selected.includes(b.id)}
+                        onclick={(e: Event) => { e.stopPropagation(); toggleSelect(b.id); }}
+                    />
                     <div class="lv-content">
                         <div class="lv-text">{stripHtml(b.content) || b.id}</div>
                         <div class="lv-meta ft__smaller ft__on-surface">{b.hPath ?? ""} {b.name ? "· " + b.name : ""}</div>
                     </div>
                     <span class="lv-arrow" aria-hidden="true">›</span>
-                    <button class="b3-button b3-button--small" onclick={() => openDoc(b)}>{t.manager.openDoc}</button>
+                    <button class="b3-button b3-button--small" onclick={(e: Event) => { e.stopPropagation(); openDoc(b); }}>{t.manager.openDoc}</button>
                 </div>
             {/each}
         </div>
     {/if}
 </LvPage>
+
+{#if detail}
+    <CardDetail
+        block={detail}
+        {t}
+        onOpenDoc={() => openDoc(detail!)}
+        onClose={() => (detail = null)}
+    />
+{/if}
 
 <style lang="scss">
     .lv-filter { width: 200px; border-radius: 999px; padding-left: 14px; }
@@ -110,6 +181,17 @@
         flex-direction: column;
         gap: var(--lv-sp-2);
     }
+
+    .lv-batchbar {
+        display: flex;
+        align-items: center;
+        gap: var(--lv-sp-2);
+        border: 1px solid var(--lv-primary-border);
+        border-radius: var(--lv-r-m);
+        padding: var(--lv-sp-2) var(--lv-sp-3);
+        margin-bottom: var(--lv-sp-2);
+    }
+    .lv-check { cursor: pointer; }
 
     .lv-list {
         display: flex;

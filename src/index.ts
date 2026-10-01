@@ -122,6 +122,11 @@ export default class LvCardsPlugin extends Plugin {
                             plugin.saveData(SUSPEND_TODAY_DATA, plugin.suspendToday).catch(() => { /* 旁路 */ });
                         },
                         openDashboard: () => plugin.openTabOf(TAB_DASHBOARD),
+                        emitSessionFinished: (summary: { new: number; review: number; forget: number; skip: number }) => {
+                            try {
+                                (plugin.eventBus as any).emit("lv-cards:session-finished", { plugin: "lv-cards", v: 1, summary });
+                            } catch { /* 事件旁路 */ }
+                        },
                     } },
                 });
                 this.element.appendChild(div);
@@ -375,9 +380,24 @@ export default class LvCardsPlugin extends Plugin {
     };
 
     private appendRevlog(entry: Omit<RevlogEntry, "ts"> & { ts?: number }) {
+        const today = localDate(Date.now());
+        const prevCount = this.revlog.days[today]?.review ?? 0;
         appendRevlog(this.revlog, { ts: entry.ts ?? Date.now(), ...entry } as RevlogEntry);
         this.scheduleRevlogSave();
         this.refreshDueBadge();
+        // M8·FR1：目标跨越庆祝；M11·FR1：生态事件广播
+        const target = this.settings.dailyReviewTarget;
+        const nowCount = this.revlog.days[today]?.review ?? 0;
+        if (target > 0 && prevCount < target && nowCount >= target) {
+            showMessage(this.i18n.dailyTargetReached, 3000, "info");
+        }
+        try {
+            (this.eventBus as any).emit("lv-cards:reviewed", {
+                plugin: "lv-cards", v: 1,
+                cardID: entry.cardID, deckID: entry.deckID, blockID: entry.blockID,
+                rating: entry.rating, source: entry.source,
+            });
+        } catch { /* 事件旁路 */ }
     }
 
     private scheduleRevlogSave() {

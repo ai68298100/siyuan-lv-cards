@@ -27,6 +27,7 @@
         isSuspendedToday: (cardID: string) => boolean;
         suspendToday: (cardID: string) => void;
         openDashboard: () => void;
+        emitSessionFinished: (summary: { new: number; review: number; forget: number; skip: number }) => void;
     }
 
     let { ctx }: { ctx: ReviewCtx } = $props();
@@ -115,7 +116,11 @@
             queue = cards;
             if (queue.length === 0) {
                 current = null;
+                const finished = !sessionDone; // 只在首次进入完成态时广播
                 sessionDone = true;
+                if (finished && reviewedIDs.length > 0) {
+                    ctx.emitSessionFinished({ new: sessionNew, review: sessionReview, forget: sessionForget, skip: sessionSkip });
+                }
                 stopTimeout();
             } else {
                 sessionDone = false;
