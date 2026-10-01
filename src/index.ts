@@ -12,14 +12,12 @@ import {
 import { detectFlashcardV2, type MigrationStatus } from "./api/flashcardV2";
 import { getDueCount } from "./api/riff";
 import { normalizeSuspendToday, rollDateIfNeeded, isSuspended, suspend, type SuspendTodayData } from "./core/suspend-today";
-import Dashboard from "./ui/dashboard.svelte";
 import Review from "./ui/review.svelte";
-import Manager from "./ui/manager.svelte";
+import Hub from "./ui/hub.svelte";
 import SettingsPanel from "./ui/settings.svelte";
 
 const TAB_DASHBOARD = "lv-cards-dashboard";
 const TAB_REVIEW = "lv-cards-review";
-const TAB_MANAGER = "lv-cards-manager";
 const SETTINGS_DATA = "settings.json";
 const REVLOG_DATA = "revlog.json";
 const SUSPEND_TODAY_DATA = "suspend-today.json";
@@ -34,6 +32,8 @@ export default class LvCardsPlugin extends Plugin {
     private topBarElement: HTMLElement | null = null;
     private badgeTimer: ReturnType<typeof setInterval> | null = null;
     private suspendToday: SuspendTodayData = { date: "", cardIDs: [] };
+    /** 最近一次到期数（角标点击行为统一用：>0 开复习，否则开中心） */
+    private lastDue = 0;
 
     async onload() {
         this.addIcons(`<symbol id="iconLvCards" viewBox="0 0 32 32">
@@ -67,19 +67,23 @@ export default class LvCardsPlugin extends Plugin {
             init() {
                 const div = document.createElement("div");
                 div.style.height = "100%";
-                const app = mount(Dashboard, {
+                const app = mount(Hub, {
                     target: div,
-                    props: { ctx: {
+                    props: {
                         i18n: plugin.i18n,
-                        getRevlog: () => plugin.revlog,
-                        getV2Status: () => plugin.flashcardV2,
-                        getDailyTargets: () => ({
-                            new: plugin.settings.dailyNewTarget,
-                            review: plugin.settings.dailyReviewTarget,
-                        }),
-                        openReview: () => plugin.openTabOf(TAB_REVIEW),
-                        openManager: () => plugin.openTabOf(TAB_MANAGER),
-                    } },
+                        initialTab: (this.data?.tab as string) ?? "overview",
+                        dashboardBase: {
+                            i18n: plugin.i18n,
+                            getRevlog: () => plugin.revlog,
+                            getV2Status: () => plugin.flashcardV2,
+                            getDailyTargets: () => ({
+                                new: plugin.settings.dailyNewTarget,
+                                review: plugin.settings.dailyReviewTarget,
+                            }),
+                            openReview: () => plugin.openTabOf(TAB_REVIEW),
+                        },
+                        managerCtx: { i18n: plugin.i18n, app: plugin.app },
+                    },
                 });
                 this.element.appendChild(div);
                 this.destroy = () => unmount(app); // AJ7：Tab 销毁时卸载实例
@@ -117,19 +121,7 @@ export default class LvCardsPlugin extends Plugin {
             },
         });
 
-        this.addTab({
-            type: TAB_MANAGER,
-            init() {
-                const div = document.createElement("div");
-                div.style.height = "100%";
-                const app = mount(Manager, {
-                    target: div,
-                    props: { ctx: { i18n: plugin.i18n, app: plugin.app } },
-                });
-                this.element.appendChild(div);
-                this.destroy = () => unmount(app);
-            },
-        });
+        // 管理器已并入闪卡中心（LvTabs「管理」子页），不再注册独立 Tab
 
         this.addCommand({
             langKey: "openDashboard",
@@ -144,16 +136,16 @@ export default class LvCardsPlugin extends Plugin {
             callback: () => this.openTabOf(TAB_REVIEW),
         });
 
-        // 入口矩阵（docs/12 §1.1）：左键 = 零层级开始复习；右键 = 菜单；角标 = 今日到期数
+        // 入口矩阵（docs/12 §1.1）：左键 = 有到期开复习、无到期开中心；右键 = 菜单
         this.topBarElement = this.addTopBar({
             icon: "iconLvCards",
             title: this.i18n.topbarTitle,
             position: "right",
             callback: () => {
-                if (this.settings.modules.review) {
+                if (this.settings.modules.review && this.lastDue > 0) {
                     this.openTabOf(TAB_REVIEW);
                 } else {
-                    this.showTopbarMenu(new MouseEvent("contextmenu"));
+                    this.openTabOf(TAB_DASHBOARD);
                 }
             },
         });
@@ -184,7 +176,10 @@ export default class LvCardsPlugin extends Plugin {
             this.updateBadge(0);
             return;
         }
-        getDueCount().then(count => this.updateBadge(count)).catch(() => { /* 旁路，静默 */ });
+        getDueCount().then(count => {
+            this.lastDue = count;
+            this.updateBadge(count);
+        }).catch(() => { /* 旁路，静默 */ });
     }
 
     private updateBadge(count: number) {
@@ -248,9 +243,9 @@ export default class LvCardsPlugin extends Plugin {
         this.saveData(REVLOG_DATA, this.revlog).catch(() => { /* 忽略瞬时失败，下次修改会重试 */ });
     }
 
-    private openTabOf(type: string) {
+    private openTabOf(type: string, data?: Record<string, unknown>) {
         const anySelf = this as any;
-        anySelf.openTab({ app: this.app, type });
+        anySelf.openTab({ app: this.app, type, customData: data });
     }
 
     private showTopbarMenu(evt: MouseEvent) {
@@ -270,7 +265,7 @@ export default class LvCardsPlugin extends Plugin {
             menu.addItem({ icon: "iconLvCards", label: this.i18n.menuReview, click: () => this.openTabOf(TAB_REVIEW) });
         }
         if (this.settings.modules.manager) {
-            menu.addItem({ icon: "iconLvCards", label: this.i18n.menuManager, click: () => this.openTabOf(TAB_MANAGER) });
+            menu.addItem({ icon: "iconLvCards", label: this.i18n.menuManager, click: () => this.openTabOf(TAB_DASHBOARD, { tab: "manage" }) });
         }
         menu.addSeparator();
         menu.addItem({
@@ -310,6 +305,12 @@ export default class LvCardsPlugin extends Plugin {
                         return this.flashcardV2 ? this.flashcardV2.state : "N/A (<3.9.0)";
                     },
                     getV2Status: () => this.flashcardV2 ? this.flashcardV2.state : "N/A (<3.9.0)",
+                    getSuspendedCount: () => this.suspendToday.cardIDs.length,
+                    restoreAllSuspended: () => {
+                        this.suspendToday.cardIDs = [];
+                        this.saveData(SUSPEND_TODAY_DATA, this.suspendToday).catch(() => { /* 旁路 */ });
+                        showMessage(this.i18n.settingsSaved, 2000, "info");
+                    },
                 },
             },
         });

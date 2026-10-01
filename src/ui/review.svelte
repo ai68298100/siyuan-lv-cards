@@ -3,9 +3,10 @@
     import { fade } from "svelte/transition";
     import { fetchSyncPost, openTab, showMessage } from "siyuan";
     import {
-        getRiffDueCards, reviewRiffCard, skipReviewRiffCard,
-        type RiffDueCard, type Rating,
+        getRiffDueCards, getRiffDecks, getNotebookRiffDueCards, reviewRiffCard, skipReviewRiffCard,
+        type RiffDueCard, type RiffDeck, type Rating,
     } from "@/api/riff";
+    import { getNotebooks, type Notebook } from "@/api/siyuan";
     import { isCardNew, type RevlogData } from "@/core/revlog";
     import LvKbd from "./kit/LvKbd.svelte";
 
@@ -36,6 +37,10 @@
     let current: RiffDueCard | null = $state(null);
     let showAnswer = $state(false);
     let cardHtml = $state("");
+    // 复习范围（M3·FR1）：all | deck:<id> | notebook:<id>
+    let scopeKey = $state("all");
+    let decks: RiffDeck[] = $state([]);
+    let notebooks: Notebook[] = $state([]);
     let sessionNew = $state(0);
     let sessionReview = $state(0);
     let sessionForget = $state(0);
@@ -82,7 +87,14 @@
         loading = true;
         errorMsg = "";
         try {
-            const data = await getRiffDueCards("", reviewedIDs);
+            let data;
+            if (scopeKey.startsWith("deck:")) {
+                data = await getRiffDueCards(scopeKey.slice(5), reviewedIDs);
+            } else if (scopeKey.startsWith("notebook:")) {
+                data = await getNotebookRiffDueCards(scopeKey.slice(9), reviewedIDs);
+            } else {
+                data = await getRiffDueCards("", reviewedIDs);
+            }
             let cards = data.cards ?? [];
             // 「今天不学」+ 本场已跳过的卡本地过滤（内核调度不受影响，AJ9）
             cards = cards.filter(c => !ctx.isSuspendedToday(c.cardID) && !sessionSkipped.includes(c.cardID));
@@ -286,6 +298,9 @@
 
     onMount(() => {
         loadQueue();
+        // 范围选择器数据源（失败静默：仅影响下拉项，不影响默认全部复习）
+        getRiffDecks().then(d => (decks = d)).catch(() => { /* 旁路 */ });
+        getNotebooks().then(n => (notebooks = n)).catch(() => { /* 旁路 */ });
     });
 
     onDestroy(() => {
@@ -321,6 +336,23 @@
         </div>
     {:else}
         <div class="lv-head">
+            <select class="b3-select lv-scope" bind:value={scopeKey} onchange={loadQueue} title={t.review.scopeTitle}>
+                <option value="all">{t.review.scopeAll}</option>
+                {#if decks.length > 0}
+                    <optgroup label={t.dashboard.decks}>
+                        {#each decks as d (d.id)}
+                            <option value={`deck:${d.id}`}>{d.name}</option>
+                        {/each}
+                    </optgroup>
+                {/if}
+                {#if notebooks.length > 0}
+                    <optgroup label={t.review.scopeNotebooks}>
+                        {#each notebooks as n (n.id)}
+                            <option value={`notebook:${n.id}`}>{n.name}</option>
+                        {/each}
+                    </optgroup>
+                {/if}
+            </select>
             <span class="lv-progress">{reviewedIDs.length + 1} / {reviewedIDs.length + queue.length}</span>
             {#if ctx.settings().timeoutMode !== "off" && !showAnswer}
                 <span class="lv-timeout" class:lv-timeout-low={timeoutLeft <= 10}>⏱ {timeoutText()}</span>
@@ -409,6 +441,7 @@
 
         .lv-head {
             display: flex; align-items: center; gap: var(--lv-sp-2);
+            .lv-scope { max-width: 200px; font-size: 12px; padding: 4px 8px; }
             .lv-progress {
                 font-size: 12px; color: var(--b3-theme-on-surface);
                 background: var(--lv-primary-softer);

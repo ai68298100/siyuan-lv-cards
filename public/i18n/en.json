@@ -93,7 +93,10 @@
         "unknown": "Unknown",
         "hard": "Hard",
         "good": "Good",
-        "easy": "Easy"
+        "easy": "Easy",
+        "scopeAll": "All scopes",
+        "scopeNotebooks": "Notebooks",
+        "scopeTitle": "Choose review scope"
     },
     "manager": {
         "title": "Card Manager",
@@ -102,7 +105,9 @@
         "next": "Next",
         "filterPlaceholder": "Filter this page…",
         "openDoc": "Open Doc",
-        "empty": "No flashcards found. Add flashcards to blocks in the editor first."
+        "empty": "No flashcards found. Add flashcards to blocks in the editor first.",
+        "filterEmpty": "No cards match this filter",
+        "filterClear": "Clear filter"
     },
     "settings": {
         "personaSection": "Persona Presets",
@@ -131,6 +136,11 @@
         "clearRevlogConfirm": "This deletes the local review log and heatmap data (kernel scheduling is not affected) and cannot be undone. Clear?",
         "redetectV2": "Re-detect kernel V2",
         "redetectOk": "Detection finished",
-        "storageNote": "Plugin data syncs with SiYuan; the cards themselves always live in the kernel and are not affected."
-    }
+        "storageNote": "Plugin data syncs with SiYuan; the cards themselves always live in the kernel and are not affected.",
+        "suspendedManage": "Cards hidden today",
+        "suspendedHint": "${n} hidden; auto-restores at midnight",
+        "suspendedRestore": "Restore all"
+    },
+    "hubTabOverview": "Overview",
+    "hubTabManage": "Manage"
 }

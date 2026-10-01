@@ -17,13 +17,14 @@
         clearRevlog: () => void;
         redetectV2: () => Promise<string>;
         getV2Status: () => string;
+        getSuspendedCount: () => number;
+        restoreAllSuspended: () => void;
     }
 
     let { ctx }: { ctx: SettingsCtx } = $props();
     const t = $derived(ctx.i18n);
 
     let draft: LvCardsSettings = $state(JSON.parse(JSON.stringify(ctx.settings)));
-    let applyingPreset = $state(false);
     let v2Label = $state(ctx.getV2Status());
 
     function toggleModule(id: string, ev: Event) {
@@ -32,9 +33,6 @@
     }
 
     function applyPersona(preset: PersonaPreset) {
-        if (applyingPreset) {
-            return;
-        }
         confirmDialog({
             title: t.personaApplyTitle,
             content: `<div class="b3-typography">${t.modules[preset.nameKey]}：${t[preset.descKey]}<br><small>${t.personaApplyHint}</small></div>`,
@@ -144,6 +142,13 @@
             {#snippet children()}
                 <LvChip tone={v2Label.startsWith("Active") ? "primary" : v2Label === "N/A (<3.9.0)" ? "default" : "warn"}>{v2Label}</LvChip>
                 <button class="b3-button b3-button--outline" onclick={redetectV2}>{t.settings.redetectV2}</button>
+            {/snippet}
+        </LvRow>
+        <LvRow label={t.settings.suspendedManage} hint={t.settings.suspendedHint.replace("${n}", String(ctx.getSuspendedCount()))}>
+            {#snippet children()}
+                <button class="b3-button b3-button--outline" disabled={ctx.getSuspendedCount() === 0} onclick={ctx.restoreAllSuspended}>
+                    {t.settings.suspendedRestore}
+                </button>
             {/snippet}
         </LvRow>
         <LvRow label={t.settings.exportRevlog} hint={t.settings.storageNote}>

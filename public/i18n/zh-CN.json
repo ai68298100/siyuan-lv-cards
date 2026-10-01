@@ -93,7 +93,10 @@
         "unknown": "不认识",
         "hard": "困难",
         "good": "良好",
-        "easy": "简单"
+        "easy": "简单",
+        "scopeAll": "全部范围",
+        "scopeNotebooks": "笔记本",
+        "scopeTitle": "选择复习范围"
     },
     "manager": {
         "title": "闪卡管理器",
@@ -102,7 +105,9 @@
         "next": "下一页",
         "filterPlaceholder": "筛选当前页…",
         "openDoc": "打开文档",
-        "empty": "没有找到闪卡。先在编辑器中为块添加闪卡吧。"
+        "empty": "没有找到闪卡。先在编辑器中为块添加闪卡吧。",
+        "filterEmpty": "没有匹配当前筛选的卡片",
+        "filterClear": "清除筛选"
     },
     "settings": {
         "personaSection": "画像预设",
@@ -131,6 +136,11 @@
         "clearRevlogConfirm": "将删除本地复习日志与热力图数据（不影响内核卡片调度），且不可恢复。确认清空？",
         "redetectV2": "重新探测内核 V2",
         "redetectOk": "探测完成",
-        "storageNote": "插件私有数据随思源同步；卡片本体永远保存在内核，不受影响。"
-    }
+        "storageNote": "插件私有数据随思源同步；卡片本体永远保存在内核，不受影响。",
+        "suspendedManage": "今日屏蔽的卡片",
+        "suspendedHint": "已屏蔽 ${n} 张，明天 0 点自动恢复",
+        "suspendedRestore": "恢复全部"
+    },
+    "hubTabOverview": "总览",
+    "hubTabManage": "管理"
 }

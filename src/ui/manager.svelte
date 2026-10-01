@@ -79,7 +79,11 @@
     {:else if errorMsg}
         <div class="lv-card2 lv-hint lv-error">{errorMsg}</div>
     {:else if filteredBlocks.length === 0}
-        <LvEmpty text={t.manager.empty} />
+        {#if filterText}
+            <LvEmpty text={t.manager.filterEmpty} actionLabel={t.manager.filterClear} onaction={() => (filterText = "")} />
+        {:else}
+            <LvEmpty text={t.manager.empty} />
+        {/if}
     {:else}
         <div class="lv-list">
             {#each filteredBlocks as b (b.id)}
