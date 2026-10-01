@@ -555,6 +555,29 @@
     }
 
     /** 点击翻面热区：卡面空白处才翻面（输入控件/链接/按钮不触发，为打字题预留） */
+    // 触屏滑卡手势（M3·FR10）：右=良好 左=遗忘 上=翻面
+    let touchStartX = 0;
+    let touchStartY = 0;
+
+    function onTouchStart(e: TouchEvent) {
+        if (e.touches.length === 1) {
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+        }
+    }
+
+    function onTouchEnd(e: TouchEvent) {
+        const el = e.target as HTMLElement;
+        if (el.closest("input,textarea,select,button,a,[contenteditable]")) return;
+        const dx = e.changedTouches[0].clientX - touchStartX;
+        const dy = e.changedTouches[0].clientY - touchStartY;
+        if (Math.abs(dx) < 60 && Math.abs(dy) < 60) return;
+        if (!current || showAnswer) return;
+        if (dx > 60 && Math.abs(dy) < 60) { rate(3); }
+        else if (dx < -60 && Math.abs(dy) < 60) { rate(1); }
+        else if (dy < -60 && Math.abs(dx) < 60) { showAnswer = true; }
+    }
+
     function onContainerClick(e: MouseEvent) {
         const el = e.target as HTMLElement;
         if (el.closest("input,textarea,select,button,a,[contenteditable]")) {
@@ -599,6 +622,8 @@
     role="presentation"
     onclick={onContainerClick}
     onkeydown={(e) => onKeydown(e)}
+    ontouchstart={onTouchStart}
+    ontouchend={onTouchEnd}
     tabindex="-1"
 >
     {#if loading}
