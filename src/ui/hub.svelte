@@ -2,7 +2,6 @@
     import LvTabs from "./kit/LvTabs.svelte";
     import Dashboard from "./dashboard.svelte";
     import Manager from "./manager.svelte";
-    import ExamPage from "./exam-page.svelte";
     import type { DashboardCtx } from "./dashboard.svelte";
     import type { ManagerCtx } from "./manager.svelte";
     import type { ExamPlan, ExamPlansData, ExamScopeKind } from "@/core/exam";
@@ -37,28 +36,69 @@
     let plans = $state(exam?.plans ?? { version: 1 as const, plans: [] });
 
     const dctx: DashboardCtx = { ...dashboardBase, openManager: () => (active = "manage") };
+
+    // 考试子页懒加载（体积预算 670）：首次切到考试页才拉取 chunk
+    let ExamComp = $state<any>(null);
+    let examError = $state("");
+    async function ensureExam() {
+        if (ExamComp || !exam) { return; }
+        examError = "";
+        try {
+            ExamComp = (await import("./exam-page.svelte")).default;
+        } catch (e: any) {
+            examError = e?.message ?? String(e);
+        }
+    }
+    $effect(() => {
+        if (active === "exam") { ensureExam(); }
+    });
+    if (active === "exam") { ensureExam(); }
+
+    function switchTab(id: string) {
+        active = id;
+        onTabChange?.(id);
+    }
 </script>
 
 <div class="lv-hub">
     <div class="lv-hub-bar">
-        <LvTabs {tabs} active={active} onchange={(id) => { active = id; onTabChange?.(id); }} />
+        <LvTabs {tabs} active={active} onchange={switchTab} />
     </div>
     <div class="lv-hub-body">
-        {#if active === "overview"}
-            <Dashboard ctx={dctx} />
-        {:else if active === "manage"}
-            <Manager ctx={managerCtx} />
-        {:else if exam}
-            <ExamPage
-                i18n={i18n}
-                plans={plans}
-                onSavePlan={(p) => (plans = exam!.onSavePlan(p))}
-                onDeletePlan={(id) => (plans = exam!.onDeletePlan(id))}
-                onReviewScope={exam.onReviewScope}
-                onReport={exam.onReport}
-                onWriteReport={exam.onWriteReport}
-            />
-        {/if}
+        <!-- 错误边界（450）：{#key} 使边界随页签重建，单子页崩溃不拖垮中心，切换自愈 -->
+        {#key active}
+            <svelte:boundary onerror={(e) => console.warn("[lv-cards] tab error", e)}>
+                {#snippet failed(error: unknown, reset)}
+                    <div style="padding: var(--lv-sp-5)">
+                        <div class="lv-card2">
+                            <div style="color: var(--b3-theme-error); font-size: 13px; margin-bottom: 8px">{i18n.hubTabError}{error instanceof Error && error.message ? `: ${error.message}` : ""}</div>
+                            <button class="b3-button b3-button--outline" onclick={reset}>{i18n.dashboard.refresh}</button>
+                        </div>
+                    </div>
+                {/snippet}
+                {#if active === "overview"}
+                    <Dashboard ctx={dctx} />
+                {:else if active === "manage"}
+                    <Manager ctx={managerCtx} />
+                {:else if exam}
+                    {#if ExamComp}
+                        <ExamComp
+                            i18n={i18n}
+                            plans={plans}
+                            onSavePlan={(p: ExamPlan) => (plans = exam!.onSavePlan(p))}
+                            onDeletePlan={(id: string) => (plans = exam!.onDeletePlan(id))}
+                            onReviewScope={exam.onReviewScope}
+                            onReport={exam.onReport}
+                            onWriteReport={exam.onWriteReport}
+                        />
+                    {:else if examError}
+                        <div style="padding: var(--lv-sp-5); color: var(--b3-theme-error); font-size: 13px">{examError}</div>
+                    {:else}
+                        <div style="padding: var(--lv-sp-5); color: var(--b3-theme-on-surface); font-size: 13px">{i18n.dashboard.loading}</div>
+                    {/if}
+                {/if}
+            </svelte:boundary>
+        {/key}
     </div>
 </div>
 

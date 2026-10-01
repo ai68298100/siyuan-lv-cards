@@ -267,6 +267,7 @@
         "ttsVoiceDefaultPlaceholder": ""
     },
     "hubTabOverview": "总览",
+    "hubTabError": "该子页出现错误，已隔离在边界内",
     "hubTabManage": "管理",
     "menuAddToDeck": "添加到卡组",
     "menuRemoveFromDeck": "从卡组移除",

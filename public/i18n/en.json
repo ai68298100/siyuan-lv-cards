@@ -267,6 +267,7 @@
         "ttsVoiceDefaultPlaceholder": ""
     },
     "hubTabOverview": "Overview",
+    "hubTabError": "This tab hit an error (contained by the boundary)",
     "hubTabManage": "Manage",
     "menuAddToDeck": "Add to deck",
     "menuRemoveFromDeck": "Remove from deck",

@@ -20,9 +20,6 @@ import { normalizeSessionState, type SessionState } from "./core/session-state";
 import { normalizeExamPlans, daysLeft, type ExamPlan, type ExamPlansData } from "./core/exam";
 import Review from "./ui/review.svelte";
 import Hub from "./ui/hub.svelte";
-import SettingsPanel from "./ui/settings.svelte";
-import DeckPicker from "./ui/deck-picker.svelte";
-import QuickCard from "./ui/quick-card.svelte";
 // 重组件对话框懒加载（AN 体积评审）：打开时才拉取对应 chunk
 const lazyComp = (loader: () => Promise<{ default: any }>) => {
     let cached: any = null;
@@ -39,7 +36,9 @@ const loadOnboarding = lazyComp(() => import("./ui/onboarding.svelte"));
 const loadChallengeMode = lazyComp(() => import("./ui/challenge-mode.svelte"));
 const loadMarkerCards = lazyComp(() => import("./ui/marker-cards.svelte"));
 const loadPairingGame = lazyComp(() => import("./ui/pairing-game.svelte"));
-// 重组件对话框懒加载（AN 体积评审）：打开时才拉取对应 chunk
+const loadSettingsPanel = lazyComp(() => import("./ui/settings.svelte"));
+const loadDeckPicker = lazyComp(() => import("./ui/deck-picker.svelte"));
+const loadQuickCard = lazyComp(() => import("./ui/quick-card.svelte"));
 
 const TAB_DASHBOARD = "lv-cards-dashboard";
 const TAB_REVIEW = "lv-cards-review";
@@ -162,6 +161,11 @@ export default class LvCardsPlugin extends Plugin {
                                 return plan && left !== null && left >= 0 ? { name: plan.name, days: left } : null;
                             },
                             getXpEnabled: () => plugin.settings.xpEnabled,
+                            onSessionFinished: (cb: () => void) => {
+                                const handler = () => cb();
+                                (plugin.eventBus as any).on("lv-cards:session-finished", handler);
+                                return () => (plugin.eventBus as any).off("lv-cards:session-finished", handler);
+                            },
                         },
                         managerCtx: {
                             i18n: plugin.i18n,
@@ -265,6 +269,8 @@ export default class LvCardsPlugin extends Plugin {
                             try {
                                 (plugin.eventBus as any).emit("lv-cards:session-finished", { plugin: "lv-cards", v: 1, summary });
                             } catch { /* 事件旁路 */ }
+                            // 会话结束即刷角标（549），不等 60s 心跳
+                            plugin.refreshDueBadge();
                         },
                         getContextBlocks: async (blockID: string) => {
                             const safe = blockID.replace(/'/g, "''");
@@ -626,7 +632,9 @@ export default class LvCardsPlugin extends Plugin {
         }
     };
 
-    private openDeckPicker(blockIDs: string[], opts: { skipAdd?: boolean; onPicked?: (deckID: string) => void } = {}) {        svelteDialog({
+    private async openDeckPicker(blockIDs: string[], opts: { skipAdd?: boolean; onPicked?: (deckID: string) => void } = {}) {
+        const DeckPicker = await loadDeckPicker();
+        svelteDialog({
             title: this.i18n.deckPickerTitle,
             component: DeckPicker,
             width: "min(420px, 92vw)",
@@ -824,7 +832,8 @@ export default class LvCardsPlugin extends Plugin {
         showMessage(this.i18n.examReportCopied, 2500, "info");
     }
 
-    private openQuickCard() {
+    private async openQuickCard() {
+        const QuickCard = await loadQuickCard();
         svelteDialog({
             title: this.i18n.quickCardTitle,
             component: QuickCard,
@@ -1244,7 +1253,8 @@ export default class LvCardsPlugin extends Plugin {
         }
     }
 
-    private openSettingsDialog() {
+    private async openSettingsDialog() {
+        const SettingsPanel = await loadSettingsPanel();
         const { close } = svelteDialog({
             title: this.i18n.settingsTitle,
             component: SettingsPanel,

@@ -28,6 +28,8 @@
         getExamCountdown: () => { name: string; days: number } | null;
         /** XP 激励开关（M8·FR3） */
         getXpEnabled: () => boolean;
+        /** 订阅会话完成事件（549）：复习结束后跨页签刷新总览，返回取消函数 */
+        onSessionFinished?: (cb: () => void) => () => void;
     }
 
     let { ctx }: { ctx: DashboardCtx } = $props();
@@ -220,7 +222,11 @@
         }
     }
 
-    onMount(refresh);
+    onMount(() => {
+        refresh();
+        // 会话完成联动（549）：复习页结束会话后跨页签刷新总览
+        return ctx.onSessionFinished?.(() => refresh());
+    });
 </script>
 
 <LvPage title={t.dashboard.title} subtitle={revlogNote ? `${t.dashboard.since} ${revlogNote}` : ""} dot>

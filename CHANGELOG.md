@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.55.0 2026-10-01 · 错误边界 + 会话刷新联动 + 主包重回体积预算
+
+* 中心：hub 三子页包 svelte:boundary（{#key active} 随页签重建自愈），单子页崩溃出重置卡片不拖垮中心；考试子页改为首次切入动态 import
+* 联动：dashboard 经 onSessionFinished 订阅会话完成事件自刷；复习结束即刷顶栏角标（不等 60s 心跳）
+* 体积：settings/deck-picker/quick-card 移入懒加载 chunk——主包 141.6KB/gzip 39.4KB → 98.8KB/gzip 29.11KB，重回 ≤32KB 预算
+* i18n +1 键（448 对齐）；测试 26/26
+
 ## v0.54.0 2026-10-01 · 复习体验打磨 + 考试里程碑通知
 
 * 复习：完成页新增 ⏱ 会话时长与今日目标 a/b 进度（AX·544）
