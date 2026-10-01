@@ -529,6 +529,24 @@
         openTab({ app: ctx.app, doc: { id: current.blockID, zoomIn: true } });
     }
 
+    /** 刷新当前卡内容（编辑返回后手动/自动触发） */
+    async function refreshCard() {
+        if (!current) return;
+        await loadBlockDOM(current.blockID);
+    }
+
+    /** 编辑返回自动刷新（M3·FR5）：监听 visible 状态恢复时刷新卡面 */
+    $effect(() => {
+        if (typeof document === "undefined") return;
+        const handler = () => {
+            if (document.visibilityState === "visible" && current) {
+                refreshCard();
+            }
+        };
+        document.addEventListener("visibilitychange", handler);
+        return () => document.removeEventListener("visibilitychange", handler);
+    });
+
     function dueText(rating: string): string {
         const due = current?.nextDues?.[rating];
         if (!due) { return ""; }
@@ -704,6 +722,7 @@
                 <span class="ft__smaller ft__on-surface" style="opacity:.7">{current.deckID}</span>
             {/if}
             <div class="fn__flex-1"></div>
+            <button class="b3-button b3-button--small" title={t.review.refreshCard} onclick={refreshCard}>⟳</button>
             <button class="b3-button b3-button--small" title={t.review.helpTitle} onclick={() => (helpOpen = true)}>?</button>
             <button class="b3-button b3-button--small" title={t.review.undoTitle} onclick={undoHistory}>↶</button>
             <button class="b3-button b3-button--small" title={t.review.peekPrev} onclick={togglePeek}>[{t.review.peekPrev.slice(0, 2)}]</button>

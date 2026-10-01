@@ -123,7 +123,8 @@
         "helpReschedule": "Reschedule",
         "helpEdit": "Edit source",
         "scopeNew": "New only",
-        "scopeOld": "Review only"
+        "scopeOld": "Review only",
+        "refreshCard": "Refresh card"
     },
     "manager": {
         "title": "Card Manager",
@@ -215,7 +216,7 @@
         "unsavedDesc": "Settings have unsaved changes. Discard and close?",
         "ttsEnabled": "Answer TTS",
         "backlogDays": "Backlog nudge threshold (days)",
-        "ttsRate": "TTS rate (0.5-2x)",
+        "ttsRate": "TTS rate (0.5-2×)",
         "quietSection": "Quiet hours",
         "quietHint": "No backlog/celebration toasts during this window",
         "quietStart": "Quiet start",
@@ -227,8 +228,8 @@
         "batchLimit": "Per-batch fetch size (0 = kernel default)",
         "batchLimitHint": "Set 5-20 to pace yourself",
         "importCsv": "Import CSV (review log)",
-        "dictationEnabled": "Dictation mode (auto-speak answer, type what you hear; requires typing mode + TTS)",
-        "sfxEnabled": "Rating sound effects (Web Audio)",
+        "dictationEnabled": "Dictation mode",
+        "sfxEnabled": "Rating SFX",
         "exportSettings": "Export settings (JSON)"
     },
     "hubTabOverview": "Overview",
