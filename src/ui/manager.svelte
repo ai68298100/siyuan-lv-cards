@@ -11,6 +11,9 @@
     export interface ManagerCtx {
         i18n: any;
         app: any;
+        savedFilters: () => { name: string; filter: string }[];
+        saveFilter: (name: string, filter: string) => void;
+        deleteFilter: (name: string) => void;
     }
 
     let { ctx }: { ctx: ManagerCtx } = $props();
@@ -25,6 +28,8 @@
     let errorMsg = $state("");
     let filterText = $state("");
     let sortMode = $state<"default" | "path" | "content">("default");
+    let savedList = $state<{ name: string; filter: string }[]>([]);
+    let pickedSaved = $state("");
     let selected: string[] = $state([]);
     let detail: SearchBlock | null = $state(null);
 
@@ -113,12 +118,51 @@
         openTab({ app: ctx.app, doc: { id: rootId } });
     }
 
-    onMount(load);
+    onMount(() => {
+        savedList = ctx.savedFilters();
+        load();
+    });
+
+    function saveCurrent() {
+        if (!filterText.trim()) {
+            return;
+        }
+        ctx.saveFilter(filterText.trim(), filterText.trim());
+        savedList = ctx.savedFilters();
+        pickedSaved = filterText.trim();
+        showMessage(t.manager.filterSaved, 1500, "info");
+    }
+
+    function applySaved() {
+        const f = savedList.find(x => x.name === pickedSaved);
+        if (f) {
+            filterText = f.filter;
+        }
+    }
+
+    function deleteSaved() {
+        if (pickedSaved) {
+            ctx.deleteFilter(pickedSaved);
+            savedList = ctx.savedFilters();
+            pickedSaved = "";
+            filterText = "";
+        }
+    }
 </script>
 
 <LvPage title={t.manager.title} subtitle={`${t.manager.total}: ${total}`}>
     {#snippet actions()}
         <input class="b3-text-field lv-filter" type="text" placeholder={t.manager.filterPlaceholder} bind:value={filterText} />
+        <button class="b3-button b3-button--small" title={t.manager.saveFilter} disabled={!filterText} onclick={saveCurrent}>★</button>
+        {#if savedList.length > 0}
+            <select class="b3-select lv-sort" bind:value={pickedSaved} onchange={applySaved}>
+                <option value="" disabled>★ {t.manager.savedFilters}</option>
+                {#each savedList as f (f.name)}<option value={f.name}>{f.name}</option>{/each}
+            </select>
+            {#if pickedSaved}
+                <button class="b3-button b3-button--small" title={t.manager.deleteSaved} onclick={deleteSaved}>🗑</button>
+            {/if}
+        {/if}
         <select class="b3-select lv-sort" bind:value={sortMode} title={t.manager.sortLabel}>
             <option value="default">{t.manager.sortDefault}</option>
             <option value="path">{t.manager.sortPath}</option>

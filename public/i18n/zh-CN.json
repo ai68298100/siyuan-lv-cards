@@ -104,7 +104,11 @@
         "undoTitle": "撤销上一步 (p/q)",
         "undoLast": "撤销最后一评",
         "typingPlaceholder": "输入答案后回车判分",
-        "typingSuggested": "判分建议"
+        "typingSuggested": "判分建议",
+        "choiceMake": "用选择题作答",
+        "choiceLoading": "正在生成选项…",
+        "choiceCorrect": "✓ 回答正确！",
+        "choiceWrong": "✗ 回答错误"
     },
     "manager": {
         "title": "闪卡管理器",
@@ -128,7 +132,11 @@
         "sortLabel": "排序",
         "sortDefault": "默认顺序",
         "sortPath": "按文档路径",
-        "sortContent": "按内容 A-Z"
+        "sortContent": "按内容 A-Z",
+        "saveFilter": "收藏当前筛选",
+        "savedFilters": "已存筛选",
+        "deleteSaved": "删除该筛选",
+        "filterSaved": "筛选已收藏"
     },
     "settings": {
         "personaSection": "画像预设",
@@ -179,7 +187,8 @@
         "aiKey": "API Key",
         "aiKeyHint": "明文存储于本地设置，请谨慎；更推荐使用思源内置 AI",
         "typingEnabled": "打字模式（先作答再对照，全卡生效）",
-        "typingStrict": "严格判分（区分大小写、空白与标点）"
+        "typingStrict": "严格判分（区分大小写、空白与标点）",
+        "choiceEnabled": "选择题练习模式（干扰项取自同队列）"
     },
     "hubTabOverview": "总览",
     "hubTabManage": "管理",
@@ -273,6 +282,9 @@
         "first": "首次复审",
         "young": "幼卡（间隔 <21 天）",
         "mature": "成熟卡（间隔 ≥21 天）",
-        "none": "暂无样本：完成几次复习后自动生成。"
+        "none": "暂无样本：完成几次复习后自动生成。",
+        "curve": "记忆保持曲线（实测）",
+        "curveSub": "按复习间隔分桶 · 每桶 ≥3 样本",
+        "curveNone": "样本不足：同一张卡间隔数天后复习几次即可生成。"
     }
 }

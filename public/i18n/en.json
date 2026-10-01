@@ -104,7 +104,11 @@
         "undoTitle": "Undo last (p/q)",
         "undoLast": "Undo last rating",
         "typingPlaceholder": "Type the answer, Enter to grade",
-        "typingSuggested": "Suggested"
+        "typingSuggested": "Suggested",
+        "choiceMake": "Answer as multiple choice",
+        "choiceLoading": "Generating options…",
+        "choiceCorrect": "✓ Correct!",
+        "choiceWrong": "✗ Wrong"
     },
     "manager": {
         "title": "Card Manager",
@@ -128,7 +132,11 @@
         "sortLabel": "Sort",
         "sortDefault": "Default order",
         "sortPath": "By doc path",
-        "sortContent": "By content A-Z"
+        "sortContent": "By content A-Z",
+        "saveFilter": "Save filter",
+        "savedFilters": "Saved filters",
+        "deleteSaved": "Delete this filter",
+        "filterSaved": "Filter saved"
     },
     "settings": {
         "personaSection": "Persona Presets",
@@ -179,7 +187,8 @@
         "aiKey": "API Key",
         "aiKeyHint": "Stored in plaintext in local settings — prefer SiYuan built-in AI",
         "typingEnabled": "Typing mode (answer first, compare after — applies to all cards)",
-        "typingStrict": "Strict grading (case, spaces & punctuation matter)"
+        "typingStrict": "Strict grading (case, spaces & punctuation matter)",
+        "choiceEnabled": "Multiple-choice mode (distractors from same queue)"
     },
     "hubTabOverview": "Overview",
     "hubTabManage": "Manage",
@@ -273,6 +282,9 @@
         "first": "First re-review",
         "young": "Young (gap <21d)",
         "mature": "Mature (gap ≥21d)",
-        "none": "No samples yet — shows up after a few reviews."
+        "none": "No samples yet — shows up after a few reviews.",
+        "curve": "Retention curve (measured)",
+        "curveSub": "Buckets by review gap · ≥3 samples per bucket",
+        "curveNone": "Not enough samples — re-review the same card after a few days."
     }
 }

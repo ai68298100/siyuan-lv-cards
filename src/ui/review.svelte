@@ -19,6 +19,7 @@
         randomOrder: boolean;
         typingEnabled: boolean;
         typingStrict: boolean;
+        choiceEnabled: boolean;
     }
 
     export interface ReviewCtx {
@@ -87,6 +88,10 @@
     let typingInput = $state("");
     let typingGrade = $state<{ chars: { ch: string; ok: boolean }[]; suggested: Rating1to4 } | null>(null);
     let expectedText = $state("");
+    // 选择题模式（M4·FR3，干扰项取自同队列后续卡）
+    let answerCache = new Map<string, string>();
+    let choices = $state<{ options: string[]; answerIdx: number; picked: number | null } | null>(null);
+    let choiceLoading = $state(false);
 
     async function loadBlockDOM(blockID: string) {
         const seq = ++loadSeq;
@@ -118,6 +123,63 @@
             [out[i], out[j]] = [out[j], out[i]];
         }
         return out;
+    }
+
+    /** 从块 DOM 提取答案文本（mark 合集优先），带缓存（M4·FR3 干扰项采样用） */
+    async function answerOf(blockID: string): Promise<string> {
+        const cached = answerCache.get(blockID);
+        if (cached !== undefined) {
+            return cached;
+        }
+        try {
+            const resp = await fetchSyncPost("/api/block/getBlockDOM", { id: blockID });
+            const dom = resp?.data?.dom ?? "";
+            const holder = document.createElement("div");
+            holder.innerHTML = dom;
+            const marks = Array.from(holder.querySelectorAll("mark"))
+                .map(m => (m.textContent ?? "").trim())
+                .filter(Boolean);
+            const text = marks.length > 0 ? marks.join(" / ") : (holder.textContent ?? "").trim();
+            answerCache.set(blockID, text);
+            return text;
+        } catch {
+            return "";
+        }
+    }
+
+    /** 选择题（M4·FR3）：本卡答案 + 同队列后续卡采样 3 个干扰项 */
+    async function startChoice() {
+        if (!current || choiceLoading || typingInput.trim()) {
+            return;
+        }
+        choiceLoading = true;
+        try {
+            const answer = await answerOf(current.blockID);
+            answerCache.set(current.blockID, answer);
+            const pool: string[] = [];
+            for (const c of queue.slice(1, 8)) {
+                if (pool.length >= 3) break;
+                const text = await answerOf(c.blockID);
+                if (text && text !== answer && !pool.includes(text)) {
+                    pool.push(text);
+                }
+            }
+            while (pool.length < 3) {
+                pool.push(`${t.review.choiceFallback} ${pool.length + 1}`);
+            }
+            const options = shuffle([answer, ...pool]);
+            choices = { options, answerIdx: options.indexOf(answer), picked: null };
+        } finally {
+            choiceLoading = false;
+        }
+    }
+
+    function pickChoice(idx: number) {
+        if (!choices || choices.picked !== null) {
+            return;
+        }
+        choices = { ...choices, picked: idx };
+        showAnswer = true;
     }
 
     async function loadQueue() {
@@ -166,6 +228,8 @@
         showAnswer = false;
         typingInput = "";
         typingGrade = null;
+        choices = null;
+        choiceLoading = false;
         await loadBlockDOM(card.blockID);
         restartTimeout();
     }
@@ -483,6 +547,32 @@
                             placeholder={t.review.typingPlaceholder}
                         />
                     </div>
+                {:else if ctx.settings().choiceEnabled}
+                    {#if choices}
+                        <div class="lv-choices">
+                            {#each choices.options as opt, i (i)}
+                                <button
+                                    class="b3-button lv-choice-opt"
+                                    class:lv-choice-correct={choices.picked !== null && i === choices.answerIdx}
+                                    class:lv-choice-wrong={choices.picked === i && i !== choices.answerIdx}
+                                    disabled={choices.picked !== null}
+                                    onclick={() => {
+                                        pickChoice(i);
+                                        showMessage(i === choices.answerIdx ? t.review.choiceCorrect : t.review.choiceWrong, 1500, i === choices.answerIdx ? "info" : "error");
+                                    }}
+                                >{String.fromCharCode(65 + i)}. {opt}</button>
+                            {/each}
+                            {#if choices.picked !== null}
+                                <LvChip tone={choices.picked === choices.answerIdx ? "primary" : "error"}>
+                                    {t.review.typingSuggested}: {choices.picked === choices.answerIdx ? 3 : 1}
+                                </LvChip>
+                            {/if}
+                        </div>
+                    {:else if choiceLoading}
+                        <div class="ft__smaller ft__on-surface">{t.review.choiceLoading}</div>
+                    {:else}
+                        <button class="b3-button b3-button--small lv-choice-btn" onclick={startChoice}>🎲 {t.review.choiceMake}</button>
+                    {/if}
                 {/if}
                 <button class="b3-button b3-button--text lv-reveal">{t.review.showAnswer}</button>
                 <span class="lv-reveal-hint" aria-hidden="true">⎵ {t.review.revealHint}</span>
@@ -597,6 +687,23 @@
             // 问题态遮罩规则已移至 index.scss 全局（scoped 编译会误剪 :global 结尾选择器）
 
             .lv-typing { margin-top: var(--lv-sp-3); }
+
+            .lv-choice-btn { margin-top: var(--lv-sp-3); }
+            .lv-choices {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: var(--lv-sp-2);
+                .lv-choice-opt {
+                    text-align: left;
+                    border: 1px solid var(--lv-border);
+                    background: var(--b3-theme-background);
+                    transition: border-color var(--lv-dur-1) var(--lv-ease), background var(--lv-dur-1) var(--lv-ease);
+                    &:hover:not(:disabled) { border-color: var(--lv-primary-border); background: var(--lv-primary-softer); }
+                    &:disabled { cursor: default; opacity: 0.9; }
+                }
+                .lv-choice-correct { border-color: var(--b3-theme-primary) !important; background: var(--lv-primary-soft) !important; }
+                .lv-choice-wrong { border-color: var(--lv-danger-border) !important; background: var(--lv-danger-soft) !important; }
+            }
             .lv-typing-diff {
                 display: flex; align-items: center; gap: var(--lv-sp-2);
                 margin-top: var(--lv-sp-3);

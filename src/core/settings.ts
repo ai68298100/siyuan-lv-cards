@@ -24,6 +24,8 @@ export interface LvCardsSettings {
     typingEnabled: boolean;
     /** 打字判分宽松：忽略大小写/空白/标点 */
     typingStrict: boolean;
+    /** 选择题练习模式：问题态可将本卡转为四选一（干扰项取自同队列） */
+    choiceEnabled: boolean;
     /** leech 判定阈值（遗忘次数） */
     leechThreshold: number;
     /** 每日到期提醒（Notification） */
@@ -34,6 +36,8 @@ export interface LvCardsSettings {
     examEnabled: boolean;
     /** 考试日期 YYYY-MM-DD，空为未设置 */
     examDate: string;
+    /** 已存筛选（管理器命名收藏，M6） */
+    savedFilters: { name: string; filter: string }[];
     /** AI 配置（M2·FR7）：siyuan=思源内置 AI；custom=OpenAI 兼容端点 */
     aiMode: "siyuan" | "custom";
     aiEndpoint: string;
@@ -60,11 +64,13 @@ export function defaultSettings(): LvCardsSettings {
         randomOrder: false,
         typingEnabled: false,
         typingStrict: true,
+        choiceEnabled: false,
         leechThreshold: 8,
         reminderEnabled: true,
         reminderTime: "20:00",
         examEnabled: false,
         examDate: "",
+        savedFilters: [],
         aiMode: "siyuan",
         aiEndpoint: "",
         aiKey: "",

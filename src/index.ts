@@ -104,7 +104,22 @@ export default class LvCardsPlugin extends Plugin {
                             openReview: () => plugin.openTabOf(TAB_REVIEW),
                             openOnboarding: () => plugin.openOnboarding(),
                         },
-                        managerCtx: { i18n: plugin.i18n, app: plugin.app },
+                        managerCtx: {
+                            i18n: plugin.i18n,
+                            app: plugin.app,
+                            savedFilters: () => plugin.settings.savedFilters,
+                            saveFilter: (name: string, filter: string) => {
+                                plugin.settings.savedFilters = [
+                                    ...plugin.settings.savedFilters.filter(f => f.name !== name),
+                                    { name, filter },
+                                ];
+                                plugin.saveData(SETTINGS_DATA, plugin.settings).catch(() => { /* 旁路 */ });
+                            },
+                            deleteFilter: (name: string) => {
+                                plugin.settings.savedFilters = plugin.settings.savedFilters.filter(f => f.name !== name);
+                                plugin.saveData(SETTINGS_DATA, plugin.settings).catch(() => { /* 旁路 */ });
+                            },
+                        },
                         exam: plugin.settings.modules.exam ? {
                             plans: plugin.examPlans,
                             onSavePlan: (plan: ExamPlan) => plugin.saveExamPlan(plan),
@@ -134,6 +149,7 @@ export default class LvCardsPlugin extends Plugin {
                             timeoutMode: plugin.settings.timeoutMode,
                             timeoutSeconds: plugin.settings.timeoutSeconds,
                             randomOrder: plugin.settings.randomOrder,
+                            choiceEnabled: plugin.settings.choiceEnabled,
                             typingEnabled: plugin.settings.typingEnabled,
                             typingStrict: plugin.settings.typingStrict,
                         }),

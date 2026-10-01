@@ -162,6 +162,53 @@ export function revlogToCsv(data: RevlogData): string {
     return rows.join("\n");
 }
 
+export interface CurvePoint {
+    days: number;
+    /** 0-1，成功率 */
+    rate: number;
+    n: number;
+}
+
+/** 遗忘曲线实测点（M5）：相邻复习对按间隔天数落入桶，统计存活率 */
+export function computeRetentionCurve(data: RevlogData, buckets: number[] = [1, 2, 3, 5, 7, 10, 14, 21, 30, 45, 60]): CurvePoint[] {
+    const byCard = new Map<string, RevlogEntry[]>();
+    for (const e of data.entries) {
+        if (e.rating <= 0) {
+            continue;
+        }
+        const arr = byCard.get(e.cardID) ?? [];
+        arr.push(e);
+        byCard.set(e.cardID, arr);
+    }
+    const stats = buckets.map(days => ({ days, n: 0, fails: 0 }));
+    const bucketOf = (gap: number) => {
+        let idx = -1;
+        for (let i = 0; i < buckets.length; i++) {
+            if (gap >= buckets[i]) {
+                idx = i;
+            }
+        }
+        return idx;
+    };
+    for (const [, entries] of byCard) {
+        entries.sort((a, b) => a.ts - b.ts);
+        for (let i = 1; i < entries.length; i++) {
+            const gap = (entries[i].ts - entries[i - 1].ts) / 86400000;
+            const idx = bucketOf(gap);
+            if (idx < 0) {
+                continue;
+            }
+            stats[idx].n += 1;
+            if (entries[i].rating === 1) {
+                stats[idx].fails += 1;
+            }
+        }
+    }
+    return stats
+        .filter(s => s.n >= 3)
+        .map(s => ({ days: s.days, rate: 1 - s.fails / s.n, n: s.n }));
+}
+
 export interface RetentionTier {
     reviews: number;
     fails: number;

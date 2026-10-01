@@ -2,7 +2,7 @@
     import { onMount } from "svelte";
     import { getRiffDecks, getRiffDueCards, type RiffDeck } from "@/api/riff";
     import { getFlashcardStatistics, summarizeStatistics, type MigrationStatus } from "@/api/flashcardV2";
-    import { calcStreak, lastNDays, computeRetention, type RevlogData, type RetentionResult } from "@/core/revlog";
+    import { calcStreak, lastNDays, computeRetention, computeRetentionCurve, type RevlogData, type RetentionResult, type CurvePoint } from "@/core/revlog";
     import LvPage from "./kit/LvPage.svelte";
     import LvSection from "./kit/LvSection.svelte";
     import LvStat from "./kit/LvStat.svelte";
@@ -36,6 +36,12 @@
     let errorMsg = $state("");
     let v2Stats: { key: string; value: string }[] = $state([]);
     let retention: RetentionResult | null = $state(null);
+    let curve: CurvePoint[] = $state([]);
+
+    function curvePoints(pts: CurvePoint[]): string {
+        const maxD = Math.max(...pts.map(p => p.days), 1);
+        return pts.map(p => `${10 + (p.days / maxD) * 290},${90 - p.rate * 80}`).join(" ");
+    }
 
     /** 数字滚动（reduced-motion 时直接落值） */
     function tween(setter: (v: number) => void, to: number) {
@@ -86,6 +92,7 @@
             const first = revlog.entries[0]?.ts;
             revlogNote = first ? new Date(first).toLocaleDateString() : "";
             retention = computeRetention(revlog);
+            curve = computeRetentionCurve(revlog);
             // 内核 V2（3.9.0）激活时，顺带拉取官方统计摘要（宽容解析，失败静默）
             const v2 = ctx.getV2Status();
             if (v2) {
@@ -200,6 +207,22 @@
             {/if}
         </LvSection>
 
+        <LvSection title={t.retention.curve} sub={t.retention.curveSub}>
+            {#if curve.length >= 2}
+                <svg viewBox="0 0 320 100" class="lv-curve">
+                    <line x1="8" y1="90" x2="312" y2="90" class="lv-curve-axis" />
+                    <polyline fill="none" stroke="var(--b3-theme-primary)" stroke-width="2" points={curvePoints(curve)} />
+                    {#each curve as p (p.days)}
+                        <circle cx={10 + (p.days / Math.max(...curve.map(q => q.days), 1)) * 290} cy={90 - p.rate * 80} r="2.5" class="lv-curve-dot">
+                            <title>{p.days}天 · {Math.round(p.rate * 100)}% (n={p.n})</title>
+                        </circle>
+                    {/each}
+                </svg>
+            {:else}
+                <div class="lv-hint">{t.retention.curveNone}</div>
+            {/if}
+        </LvSection>
+
         <LvSection title={t.dashboard.decks}>
             {#if decks.length === 0}
                 <div class="lv-hint">{t.dashboard.noDecks}</div>
@@ -297,5 +320,12 @@
         }
         .lv-ret-row:last-child { border-bottom: none; }
         .lv-ret-rate { font-variant-numeric: tabular-nums; font-weight: 600; }
+
+    .lv-curve {
+        width: 100%;
+        max-width: 420px;
+        .lv-curve-axis { stroke: var(--lv-border-strong); stroke-width: 1; }
+        .lv-curve-dot { fill: var(--b3-theme-primary); }
+    }
     }
 </style>
