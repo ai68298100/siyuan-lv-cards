@@ -18,6 +18,7 @@
             onSavePlan: (plan: ExamPlan) => ExamPlansData;
             onDeletePlan: (id: string) => ExamPlansData;
             onReviewScope: (scopeKind: ExamScopeKind, scopeId: string, cram: boolean) => void;
+            onReport: (plan: ExamPlan) => void;
         } | null;
         initialTab?: string;
     } = $props();
@@ -52,6 +53,7 @@
                 onSavePlan={(p) => (plans = exam!.onSavePlan(p))}
                 onDeletePlan={(id) => (plans = exam!.onDeletePlan(id))}
                 onReviewScope={exam.onReviewScope}
+                onReport={exam.onReport}
             />
         {/if}
     </div>

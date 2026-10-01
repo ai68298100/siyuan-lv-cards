@@ -10,13 +10,15 @@
     import LvEmpty from "./kit/LvEmpty.svelte";
     import LvRow from "./kit/LvRow.svelte";
 
-    let { i18n, plans, onSavePlan, onDeletePlan, onReviewScope }: {
+    let { i18n, plans, onSavePlan, onDeletePlan, onReviewScope, onReport }: {
         i18n: any;
         plans: ExamPlansData;
         onSavePlan: (plan: ExamPlan) => void;
         onDeletePlan: (id: string) => void;
         /** 带范围/cram 打开复习 */
         onReviewScope: (scopeKind: ExamScopeKind, scopeId: string, cram: boolean) => void;
+        /** 生成考后复盘报告（复制到剪贴板） */
+        onReport: (plan: ExamPlan) => void;
     } = $props();
     const t = $derived(i18n);
 
@@ -125,7 +127,9 @@
                 {/if}
                 <div class="fn__flex lv-plan-actions">
                     <button class="b3-button b3-button--small" onclick={() => (editing = { ...plan })}>{t.exam.edit}</button>
-                    <button class="b3-button b3-button--small" onclick={() => onSavePlan({ ...plan, enabled: !plan.enabled })}>
+                    <button class="b3-button b3-button--small" onclick={() => onReport(plan)}>{t.exam.report}</button>
+                    <button class="b3-button b3-button--small" onclick={() => onSavePlan({ ...plan, archived: true, enabled: false })}>{t.exam.archive}</button>
+                    <button class="b3-button b3-button--small" onclick={() => onSavePlan({ ...plan, enabled: !plan.enabled, archived: false })}>
                         {plan.enabled ? t.exam.pause : t.exam.enable}
                     </button>
                     <button class="b3-button b3-button--small" onclick={() => onDeletePlan(plan.id)}>{t.exam.delete}</button>

@@ -194,7 +194,10 @@
         "ankiUrl": "AnkiConnect 地址",
         "ankiKey": "AnkiConnect Key（可选）",
         "ankiTest": "测试连接",
-        "cardMaxWidth": "复习卡面最大宽度（640-1200 px）"
+        "cardMaxWidth": "复习卡面最大宽度（640-1200 px）",
+        "storageLastWrite": "最近写入",
+        "unsavedTitle": "未保存的更改",
+        "unsavedDesc": "设置有改动尚未保存，放弃并关闭？"
     },
     "hubTabOverview": "总览",
     "hubTabManage": "管理",
@@ -254,7 +257,9 @@
         "totalCardsHint": "留空则卡组范围自动取卡片数；用于倒排每日建议量",
         "cramDaysLabel": "考前 cram 天数",
         "dailyTarget": "每日建议学习量",
-        "cardsUnit": "张"
+        "cardsUnit": "张",
+        "report": "复盘报告",
+        "archive": "归档"
     },
     "aiWizardTitle": "AI 制卡",
     "aiWizard": {
@@ -313,5 +318,7 @@
     "ankiTestOk": "连接成功",
     "ankiTestFail": "连接失败",
     "diagCopied": "诊断信息已复制",
-    "diagFail": "复制失败，请手动复制"
+    "diagFail": "复制失败，请手动复制",
+    "examReportCopied": "复盘报告已复制到剪贴板",
+    "backlogWarn": "已经 ${n} 天没复习闪卡了，到期卡在等你～"
 }

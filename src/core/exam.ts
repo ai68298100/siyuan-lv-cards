@@ -20,6 +20,8 @@ export interface ExamPlan {
     /** 范围总卡量（可选手填；deck 范围可自动取 size） */
     totalCards?: number;
     enabled: boolean;
+    /** 已归档（考后收起） */
+    archived?: boolean;
     createdAt: number;
 }
 

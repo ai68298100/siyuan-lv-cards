@@ -130,6 +130,7 @@ export default class LvCardsPlugin extends Plugin {
                             plans: plugin.examPlans,
                             onSavePlan: (plan: ExamPlan) => plugin.saveExamPlan(plan),
                             onDeletePlan: (id: string) => plugin.deleteExamPlan(id),
+                            onReport: (plan: ExamPlan) => plugin.generateExamReport(plan),
                             onReviewScope: (kind: "all" | "deck" | "notebook", scopeId: string, cram: boolean) =>
                                 plugin.openReviewScope(kind, scopeId, cram),
                         } : null,
@@ -235,16 +236,37 @@ export default class LvCardsPlugin extends Plugin {
 
     onLayoutReady() {
         this.refreshDueBadge();
-        // 到期数心跳（60s）；顺带执行每日到期提醒（X 组）
+        // 到期数心跳（60s）；顺带执行每日到期提醒与积压预警（X 组）
         this.badgeTimer = setInterval(() => {
             this.refreshDueBadge();
             this.checkDailyReminder();
+            this.checkBacklogWarn();
         }, 60_000);
         this.checkDailyReminder();
+        this.checkBacklogWarn();
     }
 
     /** 每日到期提醒：到设定时间且仍有到期卡时通知一次（X 组，基础版） */
     private reminderShownFor = "";
+    private backlogWarnedFor = "";
+
+    /** 积压预警（X 组）：连续 N 天未复习时提醒一次（N 固定 3，随提醒开关） */
+    private checkBacklogWarn() {
+        if (!this.settings.reminderEnabled || this.lastDue <= 0) {
+            return;
+        }
+        const today = localDate(Date.now());
+        if (this.backlogWarnedFor === today) {
+            return;
+        }
+        const last = this.revlog.entries[this.revlog.entries.length - 1];
+        const lastTs = last?.ts ?? 0;
+        const days = Math.floor((Date.now() - lastTs) / 86400000);
+        if (days >= 3) {
+            this.backlogWarnedFor = today;
+            showMessage(this.i18n.backlogWarn.replace("${n}", String(days)), 4000, "info");
+        }
+    }
     private checkDailyReminder() {
         if (!this.settings.reminderEnabled) {
             return;
@@ -442,6 +464,51 @@ export default class LvCardsPlugin extends Plugin {
         } catch (e: any) {
             return `${this.i18n.ankiTestFail}: ${e?.message ?? e}`;
         }
+    }
+
+    private storageLastWrite: Record<string, number> = {};
+
+    private trackSave(file: string) {
+        this.storageLastWrite[file] = Date.now();
+    }
+
+    private storageStats() {
+        const rows: { file: string; size: string; lastWrite: number }[] = [];
+        const push = (file: string, desc: string) => rows.push({
+            file,
+            size: desc,
+            lastWrite: this.storageLastWrite[file] ?? 0,
+        });
+        push("settings.json", `v${this.settings.version}`);
+        push("revlog.json", `${this.revlog.entries.length} entries`);
+        push("suspend-today.json", `${this.suspendToday.cardIDs.length} cards`);
+        push("exam-plans.json", `${this.examPlans.plans.length} plans`);
+        push("ai-batches.json", `${this.aiBatches.batches.length} batches`);
+        return rows;
+    }
+
+    /** 考后复盘报告（M7·FR6）：计划窗口内的复习统计 Markdown，复制到剪贴板 */
+    private async generateExamReport(plan: ExamPlan) {
+        const left = daysLeft(plan.examDate);
+        const examTs = new Date(plan.examDate + "T23:59:59").getTime();
+        const from = Math.min(plan.createdAt, examTs - 90 * 86400000);
+        const to = Date.now() < examTs ? Date.now() : examTs;
+        const entries = this.revlog.entries.filter(e => e.ts >= from && e.ts <= to);
+        const reviews = entries.filter(e => e.rating > 0).length;
+        const forgets = entries.filter(e => e.rating === 1).length;
+        const activeDays = new Set(entries.filter(e => e.rating > 0).map(e => localDate(e.ts))).size;
+        const md = [
+            `# 考试复盘：${plan.name}`,
+            `- 考试日期：${plan.examDate}（${left !== null && left < 0 ? "已结束" : `剩 ${left} 天`}）`,
+            `- 范围：${plan.scopeName}`,
+            `- 窗口内复习：${reviews} 次 / 遗忘：${forgets} 次 / 保持率：${reviews ? Math.round((1 - forgets / reviews) * 100) : "—"}%`,
+            `- 活跃天数：${activeDays}`,
+            `- 计划 cram 设置：考前 ${plan.cramDays} 天`,
+            "",
+            `> 由小驴闪卡生成 · ${new Date().toLocaleString()}`,
+        ].join("\n");
+        await navigator.clipboard.writeText(md);
+        showMessage(this.i18n.examReportCopied, 2500, "info");
     }
 
     private openQuickCard() {
@@ -677,7 +744,7 @@ export default class LvCardsPlugin extends Plugin {
             clearTimeout(this.saveRevlogTimer);
             this.saveRevlogTimer = null;
         }
-        this.saveData(REVLOG_DATA, this.revlog).catch(() => { /* 忽略瞬时失败，下次修改会重试 */ });
+        this.saveData(REVLOG_DATA, this.revlog).then(() => this.trackSave(REVLOG_DATA)).catch(() => { /* 忽略瞬时失败，下次修改会重试 */ });
     }
 
     private openTabOf(type: string, data?: Record<string, unknown>) {
@@ -761,6 +828,8 @@ export default class LvCardsPlugin extends Plugin {
                         showMessage(this.i18n.settingsSaved, 2000, "info");
                     },
                     testAnkiClient: () => this.testAnkiClient(),
+                    storageStats: () => this.storageStats(),
+                    generateExamReport: (plan: ExamPlan) => this.generateExamReport(plan),
                     exportRevlogCsv: () => this.exportRevlogCsv(),
                     importRevlogMerge: async (fileText: string) => {
                         const imported = JSON.parse(fileText);

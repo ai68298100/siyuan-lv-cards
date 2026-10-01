@@ -20,6 +20,7 @@
         getSuspendedCount: () => number;
         restoreAllSuspended: () => void;
         testAnkiClient: () => Promise<string>;
+        storageStats: () => { file: string; size: string; lastWrite: number }[];
         exportRevlogCsv: () => void;
         importRevlogMerge: (fileText: string) => Promise<{ added: number; skipped: number }>;
     }
@@ -77,6 +78,18 @@
 
     async function testAnki() {
         ankiLabel = await ctx.testAnkiClient();
+    }
+
+    function requestClose() {
+        if (JSON.stringify(draft) === JSON.stringify(ctx.settings)) {
+            ctx.close();
+            return;
+        }
+        confirmDialog({
+            title: t.settings.unsavedTitle,
+            content: `<div class="b3-typography">${t.settings.unsavedDesc}</div>`,
+            confirm: () => ctx.close(),
+        });
     }
 
     function save() {
@@ -248,6 +261,19 @@
                 <input class="b3-button b3-button--outline" type="file" accept=".json,application/json" onchange={importMerge} />
             {/snippet}
         </LvRow>
+        <div class="lv-storage">
+            <div class="fn__flex lv-st-head ft__smaller ft__on-surface">
+                <span>file</span><div class="fn__flex-1"></div><span>{t.settings.storageLastWrite}</span>
+            </div>
+            {#each ctx.storageStats() as row (row.file)}
+                <div class="fn__flex lv-st-row">
+                    <span>{row.file}</span>
+                    <div class="fn__flex-1"></div>
+                    <span class="ft__smaller ft__on-surface">{row.size}</span>
+                    <span class="ft__smaller ft__on-surface lv-lw">{row.lastWrite ? new Date(row.lastWrite).toLocaleString() : "—"}</span>
+                </div>
+            {/each}
+        </div>
         <LvRow label={t.settings.clearRevlog}>
             {#snippet children()}
                 <button
@@ -263,7 +289,7 @@
     </LvSection>
 
     <div class="b3-dialog__action">
-        <button class="b3-button b3-button--cancel" onclick={ctx.close}>{window.siyuan.languages.cancel}</button>
+        <button class="b3-button b3-button--cancel" onclick={requestClose}>{window.siyuan.languages.cancel}</button>
         <div class="fn__space"></div>
         <button class="b3-button b3-button--text" onclick={save}>{window.siyuan.languages.confirm}</button>
     </div>
@@ -279,6 +305,15 @@
         margin: 0 auto;
 
         .b3-dialog__action { justify-content: flex-end; }
+
+        .lv-storage {
+            border: 1px solid var(--lv-border);
+            border-radius: var(--lv-r-s);
+            padding: var(--lv-sp-2) var(--lv-sp-3);
+            .lv-st-head, .lv-st-row { gap: var(--lv-sp-3); align-items: center; padding: 2px 0; }
+            .lv-st-head { border-bottom: 1px solid var(--lv-border); padding-bottom: var(--lv-sp-1); }
+            .lv-lw { margin-left: var(--lv-sp-3); font-variant-numeric: tabular-nums; }
+        }
 
         .lv-personas { gap: var(--lv-sp-2); }
         .lv-persona {

@@ -194,7 +194,10 @@
         "ankiUrl": "AnkiConnect URL",
         "ankiKey": "AnkiConnect key (optional)",
         "ankiTest": "Test connection",
-        "cardMaxWidth": "Review card max width (640-1200 px)"
+        "cardMaxWidth": "Review card max width (640-1200 px)",
+        "storageLastWrite": "Last write",
+        "unsavedTitle": "Unsaved changes",
+        "unsavedDesc": "Settings have unsaved changes. Discard and close?"
     },
     "hubTabOverview": "Overview",
     "hubTabManage": "Manage",
@@ -254,7 +257,9 @@
         "totalCardsHint": "Blank = auto from deck size; used for daily pacing",
         "cramDaysLabel": "Pre-exam cram days",
         "dailyTarget": "Daily target",
-        "cardsUnit": "cards"
+        "cardsUnit": "cards",
+        "report": "Report",
+        "archive": "Archive"
     },
     "aiWizardTitle": "AI Cards",
     "aiWizard": {
@@ -313,5 +318,7 @@
     "ankiTestOk": "Connected",
     "ankiTestFail": "Connection failed",
     "diagCopied": "Diagnostics copied",
-    "diagFail": "Copy failed — copy manually"
+    "diagFail": "Copy failed — copy manually",
+    "examReportCopied": "Exam report copied to clipboard",
+    "backlogWarn": "${n} days without reviewing — your due cards are waiting!"
 }
