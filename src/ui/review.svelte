@@ -1,0 +1,494 @@
+<script lang="ts">
+    import { onMount } from "svelte";
+    import { fade } from "svelte/transition";
+    import { fetchSyncPost, openTab, showMessage } from "siyuan";
+    import {
+        getRiffDueCards, reviewRiffCard, skipReviewRiffCard,
+        type RiffDueCard, type Rating,
+    } from "@/api/riff";
+    import { isCardNew, type RevlogData } from "@/core/revlog";
+    import LvKbd from "./kit/LvKbd.svelte";
+
+    export interface ReviewCtx {
+        i18n: any;
+        app: any;
+        ratingStyle: "four" | "three";
+        timeoutMode: "off" | "reveal" | "forget";
+        timeoutSeconds: number;
+        randomOrder: boolean;
+        appendRevlog: (entry: { cardID: string; deckID: string; blockID: string; rating: number; source: "plugin" }) => void;
+        getRevlog: () => RevlogData;
+        isSuspendedToday: (cardID: string) => boolean;
+        suspendToday: (cardID: string) => void;
+        openDashboard: () => void;
+    }
+
+    let { ctx }: { ctx: ReviewCtx } = $props();
+    const t = ctx.i18n;
+
+    let queue: RiffDueCard[] = $state([]);
+    let reviewedIDs: string[] = $state([]);
+    let current: RiffDueCard | null = $state(null);
+    let showAnswer = $state(false);
+    let cardHtml = $state("");
+    let sessionNew = $state(0);
+    let sessionReview = $state(0);
+    let sessionForget = $state(0);
+    let sessionSkip = $state(0);
+    let sessionDone = $state(false);
+    let loading = $state(false);
+    let errorMsg = $state("");
+
+    // 回看上一张（M3·FR6）
+    let peek = $state<{ html: string; card: RiffDueCard } | null>(null);
+    // 超时倒计时（M3·FR8）
+    let timeoutLeft = $state(0);
+    let timeoutTimer: ReturnType<typeof setInterval> | null = null;
+
+    async function loadBlockDOM(blockID: string) {
+        try {
+            const resp = await fetchSyncPost("/api/block/getBlockDOM", { id: blockID });
+            cardHtml = resp?.data?.dom ?? "";
+        } catch {
+            cardHtml = "";
+        }
+    }
+
+    function shuffle<T>(arr: T[]): T[] {
+        const out = [...arr];
+        for (let i = out.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [out[i], out[j]] = [out[j], out[i]];
+        }
+        return out;
+    }
+
+    async function loadQueue() {
+        loading = true;
+        errorMsg = "";
+        try {
+            const data = await getRiffDueCards("", reviewedIDs);
+            let cards = data.cards ?? [];
+            // 「今天不学」的卡本地过滤（内核调度不受影响）
+            cards = cards.filter(c => !ctx.isSuspendedToday(c.cardID));
+            if (ctx.randomOrder) {
+                cards = shuffle(cards);
+            }
+            queue = cards;
+            if (queue.length === 0) {
+                current = null;
+                sessionDone = true;
+                stopTimeout();
+            } else {
+                sessionDone = false;
+                await setCurrent(queue[0]);
+            }
+        } catch (e: any) {
+            errorMsg = e?.message ?? String(e);
+        } finally {
+            loading = false;
+        }
+    }
+
+    async function setCurrent(card: RiffDueCard) {
+        current = card;
+        showAnswer = false;
+        await loadBlockDOM(card.blockID);
+        restartTimeout();
+    }
+
+    // —— 超时模式 ——
+
+    function restartTimeout() {
+        stopTimeout();
+        if (ctx.timeoutMode === "off" || !current) {
+            timeoutLeft = 0;
+            return;
+        }
+        timeoutLeft = ctx.timeoutSeconds;
+        timeoutTimer = setInterval(() => {
+            if (!current || showAnswer) {
+                stopTimeout();
+                return;
+            }
+            timeoutLeft -= 1;
+            if (timeoutLeft <= 0) {
+                stopTimeout();
+                if (ctx.timeoutMode === "reveal") {
+                    showAnswer = true;
+                } else if (ctx.timeoutMode === "forget") {
+                    rate(1, true);
+                }
+            }
+        }, 1000);
+    }
+
+    function stopTimeout() {
+        if (timeoutTimer) {
+            clearInterval(timeoutTimer);
+            timeoutTimer = null;
+        }
+    }
+
+    function timeoutText(): string {
+        const m = Math.floor(Math.max(0, timeoutLeft) / 60);
+        const s = Math.max(0, timeoutLeft) % 60;
+        return `${m}:${String(s).padStart(2, "0")}`;
+    }
+
+    // —— 评分 / 跳过 / 屏蔽 ——
+
+    async function rate(rating: Rating, force = false) {
+        if (!current || (!showAnswer && !force)) {
+            return;
+        }
+        try {
+            const wasNew = isCardNew(ctx.getRevlog(), current.cardID);
+            await reviewRiffCard(current.deckID, current.cardID, rating, reviewedIDs);
+            ctx.appendRevlog({ cardID: current.cardID, deckID: current.deckID, blockID: current.blockID, rating, source: "plugin" });
+            reviewedIDs = [...reviewedIDs, current.cardID];
+            if (rating === 1) {
+                sessionForget += 1;
+            } else if (wasNew) {
+                sessionNew += 1;
+            } else {
+                sessionReview += 1;
+            }
+            await next();
+        } catch (e: any) {
+            errorMsg = e?.message ?? String(e);
+        }
+    }
+
+    async function skip() {
+        if (!current) { return; }
+        try {
+            await skipReviewRiffCard(current.deckID, current.cardID);
+            sessionSkip += 1;
+            await next();
+        } catch (e: any) {
+            errorMsg = e?.message ?? String(e);
+        }
+    }
+
+    async function suspendToday() {
+        if (!current) { return; }
+        ctx.suspendToday(current.cardID);
+        showMessage(t.review.suspendedToast, 2000, "info");
+        await next();
+    }
+
+    async function next() {
+        // 记录上一张供回看（只读快照）
+        if (current) {
+            peek = { html: cardHtml, card: current };
+        }
+        const idx = current ? queue.findIndex(c => c.cardID === current!.cardID) : -1;
+        const rest = queue.slice(idx + 1);
+        if (rest.length > 0) {
+            queue = rest;
+            await setCurrent(rest[0]);
+        } else {
+            // 本批复习完，继续拉取下一批（内核按每日上限分批返回）
+            await loadQueue();
+        }
+    }
+
+    function togglePeek() {
+        if (peek) {
+            peek = null;
+        } else if (current) {
+            peek = { html: cardHtml, card: current };
+        }
+    }
+
+    function openInEditor() {
+        if (!current) { return; }
+        openTab({ app: ctx.app, doc: { id: current.blockID, zoomIn: true } });
+    }
+
+    function dueText(rating: string): string {
+        const due = current?.nextDues?.[rating];
+        if (!due) { return ""; }
+        return due.replace(/^\d{4}-0?/, "").replace(/:\d{2}$/, "");
+    }
+
+    function onKeydown(e: KeyboardEvent) {
+        if (peek) {
+            if (e.key === "Escape" || e.key === "[") {
+                e.preventDefault();
+                peek = null;
+            }
+            return;
+        }
+        if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || (e.target as HTMLElement)?.isContentEditable) {
+            return;
+        }
+        if (e.code === "Space" || e.code === "Enter") {
+            e.preventDefault();
+            if (!showAnswer) { showAnswer = true; } else { rate(3); }
+            return;
+        }
+        if (e.key === "[") { togglePeek(); return; }
+        if (!showAnswer) { return; }
+        if (ctx.ratingStyle === "three") {
+            if (e.key === "1") { rate(1); }
+            if (e.key === "2") { rate(2); }
+            if (e.key === "3") { rate(3); }
+        } else {
+            if (["1", "2", "3", "4"].includes(e.key)) { rate(Number(e.key) as Rating); }
+        }
+        if (e.key === "x" || e.key === "0") { skip(); }
+        if (e.key === "s") { suspendToday(); }
+    }
+
+    /** 点击翻面热区：卡面空白处才翻面（输入控件/链接/按钮不触发，为打字题预留） */
+    function onContainerClick(e: MouseEvent) {
+        const el = e.target as HTMLElement;
+        if (el.closest("input,textarea,select,button,a,[contenteditable]")) {
+            return;
+        }
+        if (!showAnswer && current) {
+            showAnswer = true;
+        }
+    }
+
+    onMount(() => {
+        loadQueue();
+    });
+</script>
+
+<svelte:window on:keydown={onKeydown} />
+
+<div
+    class="lv-review"
+    role="presentation"
+    onclick={onContainerClick}
+    onkeydown={(e) => onKeydown(e)}
+    tabindex="-1"
+>
+    {#if loading}
+        <div class="lv-center">{t.dashboard.loading}</div>
+    {:else if errorMsg}
+        <div class="lv-center lv-error">{errorMsg}</div>
+    {:else if sessionDone || !current}
+        <div class="lv-center lv-done">
+            <div class="lv-done-badge" aria-hidden="true">✓</div>
+            <div class="lv-done-title lv-anim-rise">{t.review.done}</div>
+            <div class="lv-done-desc lv-anim-rise" style="animation-delay: 60ms">
+                {t.review.doneNew} {sessionNew} · {t.review.doneReview} {sessionReview} · {t.review.doneForget} {sessionForget} · {t.review.doneSkip} {sessionSkip}
+            </div>
+            <div class="fn__flex lv-done-actions lv-anim-rise" style="animation-delay: 120ms">
+                <button class="b3-button b3-button--text" onclick={loadQueue}>{t.review.again}</button>
+                <button class="b3-button b3-button--outline" onclick={ctx.openDashboard}>{t.review.viewStats}</button>
+            </div>
+        </div>
+    {:else}
+        <div class="lv-head">
+            <span class="lv-progress">{reviewedIDs.length + 1} / {reviewedIDs.length + queue.length}</span>
+            {#if ctx.timeoutMode !== "off" && !showAnswer}
+                <span class="lv-timeout" class:lv-timeout-low={timeoutLeft <= 10}>⏱ {timeoutText()}</span>
+            {/if}
+            <span class="lv-tags">
+                {#if current.state === 0}<span class="b3-chip b3-chip--primary">{t.review.tagNew}</span>{/if}
+                <span class="b3-chip">{t.review.reps} {current.reps} · {t.review.lapses} {current.lapses}</span>
+            </span>
+            <div class="fn__flex-1"></div>
+            <button class="b3-button b3-button--small" title={t.review.peekPrev} onclick={togglePeek}>[{t.review.peekPrev.slice(0, 2)}]</button>
+            <button class="b3-button b3-button--small" title={t.review.openInEditor} onclick={openInEditor}>{t.review.open}</button>
+            <button class="b3-button b3-button--small" title={t.review.suspendToday} onclick={suspendToday}>✕</button>
+            <button class="b3-button b3-button--small" onclick={skip}>{t.review.skip}</button>
+        </div>
+        <div class="lv-card b3-typography" class:lv-anim-glow={showAnswer}>
+            <div class="lv-card-content" class:lv-hidden={!showAnswer}>{@html cardHtml}</div>
+            {#if !showAnswer}
+                <button class="b3-button b3-button--text lv-reveal">{t.review.showAnswer}</button>
+                <span class="lv-reveal-hint" aria-hidden="true">⎵ {t.review.revealHint}</span>
+            {/if}
+        </div>
+        <div class="lv-actions">
+            {#if !showAnswer}
+                <button class="b3-button b3-button--text lv-btn-wide" onclick={() => (showAnswer = true)}>{t.review.showAnswer}</button>
+            {:else if ctx.ratingStyle === "three"}
+                <button class="b3-button lv-btn-rate lv-b1" onclick={() => rate(1)}><span class="lv-rate-label"><LvKbd k="1" />{t.review.unknown}</span><small>{dueText("1")}</small></button>
+                <button class="b3-button lv-btn-rate lv-b2" onclick={() => rate(2)}><span class="lv-rate-label"><LvKbd k="2" />{t.review.vague}</span><small>{dueText("2")}</small></button>
+                <button class="b3-button lv-btn-rate lv-b3" onclick={() => rate(3)}><span class="lv-rate-label"><LvKbd k="3" />{t.review.know}</span><small>{dueText("3")}</small></button>
+            {:else}
+                <button class="b3-button lv-btn-rate lv-b1" onclick={() => rate(1)}><span class="lv-rate-label"><LvKbd k="1" />{t.review.againBtn}</span><small>{dueText("1")}</small></button>
+                <button class="b3-button lv-btn-rate lv-b2" onclick={() => rate(2)}><span class="lv-rate-label"><LvKbd k="2" />{t.review.hard}</span><small>{dueText("2")}</small></button>
+                <button class="b3-button lv-btn-rate lv-b3" onclick={() => rate(3)}><span class="lv-rate-label"><LvKbd k="3" />{t.review.good}</span><small>{dueText("3")}</small></button>
+                <button class="b3-button lv-btn-rate lv-b4" onclick={() => rate(4)}><span class="lv-rate-label"><LvKbd k="4" />{t.review.easy}</span><small>{dueText("4")}</small></button>
+            {/if}
+        </div>
+    {/if}
+
+    {#if peek}
+        <div
+            class="lv-peek lv-glass"
+            tabindex="-1"
+            transition:fade={{ duration: 160 }}
+            onclick={(e: Event) => e.stopPropagation()}
+        >
+            <div class="lv-peek-head">
+                <span>{t.review.peekTitle}</span>
+                <div class="fn__flex-1"></div>
+                <button class="b3-button b3-button--small" onclick={togglePeek}>✕</button>
+            </div>
+            <div class="lv-peek-body b3-typography">{@html peek.html}</div>
+        </div>
+    {/if}
+</div>
+
+<style lang="scss">
+    .lv-review {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        box-sizing: border-box;
+        padding: var(--lv-sp-4) var(--lv-sp-5);
+        gap: var(--lv-sp-3);
+        position: relative;
+        max-width: 880px;
+        margin: 0 auto;
+        width: 100%;
+
+        .lv-center { margin: auto; color: var(--b3-theme-on-surface); }
+        .lv-error { color: var(--b3-theme-error); }
+
+        .lv-done-title { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; margin: var(--lv-sp-3) 0 var(--lv-sp-1); }
+        .lv-done-desc { color: var(--b3-theme-on-surface); font-variant-numeric: tabular-nums; }
+        .lv-done-actions { gap: var(--lv-sp-2); justify-content: center; margin-top: var(--lv-sp-4); }
+
+        .lv-done-badge {
+            width: 56px; height: 56px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 26px; font-weight: 700;
+            color: var(--b3-theme-on-primary);
+            background: linear-gradient(135deg, var(--b3-theme-primary),
+                    color-mix(in srgb, var(--b3-theme-primary) 55%, var(--b3-theme-warning)));
+            box-shadow: var(--lv-shadow-2);
+        }
+
+        .lv-head {
+            display: flex; align-items: center; gap: var(--lv-sp-2);
+            .lv-progress {
+                font-size: 12px; color: var(--b3-theme-on-surface);
+                background: var(--lv-primary-softer);
+                border-radius: 999px;
+                padding: 2px 10px;
+                font-variant-numeric: tabular-nums;
+            }
+            .lv-timeout { font-size: 12px; color: var(--b3-theme-on-surface); font-variant-numeric: tabular-nums; }
+            .lv-timeout-low { color: var(--b3-theme-error); font-weight: 700; }
+            .lv-tags { display: flex; gap: var(--lv-sp-1); }
+        }
+
+        .lv-card {
+            flex: 1;
+            overflow: auto;
+            background: var(--lv-surface-grad);
+            border: 1px solid var(--lv-border);
+            border-radius: var(--lv-r-l);
+            box-shadow: var(--lv-shadow-2);
+            padding: 32px;
+            position: relative;
+            transition: box-shadow var(--lv-dur-2) var(--lv-ease), transform var(--lv-dur-2) var(--lv-ease);
+
+            &:hover { box-shadow: var(--lv-shadow-2), var(--lv-shadow-1); }
+
+            .lv-hidden > :global(*) { opacity: 0; height: 0; overflow: hidden; }
+
+            .lv-reveal {
+                position: absolute; inset: 0;
+                width: 100%; height: 100%;
+                background: transparent;
+                color: var(--b3-theme-on-surface);
+                font-size: 14px;
+                opacity: 0.9;
+                transition: opacity var(--lv-dur-2) var(--lv-ease), background var(--lv-dur-2) var(--lv-ease);
+
+                &:hover { opacity: 1; background: var(--lv-primary-softer); }
+            }
+
+            .lv-reveal-hint {
+                position: absolute;
+                right: var(--lv-sp-3);
+                bottom: var(--lv-sp-2);
+                font-size: 11px;
+                color: var(--b3-theme-on-surface);
+                opacity: 0.7;
+                pointer-events: none;
+            }
+
+            &.lv-anim-glow {
+                border-color: var(--lv-primary-border);
+            }
+        }
+
+        .lv-actions {
+            display: flex; gap: var(--lv-sp-3); justify-content: center;
+            .lv-btn-wide { flex: 1; }
+            .lv-btn-rate {
+                flex: 1;
+                max-width: 180px;
+                display: flex; flex-direction: column; align-items: center; gap: 2px;
+                border-radius: var(--lv-r-m);
+                padding: 10px 12px;
+                transition: transform var(--lv-dur-1) var(--lv-ease),
+                    background var(--lv-dur-1) var(--lv-ease),
+                    box-shadow var(--lv-dur-2) var(--lv-ease);
+
+                &:hover { transform: translateY(-1px); }
+                &:active { transform: scale(0.98); }
+
+                .lv-rate-label { display: flex; align-items: center; gap: var(--lv-sp-1); font-weight: 600; }
+                small { opacity: 0.7; font-size: 11px; font-variant-numeric: tabular-nums; }
+            }
+
+            // 评分条错峰入场（答案展示时）
+            @media (prefers-reduced-motion: no-preference) {
+                .lv-btn-rate { animation: lv-rise var(--lv-dur-2) var(--lv-ease) both; }
+                .lv-btn-rate:nth-child(1) { animation-delay: 0ms; }
+                .lv-btn-rate:nth-child(2) { animation-delay: 40ms; }
+                .lv-btn-rate:nth-child(3) { animation-delay: 80ms; }
+                .lv-btn-rate:nth-child(4) { animation-delay: 120ms; }
+            }
+            .lv-b1 {
+                background: var(--lv-danger-soft); color: var(--b3-theme-error);
+                &:hover { background: color-mix(in srgb, var(--b3-theme-error) 18%, transparent); }
+            }
+            .lv-b2 {
+                background: var(--lv-warn-soft); color: var(--b3-theme-warning);
+                &:hover { background: color-mix(in srgb, var(--b3-theme-warning) 20%, transparent); }
+            }
+            .lv-b3 {
+                background: var(--lv-primary-soft); color: var(--b3-theme-primary);
+                &:hover { background: color-mix(in srgb, var(--b3-theme-primary) 18%, transparent); }
+            }
+            .lv-b4 {
+                background: var(--lv-primary-soft); color: var(--b3-theme-primary);
+                &:hover { background: color-mix(in srgb, var(--b3-theme-primary) 18%, transparent); }
+            }
+        }
+
+        .lv-peek {
+            position: absolute;
+            inset: var(--lv-sp-4) var(--lv-sp-5);
+            border: 1px solid var(--lv-border);
+            border-radius: var(--lv-r-l);
+            box-shadow: var(--lv-shadow-2);
+            display: flex;
+            flex-direction: column;
+            z-index: 10;
+            overflow: hidden;
+            .lv-peek-head {
+                display: flex; align-items: center; gap: var(--lv-sp-2);
+                padding: var(--lv-sp-2) var(--lv-sp-4);
+                border-bottom: 1px solid var(--lv-border);
+                font-size: 12px; color: var(--b3-theme-on-surface);
+            }
+            .lv-peek-body { flex: 1; overflow: auto; padding: var(--lv-sp-4); }
+        }
+    }
+</style>
