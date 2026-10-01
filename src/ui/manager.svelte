@@ -6,6 +6,7 @@
     import CardDetail from "./card-detail.svelte";
     import LvPage from "./kit/LvPage.svelte";
     import LvEmpty from "./kit/LvEmpty.svelte";
+    import LvError from "./kit/LvError.svelte";
     import LvChip from "./kit/LvChip.svelte";
 
     export interface ManagerCtx {
@@ -227,7 +228,7 @@
             <div class="lv-skeleton" style="height: 44px"></div>
         </div>
     {:else if errorMsg}
-        <div class="lv-card2 lv-hint lv-error">{errorMsg}</div>
+        <LvError message={errorMsg} onretry={load} retryLabel={t.dashboard.refresh} />
     {:else if filteredBlocks.length === 0}
         {#if filterText}
             <LvEmpty text={t.manager.filterEmpty} actionLabel={t.manager.filterClear} onaction={() => (filterText = "")} />
@@ -269,8 +270,6 @@
     .lv-filter { width: 200px; border-radius: 999px; padding-left: 14px; }
     .lv-sort { font-size: 12px; padding: 4px 8px; }
     .lv-pager { font-size: 12px; color: var(--b3-theme-on-surface); font-variant-numeric: tabular-nums; }
-    .lv-hint { color: var(--b3-theme-on-surface); }
-    .lv-error { color: var(--b3-theme-error); }
     .lv-loading {
         display: flex;
         flex-direction: column;

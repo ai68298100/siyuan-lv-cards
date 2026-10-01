@@ -14,6 +14,7 @@
     import { todayKey } from "@/core/exam";
     import LvKbd from "./kit/LvKbd.svelte";
     import LvChip from "./kit/LvChip.svelte";
+    import LvError from "./kit/LvError.svelte";
 
     export interface ReviewSettings {
         ratingStyle: "four" | "three";
@@ -753,7 +754,9 @@
     {#if loading}
         <div class="lv-center">{t.dashboard.loading}</div>
     {:else if errorMsg}
-        <div class="lv-center lv-error">{errorMsg}</div>
+        <div class="lv-center lv-error-wrap">
+            <LvError message={errorMsg} onretry={loadQueue} retryLabel={t.dashboard.refresh} />
+        </div>
     {:else if sessionDone || !current}
         <div class="lv-center lv-done">
             <div class="lv-done-badge" aria-hidden="true">✓</div>
@@ -805,13 +808,13 @@
                 <span class="ft__smaller ft__on-surface" style="opacity:.7">{current.deckID}</span>
             {/if}
             <div class="fn__flex-1"></div>
-            <button class="b3-button b3-button--small" title={t.review.ctxToggle} class:lv-btn-primary={ctxOpen} onclick={toggleContext}>≡</button>
-            <button class="b3-button b3-button--small" title={t.review.refreshCard} onclick={refreshCard}>⟳</button>
-            <button class="b3-button b3-button--small" title={t.review.helpTitle} onclick={() => (helpOpen = true)}>?</button>
-            <button class="b3-button b3-button--small" title={t.review.undoTitle} onclick={undoHistory}>↶</button>
-            <button class="b3-button b3-button--small" title={t.review.peekPrev} onclick={togglePeek}>[{t.review.peekPrev.slice(0, 2)}]</button>
+            <button class="b3-button b3-button--small" title={t.review.ctxToggle} aria-label={t.review.ctxToggle} class:lv-btn-primary={ctxOpen} onclick={toggleContext}>≡</button>
+            <button class="b3-button b3-button--small" title={t.review.refreshCard} aria-label={t.review.refreshCard} onclick={refreshCard}>⟳</button>
+            <button class="b3-button b3-button--small" title={t.review.helpTitle} aria-label={t.review.helpTitle} onclick={() => (helpOpen = true)}>?</button>
+            <button class="b3-button b3-button--small" title={t.review.undoTitle} aria-label={t.review.undoTitle} onclick={undoHistory}>↶</button>
+            <button class="b3-button b3-button--small" title={t.review.peekPrev} aria-label={t.review.peekPrev} onclick={togglePeek}>[{t.review.peekPrev.slice(0, 2)}]</button>
             <button class="b3-button b3-button--small" title={t.review.openInEditor} onclick={openInEditor}>{t.review.open}</button>
-            <button class="b3-button b3-button--small" title={t.review.suspendToday} onclick={suspendToday}>✕</button>
+            <button class="b3-button b3-button--small" title={t.review.suspendToday} aria-label={t.review.suspendToday} onclick={suspendToday}>✕</button>
             <button class="b3-button b3-button--small" onclick={skip}>{t.review.skip}</button>
         </div>
         <div class="lv-card b3-typography" class:lv-anim-glow={showAnswer} bind:this={cardEl} style={`max-width:${ctx.settings().cardMaxWidth}px; width:100%; margin:0 auto;`}>
@@ -1002,7 +1005,7 @@
         width: 100%;
 
         .lv-center { margin: auto; color: var(--b3-theme-on-surface); }
-        .lv-error { color: var(--b3-theme-error); }
+        .lv-error-wrap { width: min(560px, 92vw); }
 
         .lv-done-title { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; margin: var(--lv-sp-3) 0 var(--lv-sp-1); }
         .lv-done-desc { color: var(--b3-theme-on-surface); font-variant-numeric: tabular-nums; }

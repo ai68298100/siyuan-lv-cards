@@ -10,6 +10,7 @@
     import LvHeatmap from "./kit/LvHeatmap.svelte";
     import LvChip from "./kit/LvChip.svelte";
     import LvEmpty from "./kit/LvEmpty.svelte";
+    import LvError from "./kit/LvError.svelte";
 
     export interface DashboardCtx {
         i18n: any;
@@ -253,7 +254,7 @@
         </div>
     {:else}
         {#if errorMsg}
-            <div class="lv-card2 lv-hint lv-error">{errorMsg}</div>
+            <LvError message={errorMsg} onretry={refresh} retryLabel={t.dashboard.refresh} />
         {/if}
 
         {#if totalCards === 0}
@@ -508,8 +509,6 @@
 
     .lv-cards { gap: var(--lv-sp-3); margin-bottom: var(--lv-sp-4); }
     .lv-hint { color: var(--b3-theme-on-surface); }
-    .lv-error { color: var(--b3-theme-error); }
-
     .lv-loading {
         display: flex;
         flex-direction: column;
