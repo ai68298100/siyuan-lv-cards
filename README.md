@@ -17,7 +17,7 @@ SiYuan ships a built-in FSRS flashcard system, but users have been asking for th
 - Module registry aligned with the design docs (M1-M12, persona-affine, phase-tagged) + legacy id migration
 - **Persona presets** — Exam sprint / Card notes / Language learning apply a full module+parameter profile
 - **Entry matrix** — top-bar left click starts review instantly, right click opens the menu, and a **due-count badge** refreshes every 60s
-- **Review panel** — interval preview on every rating button, 4-button / 3-button (Know/Vague/Unknown) styles, hotkeys, peek-previous overlay, "skip today" (local, next-day auto-restore), timeout mode (reveal / rate-Again) with countdown, undo, session summary
+- **Review panel** — interval preview on every rating button, 4-button / 3-button (Know/Vague/Unknown) styles, hotkeys, peek-previous overlay, "skip today" (local, next-day auto-restore), timeout mode (reveal / rate-Again) with countdown, session summary (undo rating arrives in v1.0)
 - **Card Hub** — overview (six stats, heatmap, streak, deck table, V2 badge + official statistics summary) and paged card manager
 - Settings — persona presets, module switches, rating style, timeout, daily targets, data zone (revlog export/clear, V2 re-detect)
 - Minimal kernel plugin (`kernel.js`) for future shared-state features

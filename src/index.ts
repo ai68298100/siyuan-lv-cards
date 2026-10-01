@@ -1,12 +1,12 @@
 import "./index.scss";
 
-import { mount } from "svelte";
+import { mount, unmount } from "svelte";
 import { Plugin, Menu, showMessage } from "siyuan";
 
 import { svelteDialog } from "./libs/dialog";
 import { defaultSettings, normalizeSettings, type LvCardsSettings } from "./core/settings";
 import {
-    appendRevlog, emptyRevlog, localDate, normalizeRevlog,
+    appendRevlog, emptyRevlog, localDate, normalizeRevlog, recalcDays,
     type RevlogData, type RevlogEntry,
 } from "./core/revlog";
 import { detectFlashcardV2, type MigrationStatus } from "./api/flashcardV2";
@@ -49,6 +49,7 @@ export default class LvCardsPlugin extends Plugin {
         ]);
         this.settings = normalizeSettings(loadedSettings);
         this.revlog = normalizeRevlog(loadedRevlog);
+        recalcDays(this.revlog); // AJ1 迁移：由明细重建每日聚合（幂等）
         this.suspendToday = normalizeSuspendToday(loadedSuspend);
         if (rollDateIfNeeded(this.suspendToday)) {
             await this.saveData(SUSPEND_TODAY_DATA, this.suspendToday);
@@ -66,7 +67,7 @@ export default class LvCardsPlugin extends Plugin {
             init() {
                 const div = document.createElement("div");
                 div.style.height = "100%";
-                mount(Dashboard, {
+                const app = mount(Dashboard, {
                     target: div,
                     props: { ctx: {
                         i18n: plugin.i18n,
@@ -81,8 +82,7 @@ export default class LvCardsPlugin extends Plugin {
                     } },
                 });
                 this.element.appendChild(div);
-            },
-            destroy() {
+                this.destroy = () => unmount(app); // AJ7：Tab 销毁时卸载实例
             },
         });
 
@@ -91,15 +91,17 @@ export default class LvCardsPlugin extends Plugin {
             init() {
                 const div = document.createElement("div");
                 div.style.height = "100%";
-                mount(Review, {
+                const app = mount(Review, {
                     target: div,
                     props: { ctx: {
                         i18n: plugin.i18n,
                         app: plugin.app,
-                        ratingStyle: plugin.settings.ratingStyle,
-                        timeoutMode: plugin.settings.timeoutMode,
-                        timeoutSeconds: plugin.settings.timeoutSeconds,
-                        randomOrder: plugin.settings.randomOrder,
+                        settings: () => ({
+                            ratingStyle: plugin.settings.ratingStyle,
+                            timeoutMode: plugin.settings.timeoutMode,
+                            timeoutSeconds: plugin.settings.timeoutSeconds,
+                            randomOrder: plugin.settings.randomOrder,
+                        }),
                         appendRevlog: (e) => plugin.appendRevlog(e),
                         getRevlog: () => plugin.revlog,
                         isSuspendedToday: (cardID: string) => isSuspended(plugin.suspendToday, cardID),
@@ -111,8 +113,7 @@ export default class LvCardsPlugin extends Plugin {
                     } },
                 });
                 this.element.appendChild(div);
-            },
-            destroy() {
+                this.destroy = () => unmount(app);
             },
         });
 
@@ -121,13 +122,12 @@ export default class LvCardsPlugin extends Plugin {
             init() {
                 const div = document.createElement("div");
                 div.style.height = "100%";
-                mount(Manager, {
+                const app = mount(Manager, {
                     target: div,
                     props: { ctx: { i18n: plugin.i18n, app: plugin.app } },
                 });
                 this.element.appendChild(div);
-            },
-            destroy() {
+                this.destroy = () => unmount(app);
             },
         });
 

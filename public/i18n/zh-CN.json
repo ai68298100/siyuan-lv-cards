@@ -84,6 +84,7 @@
         "suspendedToast": "已屏蔽到明天",
         "peekPrev": "回看上一张",
         "peekTitle": "上一张（只读，Esc 关闭）",
+        "peekNone": "还没有已作答的上一张",
         "showAnswer": "显示答案",
         "revealHint": "空格 翻面",
         "againBtn": "遗忘",

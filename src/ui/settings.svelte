@@ -20,7 +20,7 @@
     }
 
     let { ctx }: { ctx: SettingsCtx } = $props();
-    const t = ctx.i18n;
+    const t = $derived(ctx.i18n);
 
     let draft: LvCardsSettings = $state(JSON.parse(JSON.stringify(ctx.settings)));
     let applyingPreset = $state(false);

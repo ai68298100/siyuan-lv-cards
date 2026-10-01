@@ -6,6 +6,10 @@ import { fetchSyncPost } from "siyuan";
 
 async function v2<T>(endpoint: string, payload: Record<string, unknown> = {}): Promise<T> {
     const resp = await fetchSyncPost(`/api/flashcard/${endpoint}`, payload);
+    // AJ5：与 riff 同口径的响应校验
+    if (!resp || resp.code !== 0) {
+        throw new Error(resp?.msg || `kernel error (code=${resp?.code ?? "unknown"})`);
+    }
     return resp.data as T;
 }
 

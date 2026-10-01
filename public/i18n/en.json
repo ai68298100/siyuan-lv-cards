@@ -84,6 +84,7 @@
         "suspendedToast": "Hidden until tomorrow",
         "peekPrev": "Peek previous",
         "peekTitle": "Previous card (read-only, Esc to close)",
+        "peekNone": "No answered card to peek yet",
         "showAnswer": "Show Answer",
         "revealHint": "Space to flip",
         "againBtn": "Again",

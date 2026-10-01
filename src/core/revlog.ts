@@ -57,21 +57,49 @@ export function localDate(ts: number): string {
 }
 
 export function appendRevlog(data: RevlogData, entry: RevlogEntry): void {
+    if (entry.rating > 0) {
+        // 首次有效评分计为"新"，此后计为"复习"（AJ1 修复：day.new 不再永远为 0）
+        const seen = data.entries.some(e => e.cardID === entry.cardID && e.rating > 0);
+        const date = localDate(entry.ts);
+        const day = data.days[date] ?? { new: 0, review: 0, forget: 0 };
+        if (seen) {
+            day.review += 1;
+        } else {
+            day.new += 1;
+        }
+        if (entry.rating === 1) {
+            day.forget += 1;
+        }
+        data.days[date] = day;
+    }
     data.entries.push(entry);
     // 日志上限保护：仅保留最近 2 万条明细，聚合数据永久保留
     if (data.entries.length > 20000) {
         data.entries = data.entries.slice(-20000);
     }
-    const date = localDate(entry.ts);
-    const day = data.days[date] ?? { new: 0, review: 0, forget: 0 };
-    if (entry.rating <= 0) {
-        return; // skip 不计入统计
+}
+
+/** 由明细重算每日聚合（幂等）。升级/修数后调用一次即可。 */
+export function recalcDays(data: RevlogData): void {
+    const seen = new Set<string>();
+    data.days = {};
+    for (const e of data.entries) {
+        if (e.rating <= 0) {
+            continue;
+        }
+        const date = localDate(e.ts);
+        const day = data.days[date] ?? { new: 0, review: 0, forget: 0 };
+        if (seen.has(e.cardID)) {
+            day.review += 1;
+        } else {
+            day.new += 1;
+            seen.add(e.cardID);
+        }
+        if (e.rating === 1) {
+            day.forget += 1;
+        }
+        data.days[date] = day;
     }
-    day.review += 1;
-    if (entry.rating === 1) {
-        day.forget += 1;
-    }
-    data.days[date] = day;
 }
 
 export function isCardNew(data: RevlogData, cardID: string): boolean {

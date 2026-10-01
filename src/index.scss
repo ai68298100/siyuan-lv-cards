@@ -336,6 +336,11 @@
     .lv-skeleton { animation: none; }
 }
 
+// 问题态遮罩：mark 文字透明（底色保留），题面可见、答案留空（docs/12 §2.1）
+.lv-masked mark {
+    color: transparent !important;
+}
+
 // 焦点环
 :focus-visible {
     outline: none;

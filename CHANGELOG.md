@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.3.1 2026-10-01 · 代码审计修复（AJ 组 P0 批次）
+
+* 修复 revlog 新卡统计永远为 0：首次有效评分计 `day.new`，新增 recalcDays 幂等重算并接入加载流程
+* 修复回看状态机：评分后只存 `lastAnswered` 不再自动打开浮层；无历史时提示
+* 修复问题态整卡隐藏：改为 mark 遮罩（题面可见、答案留空；规则移至全局样式）
+* 内核响应统一校验：riff/v2 封装 code≠0 一律抛错；删除模板遗留 api.ts（SQL 注入面）
+* Tab 销毁时 unmount Svelte 实例；复习倒计时 onDestroy 清理
+* 评分/跳过提交锁（防连击重复写入）；跳过卡本场排除（不再被下一批拉回）
+* 卡面异步加载请求序号（旧 DOM 竞态防护）；评分失败保留现场
+* 设置热更新：复习面板经 settings() 实时读取评分风格/超时/随机顺序
+* a11y：复习容器与回看浮层补 svelte-ignore；t 改 $derived，警告 8→2（余 2 为刻意初始化读取）
+* GitHub：公开仓库 ai68298100/siyuan-lv-cards、Release v0.3.0（package.zip）、程序化 icon（scripts/gen-icon.mjs）
+* 决策固化 docs/18（D1-D8），真机测试清单 docs/18 §二（🧪 等反馈）
+
 ## v0.3.0 2026-10-01 · UI Kit 成套化
 
 * 新增 `src/ui/kit/` 十个组件：LvPage / LvSection / LvStat / LvProgress / LvTabs / LvEmpty / LvRow / LvHeatmap / LvChip / LvKbd（零业务依赖，仅令牌与 b3 类）

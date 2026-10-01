@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { onMount } from "svelte";
+    import { onDestroy, onMount } from "svelte";
     import { fade } from "svelte/transition";
     import { fetchSyncPost, openTab, showMessage } from "siyuan";
     import {
@@ -9,13 +9,18 @@
     import { isCardNew, type RevlogData } from "@/core/revlog";
     import LvKbd from "./kit/LvKbd.svelte";
 
-    export interface ReviewCtx {
-        i18n: any;
-        app: any;
+    export interface ReviewSettings {
         ratingStyle: "four" | "three";
         timeoutMode: "off" | "reveal" | "forget";
         timeoutSeconds: number;
         randomOrder: boolean;
+    }
+
+    export interface ReviewCtx {
+        i18n: any;
+        app: any;
+        /** 实时读取设置（保存后热生效，无需重建面板） */
+        settings: () => ReviewSettings;
         appendRevlog: (entry: { cardID: string; deckID: string; blockID: string; rating: number; source: "plugin" }) => void;
         getRevlog: () => RevlogData;
         isSuspendedToday: (cardID: string) => boolean;
@@ -24,7 +29,7 @@
     }
 
     let { ctx }: { ctx: ReviewCtx } = $props();
-    const t = ctx.i18n;
+    const t = $derived(ctx.i18n);
 
     let queue: RiffDueCard[] = $state([]);
     let reviewedIDs: string[] = $state([]);
@@ -38,6 +43,10 @@
     let sessionDone = $state(false);
     let loading = $state(false);
     let errorMsg = $state("");
+    let submitting = $state(false); // 评分/跳过提交锁（AJ8：重复点击只产生一次写入）
+    let loadSeq = 0;                // 卡面异步加载序号（AJ10：旧 DOM 不覆盖新卡）
+    let sessionSkipped: string[] = []; // 本场跳过排除集（AJ9：跳过的卡不再被下一批拉回）
+    let lastAnswered: { html: string; card: RiffDueCard } | null = null; // 回看数据源（AJ2：不再自动打开）
 
     // 回看上一张（M3·FR6）
     let peek = $state<{ html: string; card: RiffDueCard } | null>(null);
@@ -46,11 +55,17 @@
     let timeoutTimer: ReturnType<typeof setInterval> | null = null;
 
     async function loadBlockDOM(blockID: string) {
+        const seq = ++loadSeq;
         try {
             const resp = await fetchSyncPost("/api/block/getBlockDOM", { id: blockID });
+            if (seq !== loadSeq) {
+                return; // 已切到新卡，丢弃旧响应
+            }
             cardHtml = resp?.data?.dom ?? "";
         } catch {
-            cardHtml = "";
+            if (seq === loadSeq) {
+                cardHtml = "";
+            }
         }
     }
 
@@ -69,9 +84,9 @@
         try {
             const data = await getRiffDueCards("", reviewedIDs);
             let cards = data.cards ?? [];
-            // 「今天不学」的卡本地过滤（内核调度不受影响）
-            cards = cards.filter(c => !ctx.isSuspendedToday(c.cardID));
-            if (ctx.randomOrder) {
+            // 「今天不学」+ 本场已跳过的卡本地过滤（内核调度不受影响，AJ9）
+            cards = cards.filter(c => !ctx.isSuspendedToday(c.cardID) && !sessionSkipped.includes(c.cardID));
+            if (ctx.settings().randomOrder) {
                 cards = shuffle(cards);
             }
             queue = cards;
@@ -101,11 +116,12 @@
 
     function restartTimeout() {
         stopTimeout();
-        if (ctx.timeoutMode === "off" || !current) {
+        const s = ctx.settings();
+        if (s.timeoutMode === "off" || !current) {
             timeoutLeft = 0;
             return;
         }
-        timeoutLeft = ctx.timeoutSeconds;
+        timeoutLeft = s.timeoutSeconds;
         timeoutTimer = setInterval(() => {
             if (!current || showAnswer) {
                 stopTimeout();
@@ -114,9 +130,9 @@
             timeoutLeft -= 1;
             if (timeoutLeft <= 0) {
                 stopTimeout();
-                if (ctx.timeoutMode === "reveal") {
+                if (s.timeoutMode === "reveal") {
                     showAnswer = true;
-                } else if (ctx.timeoutMode === "forget") {
+                } else if (s.timeoutMode === "forget") {
                     rate(1, true);
                 }
             }
@@ -139,9 +155,10 @@
     // —— 评分 / 跳过 / 屏蔽 ——
 
     async function rate(rating: Rating, force = false) {
-        if (!current || (!showAnswer && !force)) {
+        if (!current || (!showAnswer && !force) || submitting) {
             return;
         }
+        submitting = true;
         try {
             const wasNew = isCardNew(ctx.getRevlog(), current.cardID);
             await reviewRiffCard(current.deckID, current.cardID, rating, reviewedIDs);
@@ -156,18 +173,27 @@
             }
             await next();
         } catch (e: any) {
+            // 评分失败保留现场（AJ11）：当前卡/答案态/队列不动，只提示错误
             errorMsg = e?.message ?? String(e);
+        } finally {
+            submitting = false;
         }
     }
 
     async function skip() {
-        if (!current) { return; }
+        if (!current || submitting) {
+            return;
+        }
+        submitting = true;
         try {
             await skipReviewRiffCard(current.deckID, current.cardID);
             sessionSkip += 1;
+            sessionSkipped = [...sessionSkipped, current.cardID];
             await next();
         } catch (e: any) {
             errorMsg = e?.message ?? String(e);
+        } finally {
+            submitting = false;
         }
     }
 
@@ -179,9 +205,9 @@
     }
 
     async function next() {
-        // 记录上一张供回看（只读快照）
+        // 记录上一张供回看（AJ2：只存数据，不自动打开浮层）
         if (current) {
-            peek = { html: cardHtml, card: current };
+            lastAnswered = { html: cardHtml, card: current };
         }
         const idx = current ? queue.findIndex(c => c.cardID === current!.cardID) : -1;
         const rest = queue.slice(idx + 1);
@@ -197,8 +223,10 @@
     function togglePeek() {
         if (peek) {
             peek = null;
-        } else if (current) {
-            peek = { html: cardHtml, card: current };
+        } else if (lastAnswered) {
+            peek = { ...lastAnswered };
+        } else {
+            showMessage(t.review.peekNone, 1800, "info");
         }
     }
 
@@ -229,9 +257,12 @@
             if (!showAnswer) { showAnswer = true; } else { rate(3); }
             return;
         }
-        if (e.key === "[") { togglePeek(); return; }
+        if (e.key === "[") {
+            if (lastAnswered) { togglePeek(); }
+            return;
+        }
         if (!showAnswer) { return; }
-        if (ctx.ratingStyle === "three") {
+        if (ctx.settings().ratingStyle === "three") {
             if (e.key === "1") { rate(1); }
             if (e.key === "2") { rate(2); }
             if (e.key === "3") { rate(3); }
@@ -256,10 +287,15 @@
     onMount(() => {
         loadQueue();
     });
+
+    onDestroy(() => {
+        stopTimeout(); // AJ7：销毁时清理倒计时，防止泄漏
+    });
 </script>
 
 <svelte:window on:keydown={onKeydown} />
 
+<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 <div
     class="lv-review"
     role="presentation"
@@ -286,7 +322,7 @@
     {:else}
         <div class="lv-head">
             <span class="lv-progress">{reviewedIDs.length + 1} / {reviewedIDs.length + queue.length}</span>
-            {#if ctx.timeoutMode !== "off" && !showAnswer}
+            {#if ctx.settings().timeoutMode !== "off" && !showAnswer}
                 <span class="lv-timeout" class:lv-timeout-low={timeoutLeft <= 10}>⏱ {timeoutText()}</span>
             {/if}
             <span class="lv-tags">
@@ -300,7 +336,7 @@
             <button class="b3-button b3-button--small" onclick={skip}>{t.review.skip}</button>
         </div>
         <div class="lv-card b3-typography" class:lv-anim-glow={showAnswer}>
-            <div class="lv-card-content" class:lv-hidden={!showAnswer}>{@html cardHtml}</div>
+            <div class="lv-card-content" class:lv-masked={!showAnswer}>{@html cardHtml}</div>
             {#if !showAnswer}
                 <button class="b3-button b3-button--text lv-reveal">{t.review.showAnswer}</button>
                 <span class="lv-reveal-hint" aria-hidden="true">⎵ {t.review.revealHint}</span>
@@ -309,7 +345,7 @@
         <div class="lv-actions">
             {#if !showAnswer}
                 <button class="b3-button b3-button--text lv-btn-wide" onclick={() => (showAnswer = true)}>{t.review.showAnswer}</button>
-            {:else if ctx.ratingStyle === "three"}
+            {:else if ctx.settings().ratingStyle === "three"}
                 <button class="b3-button lv-btn-rate lv-b1" onclick={() => rate(1)}><span class="lv-rate-label"><LvKbd k="1" />{t.review.unknown}</span><small>{dueText("1")}</small></button>
                 <button class="b3-button lv-btn-rate lv-b2" onclick={() => rate(2)}><span class="lv-rate-label"><LvKbd k="2" />{t.review.vague}</span><small>{dueText("2")}</small></button>
                 <button class="b3-button lv-btn-rate lv-b3" onclick={() => rate(3)}><span class="lv-rate-label"><LvKbd k="3" />{t.review.know}</span><small>{dueText("3")}</small></button>
@@ -323,6 +359,7 @@
     {/if}
 
     {#if peek}
+        <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
         <div
             class="lv-peek lv-glass"
             tabindex="-1"
@@ -397,7 +434,7 @@
 
             &:hover { box-shadow: var(--lv-shadow-2), var(--lv-shadow-1); }
 
-            .lv-hidden > :global(*) { opacity: 0; height: 0; overflow: hidden; }
+            // 问题态遮罩规则已移至 index.scss 全局（scoped 编译会误剪 :global 结尾选择器）
 
             .lv-reveal {
                 position: absolute; inset: 0;

@@ -11,7 +11,7 @@
     }
 
     let { ctx }: { ctx: ManagerCtx } = $props();
-    const t = ctx.i18n;
+    const t = $derived(ctx.i18n);
 
     const PAGE_SIZE = 20;
     let loading = $state(true);

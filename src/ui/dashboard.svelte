@@ -19,7 +19,7 @@
     }
 
     let { ctx }: { ctx: DashboardCtx } = $props();
-    const t = ctx.i18n;
+    const t = $derived(ctx.i18n);
 
     let loading = $state(true);
     let decks: RiffDeck[] = $state([]);
