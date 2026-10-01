@@ -26,6 +26,8 @@ export interface LvCardsSettings {
     typingEnabled: boolean;
     /** 打字判分宽松：忽略大小写/空白/标点 */
     typingStrict: boolean;
+    /** 听写模式：自动朗读答案，输入听写（需打字模式+TTS） */
+    dictationEnabled: boolean;
     /** 选择题练习模式：问题态可将本卡转为四选一（干扰项取自同队列） */
     choiceEnabled: boolean;
     /** leech 判定阈值（遗忘次数） */
@@ -87,6 +89,7 @@ export function defaultSettings(): LvCardsSettings {
         batchLimit: 0,
         typingEnabled: false,
         typingStrict: true,
+        dictationEnabled: false,
         choiceEnabled: false,
         leechThreshold: 8,
         ttsEnabled: true,

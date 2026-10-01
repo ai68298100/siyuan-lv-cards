@@ -193,6 +193,7 @@ export default class LvCardsPlugin extends Plugin {
                             ttsEnabled: plugin.settings.ttsEnabled,
                             ttsRate: plugin.settings.ttsRate,
                             ttsVoice: plugin.settings.ttsVoice,
+                            dictationEnabled: plugin.settings.dictationEnabled,
                             batchLimit: plugin.settings.batchLimit,
                             typingEnabled: plugin.settings.typingEnabled,
                             typingStrict: plugin.settings.typingStrict,

@@ -224,7 +224,8 @@
         "restoreDefaults": "Restore all defaults",
         "batchLimit": "Per-batch fetch size (0 = kernel default)",
         "batchLimitHint": "Set 5-20 to pace yourself",
-        "importCsv": "Import CSV (review log)"
+        "importCsv": "Import CSV (review log)",
+        "dictationEnabled": "Dictation mode (auto-speak answer, type what you hear; requires typing mode + TTS)"
     },
     "hubTabOverview": "Overview",
     "hubTabManage": "Manage",

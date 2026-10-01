@@ -27,6 +27,7 @@
         ttsRate: number;
         ttsVoice: string;
         batchLimit: number;
+        dictationEnabled: boolean;
     }
 
     export interface ReviewCtx {
@@ -288,6 +289,23 @@
         occlHidden = [];
         await loadBlockDOM(card.blockID);
         restartTimeout();
+        // 听写模式：问题态自动朗读答案（M4·FR6，需打字模式开启）
+        if (ctx.settings().typingEnabled && ctx.settings().dictationEnabled && expectedText) {
+            speakText(expectedText);
+        }
+    }
+
+    /** TTS 朗读（Web Speech，防御式） */
+    function speakText(text: string) {
+        if (!("speechSynthesis" in window) || !text) {
+            return;
+        }
+        try {
+            const u = new SpeechSynthesisUtterance(text);
+            u.lang = /[\u4e00-\u9fa5]/.test(text) ? "zh-CN" : "en-US";
+            speechSynthesis.cancel();
+            speechSynthesis.speak(u);
+        } catch { /* 旁路 */ }
     }
 
     /** TTS 朗读答案（C9 朗读部分，Web Speech，防御式） */

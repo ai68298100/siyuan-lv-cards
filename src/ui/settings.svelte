@@ -210,6 +210,9 @@
             <LvRow label={t.settings.typingStrict}>
                 <input class="b3-switch" type="checkbox" bind:checked={draft.typingStrict} />
             </LvRow>
+            <LvRow label={t.settings.dictationEnabled}>
+                <input class="b3-switch" type="checkbox" bind:checked={draft.dictationEnabled} />
+            </LvRow>
         {/if}
         <LvRow label={t.settings.ttsEnabled}>
             <input class="b3-switch" type="checkbox" bind:checked={draft.ttsEnabled} />
