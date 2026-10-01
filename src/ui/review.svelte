@@ -51,6 +51,8 @@
         saveSessionState: (s: { date: string; reviewedIDs: string[]; counters: { new: number; review: number; forget: number; skip: number } }) => void;
         clearSessionState: () => void;
         emitSessionFinished: (summary: { new: number; review: number; forget: number; skip: number }) => void;
+        /** 源上下文预览（M3）：来源块前后各 2 块（只读，不含自身） */
+        getContextBlocks: (blockID: string) => Promise<{ id: string; html: string }[]>;
     }
 
     let { ctx, initialScope = "all", initialCram = false }: {
@@ -598,6 +600,22 @@
         lastPanelPointer = now;
     }
 
+    /** 源上下文预览（M3）：只读展示来源块前后各 2 块 */
+    let ctxOpen = $state(false);
+    let ctxBlocks = $state<{ id: string; html: string }[]>([]);
+    let ctxLoading = $state(false);
+    async function toggleContext() {
+        ctxOpen = !ctxOpen;
+        if (ctxOpen && current) {
+            ctxLoading = true;
+            ctxBlocks = [];
+            try {
+                ctxBlocks = await ctx.getContextBlocks(current.blockID);
+            } catch { /* 静默降级为空列表 */ }
+            ctxLoading = false;
+        }
+    }
+
     function dueText(rating: string): string {
         const due = current?.nextDues?.[rating];
         if (!due) { return ""; }
@@ -777,6 +795,7 @@
                 <span class="ft__smaller ft__on-surface" style="opacity:.7">{current.deckID}</span>
             {/if}
             <div class="fn__flex-1"></div>
+            <button class="b3-button b3-button--small" title={t.review.ctxToggle} class:lv-btn-primary={ctxOpen} onclick={toggleContext}>≡</button>
             <button class="b3-button b3-button--small" title={t.review.refreshCard} onclick={refreshCard}>⟳</button>
             <button class="b3-button b3-button--small" title={t.review.helpTitle} onclick={() => (helpOpen = true)}>?</button>
             <button class="b3-button b3-button--small" title={t.review.undoTitle} onclick={undoHistory}>↶</button>
@@ -884,6 +903,23 @@
                 </div>
             {/if}
         </div>
+        {#if ctxOpen}
+            <div class="lv-ctxpanel b3-typography">
+                <div class="lv-ctx-title">{t.review.ctxTitle}</div>
+                {#if ctxLoading}
+                    <div class="lv-skeleton" style="height: 36px"></div>
+                    <div class="lv-skeleton" style="height: 36px"></div>
+                {:else if ctxBlocks.length === 0}
+                    <div class="lv-hint">{t.review.ctxNone}</div>
+                {:else}
+                    {#each ctxBlocks as b (b.id)}
+                        <div class="lv-ctx-block" class:lv-ctx-cur={current && b.id === current.blockID}>
+                            {@html b.html}
+                        </div>
+                    {/each}
+                {/if}
+            </div>
+        {/if}
         <div class="lv-actions">
             {#if !showAnswer}
                 <button class="b3-button b3-button--text lv-btn-wide" onclick={() => (showAnswer = true)}>{t.review.showAnswer}</button>
@@ -1073,6 +1109,33 @@
 
             &.lv-anim-glow {
                 border-color: var(--lv-primary-border);
+            }
+        }
+
+        .lv-ctxpanel {
+            max-width: var(--lv-card-max, 880px);
+            width: 100%;
+            margin: 0 auto;
+            padding: var(--lv-sp-3);
+            border: 1px solid var(--lv-border);
+            border-radius: var(--lv-r-m);
+            background: color-mix(in srgb, var(--b3-theme-on-background) 4%, transparent);
+            font-size: 13px;
+            opacity: 0.92;
+            .lv-ctx-title {
+                font-size: 12px;
+                color: var(--b3-theme-on-surface);
+                margin-bottom: var(--lv-sp-2);
+            }
+            .lv-ctx-block {
+                padding: var(--lv-sp-2);
+                border-bottom: 1px dashed var(--lv-border);
+                &:last-child { border-bottom: none; }
+            }
+            .lv-ctx-cur {
+                border-left: 2px solid var(--b3-theme-primary);
+                background: var(--lv-primary-softer);
+                border-radius: var(--lv-r-s);
             }
         }
 

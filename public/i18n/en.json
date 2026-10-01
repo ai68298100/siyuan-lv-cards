@@ -127,6 +127,9 @@
         "scopeNew": "New only",
         "scopeOld": "Review only",
         "refreshCard": "Refresh card",
+        "ctxToggle": "Source context (2 blocks around, read-only)",
+        "ctxTitle": "Source context (read-only) · highlighted = this card's source",
+        "ctxNone": "No adjacent blocks found in the document",
         "rescheduleIn": "Reschedule in",
         "rescheduleDays": "days",
         "rescheduled": "Rescheduled to ${n} days later"
@@ -351,7 +354,8 @@
         "curve": "Retention curve (measured)",
         "curveSub": "Buckets by review gap · ≥3 samples per bucket",
         "curveNone": "Not enough samples — re-review the same card after a few days.",
-        "theory": "dashed: theoretical exp(-t/5d) (personalized S awaits V2 Stability)"
+        "theory": "dashed: theoretical exp(-t/5d) (personalized S awaits V2 Stability)",
+        "exportPng": "Export retention curve as PNG"
     },
     "weekcmp": {
         "title": "Week over week",

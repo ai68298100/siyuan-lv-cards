@@ -1,7 +1,7 @@
 import "./index.scss";
 
 import { mount, unmount } from "svelte";
-import { Plugin, Menu, getAllEditor, showMessage } from "siyuan";
+import { Plugin, Menu, getAllEditor, showMessage, fetchSyncPost } from "siyuan";
 
 import { svelteDialog, confirmDialogBool } from "./libs/dialog";
 import { defaultSettings, normalizeSettings, type LvCardsSettings } from "./core/settings";
@@ -251,6 +251,27 @@ export default class LvCardsPlugin extends Plugin {
                             try {
                                 (plugin.eventBus as any).emit("lv-cards:session-finished", { plugin: "lv-cards", v: 1, summary });
                             } catch { /* 事件旁路 */ }
+                        },
+                        getContextBlocks: async (blockID: string) => {
+                            const safe = blockID.replace(/'/g, "''");
+                            const root = await sqlQuery(`SELECT root_id FROM blocks WHERE id='${safe}' LIMIT 1`);
+                            if (!root.length) { return []; }
+                            const rootId = String(root[0].root_id ?? "").replace(/'/g, "''");
+                            // 同文档按 sort 顺序取前后各 2 块（排除自身与容器块）
+                            const sibs = await sqlQuery(`SELECT id FROM blocks WHERE root_id='${rootId}' AND type IN ('p','t','h','c','ta','tb') ORDER BY sort, id`);
+                            const idx = sibs.findIndex(b => String(b.id) === blockID);
+                            if (idx < 0) { return []; }
+                            const window = sibs.slice(Math.max(0, idx - 2), idx + 3).filter(b => String(b.id) !== blockID);
+                            const out: { id: string; html: string }[] = [];
+                            for (const b of window) {
+                                try {
+                                    const resp = await fetchSyncPost("/api/block/getBlockDOM", { id: b.id });
+                                    if (resp?.data?.dom) {
+                                        out.push({ id: String(b.id), html: resp.data.dom });
+                                    }
+                                } catch { /* 单块失败跳过 */ }
+                            }
+                            return out;
                         },
                     } },
                 });

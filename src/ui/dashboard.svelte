@@ -46,6 +46,54 @@
     let curve: CurvePoint[] = $state([]);
     let week: WeekDelta | null = $state(null);
     let milestones: Milestones | null = $state(null);
+    let curveEl: SVGSVGElement | null = $state(null);
+
+    /** 图表导出 PNG（M5）：SVG→canvas，CSS 变量先解析为具体色值（独立渲染无级联上下文） */
+    function exportCurvePng() {
+        if (!curveEl) return;
+        const clone = curveEl.cloneNode(true) as SVGSVGElement;
+        clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+        const srcEls = Array.from(curveEl.querySelectorAll("*"));
+        Array.from(clone.querySelectorAll("*")).forEach((el, i) => {
+            const src = srcEls[i] as HTMLElement | SVGElement | undefined;
+            if (!src) return;
+            const cs = getComputedStyle(src);
+            for (const prop of ["stroke", "fill", "stroke-width", "stroke-dasharray", "opacity"] as const) {
+                const val = cs.getPropertyValue(prop);
+                if (val && (el.getAttribute(prop) !== null || prop === "stroke" || prop === "fill")) {
+                    el.setAttribute(prop, val.trim());
+                }
+            }
+        });
+        // 底色填充，避免透明背景导出后不可见
+        const bg = getComputedStyle(document.body).getPropertyValue("--b3-theme-surface").trim() || "#ffffff";
+        const xml = new XMLSerializer().serializeToString(clone);
+        const rect = `<rect x="0" y="0" width="100%" height="100%" fill="${bg}"/>`;
+        const svgWithBg = xml.replace(/(<svg[^>]*>)/, `$1${rect}`);
+        const url = URL.createObjectURL(new Blob([svgWithBg], { type: "image/svg+xml;charset=utf-8" }));
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement("canvas");
+            canvas.width = 960;
+            canvas.height = 300;
+            const c = canvas.getContext("2d");
+            if (!c) { URL.revokeObjectURL(url); return; }
+            c.fillStyle = bg;
+            c.fillRect(0, 0, canvas.width, canvas.height);
+            c.drawImage(img, 0, 0, canvas.width, canvas.height);
+            URL.revokeObjectURL(url);
+            canvas.toBlob(blob => {
+                if (!blob) return;
+                const a = document.createElement("a");
+                a.href = URL.createObjectURL(blob);
+                a.download = `lv-cards-curve-${localDate(Date.now())}.png`;
+                a.click();
+                setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+            });
+        };
+        img.onerror = () => URL.revokeObjectURL(url);
+        img.src = url;
+    }
     let aiQuality = $state<{ date: string; cards: number; reviews: number; rate: number | null }[]>([]);
     let leech: { blockID: string; lapses: number }[] = $state([]);
     let examChip = $state<{ name: string; days: number } | null>(null);
@@ -351,8 +399,13 @@
         </LvSection>
 
         <LvSection title={t.retention.curve} sub={t.retention.curveSub}>
+            {#snippet actions()}
+                {#if curve.length >= 2}
+                    <button class="b3-button b3-button--small" title={t.retention.exportPng} onclick={exportCurvePng}>⬇ PNG</button>
+                {/if}
+            {/snippet}
             {#if curve.length >= 2}
-                <svg viewBox="0 0 320 100" class="lv-curve">
+                <svg viewBox="0 0 320 100" class="lv-curve" bind:this={curveEl}>
                     <line x1="8" y1="90" x2="312" y2="90" class="lv-curve-axis" />
                     <polyline fill="none" stroke="var(--b3-theme-on-surface)" stroke-width="1" stroke-dasharray="4 3" opacity="0.5" points={theoryPoints(curve)} />
                     <polyline fill="none" stroke="var(--b3-theme-on-surface)" stroke-width="1" stroke-dasharray="4 3" opacity="0.5" points={theoryPoints(curve)} />

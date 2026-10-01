@@ -127,6 +127,9 @@
         "scopeNew": "仅新卡",
         "scopeOld": "仅旧卡",
         "refreshCard": "刷新卡面",
+        "ctxToggle": "源上下文（前后各 2 块，只读）",
+        "ctxTitle": "源上下文（只读）· 高亮为当前卡的来源块",
+        "ctxNone": "未找到同文档相邻块",
         "rescheduleIn": "改期至",
         "rescheduleDays": "天后",
         "rescheduled": "已改期至 ${n} 天后"
@@ -351,7 +354,8 @@
         "curve": "记忆保持曲线（实测）",
         "curveSub": "按复习间隔分桶 · 每桶 ≥3 样本",
         "curveNone": "样本不足：同一张卡间隔数天后复习几次即可生成。",
-        "theory": "虚线：理论参考 exp(-t/5d)（个人化参数待 V2 Stability）"
+        "theory": "虚线：理论参考 exp(-t/5d)（个人化参数待 V2 Stability）",
+        "exportPng": "导出保持曲线为 PNG 图片"
     },
     "weekcmp": {
         "title": "周期对比",
