@@ -10,6 +10,7 @@
     import { isCardNew, type RevlogData } from "@/core/revlog";
     import { gradeTyping, type Rating1to4 } from "@/core/card-types";
     import { parseOcclusion, type OcclusionData } from "@/core/occlusion";
+    import { todayKey } from "@/core/exam";
     import LvKbd from "./kit/LvKbd.svelte";
     import LvChip from "./kit/LvChip.svelte";
 
@@ -23,6 +24,7 @@
         typingStrict: boolean;
         choiceEnabled: boolean;
         ttsEnabled: boolean;
+        ttsRate: number;
     }
 
     export interface ReviewCtx {
@@ -40,6 +42,9 @@
         suspendToday: (cardID: string) => void;
         openDashboard: () => void;
         onScopePersist: (scopeKey: string) => void;
+        getSessionState: () => { date: string; reviewedIDs: string[]; counters: { new: number; review: number; forget: number; skip: number } } | null;
+        saveSessionState: (s: { date: string; reviewedIDs: string[]; counters: { new: number; review: number; forget: number; skip: number } }) => void;
+        clearSessionState: () => void;
         emitSessionFinished: (summary: { new: number; review: number; forget: number; skip: number }) => void;
     }
 
@@ -281,6 +286,7 @@
             if (!text) return;
             const u = new SpeechSynthesisUtterance(text);
             u.lang = /[\u4e00-\u9fa5]/.test(text) ? "zh-CN" : "en-US";
+            u.rate = ctx.settings().ttsRate || 1;
             speechSynthesis.cancel();
             speechSynthesis.speak(u);
         } catch { /* 旁路 */ }
@@ -385,6 +391,11 @@
             await reviewRiffCard(current.deckID, current.cardID, rating, reviewedIDs);
             ctx.appendRevlog({ cardID: current.cardID, deckID: current.deckID, blockID: current.blockID, rating, source: "plugin" });
             reviewedIDs = [...reviewedIDs, current.cardID];
+            ctx.saveSessionState({
+                date: todayKey(),
+                reviewedIDs,
+                counters: { new: sessionNew, review: sessionReview, forget: sessionForget, skip: sessionSkip },
+            });
             if (rating === 1) {
                 sessionForget += 1;
             } else if (wasNew) {
@@ -508,6 +519,15 @@
     }
 
     onMount(() => {
+        // 会话中断恢复（M3）：当日已有评分进度时，恢复计数并从剩余卡继续
+        const ss = ctx.getSessionState();
+        if (ss && ss.reviewedIDs.length > 0) {
+            reviewedIDs = ss.reviewedIDs;
+            sessionNew = ss.counters.new;
+            sessionReview = ss.counters.review;
+            sessionForget = ss.counters.forget;
+            sessionSkip = ss.counters.skip;
+        }
         loadQueue();
         // 范围选择器数据源（失败静默：仅影响下拉项，不影响默认全部复习）
         getRiffDecks().then(d => (decks = d)).catch(() => { /* 旁路 */ });

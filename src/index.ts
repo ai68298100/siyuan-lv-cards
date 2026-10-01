@@ -15,6 +15,7 @@ import { addRiffCards, createRiffDeck, getDueCount, getRiffCardsByBlockIDs, remo
 import { appendBlock, createDocWithMd, getNotebooks, exportMdContent } from "./api/siyuan";
 import { aiChat, estimateTokens, parseCards } from "./api/ai";
 import { normalizeSuspendToday, rollDateIfNeeded, isSuspended, suspend, type SuspendTodayData } from "./core/suspend-today";
+import { normalizeSessionState, type SessionState } from "./core/session-state";
 import { normalizeExamPlans, daysLeft, type ExamPlan, type ExamPlansData } from "./core/exam";
 import Review from "./ui/review.svelte";
 import Hub from "./ui/hub.svelte";
@@ -32,6 +33,7 @@ const REVLOG_DATA = "revlog.json";
 const SUSPEND_TODAY_DATA = "suspend-today.json";
 const EXAM_PLANS_DATA = "exam-plans.json";
 const AI_BATCHES_DATA = "ai-batches.json";
+const SESSION_STATE_DATA = "session-state.json";
 
 export default class LvCardsPlugin extends Plugin {
 
@@ -45,6 +47,7 @@ export default class LvCardsPlugin extends Plugin {
     private suspendToday: SuspendTodayData = { date: "", cardIDs: [] };
     private examPlans: ExamPlansData = { version: 1, plans: [] };
     private aiBatches: { version: 1; batches: { id: string; date: string; deckID: string; blockIDs: string[] }[] } = { version: 1, batches: [] };
+    private sessionState: SessionState = { date: "", reviewedIDs: [], counters: { new: 0, review: 0, forget: 0, skip: 0 } };
     /** 最近一次到期数（角标点击行为统一用：>0 开复习，否则开中心） */
     private lastDue = 0;
 
@@ -55,18 +58,21 @@ export default class LvCardsPlugin extends Plugin {
 <path d="M11 16h6M11 20h10" stroke="currentColor" stroke-width="2"></path>
 </symbol>`);
 
-        const [loadedSettings, loadedRevlog, loadedSuspend, loadedExam] = await Promise.all([
+        const [loadedSettings, loadedRevlog, loadedSuspend, loadedExam, loadedSession] = await Promise.all([
             this.loadData(SETTINGS_DATA),
             this.loadData(REVLOG_DATA),
             this.loadData(SUSPEND_TODAY_DATA),
             this.loadData(EXAM_PLANS_DATA),
             this.loadData(AI_BATCHES_DATA),
+            this.loadData(SESSION_STATE_DATA),
         ]);
         this.settings = normalizeSettings(loadedSettings);
         this.revlog = normalizeRevlog(loadedRevlog);
         recalcDays(this.revlog); // AJ1 迁移：由明细重建每日聚合（幂等）
         this.suspendToday = normalizeSuspendToday(loadedSuspend);
         this.examPlans = normalizeExamPlans(loadedExam);
+        this.sessionState = normalizeSessionState(loadedSession, localDate(Date.now()));
+        this.sessionState = normalizeSessionState(loadedSession, localDate(Date.now()));
         const loadedBatches = await this.loadData(AI_BATCHES_DATA);
         if (loadedBatches && typeof loadedBatches === "object" && Array.isArray((loadedBatches as any).batches)) {
             this.aiBatches = loadedBatches;
@@ -173,6 +179,7 @@ export default class LvCardsPlugin extends Plugin {
                             cardMaxWidth: plugin.settings.cardMaxWidth,
                             choiceEnabled: plugin.settings.choiceEnabled,
                             ttsEnabled: plugin.settings.ttsEnabled,
+                            ttsRate: plugin.settings.ttsRate,
                             typingEnabled: plugin.settings.typingEnabled,
                             typingStrict: plugin.settings.typingStrict,
                         }),
@@ -187,6 +194,15 @@ export default class LvCardsPlugin extends Plugin {
                         onScopePersist: (key: string) => {
                             plugin.settings.lastReviewScope = key;
                             plugin.saveData(SETTINGS_DATA, plugin.settings).catch(() => { /* 旁路 */ });
+                        },
+                        getSessionState: () => plugin.sessionState,
+                        saveSessionState: (s: SessionState) => {
+                            plugin.sessionState = s;
+                            plugin.saveData(SESSION_STATE_DATA, plugin.sessionState).catch(() => { /* 旁路 */ });
+                        },
+                        clearSessionState: () => {
+                            plugin.sessionState = { date: "", reviewedIDs: [], counters: { new: 0, review: 0, forget: 0, skip: 0 } };
+                            plugin.saveData(SESSION_STATE_DATA, plugin.sessionState).catch(() => { /* 旁路 */ });
                         },
                         emitSessionFinished: (summary: { new: number; review: number; forget: number; skip: number }) => {
                             try {

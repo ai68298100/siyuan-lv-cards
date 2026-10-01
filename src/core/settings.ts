@@ -30,6 +30,8 @@ export interface LvCardsSettings {
     leechThreshold: number;
     /** 答案朗读（TTS，Web Speech） */
     ttsEnabled: boolean;
+    /** 朗读语速 0.5-2 */
+    ttsRate: number;
     /** 每日到期提醒（Notification） */
     reminderEnabled: boolean;
     /** 提醒时间 HH:mm */
@@ -79,6 +81,7 @@ export function defaultSettings(): LvCardsSettings {
         choiceEnabled: false,
         leechThreshold: 8,
         ttsEnabled: true,
+        ttsRate: 1,
         reminderEnabled: true,
         reminderTime: "20:00",
         backlogDays: 3,
