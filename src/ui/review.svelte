@@ -100,6 +100,8 @@
     let typingInput = $state("");
     let typingGrade = $state<{ chars: { ch: string; ok: boolean }[]; suggested: Rating1to4 } | null>(null);
     let expectedText = $state("");
+    // 评分音效（M 组 P2，Web Audio 合成）
+    let audioCtx: AudioContext | null = null;
     // 快捷键帮助覆盖层（AB 组）
     let helpOpen = $state(false);
     // 图片遮挡（M4·FR4 riff 先行）：数据来自块属性 lv-occlusion，坐标相对图片包围盒
@@ -329,6 +331,27 @@
         } catch { /* 旁路 */ }
     }
 
+    /** 评分音效（Web Audio 合成，M 组 P2） */
+    function playSfx(rating: Rating) {
+        if (!audioCtx) audioCtx = new AudioContext();
+        try {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            const freqs: Record<number, number[]> = { 1: [220], 2: [330, 392], 3: [440, 554], 4: [523, 659] };
+            const notes = freqs[rating] ?? [440];
+            const step = 0.08;
+            notes.forEach((f, i) => {
+                osc.frequency.setValueAtTime(f, audioCtx.currentTime + i * step);
+            });
+            osc.type = "sine";
+            gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + notes.length * step + 0.1);
+            osc.start(audioCtx.currentTime);
+            osc.stop(audioCtx.currentTime + notes.length * step + 0.1);
+        } catch { /* 旁路 */ }
+    }
+
     /** 打字题提交：判分并亮出答案（评分仍由用户按键确认，建议值显示为 chip） */
     function submitTyping() {
         if (!current || typingGrade || !typingInput.trim() || !expectedText) {
@@ -425,6 +448,7 @@
         pushHistory();
         try {
             const wasNew = isCardNew(ctx.getRevlog(), current.cardID);
+            playSfx(rating);
             await reviewRiffCard(current.deckID, current.cardID, rating, reviewedIDs);
             ctx.appendRevlog({ cardID: current.cardID, deckID: current.deckID, blockID: current.blockID, rating, source: "plugin" });
             reviewedIDs = [...reviewedIDs, current.cardID];

@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.33.0 2026-10-02 · 评分音效（Web Audio 合成）
+
+* 评分音效（M 组 P2）：Web Audio oscillator 按评分级别合成双音/单响，无文件依赖
+* settings.sfxEnabled 开关（默认关）；修复重复声明
+* 版本 bump 至 0.33.0
+
 ## v0.32.0 2026-10-02 · 细节加固 + 术语表 + 许可证清单
 
 * dashboard getDailyTargets 单次计算缓存（消除模板内多次调用）（AL）

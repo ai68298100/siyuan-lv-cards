@@ -225,7 +225,8 @@
         "batchLimit": "每批拉取数量（0=跟随内核）",
         "batchLimitHint": "自己控制节奏时设为 5-20",
         "importCsv": "导入 CSV（复习日志）",
-        "dictationEnabled": "听写模式（自动朗读答案，输入听写；需开启打字模式+TTS）"
+        "dictationEnabled": "听写模式（自动朗读答案，输入听写；需开启打字模式+TTS）",
+        "sfxEnabled": "评分音效（Web Audio 合成）"
     },
     "hubTabOverview": "总览",
     "hubTabManage": "管理",

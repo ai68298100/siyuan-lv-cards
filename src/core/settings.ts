@@ -48,6 +48,8 @@ export interface LvCardsSettings {
     reminderTime: string;
     /** 积压预警阈值（天） */
     backlogDays: number;
+    /** 评分音效（Web Audio 合成，无文件依赖） */
+    sfxEnabled: boolean;
     /** 考试模式 */
     examEnabled: boolean;
     /** 考试日期 YYYY-MM-DD，空为未设置 */
@@ -100,6 +102,7 @@ export function defaultSettings(): LvCardsSettings {
         reminderEnabled: true,
         reminderTime: "20:00",
         backlogDays: 3,
+        sfxEnabled: false,
         examEnabled: false,
         examDate: "",
         savedFilters: [],

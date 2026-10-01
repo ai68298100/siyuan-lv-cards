@@ -225,7 +225,8 @@
         "batchLimit": "Per-batch fetch size (0 = kernel default)",
         "batchLimitHint": "Set 5-20 to pace yourself",
         "importCsv": "Import CSV (review log)",
-        "dictationEnabled": "Dictation mode (auto-speak answer, type what you hear; requires typing mode + TTS)"
+        "dictationEnabled": "Dictation mode (auto-speak answer, type what you hear; requires typing mode + TTS)",
+        "sfxEnabled": "Rating sound effects (Web Audio)"
     },
     "hubTabOverview": "Overview",
     "hubTabManage": "Manage",
