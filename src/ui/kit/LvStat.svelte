@@ -1,5 +1,4 @@
 <script lang="ts">
-    import { onMount } from "svelte";
     import LvProgress from "./LvProgress.svelte";
 
     let { label, value, denom = "", tone = "primary", progress = -1, animate = false }: {

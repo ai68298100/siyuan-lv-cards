@@ -155,7 +155,8 @@
         "saveFilter": "收藏当前筛选",
         "savedFilters": "已存筛选",
         "deleteSaved": "删除该筛选",
-        "filterSaved": "筛选已收藏"
+        "filterSaved": "筛选已收藏",
+        "leechFilter": "只看烂卡"
     },
     "settings": {
         "personaSection": "画像预设",

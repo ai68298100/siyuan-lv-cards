@@ -10,10 +10,11 @@ const errors = [];
 if (plugin.version !== pkg.version) {
     errors.push(`plugin.json (${plugin.version}) 与 package.json (${pkg.version}) 版本不一致`);
 }
-if (!changelog.includes(`## v${plugin.version}`)) {
-    errors.push(`CHANGELOG.md 缺少 v${plugin.version} 小节`);
-}
 const head = changelog.split("\n").findIndex(l => l.startsWith("## v"));
+const headLine = head < 0 ? "" : changelog.split("\n")[head].trim();
+if (!headLine.startsWith(`## v${plugin.version}`)) {
+    errors.push(`CHANGELOG.md 顶部小节必须是 v${plugin.version}（当前顶部：${headLine || "无"}）`);
+}
 const section = changelog.slice(changelog.indexOf(`## v${plugin.version}`));
 if (plugin.version !== "0.0.0" && section.length < 40) {
     errors.push(`CHANGELOG v${plugin.version} 小节内容为空`);

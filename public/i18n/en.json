@@ -155,7 +155,8 @@
         "saveFilter": "Save filter",
         "savedFilters": "Saved filters",
         "deleteSaved": "Delete this filter",
-        "filterSaved": "Filter saved"
+        "filterSaved": "Filter saved",
+        "leechFilter": "Leeches only"
     },
     "settings": {
         "personaSection": "Persona Presets",

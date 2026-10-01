@@ -14,6 +14,7 @@
         savedFilters: () => { name: string; filter: string }[];
         saveFilter: (name: string, filter: string) => void;
         deleteFilter: (name: string) => void;
+        getLeechCards: () => { blockID: string; lapses: number }[];
     }
 
     let { ctx }: { ctx: ManagerCtx } = $props();
@@ -28,6 +29,7 @@
     let errorMsg = $state("");
     let filterText = $state("");
     let sortMode = $state<"default" | "path" | "content">("default");
+    let leechOnly = $state(false);
     let savedList = $state<{ name: string; filter: string }[]>([]);
     let pickedSaved = $state("");
     let selected: string[] = $state([]);
@@ -35,7 +37,11 @@
 
     let filteredBlocks = $derived(
         (() => {
-            const arr = blocks.filter(b => !filterText || stripHtml(b.content).toLowerCase().includes(filterText.toLowerCase()));
+            let arr = blocks.filter(b => !filterText || stripHtml(b.content).toLowerCase().includes(filterText.toLowerCase()));
+            if (leechOnly) {
+                const leechSet = new Set(ctx.getLeechCards().map(l => l.blockID));
+                arr = arr.filter(b => leechSet.has(b.id));
+            }
             if (sortMode === "path") {
                 return [...arr].sort((a, b) => ((a.hPath as string) ?? "").localeCompare((b.hPath as string) ?? ""));
             }
@@ -168,6 +174,9 @@
             <option value="path">{t.manager.sortPath}</option>
             <option value="content">{t.manager.sortContent}</option>
         </select>
+        <button class="b3-button b3-button--small" class:lv-btn-primary={leechOnly} onclick={() => (leechOnly = !leechOnly)}>
+            {t.manager.leechFilter}
+        </button>
         <button class="b3-button b3-button--outline" disabled={page <= 1} onclick={() => goto(page - 1)}>{t.manager.prev}</button>
         <span class="lv-pager">{page} / {pageCount}</span>
         <button class="b3-button b3-button--outline" disabled={page >= pageCount} onclick={() => goto(page + 1)}>{t.manager.next}</button>

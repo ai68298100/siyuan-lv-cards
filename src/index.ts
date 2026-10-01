@@ -175,6 +175,10 @@ export default class LvCardsPlugin extends Plugin {
                                 plugin.settings.savedFilters = plugin.settings.savedFilters.filter(f => f.name !== name);
                                 plugin.saveData(SETTINGS_DATA, plugin.settings).catch(() => { /* 旁路 */ });
                             },
+                            getLeechCards: () => {
+                                const items = leechCards(plugin.revlog, plugin.settings.leechThreshold);
+                                return items.map(i => ({ blockID: i.blockID, lapses: i.lapses }));
+                            },
                         },
                         exam: plugin.settings.modules.exam ? {
                             plans: plugin.examPlans,
