@@ -22,5 +22,7 @@ jobs:
         run: pnpm check
       - name: i18n key alignment
         run: node scripts/check-i18n.mjs
+      - name: Unit tests
+        run: pnpm test
       - name: Build (app + kernel)
         run: pnpm build

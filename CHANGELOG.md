@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.11.0 2026-10-02 · 考试角标里程碑 + 测试基线 + 响应式弹窗
+
+* 考试角标常驻（M7·FR5）：活动计划存在时角标显示剩余天数，tooltip 计划名；30/7/1 天里程碑 toast（每日每档一次）
+* streak 事件（M11·FR1）：`lv-cards:streak-changed` 在连击变化时广播
+* 测试基线（G 组）：vitest 3 文件 17 测试——revlog（新卡计数/合并去重/幂等重算/连击）、card-types（判分阈值/宽松严格/注册表）、settings（旧 ID 迁移）、exam（daysLeft/cram/normalize）；CI 加 test 门禁
+* 全部弹窗响应式宽度（min(原宽, 92-94vw)）：设置/AI 向导/选卡组/快速制卡/onboarding
+
 ## v0.10.0 2026-10-02 · 卡型架构 + 打字题 + True Retention
 
 * 卡型注册表（M4·FR1）：registerCardType 运行时契约（gradable/grade）；3.9 官方 V2 桥接接口预留（待 API 明确）

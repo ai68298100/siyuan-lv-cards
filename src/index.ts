@@ -7,7 +7,7 @@ import { svelteDialog } from "./libs/dialog";
 import { defaultSettings, normalizeSettings, type LvCardsSettings } from "./core/settings";
 import { PERSONA_PRESETS } from "./core/personas";
 import {
-    appendRevlog, emptyRevlog, localDate, normalizeRevlog, recalcDays, revlogToCsv, mergeRevlog,
+    appendRevlog, calcStreak, emptyRevlog, localDate, normalizeRevlog, recalcDays, revlogToCsv, mergeRevlog,
     type RevlogData, type RevlogEntry,
 } from "./core/revlog";
 import { detectFlashcardV2, type MigrationStatus } from "./api/flashcardV2";
@@ -15,7 +15,7 @@ import { addRiffCards, createRiffDeck, getDueCount, getRiffCardsByBlockIDs, remo
 import { appendBlock, createDocWithMd, getNotebooks } from "./api/siyuan";
 import { aiChat, estimateTokens, parseCards } from "./api/ai";
 import { normalizeSuspendToday, rollDateIfNeeded, isSuspended, suspend, type SuspendTodayData } from "./core/suspend-today";
-import { normalizeExamPlans, type ExamPlan, type ExamPlansData } from "./core/exam";
+import { normalizeExamPlans, daysLeft, type ExamPlan, type ExamPlansData } from "./core/exam";
 import Review from "./ui/review.svelte";
 import Hub from "./ui/hub.svelte";
 import SettingsPanel from "./ui/settings.svelte";
@@ -256,8 +256,41 @@ export default class LvCardsPlugin extends Plugin {
         }
         getDueCount().then(count => {
             this.lastDue = count;
-            this.updateBadge(count);
+            // M7·FR5：活动考试计划存在时，角标优先显示考试倒计时天数
+            const plan = this.examPlans.plans.find(p => p.enabled && p.examDate);
+            const left = plan ? daysLeft(plan.examDate) : null;
+            if (plan && left !== null && left >= 0) {
+                this.updateExamBadge(left, plan);
+            } else {
+                this.updateBadge(count);
+            }
         }).catch(() => { /* 旁路，静默 */ });
+    }
+
+    private milestonesSeen = new Set<string>();
+
+    private updateExamBadge(left: number, plan: ExamPlan) {
+        if (!this.topBarElement) {
+            return;
+        }
+        let badge = this.topBarElement.querySelector<HTMLElement>(".lv-badge");
+        if (!badge) {
+            badge = document.createElement("span");
+            badge.className = "lv-badge";
+            this.topBarElement.appendChild(badge);
+        }
+        badge.textContent = left > 99 ? "99+" : String(left);
+        badge.title = `${plan.name} · ${(this.i18n as any).exam.daysLeft.replace("${n}", String(left))}`;
+        // 里程碑提醒（30/7/1 天，每天每档一次，内存态）
+        for (const m of [30, 7, 1]) {
+            if (left === m) {
+                const key = `${plan.id}:${m}:${localDate(Date.now())}`;
+                if (!this.milestonesSeen.has(key)) {
+                    this.milestonesSeen.add(key);
+                    showMessage(this.i18n.examMilestone.replace("${name}", plan.name).replace("${n}", String(m)), 4000, "info");
+                }
+            }
+        }
     }
 
     private updateBadge(count: number) {
@@ -307,7 +340,7 @@ export default class LvCardsPlugin extends Plugin {
         svelteDialog({
             title: this.i18n.deckPickerTitle,
             component: DeckPicker,
-            width: "420px",
+            width: "min(420px, 92vw)",
             props: {
                 newNamePlaceholder: this.i18n.deckNewName,
                 confirmLabel: this.i18n.deckConfirm,
@@ -340,7 +373,7 @@ export default class LvCardsPlugin extends Plugin {
         svelteDialog({
             title: this.i18n.quickCardTitle,
             component: QuickCard,
-            width: "520px",
+            width: "min(520px, 94vw)",
             props: {
                 i18n: this.i18n,
                 onCreate: async (markdown: string, deckID: string) => {
@@ -369,7 +402,7 @@ export default class LvCardsPlugin extends Plugin {
         svelteDialog({
             title: this.i18n.onboardingTitle,
             component: Onboarding,
-            width: "560px",
+            width: "min(560px, 94vw)",
             props: {
                 i18n: this.i18n,
                 applyPersona: (id: "exam" | "notes" | "language") => {
@@ -443,7 +476,7 @@ export default class LvCardsPlugin extends Plugin {
         svelteDialog({
             title: this.i18n.aiWizardTitle,
             component: AIWizard,
-            width: "680px",
+            width: "min(680px, 94vw)",
             props: {
                 i18n: this.i18n,
                 generate: async (source: string, cfg: { count: number; language: string; type: "qa" | "cloze" }) => {
@@ -534,7 +567,9 @@ export default class LvCardsPlugin extends Plugin {
     private appendRevlog(entry: Omit<RevlogEntry, "ts"> & { ts?: number }) {
         const today = localDate(Date.now());
         const prevCount = this.revlog.days[today]?.review ?? 0;
+        const streakBefore = calcStreak(this.revlog);
         appendRevlog(this.revlog, { ts: entry.ts ?? Date.now(), ...entry } as RevlogEntry);
+        const streakAfter = calcStreak(this.revlog);
         this.scheduleRevlogSave();
         this.refreshDueBadge();
         // M8·FR1：目标跨越庆祝；M11·FR1：生态事件广播
@@ -549,6 +584,9 @@ export default class LvCardsPlugin extends Plugin {
                 cardID: entry.cardID, deckID: entry.deckID, blockID: entry.blockID,
                 rating: entry.rating, source: entry.source,
             });
+            if (streakAfter !== streakBefore) {
+                (this.eventBus as any).emit("lv-cards:streak-changed", { plugin: "lv-cards", v: 1, streak: streakAfter });
+            }
         } catch { /* 事件旁路 */ }
     }
 
@@ -623,7 +661,7 @@ export default class LvCardsPlugin extends Plugin {
         const { close } = svelteDialog({
             title: this.i18n.settingsTitle,
             component: SettingsPanel,
-            width: "620px",
+            width: "min(620px, 94vw)",
             props: {
                 ctx: {
                     i18n: this.i18n,
