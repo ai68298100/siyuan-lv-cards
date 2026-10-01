@@ -1049,6 +1049,11 @@ export default class LvCardsPlugin extends Plugin {
                     testAnkiClient: () => this.testAnkiClient(),
                     storageStats: () => this.storageStats(),
                     generateExamReport: (plan: ExamPlan) => this.generateExamReport(plan),
+                    exportSettings: () => this.exportSettings(),
+                    importSettings: async (fileText: string) => {
+                        this.settings = normalizeSettings(JSON.parse(fileText));
+                        await this.saveSettingsNow();
+                    },
                     exportRevlogCsv: () => this.exportRevlogCsv(),
                     importRevlogCsv: async (fileText: string) => {
                         const imported = parseRevlogCsv(fileText);
@@ -1077,6 +1082,17 @@ export default class LvCardsPlugin extends Plugin {
         const a = document.createElement("a");
         a.href = url;
         a.download = `lv-cards-revlog-${stamp}.json`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    /** 导出设置为 JSON 文件 */
+    private exportSettings() {
+        const blob = new Blob([JSON.stringify(this.settings, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `lv-cards-settings-${localDate(Date.now())}.json`;
         a.click();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
     }

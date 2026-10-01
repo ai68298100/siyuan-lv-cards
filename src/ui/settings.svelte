@@ -22,6 +22,7 @@
         restoreAllSuspended: () => void;
         testAnkiClient: () => Promise<string>;
         storageStats: () => { file: string; size: string; lastWrite: number }[];
+        exportSettings: () => void;
         exportRevlogCsv: () => void;
         importRevlogCsv: (fileText: string) => Promise<{ added: number; skipped: number }>;
         importRevlogMerge: (fileText: string) => Promise<{ added: number; skipped: number }>;
@@ -324,6 +325,11 @@
             {#snippet children()}
                 <button class="b3-button b3-button--outline" onclick={ctx.exportRevlog}>JSON</button>
                 <button class="b3-button b3-button--outline" onclick={ctx.exportRevlogCsv}>CSV</button>
+            {/snippet}
+        </LvRow>
+        <LvRow label={t.settings.exportSettings}>
+            {#snippet children()}
+                <button class="b3-button b3-button--outline" onclick={ctx.exportSettings}>{t.settings.exportSettings}</button>
             {/snippet}
         </LvRow>
         <LvRow label={t.settings.importMerge} hint={t.settings.importMergeHint}>

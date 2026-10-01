@@ -228,7 +228,8 @@
         "batchLimitHint": "Set 5-20 to pace yourself",
         "importCsv": "Import CSV (review log)",
         "dictationEnabled": "Dictation mode (auto-speak answer, type what you hear; requires typing mode + TTS)",
-        "sfxEnabled": "Rating sound effects (Web Audio)"
+        "sfxEnabled": "Rating sound effects (Web Audio)",
+        "exportSettings": "Export settings (JSON)"
     },
     "hubTabOverview": "Overview",
     "hubTabManage": "Manage",
