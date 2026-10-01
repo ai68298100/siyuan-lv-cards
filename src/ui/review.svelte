@@ -8,13 +8,17 @@
     } from "@/api/riff";
     import { getNotebooks, type Notebook } from "@/api/siyuan";
     import { isCardNew, type RevlogData } from "@/core/revlog";
+    import { gradeTyping, type Rating1to4 } from "@/core/card-types";
     import LvKbd from "./kit/LvKbd.svelte";
+    import LvChip from "./kit/LvChip.svelte";
 
     export interface ReviewSettings {
         ratingStyle: "four" | "three";
         timeoutMode: "off" | "reveal" | "forget";
         timeoutSeconds: number;
         randomOrder: boolean;
+        typingEnabled: boolean;
+        typingStrict: boolean;
     }
 
     export interface ReviewCtx {
@@ -79,6 +83,10 @@
     // 超时倒计时（M3·FR8）
     let timeoutLeft = $state(0);
     let timeoutTimer: ReturnType<typeof setInterval> | null = null;
+    // 打字模式（M4·FR2，全局练习模式）
+    let typingInput = $state("");
+    let typingGrade = $state<{ chars: { ch: string; ok: boolean }[]; suggested: Rating1to4 } | null>(null);
+    let expectedText = $state("");
 
     async function loadBlockDOM(blockID: string) {
         const seq = ++loadSeq;
@@ -88,9 +96,17 @@
                 return; // 已切到新卡，丢弃旧响应
             }
             cardHtml = resp?.data?.dom ?? "";
+            // 打字题期望答案 = 高亮（mark）文本合集；无 mark 则退化为全文
+            const holder = document.createElement("div");
+            holder.innerHTML = cardHtml;
+            const marks = Array.from(holder.querySelectorAll("mark"))
+                .map(m => (m.textContent ?? "").trim())
+                .filter(Boolean);
+            expectedText = marks.length > 0 ? marks.join(" / ") : (holder.textContent ?? "").trim();
         } catch {
             if (seq === loadSeq) {
                 cardHtml = "";
+                expectedText = "";
             }
         }
     }
@@ -148,8 +164,21 @@
     async function setCurrent(card: RiffDueCard) {
         current = card;
         showAnswer = false;
+        typingInput = "";
+        typingGrade = null;
         await loadBlockDOM(card.blockID);
         restartTimeout();
+    }
+
+    /** 打字题提交：判分并亮出答案（评分仍由用户按键确认，建议值显示为 chip） */
+    function submitTyping() {
+        if (!current || typingGrade || !typingInput.trim() || !expectedText) {
+            return;
+        }
+        const s = ctx.settings();
+        const g = gradeTyping(expectedText, typingInput, s.typingStrict);
+        typingGrade = { chars: g.chars, suggested: g.suggested };
+        showAnswer = true;
     }
 
     // —— 超时模式 ——
@@ -439,8 +468,37 @@
         <div class="lv-card b3-typography" class:lv-anim-glow={showAnswer}>
             <div class="lv-card-content" class:lv-masked={!showAnswer}>{@html cardHtml}</div>
             {#if !showAnswer}
+                {#if ctx.settings().typingEnabled}
+                    <div class="lv-typing">
+                        <input
+                            class="b3-text-field fn__block"
+                            bind:value={typingInput}
+                            onkeydown={(e: KeyboardEvent) => {
+                                if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    submitTyping();
+                                }
+                            }}
+                            placeholder={t.review.typingPlaceholder}
+                        />
+                    </div>
+                {/if}
                 <button class="b3-button b3-button--text lv-reveal">{t.review.showAnswer}</button>
                 <span class="lv-reveal-hint" aria-hidden="true">⎵ {t.review.revealHint}</span>
+            {/if}
+            {#if typingGrade}
+                <div class="lv-typing-diff">
+                    <span class="ft__smaller ft__on-surface">{t.review.typingSuggested}</span>
+                    <LvChip tone={typingGrade.suggested === 3 ? "primary" : typingGrade.suggested === 2 ? "warn" : "error"}>
+                        {typingGrade.suggested}
+                    </LvChip>
+                    <span class="lv-diff">
+                        {#each typingGrade.chars as c, i (i)}
+                            <span class:lv-diff-ok={c.ok} class:lv-diff-bad={!c.ok}>{c.ch}</span>
+                        {/each}
+                    </span>
+                </div>
             {/if}
         </div>
         <div class="lv-actions">
@@ -537,6 +595,20 @@
             &:hover { box-shadow: var(--lv-shadow-2), var(--lv-shadow-1); }
 
             // 问题态遮罩规则已移至 index.scss 全局（scoped 编译会误剪 :global 结尾选择器）
+
+            .lv-typing { margin-top: var(--lv-sp-3); }
+            .lv-typing-diff {
+                display: flex; align-items: center; gap: var(--lv-sp-2);
+                margin-top: var(--lv-sp-3);
+                flex-wrap: wrap;
+                .lv-diff span { font-variant-numeric: normal; }
+                .lv-diff-ok { color: var(--b3-theme-primary); }
+                .lv-diff-bad {
+                    color: var(--b3-theme-error);
+                    text-decoration: line-through;
+                    opacity: 0.85;
+                }
+            }
 
             .lv-reveal {
                 position: absolute; inset: 0;

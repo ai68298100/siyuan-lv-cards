@@ -146,6 +146,14 @@
         <LvRow label={t.settings.randomOrder}>
             <input class="b3-switch" type="checkbox" bind:checked={draft.randomOrder} />
         </LvRow>
+        <LvRow label={t.settings.typingEnabled}>
+            <input class="b3-switch" type="checkbox" bind:checked={draft.typingEnabled} />
+        </LvRow>
+        {#if draft.typingEnabled}
+            <LvRow label={t.settings.typingStrict}>
+                <input class="b3-switch" type="checkbox" bind:checked={draft.typingStrict} />
+            </LvRow>
+        {/if}
         <LvRow label={t.settings.leechThreshold}>
             <input class="b3-text-field fn__size-60" type="number" min="1" bind:value={draft.leechThreshold} />
         </LvRow>

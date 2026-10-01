@@ -102,7 +102,9 @@
         "undoDone": "Undone — rate again",
         "undoNone": "Nothing to undo",
         "undoTitle": "Undo last (p/q)",
-        "undoLast": "Undo last rating"
+        "undoLast": "Undo last rating",
+        "typingPlaceholder": "Type the answer, Enter to grade",
+        "typingSuggested": "Suggested"
     },
     "manager": {
         "title": "Card Manager",
@@ -175,7 +177,9 @@
         "aiEndpoint": "API URL",
         "aiModel": "Model",
         "aiKey": "API Key",
-        "aiKeyHint": "Stored in plaintext in local settings — prefer SiYuan built-in AI"
+        "aiKeyHint": "Stored in plaintext in local settings — prefer SiYuan built-in AI",
+        "typingEnabled": "Typing mode (answer first, compare after — applies to all cards)",
+        "typingStrict": "Strict grading (case, spaces & punctuation matter)"
     },
     "hubTabOverview": "Overview",
     "hubTabManage": "Manage",
@@ -261,5 +265,14 @@
     "aiTypeQaHint": "Q&A: specific, actively recallable questions with concise accurate answers",
     "aiTypeClozeHint": "Cloze: answers should be key terms or numbers from the material",
     "aiTooLong": "Material too long — split it and generate in parts",
-    "menuAICard": "AI cards"
+    "menuAICard": "AI cards",
+    "cardTypeTyping": "Typing",
+    "retention": {
+        "title": "True Retention",
+        "sub": "Derived from local review log · each adjacent review pair counts as one recall test",
+        "first": "First re-review",
+        "young": "Young (gap <21d)",
+        "mature": "Mature (gap ≥21d)",
+        "none": "No samples yet — shows up after a few reviews."
+    }
 }

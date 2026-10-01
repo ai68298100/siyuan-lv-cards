@@ -102,7 +102,9 @@
         "undoDone": "已撤销，请重新评分",
         "undoNone": "没有可撤销的步骤",
         "undoTitle": "撤销上一步 (p/q)",
-        "undoLast": "撤销最后一评"
+        "undoLast": "撤销最后一评",
+        "typingPlaceholder": "输入答案后回车判分",
+        "typingSuggested": "判分建议"
     },
     "manager": {
         "title": "闪卡管理器",
@@ -175,7 +177,9 @@
         "aiEndpoint": "API 地址",
         "aiModel": "模型",
         "aiKey": "API Key",
-        "aiKeyHint": "明文存储于本地设置，请谨慎；更推荐使用思源内置 AI"
+        "aiKeyHint": "明文存储于本地设置，请谨慎；更推荐使用思源内置 AI",
+        "typingEnabled": "打字模式（先作答再对照，全卡生效）",
+        "typingStrict": "严格判分（区分大小写、空白与标点）"
     },
     "hubTabOverview": "总览",
     "hubTabManage": "管理",
@@ -261,5 +265,14 @@
     "aiTypeQaHint": "问答式：问题应具体、可主动回忆；答案简洁准确",
     "aiTypeClozeHint": "完形填空式：答案应是材料中的关键术语或数字",
     "aiTooLong": "材料过长，请分段生成",
-    "menuAICard": "AI 制卡"
+    "menuAICard": "AI 制卡",
+    "cardTypeTyping": "打字题",
+    "retention": {
+        "title": "True Retention 真实保持率",
+        "sub": "由本地复习日志推导 · 相邻两次复习记一次回忆测试",
+        "first": "首次复审",
+        "young": "幼卡（间隔 <21 天）",
+        "mature": "成熟卡（间隔 ≥21 天）",
+        "none": "暂无样本：完成几次复习后自动生成。"
+    }
 }

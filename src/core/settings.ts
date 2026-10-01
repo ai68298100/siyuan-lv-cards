@@ -20,6 +20,10 @@ export interface LvCardsSettings {
     timeoutSeconds: number;
     /** 随机顺序 */
     randomOrder: boolean;
+    /** 打字模式：所有卡作答输入后判分（M4·FR2 全局练习模式） */
+    typingEnabled: boolean;
+    /** 打字判分宽松：忽略大小写/空白/标点 */
+    typingStrict: boolean;
     /** leech 判定阈值（遗忘次数） */
     leechThreshold: number;
     /** 每日到期提醒（Notification） */
@@ -54,6 +58,8 @@ export function defaultSettings(): LvCardsSettings {
         timeoutMode: "off",
         timeoutSeconds: 60,
         randomOrder: false,
+        typingEnabled: false,
+        typingStrict: true,
         leechThreshold: 8,
         reminderEnabled: true,
         reminderTime: "20:00",

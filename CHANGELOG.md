@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.10.0 2026-10-02 · 卡型架构 + 打字题 + True Retention
+
+* 卡型注册表（M4·FR1）：registerCardType 运行时契约（gradable/grade）；3.9 官方 V2 桥接接口预留（待 API 明确）
+* 打字题内置卡型（M4·FR2）：全局练习模式开关——问题态作答输入，回车判分（LCS 逐字符对齐 diff、宽松/严格两种容错），建议评分 chip（≥0.9→3 / ≥0.6→2 / 否则 1），评分仍由用户确认
+* 期望答案提取：高亮（mark）文本合集，无 mark 退化为全文
+* True Retention（M5·FR7 简版）：revlog 推导三层保持率（首次复审/幼卡 <21d/成熟卡 ≥21d），总览新增区块
+* 设置新增打字模式两开关；i18n +14 键（260 对齐）
+
 ## v0.9.0 2026-10-02 · AI 制卡向导（M2 双旗舰之二）
 
 * 双 provider：思源内置 AI 直连（宽容解析 🧪）+ OpenAI 兼容自定义端点（endpoint/key/model）

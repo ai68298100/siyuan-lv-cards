@@ -162,6 +162,64 @@ export function revlogToCsv(data: RevlogData): string {
     return rows.join("\n");
 }
 
+export interface RetentionTier {
+    reviews: number;
+    fails: number;
+    /** 1 - fails/reviews，无样本返回 null */
+    rate: number | null;
+}
+
+export interface RetentionResult {
+    /** 新卡首次复审 */
+    new: RetentionTier;
+    /** 幼卡：距上次复习 <21 天 */
+    young: RetentionTier;
+    /** 成熟卡：距上次复习 ≥21 天 */
+    mature: RetentionTier;
+}
+
+function emptyTier(): RetentionTier {
+    return { reviews: 0, fails: 0, rate: null };
+}
+
+/** True Retention 分层保持率（M5·FR7 简版，revlog 推导）：相邻两次复习构成一次"回忆测试" */
+export function computeRetention(data: RevlogData): RetentionResult {
+    const byCard = new Map<string, RevlogEntry[]>();
+    for (const e of data.entries) {
+        if (e.rating <= 0) {
+            continue;
+        }
+        const arr = byCard.get(e.cardID) ?? [];
+        arr.push(e);
+        byCard.set(e.cardID, arr);
+    }
+    const result: RetentionResult = { new: emptyTier(), young: emptyTier(), mature: emptyTier() };
+    const bump = (gapDays: number, success: boolean, isFirstReview: boolean) => {
+        const t = isFirstReview ? result.new : gapDays >= 21 ? result.mature : result.young;
+        t.reviews += 1;
+        if (!success) {
+            t.fails += 1;
+        }
+        t.rate = t.reviews > 0 ? 1 - t.fails / t.reviews : null;
+    };
+    for (const [, entries] of byCard) {
+        entries.sort((a, b) => a.ts - b.ts);
+        let firstDone = false;
+        let prev: RevlogEntry | null = null;
+        for (const cur of entries) {
+            if (!prev) {
+                prev = cur;
+                continue;
+            }
+            const gapDays = (cur.ts - prev.ts) / 86400000;
+            bump(gapDays, cur.rating > 1, !firstDone);
+            firstDone = true;
+            prev = cur;
+        }
+    }
+    return result;
+}
+
 export function isCardNew(data: RevlogData, cardID: string): boolean {
     return !data.entries.some(e => e.cardID === cardID && e.rating > 0);
 }

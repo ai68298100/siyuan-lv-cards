@@ -134,6 +134,8 @@ export default class LvCardsPlugin extends Plugin {
                             timeoutMode: plugin.settings.timeoutMode,
                             timeoutSeconds: plugin.settings.timeoutSeconds,
                             randomOrder: plugin.settings.randomOrder,
+                            typingEnabled: plugin.settings.typingEnabled,
+                            typingStrict: plugin.settings.typingStrict,
                         }),
                         appendRevlog: (e) => plugin.appendRevlog(e),
                         getRevlog: () => plugin.revlog,

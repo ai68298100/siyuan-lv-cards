@@ -2,7 +2,7 @@
     import { onMount } from "svelte";
     import { getRiffDecks, getRiffDueCards, type RiffDeck } from "@/api/riff";
     import { getFlashcardStatistics, summarizeStatistics, type MigrationStatus } from "@/api/flashcardV2";
-    import { calcStreak, lastNDays, type RevlogData } from "@/core/revlog";
+    import { calcStreak, lastNDays, computeRetention, type RevlogData, type RetentionResult } from "@/core/revlog";
     import LvPage from "./kit/LvPage.svelte";
     import LvSection from "./kit/LvSection.svelte";
     import LvStat from "./kit/LvStat.svelte";
@@ -35,6 +35,7 @@
     let revlogNote = $state("");
     let errorMsg = $state("");
     let v2Stats: { key: string; value: string }[] = $state([]);
+    let retention: RetentionResult | null = $state(null);
 
     /** 数字滚动（reduced-motion 时直接落值） */
     function tween(setter: (v: number) => void, to: number) {
@@ -84,6 +85,7 @@
             tween(v => (oldCount = v), due.unreviewedOldCardCount);
             const first = revlog.entries[0]?.ts;
             revlogNote = first ? new Date(first).toLocaleDateString() : "";
+            retention = computeRetention(revlog);
             // 内核 V2（3.9.0）激活时，顺带拉取官方统计摘要（宽容解析，失败静默）
             const v2 = ctx.getV2Status();
             if (v2) {
@@ -176,6 +178,28 @@
             <LvHeatmap days={heat} />
         </LvSection>
 
+        <LvSection title={t.retention.title} sub={t.retention.sub}>
+            {#if retention}
+                <div class="lv-ret">
+                    {#each [
+                        { label: t.retention.first, tier: retention.new },
+                        { label: t.retention.young, tier: retention.young },
+                        { label: t.retention.mature, tier: retention.mature },
+                    ] as row (row.label)}
+                        <div class="lv-ret-row">
+                            <span>{row.label}</span>
+                            <span class="lv-ret-rate">
+                                {row.tier.rate === null ? "—" : Math.round(row.tier.rate * 100) + "%"}
+                                <span class="ft__smaller ft__on-surface">({row.tier.reviews})</span>
+                            </span>
+                        </div>
+                    {/each}
+                </div>
+            {:else}
+                <div class="lv-hint">{t.retention.none}</div>
+            {/if}
+        </LvSection>
+
         <LvSection title={t.dashboard.decks}>
             {#if decks.length === 0}
                 <div class="lv-hint">{t.dashboard.noDecks}</div>
@@ -262,5 +286,16 @@
             .lv-mini-label { font-size: 11px; color: var(--b3-theme-on-surface); }
             .lv-mini-num { font-weight: 700; font-variant-numeric: tabular-nums; }
         }
+    }
+
+    .lv-ret {
+        .lv-ret-row {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: var(--lv-sp-2) 0;
+            border-bottom: 1px solid var(--lv-border);
+            font-size: 13px;
+        }
+        .lv-ret-row:last-child { border-bottom: none; }
+        .lv-ret-rate { font-variant-numeric: tabular-nums; font-weight: 600; }
     }
 </style>
