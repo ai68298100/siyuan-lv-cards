@@ -689,6 +689,9 @@
                 {/if}
             </select>
             <span class="lv-progress">{reviewedIDs.length + 1} / {reviewedIDs.length + queue.length}</span>
+            <div class="lv-progress-bar">
+                <div class="lv-progress-fill" style={`width:${reviewedIDs.length / Math.max(1, reviewedIDs.length + queue.length) * 100}%`}></div>
+            </div>
             {#if cramActive}<span class="b3-chip b3-chip--error">{t.exam.cramOn}</span>{/if}
             {#if ctx.settings().timeoutMode !== "off" && !showAnswer}
                 <span class="lv-timeout" class:lv-timeout-low={timeoutLeft <= 10}>⏱ {timeoutText()}</span>
@@ -897,6 +900,18 @@
                 border-radius: 999px;
                 padding: 2px 10px;
                 font-variant-numeric: tabular-nums;
+            }
+            .lv-progress-bar {
+                width: 100%; height: 3px; border-radius: 2px;
+                background: color-mix(in srgb, var(--b3-theme-on-background) 8%, transparent);
+                overflow: hidden;
+                margin-top: 2px;
+                .lv-progress-fill {
+                    height: 100%; border-radius: 2px;
+                    background: linear-gradient(90deg, var(--b3-theme-primary),
+                        color-mix(in srgb, var(--b3-theme-primary) 55%, var(--b3-theme-warning)));
+                    transition: width var(--lv-dur-3) var(--lv-ease);
+                }
             }
             .lv-timeout { font-size: 12px; color: var(--b3-theme-on-surface); font-variant-numeric: tabular-nums; }
             .lv-timeout-low { color: var(--b3-theme-error); font-weight: 700; }
