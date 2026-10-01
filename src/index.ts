@@ -23,6 +23,7 @@ import DeckPicker from "./ui/deck-picker.svelte";
 import QuickCard from "./ui/quick-card.svelte";
 import Onboarding from "./ui/onboarding.svelte";
 import AIWizard from "./ui/ai-wizard.svelte";
+import OcclusionEditor from "./ui/occlusion-editor.svelte";
 
 const TAB_DASHBOARD = "lv-cards-dashboard";
 const TAB_REVIEW = "lv-cards-review";
@@ -395,6 +396,16 @@ export default class LvCardsPlugin extends Plugin {
                 label: this.i18n.menuAddToDeck + (blockIDs.length > 1 ? ` ×${blockIDs.length}` : ""),
                 click: () => this.openDeckPicker(blockIDs),
             });
+            if (blockIDs.length === 1) {
+                detail.menu.addItem({
+                    icon: "iconLvCards",
+                    label: this.i18n.menuMakeOcclusion,
+                    click: () => this.openDeckPicker([blockIDs[0]], {
+                        skipAdd: true,
+                        onPicked: (deckID: string) => this.openOcclusionEditor(blockIDs[0], deckID),
+                    }),
+                });
+            }
             detail.menu.addItem({
                 icon: "iconLvCards",
                 label: this.i18n.menuRemoveFromDeck,
@@ -405,7 +416,7 @@ export default class LvCardsPlugin extends Plugin {
         }
     };
 
-    private openDeckPicker(blockIDs: string[]) {
+    private openDeckPicker(blockIDs: string[], opts: { skipAdd?: boolean; onPicked?: (deckID: string) => void } = {}) {
         svelteDialog({
             title: this.i18n.deckPickerTitle,
             component: DeckPicker,
@@ -414,8 +425,29 @@ export default class LvCardsPlugin extends Plugin {
                 newNamePlaceholder: this.i18n.deckNewName,
                 confirmLabel: this.i18n.deckConfirm,
                 onConfirm: async (deckID: string) => {
-                    await addRiffCards(deckID, blockIDs);
-                    showMessage(this.i18n.deckAdded.replace("${n}", String(blockIDs.length)), 2000, "info");
+                    if (!opts.skipAdd) {
+                        await addRiffCards(deckID, blockIDs);
+                        showMessage(this.i18n.deckAdded.replace("${n}", String(blockIDs.length)), 2000, "info");
+                    }
+                    opts.onPicked?.(deckID);
+                },
+                onClose: () => { /* svelteDialog 自理销毁 */ },
+            },
+        });
+    }
+
+    /** 图片遮挡编辑器（M4·FR4 riff 先行）：保存块属性后入卡组 */
+    private openOcclusionEditor(blockID: string, deckID: string) {
+        svelteDialog({
+            title: (this.i18n as any).occlusion.title,
+            component: OcclusionEditor,
+            width: "min(760px, 94vw)",
+            props: {
+                i18n: this.i18n,
+                blockID,
+                onSave: async () => {
+                    await addRiffCards(deckID, [blockID]);
+                    showMessage((this.i18n as any).occlusion.occlusionSaved, 2000, "info");
                 },
                 onClose: () => { /* svelteDialog 自理销毁 */ },
             },

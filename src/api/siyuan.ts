@@ -35,3 +35,20 @@ export const appendBlock = async (dataType: "markdown", data: string, parentID: 
     }
     return (resp.data?.operations?.map((o: any) => o.id).filter(Boolean) ?? []) as string[];
 };
+
+/** 读块自定义属性（遮挡数据存于 lv-occlusion 属性） */
+export const getBlockAttrs = async (id: string): Promise<Record<string, string>> => {
+    const resp = await fetchSyncPost("/api/attr/getBlockAttrs", { id });
+    if (!resp || resp.code !== 0) {
+        throw new Error(resp?.msg || `kernel error (code=${resp?.code ?? "unknown"})`);
+    }
+    return (resp.data ?? {}) as Record<string, string>;
+};
+
+/** 写块自定义属性 */
+export const setBlockAttrs = async (id: string, attrs: Record<string, string>): Promise<void> => {
+    const resp = await fetchSyncPost("/api/attr/setBlockAttrs", { id, attrs });
+    if (!resp || resp.code !== 0) {
+        throw new Error(resp?.msg || `kernel error (code=${resp?.code ?? "unknown"})`);
+    }
+};

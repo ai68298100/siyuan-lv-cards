@@ -322,5 +322,15 @@
     "diagCopied": "Diagnostics copied",
     "diagFail": "Copy failed — copy manually",
     "examReportCopied": "Exam report copied to clipboard",
-    "backlogWarn": "${n} days without reviewing — your due cards are waiting!"
+    "backlogWarn": "${n} days without reviewing — your due cards are waiting!",
+    "occlusion": {
+        "title": "Create image occlusion",
+        "drawHint": "Drag on the image to draw masks; double-click a region to delete",
+        "undo": "Undo rect",
+        "clear": "Clear",
+        "save": "Save & create card",
+        "noImage": "No image in this block",
+        "occlusionSaved": "Occlusion card created"
+    },
+    "menuMakeOcclusion": "Create occlusion"
 }

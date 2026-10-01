@@ -322,5 +322,15 @@
     "diagCopied": "诊断信息已复制",
     "diagFail": "复制失败，请手动复制",
     "examReportCopied": "复盘报告已复制到剪贴板",
-    "backlogWarn": "已经 ${n} 天没复习闪卡了，到期卡在等你～"
+    "backlogWarn": "已经 ${n} 天没复习闪卡了，到期卡在等你～",
+    "occlusion": {
+        "title": "制作图片遮挡卡",
+        "drawHint": "在图片上拖拽绘制遮挡区域；双击区域删除",
+        "undo": "撤销框",
+        "clear": "清空",
+        "save": "保存并制卡",
+        "noImage": "块内没有图片",
+        "occlusionSaved": "遮挡卡已创建"
+    },
+    "menuMakeOcclusion": "制作遮挡卡"
 }

@@ -6,9 +6,10 @@
         getRiffDueCards, getRiffDecks, getNotebookRiffDueCards, reviewRiffCard, skipReviewRiffCard,
         type RiffDueCard, type RiffDeck, type Rating,
     } from "@/api/riff";
-    import { getNotebooks, type Notebook } from "@/api/siyuan";
+    import { getNotebooks, getBlockAttrs, type Notebook } from "@/api/siyuan";
     import { isCardNew, type RevlogData } from "@/core/revlog";
     import { gradeTyping, type Rating1to4 } from "@/core/card-types";
+    import { parseOcclusion, type OcclusionData } from "@/core/occlusion";
     import LvKbd from "./kit/LvKbd.svelte";
     import LvChip from "./kit/LvChip.svelte";
 
@@ -90,6 +91,11 @@
     let typingInput = $state("");
     let typingGrade = $state<{ chars: { ch: string; ok: boolean }[]; suggested: Rating1to4 } | null>(null);
     let expectedText = $state("");
+    // 图片遮挡（M4·FR4 riff 先行）：数据来自块属性 lv-occlusion，坐标相对图片包围盒
+    let cardEl: HTMLDivElement | null = $state(null);
+    let occl = $state<OcclusionData | null>(null);
+    let occlBox = $state<{ l: number; t: number; w: number; h: number } | null>(null);
+    let occlHidden = $state<number[]>([]);
     // 选择题模式（M4·FR3，干扰项取自同队列后续卡）
     let answerCache = new Map<string, string>();
     let choices = $state<{ options: string[]; answerIdx: number; picked: number | null } | null>(null);
@@ -110,12 +116,37 @@
                 .map(m => (m.textContent ?? "").trim())
                 .filter(Boolean);
             expectedText = marks.length > 0 ? marks.join(" / ") : (holder.textContent ?? "").trim();
+            // 遮挡数据（宽容解析，无属性即为普通卡）
+            try {
+                const attrs = await getBlockAttrs(blockID);
+                if (seq === loadSeq) {
+                    occl = parseOcclusion(attrs);
+                    occlHidden = [];
+                }
+            } catch {
+                if (seq === loadSeq) {
+                    occl = null;
+                }
+            }
         } catch {
             if (seq === loadSeq) {
                 cardHtml = "";
                 expectedText = "";
             }
         }
+    }
+
+    function positionOcclusion() {
+        if (!cardEl || !occl) {
+            occlBox = null;
+            return;
+        }
+        const img = cardEl.querySelector("img");
+        if (!img) {
+            occlBox = null;
+            return;
+        }
+        occlBox = { l: img.offsetLeft, t: img.offsetTop, w: img.offsetWidth, h: img.offsetHeight };
     }
 
     function shuffle<T>(arr: T[]): T[] {
@@ -232,6 +263,9 @@
         typingGrade = null;
         choices = null;
         choiceLoading = false;
+        occl = null;
+        occlBox = null;
+        occlHidden = [];
         await loadBlockDOM(card.blockID);
         restartTimeout();
     }
@@ -464,6 +498,11 @@
         getNotebooks().then(n => (notebooks = n)).catch(() => { /* 旁路 */ });
     });
 
+    // 遮罩 overlay 定位：DOM 更新与窗口缩放后重算（$effect 兼容 runes 模式）
+    $effect(() => {
+        positionOcclusion();
+    });
+
     onDestroy(() => {
         stopTimeout(); // AJ7：销毁时清理倒计时，防止泄漏
     });
@@ -531,8 +570,33 @@
             <button class="b3-button b3-button--small" title={t.review.suspendToday} onclick={suspendToday}>✕</button>
             <button class="b3-button b3-button--small" onclick={skip}>{t.review.skip}</button>
         </div>
-        <div class="lv-card b3-typography" class:lv-anim-glow={showAnswer} style={`max-width:${ctx.settings().cardMaxWidth}px; width:100%; margin:0 auto;`}>
+        <div class="lv-card b3-typography" class:lv-anim-glow={showAnswer} bind:this={cardEl} style={`max-width:${ctx.settings().cardMaxWidth}px; width:100%; margin:0 auto;`}>
             <div class="lv-card-content" class:lv-masked={!showAnswer}>{@html cardHtml}</div>
+            {#if occl && occlBox}
+                <!-- 遮罩 overlay：问题态实心（点击逐框显隐），答案态半透明全显 -->
+                <svg
+                    class="lv-occl-overlay"
+                    style={`left:${occlBox.l}px;top:${occlBox.t}px;width:${occlBox.w}px;height:${occlBox.h}px;`}
+                    viewBox="0 0 100 100"
+                    preserveAspectRatio="none"
+                >
+                    {#each occl.rects as r, i (i)}
+                        {@const revealed = showAnswer || occlHidden.includes(i)}
+                        <rect
+                            x={r.x * 100} y={r.y * 100} width={r.w * 100} height={r.h * 100}
+                            fill="var(--b3-theme-primary)"
+                            opacity={revealed ? (showAnswer ? 0.12 : 0.05) : 0.55}
+                            stroke="var(--lv-primary-border)" stroke-width="0.3"
+                            style={`cursor:${showAnswer ? "default" : "pointer"}`}
+                            onclick={(e: Event) => {
+                                if (showAnswer) return;
+                                e.stopPropagation();
+                                occlHidden = occlHidden.includes(i) ? occlHidden.filter(x => x !== i) : [...occlHidden, i];
+                            }}
+                        />
+                    {/each}
+                </svg>
+            {/if}
             {#if !showAnswer}
                 {#if ctx.settings().typingEnabled}
                     <div class="lv-typing">
@@ -675,6 +739,7 @@
 
         .lv-card {
             flex: 1;
+            position: relative;
             overflow: auto;
             background: var(--lv-surface-grad);
             border: 1px solid var(--lv-border);
