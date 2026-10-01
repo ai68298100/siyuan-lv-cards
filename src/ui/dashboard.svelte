@@ -46,6 +46,7 @@
     let aiQuality = $state<{ date: string; cards: number; reviews: number; rate: number | null }[]>([]);
     let leech: { blockID: string; lapses: number }[] = $state([]);
     let examChip = $state<{ name: string; days: number } | null>(null);
+    let targets = $state({ new: 0, review: 0 });
 
     function curvePoints(pts: CurvePoint[]): string {
         const maxD = Math.max(...pts.map(p => p.days), 1);
@@ -115,7 +116,7 @@
     }
 
     function targetPct(): number {
-        const target = ctx.getDailyTargets().review;
+        const target = targets.review;
         if (target <= 0) {
             return -1;
         }
@@ -156,6 +157,7 @@
                 });
             leech = ctx.getLeechCards().slice(0, 8);
             examChip = ctx.getExamCountdown();
+            targets = ctx.getDailyTargets();
             // 内核 V2（3.9.0）激活时，顺带拉取官方统计摘要（宽容解析，失败静默）
             const v2 = ctx.getV2Status();
             if (v2) {
@@ -233,7 +235,7 @@
                     <LvStat
                         label={t.dashboard.todayDone}
                         value={todayReview}
-                        denom={ctx.getDailyTargets().review > 0 ? String(ctx.getDailyTargets().review) : ""}
+                        denom={targets.review > 0 ? String(targets.review) : ""}
                         tone="primary"
                         progress={targetPct()}
                     />
