@@ -26,6 +26,7 @@
         ttsEnabled: boolean;
         ttsRate: number;
         ttsVoice: string;
+        batchLimit: number;
     }
 
     export interface ReviewCtx {
@@ -241,6 +242,10 @@
             let cards = data.cards ?? [];
             // 「今天不学」+ 本场已跳过的卡本地过滤（内核调度不受影响，AJ9）
             cards = cards.filter(c => !ctx.isSuspendedToday(c.cardID) && !sessionSkipped.includes(c.cardID));
+            const bl = ctx.settings().batchLimit;
+            if (bl > 0) {
+                cards = cards.slice(0, bl);
+            }
             if (cramActive) {
                 // 考前 cram：遗忘多的卡优先（M7·FR4）
                 cards = [...cards].sort((a, b) => b.lapses - a.lapses);

@@ -23,6 +23,7 @@
         testAnkiClient: () => Promise<string>;
         storageStats: () => { file: string; size: string; lastWrite: number }[];
         exportRevlogCsv: () => void;
+        importRevlogCsv: (fileText: string) => Promise<{ added: number; skipped: number }>;
         importRevlogMerge: (fileText: string) => Promise<{ added: number; skipped: number }>;
     }
 
@@ -64,6 +65,28 @@
     async function redetectV2() {
         v2Label = await ctx.redetectV2();
         showMessage(t.settings.redetectOk, 1500, "info");
+    }
+
+    function importCsv(ev: Event) {
+        const input = ev.target as HTMLInputElement;
+        const file = input.files?.[0];
+        if (!file) {
+            return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            showMessage(t.settings.importTooLarge, 3000, "error");
+            input.value = "";
+            return;
+        }
+        file.text().then(async (text) => {
+            try {
+                const r = await ctx.importRevlogCsv(text);
+                showMessage(t.settings.importResult.replace("${a}", String(r.added)).replace("${s}", String(r.skipped)), 3000, "info");
+            } catch (e: any) {
+                showMessage(e?.message || t.settings.importInvalid, 3000, "error");
+            }
+            input.value = "";
+        });
     }
 
     function importMerge(ev: Event) {
@@ -176,6 +199,9 @@
         {/if}
         <LvRow label={t.settings.randomOrder}>
             <input class="b3-switch" type="checkbox" bind:checked={draft.randomOrder} />
+        </LvRow>
+        <LvRow label={t.settings.batchLimit} hint={t.settings.batchLimitHint}>
+            <input class="b3-text-field fn__size-60" type="number" min="0" bind:value={draft.batchLimit} />
         </LvRow>
         <LvRow label={t.settings.typingEnabled}>
             <input class="b3-switch" type="checkbox" bind:checked={draft.typingEnabled} />
@@ -300,6 +326,7 @@
         <LvRow label={t.settings.importMerge} hint={t.settings.importMergeHint}>
             {#snippet children()}
                 <input class="b3-button b3-button--outline" type="file" accept=".json,application/json" onchange={importMerge} />
+                <input class="b3-button b3-button--outline" type="file" accept=".csv,text/csv" onchange={importCsv} />
             {/snippet}
         </LvRow>
         <div class="lv-storage">

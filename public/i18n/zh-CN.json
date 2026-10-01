@@ -219,7 +219,10 @@
         "ttsVoice": "朗读语音",
         "ttsVoiceHint": "留空使用系统默认",
         "ttsVoiceDefault": "系统默认",
-        "restoreDefaults": "恢复全部默认设置"
+        "restoreDefaults": "恢复全部默认设置",
+        "batchLimit": "每批拉取数量（0=跟随内核）",
+        "batchLimitHint": "自己控制节奏时设为 5-20",
+        "importCsv": "导入 CSV（复习日志）"
     },
     "hubTabOverview": "总览",
     "hubTabManage": "管理",

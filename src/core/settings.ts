@@ -20,6 +20,8 @@ export interface LvCardsSettings {
     timeoutSeconds: number;
     /** 随机顺序 */
     randomOrder: boolean;
+    /** 每批拉取数量（0=跟随内核上限） */
+    batchLimit: number;
     /** 打字模式：所有卡作答输入后判分（M4·FR2 全局练习模式） */
     typingEnabled: boolean;
     /** 打字判分宽松：忽略大小写/空白/标点 */
@@ -82,6 +84,7 @@ export function defaultSettings(): LvCardsSettings {
         timeoutMode: "off",
         timeoutSeconds: 60,
         randomOrder: false,
+        batchLimit: 0,
         typingEnabled: false,
         typingStrict: true,
         choiceEnabled: false,

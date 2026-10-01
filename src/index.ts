@@ -15,6 +15,7 @@ import { addRiffCards, createRiffDeck, getDueCount, getRiffCardsByBlockIDs, remo
 import { appendBlock, createDocWithMd, getNotebooks, exportMdContent, sqlQuery, kernelVersion } from "./api/siyuan";
 import { aiChat, estimateTokens, parseCards } from "./api/ai";
 import { normalizeSuspendToday, rollDateIfNeeded, isSuspended, suspend, type SuspendTodayData } from "./core/suspend-today";
+import { parseRevlogCsv } from "./core/revlog-csv";
 import { normalizeSessionState, type SessionState } from "./core/session-state";
 import { normalizeExamPlans, daysLeft, type ExamPlan, type ExamPlansData } from "./core/exam";
 import Review from "./ui/review.svelte";
@@ -192,6 +193,7 @@ export default class LvCardsPlugin extends Plugin {
                             ttsEnabled: plugin.settings.ttsEnabled,
                             ttsRate: plugin.settings.ttsRate,
                             ttsVoice: plugin.settings.ttsVoice,
+                            batchLimit: plugin.settings.batchLimit,
                             typingEnabled: plugin.settings.typingEnabled,
                             typingStrict: plugin.settings.typingStrict,
                         }),
@@ -1002,6 +1004,13 @@ export default class LvCardsPlugin extends Plugin {
                     storageStats: () => this.storageStats(),
                     generateExamReport: (plan: ExamPlan) => this.generateExamReport(plan),
                     exportRevlogCsv: () => this.exportRevlogCsv(),
+                    importRevlogCsv: async (fileText: string) => {
+                        const imported = parseRevlogCsv(fileText);
+                        const result = mergeRevlog(this.revlog, imported);
+                        await this.saveData(REVLOG_DATA, this.revlog);
+                        this.refreshDueBadge();
+                        return result;
+                    },
                     importRevlogMerge: async (fileText: string) => {
                         const imported = JSON.parse(fileText);
                         const result = mergeRevlog(this.revlog, imported);
