@@ -55,9 +55,28 @@ export default class LvCardsPlugin extends Plugin {
     private flashcardV2: MigrationStatus | null = null;
     private topBarElement: HTMLElement | null = null;
     private badgeTimer: ReturnType<typeof setInterval> | null = null;
+    private settingsSaveTimer: ReturnType<typeof setTimeout> | null = null;
     private suspendToday: SuspendTodayData = { date: "", cardIDs: [] };
     private examPlans: ExamPlansData = { version: 1, plans: [] };
     private aiBatches: { version: 1; batches: { id: string; date: string; deckID: string; blockIDs: string[] }[] } = { version: 1, batches: [] };
+    private saveSettingsSoon() {
+        if (this.settingsSaveTimer) clearTimeout(this.settingsSaveTimer);
+        this.settingsSaveTimer = setTimeout(() => {
+            this.settingsSaveTimer = null;
+            this.saveSettingsNow();
+        }, 1200);
+    }
+
+    private saveSettingsNow() {
+        this.trackSave(SETTINGS_DATA);
+        return this.saveData(SETTINGS_DATA, this.settings).catch(() => { /* 旁路 */ });
+    }
+
+    /** Onboarding 完成标记（M12·FR?） */
+    private markOnboarded() {
+        this.settings.onboarded = true;
+        this.saveSettingsNow();
+    }
     private sessionState: SessionState = { date: "", reviewedIDs: [], counters: { new: 0, review: 0, forget: 0, skip: 0 } };
     /** 最近一次到期数（角标点击行为统一用：>0 开复习，否则开中心） */
     private lastDue = 0;
@@ -113,7 +132,7 @@ export default class LvCardsPlugin extends Plugin {
                         initialTab: (this.data?.tab as string) ?? plugin.settings.lastHubTab,
                         onTabChange: (id: string) => {
                             plugin.settings.lastHubTab = id;
-                            plugin.saveData(SETTINGS_DATA, plugin.settings).catch(() => { /* 旁路 */ });
+                            plugin.saveSettingsSoon();
                         },
                         dashboardBase: {
                             i18n: plugin.i18n,
@@ -732,7 +751,7 @@ export default class LvCardsPlugin extends Plugin {
                 },
                 createSampleCards: (nbId: string) => this.createSampleCards(nbId),
                 openReview: () => this.openTabOf(TAB_REVIEW),
-                onClose: () => { /* svelteDialog 自理销毁 */ },
+                onClose: () => this.markOnboarded(),
             },
         });
     }
