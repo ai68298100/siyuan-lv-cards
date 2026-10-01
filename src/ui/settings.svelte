@@ -173,8 +173,23 @@
                 <input class="b3-switch" type="checkbox" bind:checked={draft.typingStrict} />
             </LvRow>
         {/if}
+        <LvRow label={t.settings.ttsEnabled}>
+            <input class="b3-switch" type="checkbox" bind:checked={draft.ttsEnabled} />
+        </LvRow>
+        {#if draft.ttsEnabled}
+            <LvRow label={t.settings.ttsRate}>
+                <input class="b3-text-field fn__size-60" type="number" min="0.5" max="2" step="0.1" bind:value={draft.ttsRate} />
+            </LvRow>
+        {/if}
         <LvRow label={t.settings.choiceEnabled}>
             <input class="b3-switch" type="checkbox" bind:checked={draft.choiceEnabled} />
+        </LvRow>
+        <LvRow label={t.settings.quietSection} hint={t.settings.quietHint}> </LvRow>
+        <LvRow label={t.settings.quietStart}>
+            <input class="b3-text-field fn__size-60" type="time" bind:value={draft.quietStart} />
+        </LvRow>
+        <LvRow label={t.settings.quietEnd}>
+            <input class="b3-text-field fn__size-60" type="time" bind:value={draft.quietEnd} />
         </LvRow>
         <LvRow label={t.settings.leechThreshold}>
             <input class="b3-text-field fn__size-60" type="number" min="1" bind:value={draft.leechThreshold} />
@@ -287,7 +302,10 @@
                     onclick={() => confirmDialog({
                         title: t.settings.clearRevlog,
                         content: `<div class="b3-typography">${t.settings.clearRevlogConfirm}</div>`,
-                        confirm: () => ctx.clearRevlog(),
+                        confirm: () => {
+                            ctx.exportRevlog(); // 清空前自动备份（AK）
+                            ctx.clearRevlog();
+                        },
                     })}
                 >{t.settings.clearRevlog}</button>
             {/snippet}

@@ -32,6 +32,12 @@ export interface LvCardsSettings {
     ttsEnabled: boolean;
     /** 朗读语速 0.5-2 */
     ttsRate: number;
+    /** 朗读语音名称（空=系统默认） */
+    ttsVoice: string;
+    /** 免打扰时段起（HH:mm），时段内不弹积压/庆祝提示 */
+    quietStart: string;
+    /** 免打扰时段止（HH:mm，跨午夜支持） */
+    quietEnd: string;
     /** 每日到期提醒（Notification） */
     reminderEnabled: boolean;
     /** 提醒时间 HH:mm */
@@ -82,6 +88,9 @@ export function defaultSettings(): LvCardsSettings {
         leechThreshold: 8,
         ttsEnabled: true,
         ttsRate: 1,
+        ttsVoice: "",
+        quietStart: "23:00",
+        quietEnd: "08:00",
         reminderEnabled: true,
         reminderTime: "20:00",
         backlogDays: 3,

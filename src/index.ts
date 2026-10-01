@@ -180,6 +180,7 @@ export default class LvCardsPlugin extends Plugin {
                             choiceEnabled: plugin.settings.choiceEnabled,
                             ttsEnabled: plugin.settings.ttsEnabled,
                             ttsRate: plugin.settings.ttsRate,
+                            ttsVoice: plugin.settings.ttsVoice,
                             typingEnabled: plugin.settings.typingEnabled,
                             typingStrict: plugin.settings.typingStrict,
                         }),
@@ -299,9 +300,25 @@ export default class LvCardsPlugin extends Plugin {
     private reminderShownFor = "";
     private backlogWarnedFor = "";
 
+    /** 免打扰时段（跨午夜支持）：quiet 时段内不弹积压/庆祝类提示 */
+    private inQuietHours(): boolean {
+        const toMin = (t: string) => {
+            const [h, m] = t.split(":").map(Number);
+            return Number.isFinite(h) ? h * 60 + (m || 0) : null;
+        };
+        const start = toMin(this.settings.quietStart);
+        const end = toMin(this.settings.quietEnd);
+        if (start === null || end === null || start === end) {
+            return false;
+        }
+        const now = new Date();
+        const cur = now.getHours() * 60 + now.getMinutes();
+        return start <= end ? cur >= start && cur < end : cur >= start || cur < end;
+    }
+
     /** 积压预警（X 组）：连续 N 天未复习时提醒一次（N 固定 3，随提醒开关） */
     private checkBacklogWarn() {
-        if (!this.settings.reminderEnabled || this.lastDue <= 0) {
+        if (!this.settings.reminderEnabled || this.lastDue <= 0 || this.inQuietHours()) {
             return;
         }
         const today = localDate(Date.now());
@@ -817,7 +834,7 @@ export default class LvCardsPlugin extends Plugin {
         // M8·FR1：目标跨越庆祝；M11·FR1：生态事件广播
         const target = this.settings.dailyReviewTarget;
         const nowCount = this.revlog.days[today]?.review ?? 0;
-        if (target > 0 && prevCount < target && nowCount >= target) {
+        if (target > 0 && prevCount < target && nowCount >= target && !this.inQuietHours()) {
             showMessage(this.i18n.dailyTargetReached, 3000, "info");
         }
         try {

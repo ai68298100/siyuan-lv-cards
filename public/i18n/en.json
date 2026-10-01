@@ -200,7 +200,12 @@
         "unsavedTitle": "Unsaved changes",
         "unsavedDesc": "Settings have unsaved changes. Discard and close?",
         "ttsEnabled": "Answer TTS",
-        "backlogDays": "Backlog nudge threshold (days)"
+        "backlogDays": "Backlog nudge threshold (days)",
+        "ttsRate": "TTS rate (0.5-2x)",
+        "quietSection": "Quiet hours",
+        "quietHint": "No backlog/celebration toasts during this window",
+        "quietStart": "Quiet start",
+        "quietEnd": "Quiet end"
     },
     "hubTabOverview": "Overview",
     "hubTabManage": "Manage",

@@ -25,6 +25,7 @@
         choiceEnabled: boolean;
         ttsEnabled: boolean;
         ttsRate: number;
+        ttsVoice: string;
     }
 
     export interface ReviewCtx {
@@ -289,6 +290,11 @@
             const u = new SpeechSynthesisUtterance(text);
             u.lang = /[\u4e00-\u9fa5]/.test(text) ? "zh-CN" : "en-US";
             u.rate = ctx.settings().ttsRate || 1;
+            const voiceName = ctx.settings().ttsVoice;
+            if (voiceName) {
+                const voice = speechSynthesis.getVoices().find(v => v.name === voiceName);
+                if (voice) u.voice = voice;
+            }
             speechSynthesis.cancel();
             speechSynthesis.speak(u);
         } catch { /* 旁路 */ }
