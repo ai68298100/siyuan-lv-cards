@@ -48,6 +48,14 @@ const HELP_ZH = `# 小驴闪卡 · 使用帮助
 - 评分永远调用思源内核 FSRS 调度，插件只做增值层；卸载插件不影响已有卡片
 - AI 制卡仅在配置后调用你指定的服务，键值保存在本工作区 settings.json
 
+### 复习日志统计口径
+
+- **时间**：全部按设备本地时区记录，「学习日」为本地零点分界
+- **明细上限**：本地明细保留最近 2 万条评分；更早日子的每日聚合（热力图/连击）作为快照保留，不因截断回退
+- **作答耗时**：仅插件复习面板记录（题面呈现到评分），超过「单卡作答计时上限」按上限计；原生复习界面的评分没有耗时字段，统计留空而不是补 0
+- **覆盖率**：总览的「卡片覆盖」= 本地有评分记录的卡 ÷ 内核卡组规模合计；覆盖率≠掌握率
+- **CSV 导出**：「duration」列为作答耗时秒（空=缺失）；「review_state」列本地恒为空（内核复习状态未开放给插件，不猜测）
+
 ## 遇到问题
 
 - 设置 → 数据 → 「复制诊断」生成版本与环境信息
@@ -98,6 +106,14 @@ const HELP_EN = `# Lv Cards · Help
 - Review log, exam plans etc. live in your workspace (Settings -> Data to export/import/clear)
 - Scheduling always goes through the SiYuan kernel FSRS; the plugin is an add-on layer only
 - AI card generation calls only the endpoint you configure; keys are stored in this workspace
+
+### Review log statistics conventions
+
+- **Time**: recorded in the device's local timezone; a "study day" ends at local midnight
+- **Detail cap**: the last 20,000 ratings are kept as details; older daily aggregates (heatmap/streak) are preserved as snapshots and never regress
+- **Answer time**: only recorded by the plugin review panel (card shown -> rating), capped by the "per-card time cap"; native UI ratings have no duration field and stay empty instead of 0
+- **Coverage**: overview "card coverage" = cards with local ratings ÷ total kernel deck sizes; coverage ≠ mastery
+- **CSV export**: the "duration" column is answer seconds (empty = missing); "review_state" is always empty locally (kernel review state is not exposed; never guessed)
 
 ## Troubleshooting
 

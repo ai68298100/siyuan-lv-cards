@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-    appendRevlog, emptyRevlog, isCardNew, mergeRevlog, normalizeRevlog, recalcDays, revlogToCsv, studySecondsOn, coverageStats, calcStreak, calcXp, localDate, lastNDays, weekCompare, calcMilestones,
+    appendRevlog, emptyRevlog, isCardNew, mergeRevlog, normalizeRevlog, recalcDays, revlogToCsv, studySecondsOn, coverageStats, deckCoverage, calcStreak, calcXp, localDate, lastNDays, weekCompare, calcMilestones,
     type RevlogData,
 } from "../src/core/revlog";
 const entry = (ts: number, cardID: string, rating: number, source: "native" | "plugin" = "plugin") =>
@@ -435,5 +435,22 @@ describe("作答耗时与导出契约（AQ-13/AQ-9）", () => {
         expect(noDenom.totalCards).toBeNull();
         expect(noDenom.coverage).toBeNull();
         expect(coverageStats(emptyRevlog(), 10).sinceDate).toBeNull();
+    });
+
+    it("deckCoverage（AQ-12 剩余面）：按 deckID 归属，原生缺 deckID 进 unattributed", () => {
+        const d = emptyRevlog();
+        appendRevlog(d, { ...entry(at(0), "c1", 3), deckID: "deckA" });
+        appendRevlog(d, { ...entry(at(0) + 1, "c1", 3), deckID: "deckA" }); // 同卡去重
+        appendRevlog(d, { ...entry(at(0) + 2, "c2", 3), deckID: "deckB" });
+        appendRevlog(d, { ...entry(at(0) + 3, "c3", 3), deckID: "" });      // 原生缺 deckID
+        const r = deckCoverage(d, [
+            { id: "deckA", size: 4 },
+            { id: "deckB" },          // 无规模 → 覆盖率 null
+            { id: "deckC", size: 0 }, // 规模 0 视为缺失
+        ]);
+        expect(r.decks.find(x => x.deckID === "deckA")).toMatchObject({ seen: 1, size: 4, coverage: 0.25 });
+        expect(r.decks.find(x => x.deckID === "deckB")).toMatchObject({ seen: 1, size: null, coverage: null });
+        expect(r.decks.find(x => x.deckID === "deckC")).toMatchObject({ seen: 0, size: null, coverage: null });
+        expect(r.unattributedCards).toBe(1);
     });
 });

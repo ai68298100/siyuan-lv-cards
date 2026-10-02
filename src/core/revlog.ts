@@ -300,7 +300,9 @@ export function mergeRevlog(data: RevlogData, imported: unknown, opts: MergeOpti
 }
 
 /** CSV 导出行（M10·FR1）：date,ts,cardID,deckID,blockID,rating,source,duration,review_state
- * AQ-9：duration 缺失留空；review_state 显式缺失留空（本地无内核复习状态，不猜测） */
+ * AQ-9 口径：date 为设备本地时区日期（学习日=本地零点分界）；duration 为作答耗时秒（空=缺失，
+ * 上限见 settings.answerTimeCapSec）；review_state 本地恒为空（内核复习状态未开放，显式缺失不猜测）；
+ * 明细超过 2 万条时导出仅含保留明细（更早日期的聚合快照仍在 revlog.days 中） */
 export function revlogToCsv(data: RevlogData): string {
     const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
     const rows = ["date,ts,cardID,deckID,blockID,rating,source,duration,review_state"];
@@ -354,6 +356,53 @@ export function coverageStats(data: RevlogData, totalCards?: number): CoverageSt
         coverage: denom !== null ? Math.min(1, seen.size / denom) : null,
         sinceDate: seen.size > 0 ? earliest : null,
     };
+}
+
+export interface DeckCoverageItem {
+    deckID: string;
+    /** 本地有评分记录且归属该卡组的不同卡数 */
+    seen: number;
+    /** 内核卡组规模（调用方传入；缺失为 null 不算覆盖率） */
+    size: number | null;
+    coverage: number | null;
+}
+
+export interface DeckCoverage {
+    decks: DeckCoverageItem[];
+    /** 有本地评分但 deckID 缺失（原生界面常见）的记录涉及的不同卡数——单独列示不摊派 */
+    unattributedCards: number;
+}
+
+/** 卡组维度覆盖（AQ-12 剩余面）：归属按 revlog.deckID（插件面板评分有值）；
+ * 原生事件缺 deckID 的记录进 unattributedCards，不冒充分母也不猜测归属 */
+export function deckCoverage(data: RevlogData, decks: { id: string; size?: number }[]): DeckCoverage {
+    const attributed = new Map<string, Set<string>>();
+    for (const d of decks) {
+        attributed.set(d.id, new Set());
+    }
+    const unattributed = new Set<string>();
+    for (const e of data.entries) {
+        if (e.rating <= 0) {
+            continue;
+        }
+        const bucket = e.deckID ? attributed.get(e.deckID) : undefined;
+        if (bucket) {
+            bucket.add(e.cardID);
+        } else {
+            unattributed.add(e.cardID);
+        }
+    }
+    const out: DeckCoverageItem[] = decks.map(d => {
+        const size = d.size && d.size > 0 ? Math.round(d.size) : null;
+        const seen = attributed.get(d.id)!.size;
+        return {
+            deckID: d.id,
+            seen,
+            size,
+            coverage: size !== null ? Math.min(1, seen / size) : null,
+        };
+    });
+    return { decks: out, unattributedCards: unattributed.size };
 }
 
 export interface CurvePoint {

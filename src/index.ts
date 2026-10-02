@@ -11,6 +11,7 @@ import { normalizeAIBatches, emptyAIBatches, type AIBatchesData } from "./core/a
 import { defaultSettings, normalizeSettings, type LvCardsSettings } from "./core/settings";
 import { PERSONA_PRESETS } from "./core/personas";
 import { normalizeNativeCardAction, NativeEventDeduper } from "./core/native-events";
+import { parseSrLine, parseSrMultiline, stripSrMarkers } from "./core/obsidian-sr";
 import {
     appendRevlog, calcStreak, emptyRevlog, leechCards, localDate, normalizeRevlog, revlogToCsv, mergeRevlog,
     type RevlogData, type RevlogEntry,
@@ -1143,12 +1144,24 @@ export default class LvCardsPlugin extends Plugin {
             if (!md) {
                 continue;
             }
-            // `术语:: 定义`：单行、分隔符恰好一处、两侧非空
+            // AQ-11：Obsidian SR 语法识别——单行 `::`/`:::`（双向语法按正向制卡，边界见模块注释）
             if (!md.includes("\n")) {
-                const idx = md.indexOf("::");
-                if (idx > 0 && idx < md.length - 2 && md.indexOf("::", idx + 2) < 0) {
-                    const front = md.slice(0, idx).trim().replace(/[*`#]/g, "");
-                    const back = md.slice(idx + 2).trim().replace(/[*`#]/g, "");
+                const sr = parseSrLine(md);
+                if (sr) {
+                    // deck tag 提示不进入卡面（卡组由选卡组弹窗决定）
+                    const front = stripSrMarkers(sr.front.replace(/#flashcards\S*/g, ""));
+                    const back = stripSrMarkers(sr.back.replace(/#flashcards\S*/g, ""));
+                    if (front && back) {
+                        items.push({ blockID: String(r.id), kind: "qa", front, back });
+                        continue;
+                    }
+                }
+            } else {
+                // 多行 `?` / `??` 问答块：拆问/答后按问答对落块制卡
+                const multi = parseSrMultiline(md.split(/\r?\n/));
+                if (multi) {
+                    const front = stripSrMarkers(multi.front.replace(/#flashcards\S*/g, ""));
+                    const back = stripSrMarkers(multi.back.replace(/#flashcards\S*/g, ""));
                     if (front && back) {
                         items.push({ blockID: String(r.id), kind: "qa", front, back });
                         continue;

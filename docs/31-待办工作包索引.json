@@ -746,8 +746,8 @@
       "conditionalPrerequisites": [],
       "summary": {
         "total": 17,
-        "done": 7,
-        "pending": 10
+        "done": 8,
+        "pending": 9
       },
       "blocks": [
         "WP-session-recovery",
@@ -1583,8 +1583,8 @@
       "conditionalPrerequisites": [],
       "summary": {
         "total": 22,
-        "done": 5,
-        "pending": 17
+        "done": 6,
+        "pending": 16
       },
       "blocks": [
         "WP-author-sharing-pack"
@@ -8143,8 +8143,8 @@
     },
     {
       "id": "AQ-11",
-      "status": "open",
-      "checkbox": " ",
+      "status": "done",
+      "checkbox": "x",
       "priority": "P2",
       "group": "AQ",
       "groupName": "v0.63.0 后一手调研与代码审计新增（2026-10-02，仅扩充规划）",
@@ -15011,8 +15011,8 @@
     },
     {
       "id": "BZ-2",
-      "status": "open",
-      "checkbox": " ",
+      "status": "done",
+      "checkbox": "x",
       "priority": "P3",
       "group": "BZ",
       "groupName": "第十轮：v0.65.0 开发过程新发现",
@@ -15029,10 +15029,10 @@
   "summary": {
     "packages": 38,
     "total": 924,
-    "done": 183,
-    "open": 738,
+    "done": 185,
+    "open": 736,
     "special": 3,
-    "pending": 741
+    "pending": 739
   },
   "experienceDocument": "docs/32-产品体验优化与页面蓝图.md",
   "experienceRefinements": [

@@ -2,7 +2,7 @@
     import { onMount } from "svelte";
     import { getRiffDecks, getRiffDueCards, type RiffDeck } from "@/api/riff";
     import { getFlashcardStatistics, summarizeStatistics, type MigrationStatus } from "@/api/flashcardV2";
-    import { calcStreak, lastNDays, localDate, studySecondsOn, coverageStats, computeRetention, computeRetentionCurve, reviewStatsFor, weekCompare, calcMilestones, calcXp, type RevlogData, type RetentionResult, type CurvePoint, type WeekDelta, type Milestones, type XpResult, type CoverageStats } from "@/core/revlog";
+    import { calcStreak, lastNDays, localDate, studySecondsOn, coverageStats, deckCoverage, computeRetention, computeRetentionCurve, reviewStatsFor, weekCompare, calcMilestones, calcXp, type RevlogData, type RetentionResult, type CurvePoint, type WeekDelta, type Milestones, type XpResult, type CoverageStats, type DeckCoverage } from "@/core/revlog";
     import { openTab } from "siyuan";
     import LvPage from "./kit/LvPage.svelte";
     import LvSection from "./kit/LvSection.svelte";
@@ -50,6 +50,8 @@
     let todayStudyMinutes = $state(0);
     /** 卡片覆盖（AQ-12 本地证据口径）：分母缺失时为 null 不展示 */
     let coverage = $state<CoverageStats | null>(null);
+    /** 卡组维度覆盖（AQ-12 剩余面）：按 revlog.deckID 归属，原生缺 deckID 进 unattributed */
+    let deckCov = $state<DeckCoverage | null>(null);
     let totalCards = $state(0);
     let heat: { date: string; stat: { new: number; review: number; forget: number } }[] = $state([]);
     let revlogNote = $state("");
@@ -215,6 +217,7 @@
             todayReview = reviewedToday;
             todayStudyMinutes = Math.round(studySecondsOn(revlog, localDate(Date.now())) / 60);
             coverage = coverageStats(revlog, totalCards || undefined);
+            deckCov = deckCoverage(revlog, deckList.map(d => ({ id: d.id, size: d.size })));
             dueCount = due.unreviewedCount;
             newCount = due.unreviewedNewCardCount;
             oldCount = due.unreviewedOldCardCount;
@@ -374,6 +377,17 @@
                     .replace("${pct}", String(Math.round(coverage.coverage * 100)))
                     .replace("${since}", coverage.sinceDate ?? "")}
             </div>
+            {#if deckCov && deckCov.decks.some(d => d.size !== null)}
+                <!-- 卡组维度分解（AQ-12 剩余面）：有规模的卡组按 seen/size 展示 -->
+                <div class="ft__smaller ft__on-surface" style="margin: 0 0 var(--lv-sp-2); opacity: .7; line-height: 1.7">
+                    {#each [...deckCov.decks].filter(d => d.size !== null).sort((a, b) => (b.size ?? 0) - (a.size ?? 0)).slice(0, 5) as dc (dc.deckID)}
+                        <div>· {decks.find(d => d.id === dc.deckID)?.name ?? dc.deckID}：{dc.seen}/{dc.size} · {Math.round((dc.coverage ?? 0) * 100)}%</div>
+                    {/each}
+                    {#if deckCov.unattributedCards > 0}
+                        <div>{t.dashboard.unattributedNote.replace("${n}", String(deckCov.unattributedCards))}</div>
+                    {/if}
+                </div>
+            {/if}
         {/if}
 
         <LvSection title={t.dashboard.heatmap} sub={revlogNote ? `${t.dashboard.since} ${revlogNote}` : ""}>

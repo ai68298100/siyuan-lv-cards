@@ -53,6 +53,7 @@
     "personaApplyHint": "将覆盖模块开关与推荐参数（保存后生效，可随时再改）。下方为将发生的改动：",
     "personaNoChange": "当前设置与此预设一致，无需改动。",
     "dashboard": {
+        "unattributedNote": "另有 ${n} 张卡的记录缺卡组信息（原生复习界面），未计入分解",
         "coverageLine": "卡片覆盖（本地证据）：${a} / ${b} 张 · ${pct}% · 自 ${since} 起 · 覆盖率≠掌握率，分母为内核卡组规模合计",
         "studyTime": "今日作答(分)",
         "title": "闪卡中心 · 总览",
