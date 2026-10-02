@@ -4,6 +4,7 @@
     import { showMessage } from "siyuan";
     import { getRiffDecks, createRiffDeck, type RiffDeck } from "@/api/riff";
     import { isAICanceled } from "@/api/ai";
+    import { lintAICards } from "@/core/ai-lint";
     import LvSection from "./kit/LvSection.svelte";
     import LvRow from "./kit/LvRow.svelte";
     import LvChip from "./kit/LvChip.svelte";
@@ -45,6 +46,8 @@
     let newName = $state("");
 
     let candidates: { q: string; a: string; d?: number; keep: boolean }[] = $state([]);
+    /** AQ-16 预览 lint：与 candidates 对齐的提示数组（批内重复/过长/过短） */
+    let lintWarnings: (string[] | null)[] = $state([]);
     /** ADR-7：当前预览对应的作业 ID（导入按 candidates 下标断点记账；重生替换内容不换绑定） */
     let currentJobId = $state("");
     let busy = $state(false);
@@ -198,6 +201,7 @@
                 throw new Error(t.aiWizard.emptyResult);
             }
             candidates = cards.map(c => ({ ...c, keep: true }));
+            lintWarnings = lintAICards(cards);
             // ADR-7：绑定本次作业，导入时按候选下标断点记账
             currentJobId = jobId;
             step = 2;
@@ -375,6 +379,9 @@
                             {#if c.d}
                                 <LvChip tone={c.d === 3 ? "error" : c.d === 2 ? "warn" : "default"}>{c.d === 3 ? t.aiWizard.diffHard : c.d === 2 ? t.aiWizard.diffMid : t.aiWizard.diffEasy}</LvChip>
                             {/if}
+                            {#each lintWarnings[i] ?? [] as warn (warn)}
+                                <LvChip tone="warn">{warn === "duplicate" ? t.aiWizard.lintDup : warn === "overlong" ? t.aiWizard.lintLong : t.aiWizard.lintShort}</LvChip>
+                            {/each}
                             <div class="fn__flex-1"></div>
                             <button class="b3-button b3-button--small" title={t.aiWizard.regenerate} disabled={regenBusy === i} onclick={() => regenerateCard(i)}>↻</button>
                             <button class="b3-button b3-button--small" onclick={() => (candidates = candidates.filter((_, j) => j !== i))}>✕</button>

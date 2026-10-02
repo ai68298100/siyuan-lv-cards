@@ -405,6 +405,9 @@
     },
     "aiWizardTitle": "AI Cards",
     "aiWizard": {
+        "aiWizard": "lintShort",
+        "aiWizard": "lintLong",
+        "aiWizard": "lintDup",
         "aiWizard": "resumeCopied",
         "aiWizard": "resumeCopyFailed",
         "resumeContinue": "Resume import",

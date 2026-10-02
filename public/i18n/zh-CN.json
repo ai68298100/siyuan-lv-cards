@@ -405,6 +405,9 @@
     },
     "aiWizardTitle": "AI 制卡",
     "aiWizard": {
+        "aiWizard": "lintShort",
+        "aiWizard": "lintLong",
+        "aiWizard": "lintDup",
         "aiWizard": "resumeCopied",
         "aiWizard": "resumeCopyFailed",
         "resumeContinue": "继续导入",
