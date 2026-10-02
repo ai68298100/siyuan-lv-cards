@@ -8,7 +8,7 @@
         type RiffDueCard, type RiffDeck, type Rating,
     } from "@/api/riff";
     import { getNotebooks, getBlockAttrs, type Notebook } from "@/api/siyuan";
-    import { isCardNew, type RevlogData } from "@/core/revlog";
+    import { isCardNew, calcStreak, type RevlogData } from "@/core/revlog";
     import { gradeTyping, type Rating1to4 } from "@/core/card-types";
     import { parseOcclusion, type OcclusionData } from "@/core/occlusion";
     import { todayKey } from "@/core/exam";
@@ -45,6 +45,8 @@
         hideMetaUntilAnswer: boolean;
         /** 队列倒序（431） */
         reverseOrder: boolean;
+        /** 每日一语（375） */
+        dailyTipEnabled: boolean;
     }
 
     export interface ReviewCtx {
@@ -470,6 +472,22 @@
         return t.review.doneTarget.replace("${a}", String(done)).replace("${b}", String(target));
     }
 
+    /** 连击里程碑（374）：7/30/100/365 天完成页专属庆祝 */
+    function streakMilestoneText(): string {
+        const streak = calcStreak(ctx.getRevlog());
+        return [365, 100, 30, 7].includes(streak) ? t.review.streakMilestone.replace("${n}", String(streak)) : "";
+    }
+
+    /** 每日一语（375）：按日期轮换的学习科学小贴士 */
+    function dailyTip(): string {
+        if (!ctx.settings().dailyTipEnabled) {
+            return "";
+        }
+        const tips = [t.review.tip1, t.review.tip2, t.review.tip3, t.review.tip4, t.review.tip5];
+        const idx = Math.floor(Date.now() / 86400000) % tips.length;
+        return tips[idx];
+    }
+
     // —— 评分 / 跳过 / 屏蔽 ——
 
     function pushHistory() {
@@ -847,6 +865,12 @@
             <div class="lv-done-desc lv-anim-rise" style="animation-delay: 90ms">
                 ⏱ {sessionDurationText()}{#if targetProgressText()} · {targetProgressText()}{/if}
             </div>
+            {#if streakMilestoneText()}
+                <div class="lv-done-milestone lv-anim-rise" style="animation-delay: 120ms">🔥 {streakMilestoneText()}</div>
+            {/if}
+            {#if dailyTip()}
+                <div class="lv-done-tip lv-anim-rise" style="animation-delay: 150ms">💡 {dailyTip()}</div>
+            {/if}
             <div class="fn__flex lv-done-actions lv-anim-rise" style="animation-delay: 120ms">
                 <button class="b3-button b3-button--text" onclick={loadQueue}>{t.review.again}</button>
                 <button class="b3-button b3-button--outline" onclick={undoHistory}>{t.review.undoLast}</button>
@@ -1096,6 +1120,14 @@
 
         .lv-done-title { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; margin: var(--lv-sp-3) 0 var(--lv-sp-1); }
         .lv-done-desc { color: var(--b3-theme-on-surface); font-variant-numeric: tabular-nums; }
+        .lv-done-milestone { color: var(--b3-theme-warning); font-weight: 600; }
+        .lv-done-tip {
+            max-width: 420px;
+            color: var(--b3-theme-on-surface);
+            font-size: 12px;
+            opacity: 0.85;
+            line-height: 1.6;
+        }
         .lv-done-actions { gap: var(--lv-sp-2); justify-content: center; margin-top: var(--lv-sp-4); }
 
         .lv-done-badge {

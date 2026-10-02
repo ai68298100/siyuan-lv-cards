@@ -31,7 +31,7 @@
     let selected = $state("");
     let newName = $state("");
 
-    let candidates: { q: string; a: string; keep: boolean }[] = $state([]);
+    let candidates: { q: string; a: string; d?: number; keep: boolean }[] = $state([]);
     let busy = $state(false);
     let creating = $state(false);
     let errorMsg = $state("");
@@ -143,6 +143,30 @@
         }
     }
 
+    /** 单卡重新生成（296）：同源同参 count=1，替换该张、保留勾选态 */
+    let regenBusy = $state<number | null>(null);
+    async function regenerateCard(i: number) {
+        if (regenBusy !== null || busy) {
+            return;
+        }
+        regenBusy = i;
+        errorMsg = "";
+        try {
+            const cards = await generate(source.trim(), { count: 1, language, type: cardType });
+            if (cards.length > 0) {
+                const keep = candidates[i].keep;
+                candidates[i] = { ...cards[0], keep };
+                candidates = [...candidates];
+            } else {
+                errorMsg = t.aiWizard.emptyResult;
+            }
+        } catch (e: any) {
+            errorMsg = e?.message ?? String(e);
+        } finally {
+            regenBusy = null;
+        }
+    }
+
     async function importCards() {
         const picked = candidates.filter(c => c.keep);
         if (picked.length === 0 || creating) {
@@ -241,7 +265,11 @@
                         <label class="fn__flex" style="gap: var(--lv-sp-2); align-items: center">
                             <input type="checkbox" bind:checked={c.keep} />
                             <b class="ft__smaller">#{i + 1}</b>
+                            {#if c.d}
+                                <LvChip tone={c.d === 3 ? "error" : c.d === 2 ? "warn" : "default"}>{c.d === 3 ? t.aiWizard.diffHard : c.d === 2 ? t.aiWizard.diffMid : t.aiWizard.diffEasy}</LvChip>
+                            {/if}
                             <div class="fn__flex-1"></div>
+                            <button class="b3-button b3-button--small" title={t.aiWizard.regenerate} disabled={regenBusy === i} onclick={() => regenerateCard(i)}>↻</button>
                             <button class="b3-button b3-button--small" onclick={() => (candidates = candidates.filter((_, j) => j !== i))}>✕</button>
                         </label>
                         <textarea class="b3-text-field fn__block" rows="2" bind:value={c.q} placeholder={t.quickCardQ}></textarea>

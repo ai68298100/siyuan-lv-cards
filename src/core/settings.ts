@@ -91,6 +91,8 @@ export interface LvCardsSettings {
     aiPromptTemplate: string;
     /** 快速制卡/标记制卡落盘笔记本（605）：id，空=第一个打开的笔记本 */
     targetNotebookId: string;
+    /** 每日一语（375）：完成页展示学习科学小贴士 */
+    dailyTipEnabled: boolean;
     /** AnkiConnect 客户端（M9·FR1）：连本机 Anki Desktop */
     ankiClientUrl: string;
     ankiClientKey: string;
@@ -158,6 +160,7 @@ export function defaultSettings(): LvCardsSettings {
         aiFallbackModel: "",
         aiPromptTemplate: "",
         targetNotebookId: "",
+        dailyTipEnabled: true,
         ankiClientUrl: "http://127.0.0.1:8765",
         ankiClientKey: "",
         cardMaxWidth: 880,

@@ -77,8 +77,8 @@ export function estimateTokens(text: string): number {
     return Math.ceil(text.length / 4);
 }
 
-/** 从模型回复中宽容解析卡片 JSON 数组（容忍 ```json 围栏与前后噪声） */
-export function parseCards(raw: string): { q: string; a: string }[] {
+/** 从模型回复中宽容解析卡片 JSON 数组（容忍 ```json 围栏与前后噪声）；d=难度标注（297，可选 1易/2中/3难） */
+export function parseCards(raw: string): { q: string; a: string; d?: number }[] {
     let text = raw.trim();
     const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/);
     if (fence) {
@@ -94,6 +94,13 @@ export function parseCards(raw: string): { q: string; a: string }[] {
         throw new Error("not an array");
     }
     return arr
-        .map((c: any) => ({ q: String(c?.q ?? c?.question ?? "").trim(), a: String(c?.a ?? c?.answer ?? "").trim() }))
+        .map((c: any) => {
+            const d = Number(c?.d);
+            return {
+                q: String(c?.q ?? c?.question ?? "").trim(),
+                a: String(c?.a ?? c?.answer ?? "").trim(),
+                ...(Number.isInteger(d) && d >= 1 && d <= 3 ? { d } : {}),
+            };
+        })
         .filter(c => c.q && c.a);
 }

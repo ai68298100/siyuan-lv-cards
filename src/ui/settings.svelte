@@ -313,6 +313,9 @@
         <LvRow label={t.settings.xpEnabled} hint={t.settings.xpEnabledHint}>
             <LvSwitch bind:checked={draft.xpEnabled} />
         </LvRow>
+        <LvRow label={t.settings.dailyTipEnabled} hint={t.settings.dailyTipHint}>
+            <LvSwitch bind:checked={draft.dailyTipEnabled} />
+        </LvRow>
         <LvRow label={t.settings.leechThreshold}>
             <input class="b3-text-field fn__size-60" type="number" min="1" bind:value={draft.leechThreshold} />
         </LvRow>

@@ -265,6 +265,7 @@ export default class LvCardsPlugin extends Plugin {
                             ratingDensity: plugin.settings.ratingDensity,
                             hideMetaUntilAnswer: plugin.settings.hideMetaUntilAnswer,
                             reverseOrder: plugin.settings.reverseOrder,
+                            dailyTipEnabled: plugin.settings.dailyTipEnabled,
                             sfxEnabled: plugin.settings.sfxEnabled,
                             sfxStyle: plugin.settings.sfxStyle,
                             batchLimit: plugin.settings.batchLimit,
@@ -946,13 +947,7 @@ export default class LvCardsPlugin extends Plugin {
             if (!docID) {
                 throw new Error(this.i18n.quickCardFail);
             }
-            const samples = [
-                "示例 1 · 普通卡：思源内核的 FSRS 调度负责计算间隔，小驴闪卡负责体验增强。",
-                "示例 2 · 公式卡：质能方程 $E = mc^2$ 中 $c$ 代表什么？\n光速（约 3×10⁸ m/s）。",
-                "示例 3 · 挖空卡：FSRS 的四个核心状态是 ==未学习、学习、复习、悬置==。",
-                "示例 4 · 列表卡：FSRS 评分四档\n* 遗忘（Again）\n* 困难（Hard）\n* 良好（Good）\n* 简单（Easy）",
-                "示例 5 · 问答卡：什么是真实保持率（True Retention）？\n按卡片成熟度分层统计的记忆保持比例，比整体正确率更能反映记忆效果。",
-            ];
+            const samples = (await import("./help")).sampleCards();
             const ids: string[] = [];
             for (const md of samples) {
                 const r = await appendBlock("markdown", md, docID);
