@@ -405,6 +405,39 @@ export function deckCoverage(data: RevlogData, decks: { id: string; size?: numbe
     return { decks: out, unattributedCards: unattributed.size };
 }
 
+export interface DocCoverageItem {
+    docID: string;
+    /** 本地有评分记录且归属该文档的不同卡数 */
+    seen: number;
+}
+
+/** 文档维度覆盖（AQ-12）：docOf 注入块→文档映射（调用方经内核 SQL 构建）；
+ * 映射缺失（块已删除/移动）计入 unattributed，不猜测归属 */
+export function docCoverage(
+    data: RevlogData,
+    docOf: (blockID: string) => string | null,
+): { docs: DocCoverageItem[]; unattributed: number } {
+    const byDoc = new Map<string, Set<string>>();
+    const unattributed = new Set<string>();
+    for (const e of data.entries) {
+        if (e.rating <= 0 || !e.blockID) {
+            continue;
+        }
+        const doc = docOf(e.blockID);
+        if (!doc) {
+            unattributed.add(e.cardID);
+            continue;
+        }
+        const bucket = byDoc.get(doc) ?? new Set<string>();
+        bucket.add(e.cardID);
+        byDoc.set(doc, bucket);
+    }
+    return {
+        docs: [...byDoc.entries()].map(([docID, cards]) => ({ docID, seen: cards.size })),
+        unattributed: unattributed.size,
+    };
+}
+
 export interface CurvePoint {
     days: number;
     /** 0-1，成功率 */

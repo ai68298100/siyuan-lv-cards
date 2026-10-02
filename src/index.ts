@@ -13,12 +13,12 @@ import { PERSONA_PRESETS } from "./core/personas";
 import { normalizeNativeCardAction, NativeEventDeduper } from "./core/native-events";
 import { parseSrLine, parseSrMultiline, stripSrMarkers } from "./core/obsidian-sr";
 import {
-    appendRevlog, calcStreak, emptyRevlog, leechCards, localDate, normalizeRevlog, revlogToCsv, mergeRevlog,
+    appendRevlog, calcStreak, emptyRevlog, leechCards, localDate, normalizeRevlog, revlogToCsv, mergeRevlog, docCoverage,
     type RevlogData, type RevlogEntry,
 } from "./core/revlog";
 import { detectFlashcardV2, type MigrationStatus } from "./api/flashcardV2";
 import { addRiffCards, createRiffDeck, getDueCount, getRiffCardsByBlockIDs, getRiffDecks, getRiffDueCards, removeRiffCards } from "./api/riff";
-import { appendBlock, createDocWithMd, getNotebooks, getBlockDOM, exportMdContent, sqlQuery, kernelVersion } from "./api/siyuan";
+import { appendBlock, createDocWithMd, getNotebooks, getBlockDOM, getBlockDocMap, getDocTitles, exportMdContent, sqlQuery, kernelVersion } from "./api/siyuan";
 import { aiChat, estimateTokens, parseCards } from "./api/ai";
 import { normalizeSuspendToday, rollDateIfNeeded, isSuspended, suspend, type SuspendTodayData } from "./core/suspend-today";
 import { parseRevlogCsv } from "./core/revlog-csv";
@@ -211,6 +211,24 @@ export default class LvCardsPlugin extends Plugin {
                                 const handler = () => cb();
                                 (plugin.eventBus as any).on("lv-cards:reviewed", handler);
                                 return () => (plugin.eventBus as any).off("lv-cards:reviewed", handler);
+                            },
+                            // AQ-12 文档维度：块归属查内核（分块 IN），聚合后按 seen 降序；失败返回 null 由 UI 隐藏
+                            getDocCoverage: async () => {
+                                try {
+                                    const blockIDs = [...new Set(plugin.revlog.entries.filter(e => e.rating > 0 && e.blockID).map(e => e.blockID))];
+                                    if (blockIDs.length === 0) {
+                                        return { docs: [], unattributed: 0 };
+                                    }
+                                    const docMap = await getBlockDocMap(blockIDs);
+                                    const agg = docCoverage(plugin.revlog, blockID => docMap.get(blockID)?.rootID ?? null);
+                                    const titles = await getDocTitles(agg.docs.map(d => d.docID));
+                                    const docs = agg.docs
+                                        .map(d => ({ docID: d.docID, title: titles.get(d.docID) || "", seen: d.seen }))
+                                        .sort((a, b) => b.seen - a.seen);
+                                    return { docs, unattributed: agg.unattributed };
+                                } catch {
+                                    return null;
+                                }
                             },
                             getHeatmapWeeks: () => plugin.settings.heatmapWeeks,
                         },

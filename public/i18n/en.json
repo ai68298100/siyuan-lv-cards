@@ -53,6 +53,8 @@
     "personaApplyHint": "Overwrites module switches and recommended parameters (applied on save, changeable anytime). Changes that will happen:",
     "personaNoChange": "Current settings already match this preset.",
     "dashboard": {
+        "docUnattributedNote": "${n} cards cannot be attributed to a doc (block deleted/moved) — excluded",
+        "docCards": "${n} cards reviewed",
         "unattributedNote": "${n} cards have records without deck info (native review UI) — excluded from breakdown",
         "coverageLine": "Card coverage (local evidence): ${a} / ${b} cards · ${pct}% · since ${since} — coverage ≠ mastery; denominator = kernel deck sizes",
         "studyTime": "Today's time (min)",

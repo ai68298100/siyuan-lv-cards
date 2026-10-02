@@ -156,6 +156,19 @@ export const svelteDialog = (args: {
     height?: string,
     callback?: () => void;
 }) => {
+    // AR-2：打开前记焦点宿主，关闭（任意路径）后归还——键盘流不因弹窗丢焦
+    let prevFocus: HTMLElement | null = null;
+    try {
+        prevFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    } catch { /* 旁路 */ }
+    const restoreFocus = () => {
+        try {
+            if (prevFocus && document.contains(prevFocus)) {
+                prevFocus.focus();
+            }
+        } catch { /* 焦点归还旁路 */ }
+    };
+
     // AR-2：关闭一次性——宿主 X / Esc / 内嵌组件回调并发时只销毁一次
     let destroyed = false;
     let unmounted = false;
@@ -186,6 +199,7 @@ export const svelteDialog = (args: {
         } else {
             doUnmount();
         }
+        restoreFocus();
     };
 
     // AR-2：把可用的关闭动作注入内嵌组件的 onClose/onExit（mount 前包装）——
@@ -222,6 +236,7 @@ export const svelteDialog = (args: {
         callback: () => {
             destroyed = true;
             doUnmount();
+            restoreFocus();
             if (args.callback) args.callback();
         }
     });

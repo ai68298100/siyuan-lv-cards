@@ -1297,8 +1297,8 @@
       ],
       "summary": {
         "total": 48,
-        "done": 9,
-        "pending": 39
+        "done": 10,
+        "pending": 38
       },
       "blocks": [],
       "experienceReferences": {
@@ -8159,8 +8159,8 @@
     },
     {
       "id": "AQ-12",
-      "status": "open",
-      "checkbox": " ",
+      "status": "done",
+      "checkbox": "x",
       "priority": "P2",
       "group": "AQ",
       "groupName": "v0.63.0 后一手调研与代码审计新增（2026-10-02，仅扩充规划）",
@@ -15029,10 +15029,10 @@
   "summary": {
     "packages": 38,
     "total": 924,
-    "done": 185,
-    "open": 736,
+    "done": 186,
+    "open": 735,
     "special": 3,
-    "pending": 739
+    "pending": 738
   },
   "experienceDocument": "docs/32-产品体验优化与页面蓝图.md",
   "experienceRefinements": [

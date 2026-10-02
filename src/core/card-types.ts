@@ -26,13 +26,34 @@ export interface CardTypeRegistration {
 
 // ---- 打字题判分 ----
 
+/**
+ * 宽松模式保留的关键符号（E-09）：小数点/正负号/百分号/比号——
+ * 「-1 vs 1」「1.2 vs 12」这类数值失真不再被归一化抹平（数值单位/容差策略另见 BX-1）。
+ */
+const LENIENT_KEEP = new Set([".", "-", "+", "%", "/", ":"]);
+
 function normalize(s: string, strict: boolean): string {
-    return strict
-        ? s
-        : s.toLowerCase().replace(/[\s\p{P}\u3000-\u303f\uff00-\uffef]/gu, "");
+    if (strict) {
+        return s;
+    }
+    // NFKC 折叠全角→半角（全角输入不再被整段剥离），再去掉空白与其余标点/符号
+    const folded = s.normalize("NFKC").toLowerCase();
+    let out = "";
+    for (const ch of folded) {
+        if (/\s/.test(ch)) {
+            continue;
+        }
+        if (/[\p{P}\p{S}]/u.test(ch) && !LENIENT_KEEP.has(ch)) {
+            continue;
+        }
+        out += ch;
+    }
+    return out;
 }
 
-/** LCS 对齐：标出用户输入中命中期望的字符，并给出相似度 */
+/** LCS 对齐：标出用户输入中命中期望的字符，并给出相似度。
+ * E-09：分母取 max(期望长度, 作答长度)——作答里塞额外错误命题会拉低相似度而不是被无视；
+ * 空期望答案 ratio=0（不产「完美匹配」误导），正式评分始终由用户决定。 */
 export function gradeTyping(expected: string, actual: string, strict: boolean): TypingGrade {
     const e = [...normalize(expected, strict)];
     const a = [...normalize(actual, strict)];
@@ -55,7 +76,8 @@ export function gradeTyping(expected: string, actual: string, strict: boolean): 
             j--;
         }
     }
-    const ratio = m > 0 ? dp[m][n] / m : 1;
+    const denom = Math.max(m, n);
+    const ratio = denom > 0 ? dp[m][n] / denom : 0;
     const suggested: Rating1to4 = ratio >= 0.9 ? 3 : ratio >= 0.6 ? 2 : 1;
     return { suggested, ratio, chars: a.map((ch, idx) => ({ ch, ok: matched[idx] })) };
 }

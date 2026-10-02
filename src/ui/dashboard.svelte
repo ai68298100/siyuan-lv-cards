@@ -32,6 +32,8 @@
         onSessionFinished?: (cb: () => void) => () => void;
         /** 订阅评分事件（AT-11）：原生/插件两路评分统一经此失效统计缓存，返回取消函数 */
         onReviewed?: (cb: () => void) => () => void;
+        /** 文档维度覆盖（AQ-12）：块归属查内核后聚合；null=查询失败隐藏 */
+        getDocCoverage?: () => Promise<{ docs: { docID: string; title: string; seen: number }[]; unattributed: number } | null>;
         /** 热力图范围周数（439） */
         getHeatmapWeeks: () => number;
     }
@@ -52,6 +54,8 @@
     let coverage = $state<CoverageStats | null>(null);
     /** 卡组维度覆盖（AQ-12 剩余面）：按 revlog.deckID 归属，原生缺 deckID 进 unattributed */
     let deckCov = $state<DeckCoverage | null>(null);
+    /** 文档维度覆盖（AQ-12）：null=查询失败/未提供，隐藏该区 */
+    let docCov = $state<{ docs: { docID: string; title: string; seen: number }[]; unattributed: number } | null>(null);
     let totalCards = $state(0);
     let heat: { date: string; stat: { new: number; review: number; forget: number } }[] = $state([]);
     let revlogNote = $state("");
@@ -218,6 +222,10 @@
             todayStudyMinutes = Math.round(studySecondsOn(revlog, localDate(Date.now())) / 60);
             coverage = coverageStats(revlog, totalCards || undefined);
             deckCov = deckCoverage(revlog, deckList.map(d => ({ id: d.id, size: d.size })));
+            docCov = ctx.getDocCoverage ? await ctx.getDocCoverage() : null;
+            if (seq !== refreshSeq) {
+                return; // 文档归属查询期间用户已刷新（AR-6 generation 守卫）
+            }
             dueCount = due.unreviewedCount;
             newCount = due.unreviewedNewCardCount;
             oldCount = due.unreviewedOldCardCount;
@@ -385,6 +393,17 @@
                     {/each}
                     {#if deckCov.unattributedCards > 0}
                         <div>{t.dashboard.unattributedNote.replace("${n}", String(deckCov.unattributedCards))}</div>
+                    {/if}
+                </div>
+            {/if}
+            {#if docCov && docCov.docs.length > 0}
+                <!-- 文档维度（AQ-12）：块归属查内核聚合，标题回源；仅展示 Top3 -->
+                <div class="ft__smaller ft__on-surface" style="margin: 0 0 var(--lv-sp-2); opacity: .7; line-height: 1.7">
+                    {#each docCov.docs.slice(0, 3) as dc (dc.docID)}
+                        <div>📄 {dc.title || dc.docID.slice(0, 8)}：{t.dashboard.docCards.replace("${n}", String(dc.seen))}</div>
+                    {/each}
+                    {#if docCov.unattributed > 0}
+                        <div>{t.dashboard.docUnattributedNote.replace("${n}", String(docCov.unattributed))}</div>
                     {/if}
                 </div>
             {/if}

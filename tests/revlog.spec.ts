@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-    appendRevlog, emptyRevlog, isCardNew, mergeRevlog, normalizeRevlog, recalcDays, revlogToCsv, studySecondsOn, coverageStats, deckCoverage, calcStreak, calcXp, localDate, lastNDays, weekCompare, calcMilestones,
+    appendRevlog, emptyRevlog, isCardNew, mergeRevlog, normalizeRevlog, recalcDays, revlogToCsv, studySecondsOn, coverageStats, deckCoverage, docCoverage, calcStreak, calcXp, localDate, lastNDays, weekCompare, calcMilestones,
     type RevlogData,
 } from "../src/core/revlog";
 const entry = (ts: number, cardID: string, rating: number, source: "native" | "plugin" = "plugin") =>
@@ -452,5 +452,21 @@ describe("作答耗时与导出契约（AQ-13/AQ-9）", () => {
         expect(r.decks.find(x => x.deckID === "deckB")).toMatchObject({ seen: 1, size: null, coverage: null });
         expect(r.decks.find(x => x.deckID === "deckC")).toMatchObject({ seen: 0, size: null, coverage: null });
         expect(r.unattributedCards).toBe(1);
+    });
+
+    it("docCoverage（AQ-12 文档维度）：注入映射聚合，缺失块进 unattributed", () => {
+        const d = emptyRevlog();
+        appendRevlog(d, { ...entry(at(0), "c1", 3), blockID: "b1" });
+        appendRevlog(d, { ...entry(at(0) + 1, "c1", 3), blockID: "b1" }); // 同卡去重
+        appendRevlog(d, { ...entry(at(0) + 2, "c2", 3), blockID: "b2" });
+        appendRevlog(d, { ...entry(at(0) + 3, "c3", 3), blockID: "gone" }); // 映射缺失
+        const r = docCoverage(d, blockID => (blockID === "b1" ? "doc1" : blockID === "b2" ? "doc2" : null));
+        expect(r.docs).toEqual([{ docID: "doc1", seen: 1 }, { docID: "doc2", seen: 1 }]);
+        expect(r.unattributed).toBe(1);
+        // 无 blockID 的评分不计
+        const d2 = emptyRevlog();
+        appendRevlog(d2, { ...entry(at(0), "c9", 3), blockID: "" });
+        expect(docCoverage(d2, () => "doc").docs).toEqual([]);
+        expect(docCoverage(d2, () => "doc").unattributed).toBe(0);
     });
 });

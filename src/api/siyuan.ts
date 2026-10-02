@@ -76,6 +76,37 @@ export const sqlQuery = async (stmt: string): Promise<Record<string, unknown>[]>
     return (resp.data ?? []) as Record<string, unknown>[];
 };
 
+export interface BlockDocInfo {
+    rootID: string;
+    notebookID: string;
+}
+
+/** 块 → 文档归属映射（AQ-12 文档维度）：分块 IN 查询，查不到的块不在 Map 中（缺失口径） */
+export const getBlockDocMap = async (blockIDs: string[]): Promise<Map<string, BlockDocInfo>> => {
+    const out = new Map<string, BlockDocInfo>();
+    for (let i = 0; i < blockIDs.length; i += 400) {
+        const chunk = blockIDs.slice(i, i + 400).map(id => `'${id.replace(/'/g, "''")}'`).join(",");
+        const rows = await sqlQuery(`SELECT id, root_id, box FROM blocks WHERE id IN (${chunk})`);
+        for (const r of rows) {
+            out.set(String(r.id), { rootID: String(r.root_id ?? ""), notebookID: String(r.box ?? "") });
+        }
+    }
+    return out;
+};
+
+/** 文档 ID → 标题（根块 content 首行；空标题由调用方回退展示文档 ID） */
+export const getDocTitles = async (docIDs: string[]): Promise<Map<string, string>> => {
+    const out = new Map<string, string>();
+    for (let i = 0; i < docIDs.length; i += 400) {
+        const chunk = docIDs.slice(i, i + 400).map(id => `'${id.replace(/'/g, "''")}'`).join(",");
+        const rows = await sqlQuery(`SELECT id, content FROM blocks WHERE id IN (${chunk})`);
+        for (const r of rows) {
+            out.set(String(r.id), String(r.content ?? "").split("\n")[0].trim());
+        }
+    }
+    return out;
+};
+
 /** 思源内核版本号（自诊断用） */
 export const kernelVersion = async (): Promise<string> => {
     const resp = await fetchSyncPost("/api/system/version", {});
