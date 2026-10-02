@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.105.0 2026-10-03 · Kit smoke 收官补测：LvHeatmap/LvSkeleton（19 组件全覆盖）
+
+* **LvHeatmap**（7 天数据渲染/末格 lv-cell-today/title 含日期/空数据不崩溃）、**LvSkeleton**（count 个骨架行/block 圆角样式/count=0 不渲染）——5 组 smoke 单测
+* **Kit 组件测试 19/19 全覆盖**：LvStat/LvSteps/LvChip(宿主)/LvSection(宿主)/LvPage(宿主)/LvDrawer(宿主)/LvProgress/LvKbd/LvEmpty/LvError/LvSegmented/LvSwitch/LvTabs/LvRow/LvSlider/LvInput/LvSelect/LvHeatmap/LvSkeleton
+* 测试 208→215；0 errors/0 warnings；主包 gzip 27.59KB（预算内）
+
 ## v0.104.0 2026-10-03 · Kit smoke 收官：布局壳 snippet 宿主全覆盖
 
 * **LvPageHost/LvDrawerHost**（children snippet 完整形态）：title/subtitle/dot 渲染、children 内容、open=false 无遮罩——布局壳三件套（LvSection/LvPage/LvDrawer）snippet 传子组件的宿主测试全部就位
