@@ -1,0 +1,55 @@
+import { describe, expect, it, vi } from "vitest";
+import { render, fireEvent } from "@testing-library/svelte";
+import LvTabs from "../src/ui/kit/LvTabs.svelte";
+import LvRow from "../src/ui/kit/LvRow.svelte";
+
+// Kit 组件 smoke 测试（组件测试基建第四批，v0.89.0）：LvTabs 选中/切换契约；LvRow 渲染契约
+
+describe("LvTabs", () => {
+    const tabs = [
+        { id: "overview", label: "总览" },
+        { id: "manage", label: "管理" },
+        { id: "exam", label: "考试" },
+    ];
+
+    it("渲染全部页签；active 页签 aria-selected", () => {
+        const { container } = render(LvTabs, { tabs, active: "manage", onchange: () => {} });
+        const els = [...container.querySelectorAll("[role=tab]")];
+        expect(els).toHaveLength(3);
+        expect(els.map(e => e.textContent)).toEqual(["总览", "管理", "考试"]);
+        expect(els[0].getAttribute("aria-selected")).toBe("false");
+        expect(els[1].getAttribute("aria-selected")).toBe("true");
+        expect(els[1].classList.contains("lv-tab-active")).toBe(true);
+    });
+
+    it("点击页签触发 onchange 携带该 id", async () => {
+        const onchange = vi.fn();
+        const { container } = render(LvTabs, { tabs, active: "overview", onchange });
+        const els = [...container.querySelectorAll("[role=tab]")];
+        await fireEvent.click(els[2]);
+        expect(onchange).toHaveBeenCalledWith("exam");
+        expect(onchange).toHaveBeenCalledTimes(1);
+    });
+
+    it("点击当前 active 页签仍触发（hub 以重挂载自愈，契约允许）", async () => {
+        const onchange = vi.fn();
+        const { container } = render(LvTabs, { tabs, active: "overview", onchange });
+        await fireEvent.click(container.querySelectorAll("[role=tab]")[0]);
+        expect(onchange).toHaveBeenCalledWith("overview");
+    });
+});
+
+describe("LvRow", () => {
+    it("渲染 label；hint 缺省不渲染", () => {
+        const { container } = render(LvRow, { label: "随机顺序" });
+        expect(container.textContent).toContain("随机顺序");
+        expect(container.textContent).not.toContain("ft__smaller");
+        expect(container.querySelectorAll(".ft__smaller")).toHaveLength(0);
+    });
+
+    it("hint 提供时渲染在 label 下方", () => {
+        const { container } = render(LvRow, { label: "标签", hint: "提示语" });
+        expect(container.textContent).toContain("提示语");
+        expect(container.querySelectorAll(".ft__smaller")).toHaveLength(1);
+    });
+});
