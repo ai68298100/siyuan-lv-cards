@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.85.0 2026-10-03 · docs-only：巡检轮（CI 门禁在线核实 + 规范同步）
+
+* GitHub CI 巡检：v0.84.0 引入的 Governance consistency 门禁在线上运行成功（两次推送全绿，35s）——治理自动化正式生效
+* docs/16 LvSteps 行同步 v0.71 的 aria 变更（`aria-current="step"`，不再用 button+listitem 组合）
+* docs/34 执行顺序建议补 V-15 编排说明（与 V-7 同属真实 AI 专场，需配合一次导入中强制中断）
+* docs-only 轮次：测试 158/158、0 errors/0 warnings、governance OK、主包 gzip 27.34KB 不变
+
 ## v0.84.0 2026-10-03 · 工程化：治理一致性校验入 CI
 
 * 新增 `scripts/check-governance.mjs`：docs/17 ↔ docs/31 六项自动核对——[x] 总数、summary 块五项统计、每包 summary.total、docs/17 总计行（含加粗格式）、每条 entry 主归属存在性、AQ/BZ 组统计行抽查；不一致即 CI 失败
