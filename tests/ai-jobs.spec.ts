@@ -122,3 +122,14 @@ describe("ai-jobs 存储清洗与容量（ADR-7）", () => {
         expect(j.source.excerpt.length).toBeLessThanOrEqual(200);
     });
 });
+
+describe("transitionJob GENERATE_OK 纯度", () => {
+    it("替换 candidates 不突变入参 job", () => {
+        const j = mkJob({ status: "generating", candidates: [{ q: "old", a: "old", keep: true, status: "pending" }] });
+        const snapshot = JSON.stringify(j);
+        const r = transitionJob(j, { type: "GENERATE_OK", candidates: [{ q: "new", a: "new", keep: true, status: "pending" }] });
+        expect(r.ok).toBe(true);
+        expect(r.job.candidates).toHaveLength(1);
+        expect(JSON.stringify(j)).toBe(snapshot); // 入参原样
+    });
+});

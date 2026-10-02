@@ -93,6 +93,12 @@ for (const f of dataFiles) {
     }
 }
 
+// ⑧ docs/17 基线版本与 package.json 一致（防「当前基线」滞后于实际版本）
+const pkg = JSON.parse(readFileSync("package.json", "utf8"));
+if (!md.includes(`当前基线：v${pkg.version} `)) {
+    failures.push(`docs/17 当前基线未提及 package.json 版本 v${pkg.version}`);
+}
+
 if (failures.length > 0) {
     console.error("治理一致性校验失败：");
     for (const f of failures) {
