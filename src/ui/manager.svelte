@@ -18,6 +18,8 @@
         getLeechCards: () => { blockID: string; lapses: number }[];
         /** 状态过滤（M6·FR2）：新卡=本地 revlog 无记录 */
         isNewBlock: (blockID: string) => boolean;
+        /** 遗忘次数映射（272）：lapses 排序用 */
+        getLapsesMap: () => Record<string, number>;
         /** 今日到期块 ID 清单（内核到期卡片，含 blockID） */
         getDueBlockIDs: () => Promise<string[]>;
     }
@@ -33,7 +35,16 @@
     let blocks: SearchBlock[] = $state([]);
     let errorMsg = $state("");
     let filterText = $state("");
-    let sortMode = $state<"default" | "path" | "content">("default");
+    /** 防抖后的过滤词（548）：输入停顿 200ms 才触发过滤重算 */
+    let deferredFilter = $state("");
+    let filterTimer: ReturnType<typeof setTimeout> | null = null;
+    $effect(() => {
+        filterText;
+        if (filterTimer) { clearTimeout(filterTimer); }
+        filterTimer = setTimeout(() => { deferredFilter = filterText; }, 200);
+        return () => { if (filterTimer) { clearTimeout(filterTimer); } };
+    });
+    let sortMode = $state<"default" | "path" | "content" | "lapses">("default");
     let leechOnly = $state(false);
     let statusFilter = $state<"all" | "new" | "review" | "due">("all");
     let dueSet = new Set<string>();
@@ -44,7 +55,7 @@
 
     let filteredBlocks = $derived(
         (() => {
-            let arr = blocks.filter(b => !filterText || stripHtml(b.content).toLowerCase().includes(filterText.toLowerCase()));
+            let arr = blocks.filter(b => !deferredFilter || stripHtml(b.content).toLowerCase().includes(deferredFilter.toLowerCase()));
             if (leechOnly) {
                 const leechSet = new Set(ctx.getLeechCards().map(l => l.blockID));
                 arr = arr.filter(b => leechSet.has(b.id));
@@ -61,6 +72,11 @@
             }
             if (sortMode === "content") {
                 return [...arr].sort((a, b) => stripHtml(a.content).localeCompare(stripHtml(b.content)));
+            }
+            if (sortMode === "lapses") {
+                // 遗忘次数降序（272）：烂卡优先
+                const lapses = ctx.getLapsesMap();
+                return [...arr].sort((a, b) => (lapses[b.id] ?? 0) - (lapses[a.id] ?? 0));
             }
             return arr;
         })()
@@ -102,6 +118,24 @@
         if (statusFilter === "due" && dueSet.size === 0) {
             dueSet = new Set(await ctx.getDueBlockIDs());
         }
+    }
+
+    /** 选中卡导出 CSV（274）：blockID,路径,内容（引号转义，BOM 便于 Excel） */
+    function exportSelected() {
+        if (selected.length === 0) { return; }
+        const picked = blocks.filter(b => selected.includes(b.id));
+        const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
+        const rows = ["blockID,path,content"];
+        for (const b of picked) {
+            rows.push(`${b.id},${esc((b.hPath as string) ?? "")},${esc(stripHtml(b.content))}`);
+        }
+        const blob = new Blob(["\uFEFF" + rows.join("\n")], { type: "text/csv;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `lv-cards-selected-${new Date().toISOString().slice(0, 10)}.csv`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
 
     function batchRemove() {
@@ -194,6 +228,7 @@
             <option value="default">{t.manager.sortDefault}</option>
             <option value="path">{t.manager.sortPath}</option>
             <option value="content">{t.manager.sortContent}</option>
+            <option value="lapses">{t.manager.sortLapses}</option>
         </select>
         <select class="b3-select lv-sort" bind:value={statusFilter} onchange={onStatusChange} title={t.manager.statusLabel}>
             <option value="all">{t.manager.statusAll}</option>
@@ -214,6 +249,7 @@
         <div class="lv-glass lv-batchbar">
             <LvChip tone="primary">{t.manager.batchSelected.replace("${n}", String(selected.length))}</LvChip>
             <div class="fn__flex-1"></div>
+            <button class="b3-button b3-button--outline" onclick={exportSelected}>{t.manager.exportCsv}</button>
             <button class="b3-button b3-button--outline" onclick={batchReset}>{t.manager.batchReset}</button>
             <button class="b3-button b3-button--outline" onclick={batchRemove}>{t.manager.batchRemove}</button>
             <button class="b3-button b3-button--small" onclick={() => (selected = [])}>{t.manager.batchCancel}</button>

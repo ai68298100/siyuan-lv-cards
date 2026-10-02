@@ -46,6 +46,10 @@ export interface LvCardsSettings {
     badgeRefreshSec: number;
     /** 评分按钮密度（441）：cozy 舒适 / compact 紧凑 */
     ratingDensity: "cozy" | "compact";
+    /** 答案揭示前隐藏卡面元信息（442）：新卡章/复习次数/卡组名 */
+    hideMetaUntilAnswer: boolean;
+    /** 队列倒序（431）：内核到期顺序反转（最新到期优先） */
+    reverseOrder: boolean;
     /** leech 判定阈值（遗忘次数） */
     leechThreshold: number;
     /** 答案朗读（TTS，Web Speech） */
@@ -66,6 +70,8 @@ export interface LvCardsSettings {
     backlogDays: number;
     /** 评分音效（Web Audio 合成，无文件依赖） */
     sfxEnabled: boolean;
+    /** 音效风格（250）：chime 清音 / wood 木鱼 / bell 铃 */
+    sfxStyle: "chime" | "wood" | "bell";
     /** 考试模式 */
     examEnabled: boolean;
     /** 考试日期 YYYY-MM-DD，空为未设置 */
@@ -119,6 +125,8 @@ export function defaultSettings(): LvCardsSettings {
         heatmapWeeks: 17,
         badgeRefreshSec: 60,
         ratingDensity: "cozy",
+        hideMetaUntilAnswer: false,
+        reverseOrder: false,
         leechThreshold: 8,
         ttsEnabled: true,
         ttsRate: 1,
@@ -129,6 +137,7 @@ export function defaultSettings(): LvCardsSettings {
         reminderTime: "20:00",
         backlogDays: 3,
         sfxEnabled: false,
+        sfxStyle: "chime",
         examEnabled: false,
         examDate: "",
         savedFilters: [],

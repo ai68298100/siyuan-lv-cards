@@ -37,6 +37,13 @@
         cardFontScale: number;
         /** 评分按钮密度（441） */
         ratingDensity: "cozy" | "compact";
+        /** 评分音效开关与风格（250） */
+        sfxEnabled: boolean;
+        sfxStyle: "chime" | "wood" | "bell";
+        /** 答案揭示前隐藏卡面元信息（442） */
+        hideMetaUntilAnswer: boolean;
+        /** 队列倒序（431） */
+        reverseOrder: boolean;
     }
 
     export interface ReviewCtx {
@@ -272,6 +279,9 @@
             if (cramActive) {
                 // 考前 cram：遗忘多的卡优先（M7·FR4）
                 cards = [...cards].sort((a, b) => b.lapses - a.lapses);
+            } else if (ctx.settings().reverseOrder) {
+                // 倒序模式（431）：内核到期顺序反转，最新到期优先
+                cards = [...cards].reverse();
             } else if (ctx.settings().randomOrder) {
                 cards = shuffle(cards);
             }
@@ -347,24 +357,40 @@
         } catch { /* 旁路 */ }
     }
 
-    /** 评分音效（Web Audio 合成，M 组 P2） */
+    /** 评分音效（Web Audio 合成，M 组 P2）：chime 清音 / wood 木鱼 / bell 铃；受 sfxEnabled 开关（250） */
     function playSfx(rating: Rating) {
+        if (!ctx.settings().sfxEnabled) {
+            return;
+        }
         if (!audioCtx) audioCtx = new AudioContext();
         try {
+            const style = ctx.settings().sfxStyle || "chime";
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
             osc.connect(gain); gain.connect(audioCtx.destination);
+            const now = audioCtx.currentTime;
+            if (style === "wood") {
+                // 木鱼：短促三角波单音，音高随评分微升
+                osc.type = "triangle";
+                osc.frequency.setValueAtTime(600 + rating * 45, now);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.005, now + 0.09);
+                osc.start(now);
+                osc.stop(now + 0.1);
+                return;
+            }
             const freqs: Record<number, number[]> = { 1: [220], 2: [330, 392], 3: [440, 554], 4: [523, 659] };
-            const notes = freqs[rating] ?? [440];
+            const notes = (freqs[rating] ?? [440]).map(f => (style === "bell" ? f * 2 : f));
             const step = 0.08;
-            notes.forEach((f, i) => {
-                osc.frequency.setValueAtTime(f, audioCtx.currentTime + i * step);
-            });
+            const tail = style === "bell" ? 0.45 : 0.1;
             osc.type = "sine";
-            gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + notes.length * step + 0.1);
-            osc.start(audioCtx.currentTime);
-            osc.stop(audioCtx.currentTime + notes.length * step + 0.1);
+            notes.forEach((f, i) => {
+                osc.frequency.setValueAtTime(f, now + i * step);
+            });
+            gain.gain.setValueAtTime(0.15, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + notes.length * step + tail);
+            osc.start(now);
+            osc.stop(now + notes.length * step + tail);
         } catch { /* 旁路 */ }
     }
 
@@ -568,9 +594,15 @@
         }
     }
 
+    /** 浮层关闭后焦点归还卡面（429）：键盘流不因开过关浮层而丢焦 */
+    function returnFocus() {
+        (rootEl ?? cardEl)?.focus?.();
+    }
+
     function togglePeek() {
         if (peek) {
             peek = null;
+            returnFocus();
         } else if (lastAnswered) {
             peek = { ...lastAnswered };
         } else {
@@ -668,6 +700,7 @@
             if (e.key === "Escape" || e.key === "[") {
                 e.preventDefault();
                 peek = null;
+                returnFocus();
             }
             return;
         }
@@ -678,6 +711,7 @@
         if (helpOpen) {
             if (e.key === "Escape") {
                 helpOpen = false;
+                returnFocus();
             }
             return;
         }
@@ -841,10 +875,12 @@
                 <span class="lv-timeout" class:lv-timeout-low={timeoutLeft <= 10}>⏱ {timeoutText()}</span>
             {/if}
             <span class="lv-tags">
-                {#if current.state === 0}<span class="b3-chip b3-chip--primary">{t.review.tagNew}</span>{/if}
-                <span class="b3-chip">{t.review.reps} {current.reps} · {t.review.lapses} {current.lapses}</span>
+                {#if !(ctx.settings().hideMetaUntilAnswer && !showAnswer)}
+                    {#if current.state === 0}<span class="b3-chip b3-chip--primary">{t.review.tagNew}</span>{/if}
+                    <span class="b3-chip">{t.review.reps} {current.reps} · {t.review.lapses} {current.lapses}</span>
+                {/if}
             </span>
-            {#if current.deckID}
+            {#if current.deckID && !(ctx.settings().hideMetaUntilAnswer && !showAnswer)}
                 <span class="ft__smaller ft__on-surface" style="opacity:.7">{current.deckID}</span>
             {/if}
             <div class="fn__flex-1"></div>
@@ -1205,6 +1241,8 @@
                 display: flex; flex-direction: column; align-items: center; gap: 2px;
                 border-radius: var(--lv-r-m);
                 padding: 10px 12px;
+                /* 触屏命中区（546）：粗指针设备保底 44px 高 */
+                @media (pointer: coarse) { min-height: 44px; }
                 transition: transform var(--lv-dur-1) var(--lv-ease),
                     background var(--lv-dur-1) var(--lv-ease),
                     box-shadow var(--lv-dur-2) var(--lv-ease);

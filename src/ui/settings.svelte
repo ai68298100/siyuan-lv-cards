@@ -118,6 +118,11 @@
         if (!file) {
             return;
         }
+        if (file.size > 256 * 1024) {
+            showMessage(t.settings.importTooLarge, 3000, "error");
+            input.value = "";
+            return;
+        }
         try {
             const obj = JSON.parse(await file.text());
             if (obj?.app !== "lv-cards" || obj?.type !== "persona") {
@@ -288,6 +293,12 @@
         <LvRow label={t.settings.randomOrder}>
             <input class="b3-switch" type="checkbox" bind:checked={draft.randomOrder} />
         </LvRow>
+        <LvRow label={t.settings.reverseOrder} hint={t.settings.reverseOrderHint}>
+            <input class="b3-switch" type="checkbox" bind:checked={draft.reverseOrder} />
+        </LvRow>
+        <LvRow label={t.settings.hideMetaUntilAnswer} hint={t.settings.hideMetaHint}>
+            <input class="b3-switch" type="checkbox" bind:checked={draft.hideMetaUntilAnswer} />
+        </LvRow>
         <LvRow label={t.settings.requeueAgain} hint={t.settings.requeueAgainHint}>
             <input class="b3-switch" type="checkbox" bind:checked={draft.requeueAgain} />
         </LvRow>
@@ -353,6 +364,22 @@
                         {#each voices as v (v.name)}<option value={v.name}>{v.name}</option>{/each}
                     </select>
                 {/snippet}
+            </LvRow>
+        {/if}
+        <LvRow label={t.settings.sfxEnabled} hint={t.settings.sfxHint}>
+            <input class="b3-switch" type="checkbox" bind:checked={draft.sfxEnabled} />
+        </LvRow>
+        {#if draft.sfxEnabled}
+            <LvRow label={t.settings.sfxStyle}>
+                <LvSegmented
+                    options={[
+                        { value: "chime", label: t.settings.sfxChime },
+                        { value: "wood", label: t.settings.sfxWood },
+                        { value: "bell", label: t.settings.sfxBell },
+                    ]}
+                    value={draft.sfxStyle}
+                    onchange={(v) => (draft.sfxStyle = v as "chime" | "wood" | "bell")}
+                />
             </LvRow>
         {/if}
     </LvSection>

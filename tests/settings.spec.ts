@@ -43,4 +43,20 @@ describe("exam（M7）", () => {
         expect(s.reminderTime).toBe("20:00");
         expect(s.aiMode).toBe("siyuan");
     });
+
+    it("normalizeSettings 幂等（migration round-trip，535）", () => {
+        const messy = {
+            modules: { dashboard: false, dailyGoal: true, fsrsPanel: true, review: true },
+            dailyNewTarget: "30",
+            unknownField: { nested: true },
+            persona: "phd",
+            version: 0,
+        };
+        const once = normalizeSettings(messy);
+        const twice = normalizeSettings(JSON.parse(JSON.stringify(once)));
+        expect(once).toEqual(twice);
+        // 枚举外 persona 归 custom；未知字段保留（前向兼容：升级只增不删）
+        expect(once.persona).toBe("custom");
+        expect((twice as any).unknownField).toEqual({ nested: true });
+    });
 });

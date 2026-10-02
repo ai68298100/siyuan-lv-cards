@@ -196,6 +196,16 @@ export default class LvCardsPlugin extends Plugin {
                             },
                             // 状态过滤（M6·FR2）：新卡=本地 revlog 无记录；到期=内核到期清单交集
                             isNewBlock: (blockID: string) => !plugin.revlog.entries.some(e => e.blockID === blockID),
+                            // 遗忘次数映射（272）：管理器 lapses 排序用
+                            getLapsesMap: () => {
+                                const map: Record<string, number> = {};
+                                for (const e of plugin.revlog.entries) {
+                                    if (e.rating === 1 && e.blockID) {
+                                        map[e.blockID] = (map[e.blockID] ?? 0) + 1;
+                                    }
+                                }
+                                return map;
+                            },
                             getDueBlockIDs: async () => {
                                 try {
                                     const due = await getRiffDueCards("");
@@ -249,7 +259,10 @@ export default class LvCardsPlugin extends Plugin {
                             dailyReviewTarget: plugin.settings.dailyReviewTarget,
                             cardFontScale: plugin.settings.cardFontScale,
                             ratingDensity: plugin.settings.ratingDensity,
+                            hideMetaUntilAnswer: plugin.settings.hideMetaUntilAnswer,
+                            reverseOrder: plugin.settings.reverseOrder,
                             sfxEnabled: plugin.settings.sfxEnabled,
+                            sfxStyle: plugin.settings.sfxStyle,
                             batchLimit: plugin.settings.batchLimit,
                             typingEnabled: plugin.settings.typingEnabled,
                             typingStrict: plugin.settings.typingStrict,
@@ -559,12 +572,19 @@ export default class LvCardsPlugin extends Plugin {
         }
     }
 
+    private badgeSeq = 0;
+
     private refreshDueBadge() {
         if (!this.topBarElement || !this.settings.modules.review) {
             this.updateBadge(0);
             return;
         }
+        // 请求序号（536）：慢响应不覆盖新数据
+        const seq = ++this.badgeSeq;
         getDueCount().then(count => {
+            if (seq !== this.badgeSeq) {
+                return;
+            }
             this.lastDue = count;
             // M7·FR5：活动考试计划存在时，角标优先显示考试倒计时天数
             const plan = this.examPlans.plans.find(p => p.enabled && p.examDate);
@@ -619,6 +639,10 @@ export default class LvCardsPlugin extends Plugin {
         }
         badge.textContent = count > 99 ? "99+" : String(count);
         badge.title = this.i18n.badgeDue.replace("${n}", String(count));
+        // 颜色语义（313）：今日目标达成→绿；默认主色
+        const today = this.revlog.days[localDate(Date.now())];
+        const doneToday = today?.review ?? 0;
+        badge.classList.toggle("lv-badge--done", this.settings.dailyReviewTarget > 0 && doneToday >= this.settings.dailyReviewTarget);
     }
 
     /** 块图标菜单：制卡入口（M2·FR1）。菜单构建必须同步，耗时操作放 click 回调 */

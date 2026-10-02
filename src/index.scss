@@ -371,4 +371,9 @@
     color: var(--b3-theme-on-primary);
     box-shadow: var(--lv-shadow-1);
     pointer-events: none;
+
+    // 颜色语义（313）：今日目标达成→绿
+    &.lv-badge--done {
+        background: var(--b3-theme-primary);
+    }
 }
