@@ -272,6 +272,7 @@ describe("revlog 截断聚合一致性（AQ-21）", () => {
         return d.getTime() - daysAgo * DAY;
     };
 
+    // 负载波动敏感（两次 20k JSON round-trip + 全量 normalize），显式放宽超时
     it("20,001+ 条截断后重载：截断前日期聚合保留、不重复计数", () => {
         const d = emptyRevlog();
         // 60 天前开始每天 400 条 → 24000 条，明细被截到最近 2 万条
@@ -288,7 +289,7 @@ describe("revlog 截断聚合一致性（AQ-21）", () => {
         expect(reloaded.entries.length).toBe(20000);      // 不重复计数
         const twice = normalizeRevlog(JSON.parse(JSON.stringify(reloaded)));
         expect(twice.days).toEqual(reloaded.days);        // 幂等
-    });
+    }, 30000);
 
     it("截断卡的后续评分按复习计（knownCards 保留首评语义）", () => {
         const d = emptyRevlog();
@@ -356,6 +357,20 @@ describe("revlog 2 万条性能预算（G 组·内存审计）", () => {    it("
         const elapsed = performance.now() - t0;
         // 宽松预算（CI 波动安全）：2 万条全链路 < 2000ms
         expect(elapsed).toBeLessThan(2000);
+    });
+
+    it("2 万条 normalize（加载清洗路径）在 1.5s 内（AQ-3/AQ-21 加载预算）", () => {
+        const d = emptyRevlog();
+        const now = Date.now();
+        for (let i = 0; i < 20000; i++) {
+            appendRevlog(d, entry(now - i * 3600000, `c${i % 500}`, 3));
+        }
+        const raw = JSON.parse(JSON.stringify(d));
+        const t0 = performance.now();
+        const reloaded = normalizeRevlog(raw);
+        const elapsed = performance.now() - t0;
+        expect(reloaded.entries).toHaveLength(20000);
+        expect(elapsed).toBeLessThan(1500);
     });
 });
 
