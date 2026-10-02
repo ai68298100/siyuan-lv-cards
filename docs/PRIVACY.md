@@ -7,7 +7,7 @@
 | 数据 | 位置 | 说明 |
 |---|---|---|
 | 卡片本体 | 思源笔记内核（riff 库） | 本插件只读写内核接口，不复制不锁定 |
-| 设置 / 复习日志 / 考试计划 / AI 批次 | `data/storage/petal/siyuan-lv-cards/` | 随思源同步走你自己的同步渠道；当前自定义端点主/备用 key 仍在设置中保存，secret 迁移见 AW-1 |
+| 设置 / 复习日志 / 考试计划 / AI 批次 / 会话状态 / 今日不学 | `data/storage/petal/siyuan-lv-cards/`（settings.json / revlog.json / exam-plans.json / ai-batches.json / session-state.json / suspend-today.json） | 随思源同步走你自己的同步渠道；当前自定义端点主/备用 key 仍在设置中保存，secret 迁移见 AW-1。会话状态含当日已评分/已跳过卡 ID 与计数（次日自动作废） |
 | 示例卡 / AI 卡 / 快速制卡文档 | 你的笔记本内普通文档 | 用户可见可删 |
 | AI 批次作业（ai-jobs.json） | `data/storage/petal/siyuan-lv-cards/` | 断点续传用：材料来源摘要（type/标签/前 200 字符，**不存原文**）+ 生成的卡片问答文本与导入状态；上限 20 个作业，放弃即删除记录（已创建的卡片保留）；设置 → 数据 不单列导出，随插件私有数据整体处理 |
 

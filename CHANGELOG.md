@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.95.0 2026-10-03 · 隐私披露补全 + 治理脚本新增存储披露核对
+
+* docs/PRIVACY 存储表列全 7 个数据文件：补 `session-state.json`（当日已评分/已跳过卡 ID 与计数，次日作废）与 `suspend-today.json`——此前的披露行只列了 4/7
+* `scripts/check-governance.mjs` 新增**存储披露核对**：src/index.ts 声明的每个 `*_DATA` 文件必须在 PRIVACY.md 披露，否则 CI 失败——隐私披露完整性从此自动化防漂移
+* docs-only 轮次：测试 192/192、0 errors/0 warnings、主包 gzip 27.51KB 不变
+
 ## v0.94.0 2026-10-03 · cards-created 事件转正 + 存储体检补 ai-jobs
 
 * docs/14 §8 预留事件 `lv-cards:cards-created` 转正：AI 制卡逐卡导入全部完成后发射 `{deckID, count, blockIDs[]}`（ADR-7 落地后 payload 确定；快速/标记等无 AI 制卡路径不发）

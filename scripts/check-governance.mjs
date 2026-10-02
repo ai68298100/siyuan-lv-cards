@@ -83,6 +83,16 @@ for (const [groupId, idPrefix] of [["AQ", "AQ-"], ["BZ", "BZ-"]]) {
     }
 }
 
+// ⑦ 存储披露一致性：src/index.ts 声明的每个 *_DATA 文件必须在 docs/PRIVACY.md 披露
+const indexTs = readFileSync("src/index.ts", "utf8");
+const dataFiles = [...indexTs.matchAll(/_DATA = "([^"]+)"/g)].map(m => m[1]);
+const privacy = readFileSync("docs/PRIVACY.md", "utf8");
+for (const f of dataFiles) {
+    if (!privacy.includes(f)) {
+        failures.push(`storage file "${f}" not disclosed in docs/PRIVACY.md`);
+    }
+}
+
 if (failures.length > 0) {
     console.error("治理一致性校验失败：");
     for (const f of failures) {
