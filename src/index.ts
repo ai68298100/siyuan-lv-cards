@@ -958,6 +958,7 @@ export default class LvCardsPlugin extends Plugin {
         push("suspend-today.json", `${this.suspendToday.cardIDs.length} cards`);
         push("exam-plans.json", `${this.examPlans.plans.length} plans`);
         push("ai-batches.json", `${this.aiBatches.batches.length} batches`);
+        push("ai-jobs.json", `${this.aiJobs.jobs.length} jobs (ADR-7)`);
         return rows;
     }
 
@@ -1472,6 +1473,13 @@ export default class LvCardsPlugin extends Plugin {
                 await this.persist.save(AI_JOBS_DATA, this.aiJobs).catch(() => { /* onFail 已记录 */ });
             }
         }
+        // docs/14 §8：cards-created 事件从「预留」转正（ADR-7 落地后有了确定 payload）
+        try {
+            (this.eventBus as any).emit("lv-cards:cards-created", {
+                plugin: "lv-cards", v: 1,
+                deckID, count: blockIDs.length, blockIDs,
+            });
+        } catch { /* 事件旁路 */ }
         showMessage(this.i18n.deckAdded.replace("${n}", String(blockIDs.length)), 2000, "info");
     }
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.94.0 2026-10-03 · cards-created 事件转正 + 存储体检补 ai-jobs
+
+* docs/14 §8 预留事件 `lv-cards:cards-created` 转正：AI 制卡逐卡导入全部完成后发射 `{deckID, count, blockIDs[]}`（ADR-7 落地后 payload 确定；快速/标记等无 AI 制卡路径不发）
+* 存储体检（设置 → 数据）补 `ai-jobs.json` 行（v0.81 新增的持久化文件此前未入体检清单）
+* 测试 192/192；0 errors/0 warnings；主包 gzip 27.46KB（预算内）
+
 ## v0.93.0 2026-10-03 · AQ-16 lint 响应式重算 + 行号引用核对
 
 * 修正：lint 改为 `$derived.by` 随 candidates（含 textarea 编辑）响应式重算——此前仅生成时计算一次，用户编辑后提示不更新（v0.92 CHANGELOG 的「编辑后重算」描述不实，已修正实现与文档一致）
