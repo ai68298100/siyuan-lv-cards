@@ -15,6 +15,8 @@
     } = $props();
     const t = $derived(i18n);
 
+    // 初值语义：扫描结果一次性传入，默认全选后由用户勾选
+    // svelte-ignore state_referenced_locally
     let picked = $state<Set<string>>(new Set(items.map(i => i.blockID)));
     let busy = $state(false);
 

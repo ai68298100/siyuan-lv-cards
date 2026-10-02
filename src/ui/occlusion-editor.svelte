@@ -123,14 +123,18 @@
     {/if}
     <div class="lv-occed-stage lv-card2" bind:this={preview}>
         {#if overlay}
+            <!-- 绘图画布：框选本质是指针交互（拖动画框），键盘替代为撤销/清空按钮 -->
+            <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
             <svg
                 bind:this={overlay}
                 class="lv-occed-overlay"
                 viewBox="0 0 100 100"
                 preserveAspectRatio="none"
+                role="img"
+                aria-label={t.occlusion.editorAria}
                 onmousedown={onDown}
-            >
-                {#each rects as r, i (i)}
+            >                {#each rects as r, i (i)}
+                    <!-- svelte-ignore a11y_no_static_element_interactions -->
                     <rect x={r.x * 100} y={r.y * 100} width={r.w * 100} height={r.h * 100}
                         fill="var(--b3-theme-primary)" opacity="0.45"
                         ondblclick={() => (rects = rects.filter((_, j) => j !== i))} />

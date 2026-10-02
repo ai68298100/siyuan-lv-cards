@@ -27,17 +27,22 @@
         onTabChange?: (id: string) => void;
     } = $props();
 
+    // 初值语义：i18n/exam 由挂载时的插件设置决定，hub 生命周期内不变
+    // svelte-ignore state_referenced_locally
     const tabs = [
         { id: "overview", label: i18n.hubTabOverview },
         { id: "manage", label: i18n.hubTabManage },
         ...(exam ? [{ id: "exam", label: i18n.hubTabExam }] : []),
     ];
+    // svelte-ignore state_referenced_locally
     let active = $state(
         initialTab === "manage" || (initialTab === "exam" && exam) ? initialTab : "overview"
     );
 
+    // svelte-ignore state_referenced_locally
     let plans = $state(exam?.plans ?? { version: 1 as const, plans: [] });
 
+    // svelte-ignore state_referenced_locally
     const dctx: DashboardCtx = { ...dashboardBase, openManager: () => (active = "manage") };
 
     // 考试子页懒加载（体积预算 670）：首次切到考试页才拉取 chunk
@@ -55,6 +60,8 @@
     $effect(() => {
         if (active === "exam") { ensureExam(); }
     });
+    // 初值语义：首帧按入口参数直达考试页；此后由 switchTab 驱动
+    // svelte-ignore state_referenced_locally
     if (active === "exam") { ensureExam(); }
 
     function switchTab(id: string) {

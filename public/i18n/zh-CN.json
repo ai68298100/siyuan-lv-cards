@@ -502,6 +502,7 @@
     "examReportCopied": "复盘报告已复制到剪贴板",
     "backlogWarn": "已经 ${n} 天没复习闪卡了，到期卡在等你～",
     "occlusion": {
+        "editorAria": "遮挡绘制区：按住拖动画框，双击删除已有框",
         "title": "制作图片遮挡卡",
         "drawHint": "在图片上拖拽绘制遮挡区域；双击区域删除",
         "undo": "撤销框",

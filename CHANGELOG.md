@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.71.0 2026-10-03 · 质量收口：svelte warnings 25→0 + AO 立项提案
+
+* 真问题修复 4 条：LvSteps 步骤指示器以 `aria-current="step"` 取代非法的 button+listitem 组合；遮挡画布 SVG 补 `role="img"`+aria-label（键盘替代为撤销/清空按钮）、删除框加注释豁免；AI 向导死 CSS `.lv-ob-step` 清理
+* 刻意初值捕获登记 21 条：`state_referenced_locally` 逐条加 svelte-ignore + 理由注释（对话框 props 一次性传入 / hub 首帧直达 / 设置快照 draft / LvStat 动画首值——挂载后语义即固化，非缺陷）
+* `pnpm check` 达成 **0 errors / 0 warnings**（此前 25 warnings 含已登记刻意的基线长期存在）
+* docs/17 AO 组新增立项提案草案 2 份（标注「待用户授权立项」，不建 checkbox）：Orbit 阅读态迷你复习（建议并入 BX-7 评审）、hashcards 内容寻址防重复（与内核查重互补）
+* 测试 115/115；i18n 526 对齐；主包 gzip 25.38KB（预算内）
+
 ## v0.70.0 2026-10-03 · docs-only：AT-1 候选 ADR + R54 五旅程验证报告
 
 * docs/24 新增**候选 ADR-6「跨前端同步重载协议」**（AT-1 预研，状态 Proposed 待宿主契约确认）：按 key 版本探测 + 有界串行 reload（先冲刷本地未落盘写入）+ 合并策略（settings 逐字段/revlog 幂等去重/session 取新）+ Tab 保持与失败重试；开放问题与决策门槛逐条列出，未改任何运行代码

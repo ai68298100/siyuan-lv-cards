@@ -92,7 +92,10 @@
     let showAnswer = $state(false);
     let cardHtml = $state("");
     // 复习范围（M3·FR1）：all | deck:<id> | notebook:<id>
+    // 初值语义：范围仅经命令/考试入口传入一次，运行时由用户切换
+    // svelte-ignore state_referenced_locally
     let scopeKey = $state(initialScope ?? "all");
+    // svelte-ignore state_referenced_locally
     let cramActive = $state(initialCram === true);
     let decks: RiffDeck[] = $state([]);
     let notebooks: Notebook[] = $state([]);

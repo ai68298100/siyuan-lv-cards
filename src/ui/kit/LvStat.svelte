@@ -21,6 +21,8 @@
         neutral: "var(--b3-theme-on-surface)",
     };
 
+    // 刻意捕获初值：animate 只对首次挂载的数值做滚动，后续由 $effect 跟随更新
+    // svelte-ignore state_referenced_locally
     let display = $state(value);
 
     $effect(() => {

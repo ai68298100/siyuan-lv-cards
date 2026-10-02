@@ -502,6 +502,7 @@
     "examReportCopied": "Exam report copied to clipboard",
     "backlogWarn": "${n} days without reviewing — your due cards are waiting!",
     "occlusion": {
+        "editorAria": "Occlusion canvas: drag to draw a box, double-click to remove one",
         "title": "Create image occlusion",
         "drawHint": "Drag on the image to draw masks; double-click a region to delete",
         "undo": "Undo rect",

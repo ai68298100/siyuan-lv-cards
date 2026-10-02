@@ -9,14 +9,14 @@
     } = $props();
 </script>
 
-<div class="lv-steps" role="list">
+<div class="lv-steps">
     {#each steps as label, i (label)}
         <button
             class="lv-step"
             class:lv-step--on={i === current}
             class:lv-step--done={i < current}
             disabled={!onclick}
-            role="listitem"
+            aria-current={i === current ? "step" : undefined}
             onclick={() => onclick?.(i)}
         >
             <span class="lv-step-dot">{i < current ? "✓" : i + 1}</span>

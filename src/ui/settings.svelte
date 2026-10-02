@@ -38,7 +38,10 @@
     let { ctx }: { ctx: SettingsCtx } = $props();
     const t = $derived(ctx.i18n);
 
+    // 初值语义：draft 是打开设置时的快照，保存前不随源变化
+    // svelte-ignore state_referenced_locally
     let draft: LvCardsSettings = $state(JSON.parse(JSON.stringify(ctx.settings)));
+    // svelte-ignore state_referenced_locally
     let v2Label = $state(ctx.getV2Status());
     let voices = $state<{ name: string }[]>([]);
     /** 笔记本清单（605） */

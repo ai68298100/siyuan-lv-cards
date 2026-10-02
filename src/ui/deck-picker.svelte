@@ -12,10 +12,14 @@
         onClose: () => void;
     } = $props();
 
+    // 初值语义：调用方可直传卡组列表避免重复请求，挂载后不更新
+    // svelte-ignore state_referenced_locally
     let decks: RiffDeck[] = $state(initialDecks ?? []);
+    // svelte-ignore state_referenced_locally
     let selected = $state(initialDecks?.[0]?.id ?? "");
     let newName = $state("");
     let busy = $state(false);
+    // svelte-ignore state_referenced_locally
     let loading = $state(!initialDecks);
     let errorMsg = $state("");
 

@@ -24,6 +24,8 @@
     const t = $derived(i18n);
 
     let step = $state(1);
+    // 初值语义：leech 改写预填只在打开时注入一次
+    // svelte-ignore state_referenced_locally
     let source = $state(initialSource);
     let count = $state(10);
     let language = $state("中文");
@@ -350,11 +352,6 @@
         align-items: center;
         gap: var(--lv-sp-2);
         margin-bottom: var(--lv-sp-3);
-    }
-    .lv-aiwiz .lv-ob-step {
-        font-size: 12px;
-        color: var(--b3-theme-on-surface);
-        font-variant-numeric: tabular-nums;
     }
     .lv-aiwiz-list {
         display: flex;
