@@ -38,8 +38,10 @@ function normalize(s: string, strict: boolean): string {
     }
     // NFKC 折叠全角→半角（全角输入不再被整段剥离），再去掉空白与其余标点/符号
     const folded = s.normalize("NFKC").toLowerCase();
+    // 欧式小数逗号 → 小数点（仅数字间），使 "3,14" 与 "3.14" 匹配
+    const decimal = folded.replace(/(\d),(\d)/g, "$1.$2");
     let out = "";
-    for (const ch of folded) {
+    for (const ch of decimal) {
         if (/\s/.test(ch)) {
             continue;
         }

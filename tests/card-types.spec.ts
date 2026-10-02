@@ -67,3 +67,21 @@ describe("card-type registry", () => {
         expect(listCardTypes().length).toBeGreaterThan(0);
     });
 });
+
+describe("宽松判分欧式小数点归一化（BX-1 离线子集）", () => {
+    it("3,14 与 3.14 匹配（欧式小数逗号）", () => {
+        expect(gradeTyping("3.14", "3,14", false).suggested).toBe(3);
+    });
+
+    it("1,000 与 1.000 匹配（千位分隔逗号不干扰）", () => {
+        expect(gradeTyping("1.000", "1,000", false).suggested).toBe(3);
+    });
+
+    it("非数字间逗号仍剥离（不影响普通文本判分）", () => {
+        expect(gradeTyping("hello, world", "hello world", false).suggested).toBe(3);
+    });
+
+    it("严格模式不归一化（3,14 ≠ 3.14 → Hard 建议）", () => {
+        expect(gradeTyping("3.14", "3,14", true).suggested).toBe(2);
+    });
+});
