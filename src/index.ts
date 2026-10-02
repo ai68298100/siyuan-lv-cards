@@ -1421,8 +1421,8 @@ export default class LvCardsPlugin extends Plugin {
                         throw e;
                     }
                 },
-                onCreate: (cards: { q: string; a: string }[], indexes: number[], deckID: string, deckName: string, jobId: string) =>
-                    this.createAICards(cards, indexes, deckID, deckName, jobId),
+                onCreate: (cards: { q: string; a: string; origIndex: number }[], deckID: string, deckName: string, jobId: string) =>
+                    this.createAICards(cards, deckID, deckName, jobId),
                 // ADR-7 恢复入口：上次导入中断的续传/放弃
                 getUnfinishedJob: () => this.getUnfinishedAIJob(),
                 onResumeAIJob: (id: string) => this.resumeAIJobCommit(id),
@@ -1433,7 +1433,7 @@ export default class LvCardsPlugin extends Plugin {
     }
 
     /** ADR-7 第 3 步：逐卡提交 + 断点记录——每卡 appendBlock+入组成功即持久化，中断续传只处理 pending */
-    private async createAICards(cards: { q: string; a: string }[], indexes: number[], deckID: string, _deckName: string, jobId: string) {
+    private async createAICards(cards: { q: string; a: string; origIndex: number }[], deckID: string, _deckName: string, jobId: string) {
         const nb = await this.targetNotebook();
         if (!nb) {
             throw new Error(this.i18n.onboardingNoNotebook);
@@ -1450,14 +1450,14 @@ export default class LvCardsPlugin extends Plugin {
             await this.persist.save(AI_JOBS_DATA, this.aiJobs).catch(() => { /* onFail 已记录 */ });
         }
         const blockIDs: string[] = [];
-        for (let i = 0; i < cards.length; i++) {
-            const ids = await appendBlock("markdown", `${cards[i].q} ==${cards[i].a}==`, docID);
+        for (const card of cards) {
+            const ids = await appendBlock("markdown", `${card.q} ==${card.a}==`, docID);
             const blockID = ids[0];
             blockIDs.push(blockID);
-            // ADR-7：逐卡入组成功即记账（单卡批），中断后 pending 续传
+            // ADR-7：逐卡入组成功即记账（单卡批），origIndex 指向作业 candidates 原位（✕ 移除后仍正确）
             await addRiffCards(deckID, [blockID]);
             if (job) {
-                const r = transitionJob(job, { type: "CARD_CREATED", index: indexes[i] ?? i, blockID });
+                const r = transitionJob(job, { type: "CARD_CREATED", index: card.origIndex, blockID });
                 if (r.ok) {
                     job = r.job;
                     this.aiJobs.jobs = pruneJobs([...this.aiJobs.jobs, job]);
@@ -1465,10 +1465,19 @@ export default class LvCardsPlugin extends Plugin {
                 }
             }
         }
+        // 未勾选/被移除的候选记 CARD_SKIPPED，使 COMMIT_DONE 可通过（保留勾选但未导入的语义留痕）
         if (job) {
-            const r = transitionJob(job, { type: "COMMIT_DONE" });
-            if (r.ok) {
-                job = r.job;
+            for (let idx = 0; idx < job.candidates.length; idx++) {
+                if (job.candidates[idx].status === "pending") {
+                    const r = transitionJob(job, { type: "CARD_SKIPPED", index: idx });
+                    if (r.ok) { job = r.job; }
+                }
+            }
+            this.aiJobs.jobs = pruneJobs([...this.aiJobs.jobs, job]);
+            await this.persist.save(AI_JOBS_DATA, this.aiJobs).catch(() => { /* onFail 已记录 */ });
+            const done = transitionJob(job, { type: "COMMIT_DONE" });
+            if (done.ok) {
+                job = done.job;
                 this.aiJobs.jobs = pruneJobs([...this.aiJobs.jobs, job]);
                 await this.persist.save(AI_JOBS_DATA, this.aiJobs).catch(() => { /* onFail 已记录 */ });
             }

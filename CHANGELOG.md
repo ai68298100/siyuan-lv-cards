@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.101.0 2026-10-03 · ADR-7 修复：预览移除候选的下标错位 + 未勾选 skipped 语义
+
+* 修复（v0.81 回归）：预览 ✕ 移除候选后下标错位——wizard 候选携带 `origIndex`（✕ 移除后仍指向作业 candidates 原位），逐卡 `CARD_CREATED` 不再标记错误候选
+* 未勾选/被移除的候选记 `CARD_SKIPPED`（状态机新增 skipped 语义，COMMIT_DONE 前清算）——作业不再卡死在 committing、不再产生虚假「未完成导入」横幅
+* docs/24 ADR-7 草案同步 skipped 状态留痕
+* 测试 198/198；0 errors/0 warnings；主包 gzip 27.51KB（预算内）
+
 ## v0.100.0 2026-10-03 · v1.0.0-rc 发布就绪审计（docs/35）
 
 * 新增 docs/35-v1.0.0-发布就绪审计.md：发布链路七环节逐环核查（全通过）+ 审计发现处置表 + **打 tag 前检查清单**（真机验收/A-06 决策/版本一致性/Release notes 引用/已知限制声明）

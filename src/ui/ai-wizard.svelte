@@ -16,8 +16,8 @@
         initialSource?: string;
         /** 调用方实现：构造 prompt → 调 AI → 解析卡片（ADR-7：返回 cards + jobId 供断点续传）；第三参为取消信号（AQ-14） */
         generate: (source: string, cfg: { count: number; language: string; type: "qa" | "cloze" }, opts?: { signal?: AbortSignal }) => Promise<{ cards: { q: string; a: string; d?: number }[]; jobId: string }>;
-        /** ADR-7：逐卡提交——indexes 为各卡在作业 candidates 中的原始下标 */
-        onCreate: (cards: { q: string; a: string }[], indexes: number[], deckID: string, deckName: string, jobId: string) => Promise<void>;
+        /** ADR-7：逐卡提交——卡片携带 origIndex 指向作业 candidates 原位（✕ 移除后仍正确） */
+        onCreate: (cards: { q: string; a: string; origIndex: number }[], deckID: string, deckName: string, jobId: string) => Promise<void>;
         onClose: () => void;
         /** 载入当前打开文档（M2·FR6 输入源扩展；不可用时返回 null） */
         loadCurrentDoc?: () => Promise<{ name: string; content: string } | null>;
@@ -45,7 +45,7 @@
     let selected = $state("");
     let newName = $state("");
 
-    let candidates: { q: string; a: string; d?: number; keep: boolean }[] = $state([]);
+    let candidates: { q: string; a: string; d?: number; keep: boolean; origIndex: number }[] = $state([]);
     /** AQ-16 预览 lint：随 candidates（含编辑）响应式重算（批内重复/过长/过短） */
     let lintWarnings: string[][] = $derived.by(() => lintAICards(candidates.map(c => ({ q: c.q, a: c.a }))));
     /** ADR-7：当前预览对应的作业 ID（导入按 candidates 下标断点记账；重生替换内容不换绑定） */
@@ -200,7 +200,7 @@
             if (cards.length === 0) {
                 throw new Error(t.aiWizard.emptyResult);
             }
-            candidates = cards.map(c => ({ ...c, keep: true }));
+            candidates = cards.map((c, i) => ({ ...c, keep: true, origIndex: i }));
             // ADR-7：绑定本次作业，导入时按候选下标断点记账
             currentJobId = jobId;
             step = 2;
@@ -236,7 +236,8 @@
             }
             if (cards.length > 0) {
                 const keep = candidates[i].keep;
-                candidates[i] = { ...cards[0], keep };
+                // 重生成仅替换内容：保持 origIndex 与作业 candidates 对位（内容为新生成，已知边界）
+                candidates[i] = { ...cards[0], keep, origIndex: i };
                 candidates = [...candidates];
             } else {
                 errorMsg = t.aiWizard.emptyResult;
@@ -255,8 +256,8 @@
     }
 
     async function importCards() {
-        const pickedIdx = candidates.map((c, i) => (c.keep ? i : -1)).filter(i => i >= 0);
-        const picked = pickedIdx.map(i => candidates[i]);
+        // ADR-7：origIndex 随候选对象存续（✕ 移除后仍指向作业 candidates 原位）
+        const picked = candidates.filter(c => c.keep);
         if (picked.length === 0 || creating) {
             return;
         }
@@ -274,8 +275,7 @@
                 errorMsg = t.quickCardNeedDeck;
                 return;
             }
-            // ADR-7：indexes 对应当前作业 candidates 下标（重生成替换内容，下标不变）
-            await onCreate(picked.map(c => ({ q: c.q, a: c.a })), pickedIdx, deckID, deckName, currentJobId);
+            await onCreate(picked.map(c => ({ q: c.q, a: c.a, origIndex: c.origIndex })), deckID, deckName, currentJobId);
             closeWizard();
         } catch (e: any) {
             errorMsg = e?.message ?? String(e);

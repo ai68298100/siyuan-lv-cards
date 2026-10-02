@@ -23,8 +23,8 @@ export interface AIJobCandidate {
     a: string;
     d?: number;
     keep: boolean;
-    /** pending=未落块；created=已入组（blockID 记录）；failed=本次尝试失败 */
-    status: "pending" | "created" | "failed";
+    /** pending=未落块；created=已入组（blockID 记录）；failed=本次尝试失败；skipped=用户在预览中移除/取消勾选 */
+    status: "pending" | "created" | "failed" | "skipped";
     blockID?: string;
     error?: string;
 }
@@ -57,6 +57,7 @@ export type AIJobEvent =
     | { type: "COMMIT_START"; deckID: string }
     | { type: "CARD_CREATED"; index: number; blockID: string }
     | { type: "CARD_FAILED"; index: number; error: string }
+    | { type: "CARD_SKIPPED"; index: number }
     | { type: "COMMIT_DONE" }
     | { type: "FAIL"; error: string }
     | { type: "CANCEL" }
@@ -76,6 +77,7 @@ const TRANSITIONS: Record<AIJobStatus, Partial<Record<AIJobEvent["type"], Transi
     committing: {
         CARD_CREATED: "committing",
         CARD_FAILED: "committing",
+        CARD_SKIPPED: "committing",
         COMMIT_DONE: "done",
         FAIL: "failed",
         CANCEL: "canceled",
@@ -141,6 +143,17 @@ export function transitionJob(job: AIJob, event: AIJobEvent): TransitionResult {
             c.error = event.error.slice(0, 500);
             break;
         }
+        case "CARD_SKIPPED": {
+            const c = next.candidates[event.index];
+            if (!c) {
+                return { job, ok: false, reason: `candidate index ${event.index} out of range` };
+            }
+            if (c.status !== "pending") {
+                return { job, ok: false, reason: `candidate ${event.index} not pending (status=${c.status})` };
+            }
+            c.status = "skipped";
+            break;
+        }
         case "COMMIT_DONE": {
             const pending = next.candidates.some(c => c.status === "pending");
             if (pending) {
@@ -198,7 +211,7 @@ function sanitizeCandidate(raw: any): AIJobCandidate | null {
         return null;
     }
     const d = Number(raw.d);
-    const status = raw.status === "created" || raw.status === "failed" ? raw.status : "pending";
+    const status = raw.status === "created" || raw.status === "failed" || raw.status === "skipped" ? raw.status : "pending";
     return {
         q,
         a,
