@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.84.0 2026-10-03 · 工程化：治理一致性校验入 CI
+
+* 新增 `scripts/check-governance.mjs`：docs/17 ↔ docs/31 六项自动核对——[x] 总数、summary 块五项统计、每包 summary.total、docs/17 总计行（含加粗格式）、每条 entry 主归属存在性、AQ/BZ 组统计行抽查；不一致即 CI 失败
+* `.github/workflows/ci.yml` 新增 Governance consistency 门禁步骤（i18n 校验之后、单测之前）
+* 此前每轮手工做的计数核对从此自动化——手改文档漂移会被 CI 拦截
+* 测试 158/158；0 errors/0 warnings；主包 gzip 27.34KB（预算内）
+
 ## v0.83.0 2026-10-03 · docs-only：ADR-7 状态更新 + 隐私说明补 ai-jobs
 
 * docs/24 候选 ADR-7 状态更新：Proposed → **Partially Accepted**（v0.80-v0.82 第 1-3 步按草案实现且与设计一致；第 4 步真实模型联调待 G3-call）；两处实现决策差异留痕——逐卡提交为 appendBlock+单卡入组完整流程（无半成品窗口，开放问题①据此关闭）、放弃语义为删作业记录且已落卡保留（不回滚）
