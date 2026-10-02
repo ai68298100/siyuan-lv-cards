@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.104.0 2026-10-03 · Kit smoke 收官：布局壳 snippet 宿主全覆盖
+
+* **LvPageHost/LvDrawerHost**（children snippet 完整形态）：title/subtitle/dot 渲染、children 内容、open=false 无遮罩——布局壳三件套（LvSection/LvPage/LvDrawer）snippet 传子组件的宿主测试全部就位
+* 纯 props + 事件 + 可绑定 + snippet 宿主 Kit smoke 覆盖达 **13+4=17 处断言组**，可离线测试的 Kit 层全部覆盖
+* 测试 198→201；0 errors/0 warnings；主包 gzip 27.51KB（预算内）
+
 ## v0.103.0 2026-10-03 · A-06 决策落地：发布包裁剪为用户向文档 + Kit smoke 第五批（LvSection 宿主）
 
 * **A-06 发布包内容决策落地**：dist 静态拷贝从全量 34 篇内部文档裁剪为用户向五件（20-FAQ/21-上手指南/22-术语表/23-许可证/PRIVACY，stripBase 平铺防 docs/docs 嵌套）；内部调研与治理文档经 GitHub 仓库获取；README 双语仍随包。决策可逆（git revert vite.config.ts）
