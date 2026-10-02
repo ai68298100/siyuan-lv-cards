@@ -9,56 +9,6 @@
 import { Dialog } from "siyuan";
 import { Component, mount, unmount } from "svelte";
 
-export const inputDialog = (args: {
-    title: string, placeholder?: string, defaultText?: string,
-    confirm?: (text: string) => void, cancel?: () => void,
-    width?: string, height?: string
-}) => {
-    const dialog = new Dialog({
-        title: args.title,
-        content: `<div class="b3-dialog__content">
-    <div class="ft__breakword"><textarea class="b3-text-field fn__block" style="height: 100%;" placeholder=${args?.placeholder ?? ''}>${args?.defaultText ?? ''}</textarea></div>
-</div>
-<div class="b3-dialog__action">
-    <button class="b3-button b3-button--cancel">${window.siyuan.languages.cancel}</button><div class="fn__space"></div>
-    <button class="b3-button b3-button--text" id="confirmDialogConfirmBtn">${window.siyuan.languages.confirm}</button>
-</div>`,
-        width: args.width ?? "520px",
-        height: args.height
-    });
-    const target: HTMLTextAreaElement = dialog.element.querySelector(".b3-dialog__content>div.ft__breakword>textarea");
-    const btnsElement = dialog.element.querySelectorAll(".b3-button");
-    btnsElement[0].addEventListener("click", () => {
-        if (args?.cancel) {
-            args.cancel();
-        }
-        dialog.destroy();
-    });
-    btnsElement[1].addEventListener("click", () => {
-        if (args?.confirm) {
-            args.confirm(target.value);
-        }
-        dialog.destroy();
-    });
-};
-
-export const inputDialogSync = async (args: {
-    title: string, placeholder?: string, defaultText?: string,
-    width?: string, height?: string
-}) => {
-    return new Promise<string>((resolve) => {
-        let newargs = {
-            ...args, confirm: (text) => {
-                resolve(text);
-            }, cancel: () => {
-                resolve(null);
-            }
-        };
-        inputDialog(newargs);
-    });
-}
-
-
 interface IConfirmDialogArgs {
     title: string;
     content: string | HTMLElement;
@@ -107,19 +57,6 @@ export const confirmDialog = (args: IConfirmDialogArgs) => {
     });
 };
 
-
-export const confirmDialogSync = async (args: IConfirmDialogArgs) => {
-    return new Promise<HTMLElement>((resolve) => {
-        let newargs = {
-            ...args, confirm: (ele: HTMLElement) => {
-                resolve(ele);
-            }, cancel: (ele: HTMLElement) => {
-                resolve(ele);
-            }
-        };
-        confirmDialog(newargs);
-    });
-};
 
 /** 布尔化确认框：true=确认，false=取消（重复提示等需要分支的流程用） */
 export const confirmDialogBool = (args: Omit<IConfirmDialogArgs, "confirm" | "cancel">) =>

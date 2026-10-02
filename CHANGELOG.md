@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.74.0 2026-10-03 · 死代码清理 + 帮助补 Obsidian SR 语法
+
+* 移除模板遗留死代码约 550 行（全部经引用核查为零引用）：`libs/setting-utils.ts`（宿主 Setting 包装类）、`libs/promise-pool.ts`（并发池，含其测试）、`libs/components/` 整目录（Form/setting-panel/sidebar-tabs-layout/b3-typography）、`libs/index.d.ts`（仅为 setting-utils 服务的环境类型）
+* `dialog.ts` 移除三个无人引用导出（inputDialog/inputDialogSync/confirmDialogSync），保留在用的 confirmDialog/confirmDialogBool/simpleDialog（内部）/svelteDialog；补回被误删的 IConfirmDialogArgs 接口定义
+* 内置帮助「制卡方式」补 Obsidian SR 语法说明（中英：`:::` 双向按正向、多行 `?`/`??`、tag 仅作提示）
+* 测试 140→137（promise-pool 测试随模块移除）；0 errors/0 warnings；主包 gzip 25.38KB（预算内）
+
 ## v0.73.0 2026-10-03 · 巡检轮：CI 全绿核实 + 回归自查 + 最后三组测试盲区
 
 * GitHub CI 巡检：v0.64→v0.72 全部推送提交的 CI 运行均为 success（含最新 main）

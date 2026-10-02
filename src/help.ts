@@ -31,7 +31,7 @@ const HELP_ZH = `# 小驴闪卡 · 使用帮助
 - **块制卡**：块图标菜单 → 添加到卡组（支持多选批量）
 - **挖空制卡**：编辑器选中文本 → 菜单「挖空并制卡」（包 ==高亮==）
 - **快速问答**：命令面板「快速制卡」
-- **标记符制卡**：文档里写 \`术语:: 定义\` 或以「？」结尾的段落 → 命令「扫描本文档标记符制卡」
+- **标记符制卡**：文档里写 \`术语:: 定义\` 或以「？」结尾的段落 → 命令「扫描本文档标记符制卡」；兼容 Obsidian 闪卡语法：\`问 ::: 答\`（双向按正向制卡）、多行「问 ? 答」/「问 ?? 答」、\`#flashcards/卡组\` 标签（仅作提示，卡组仍由弹窗选择）
 - **AI 批量制卡**：设置配置 AI → 闪卡中心 → AI 向导（支持当前文档/笔记本/选区/粘贴）
 - **图片遮挡**：块图标菜单 → 制作遮挡卡，在图上画框即卡
 
@@ -90,7 +90,7 @@ const HELP_EN = `# Lv Cards · Help
 - **Block card**: block icon menu -> Add to deck (multi-select supported)
 - **Cloze**: select text in the editor -> "Cloze & make card" (wraps in ==mark==)
 - **Quick Q/A**: command palette -> "Quick card"
-- **Markers**: write \`term:: definition\` or end a paragraph with ? -> run the scan command
+- **Markers**: write \`term:: definition\` or end a paragraph with ? -> run the scan command. Obsidian flashcard syntax also works: \`q ::: a\` (reversed pairs are created as forward cards), multi-line "q ? a" / "q ?? a", and \`#flashcards/deck\` tags (hint only — the deck is still picked in the dialog)
 - **AI batch**: configure AI in settings -> AI wizard (current doc / notebook / selection / paste)
 - **Image occlusion**: block icon menu -> Create occlusion
 
