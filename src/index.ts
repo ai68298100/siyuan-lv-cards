@@ -13,13 +13,17 @@ import { PERSONA_PRESETS } from "./core/personas";
 import { normalizeNativeCardAction, NativeEventDeduper } from "./core/native-events";
 import { parseSrLine, parseSrMultiline, stripSrMarkers } from "./core/obsidian-sr";
 import {
+    normalizeAIJobs, emptyAIJobs, createJob, transitionJob, pruneJobs, firstPendingIndex,
+    type AIJobsData, type AIJob,
+} from "./core/ai-jobs";
+import {
     appendRevlog, calcStreak, emptyRevlog, leechCards, localDate, normalizeRevlog, revlogToCsv, mergeRevlog, docCoverage,
     type RevlogData, type RevlogEntry,
 } from "./core/revlog";
 import { detectFlashcardV2, type MigrationStatus } from "./api/flashcardV2";
 import { addRiffCards, createRiffDeck, getDueCount, getRiffCardsByBlockIDs, getRiffDecks, getRiffDueCards, removeRiffCards } from "./api/riff";
 import { appendBlock, createDocWithMd, getNotebooks, getBlockDOM, getBlockDocMap, getDocTitles, exportMdContent, sqlQuery, kernelVersion } from "./api/siyuan";
-import { aiChat, estimateTokens, parseCards } from "./api/ai";
+import { aiChat, estimateTokens, parseCards, isAICanceled } from "./api/ai";
 import { normalizeSuspendToday, rollDateIfNeeded, isSuspended, suspend, type SuspendTodayData } from "./core/suspend-today";
 import { parseRevlogCsv } from "./core/revlog-csv";
 import { normalizeSessionState, type SessionState } from "./core/session-state";
@@ -55,6 +59,7 @@ const SUSPEND_TODAY_DATA = "suspend-today.json";
 const EXAM_PLANS_DATA = "exam-plans.json";
 const AI_BATCHES_DATA = "ai-batches.json";
 const SESSION_STATE_DATA = "session-state.json";
+const AI_JOBS_DATA = "ai-jobs.json";
 
 export default class LvCardsPlugin extends Plugin {
 
@@ -69,6 +74,8 @@ export default class LvCardsPlugin extends Plugin {
     private suspendToday: SuspendTodayData = { date: "", cardIDs: [] };
     private examPlans: ExamPlansData = { version: 1, plans: [] };
     private aiBatches: AIBatchesData = { version: 1, batches: [] };
+    /** AI 批次作业（ADR-7 第 2 步）：断点续传的状态载体 */
+    private aiJobs: AIJobsData = emptyAIJobs();
     /** 统一持久化队列（AQ-4）：同 key 串行 + 有限重试 + 失败可观测 */
     private persist: PersistQueue = createPersist(
         (key, data) => this.saveData(key, data),
@@ -132,7 +139,7 @@ export default class LvCardsPlugin extends Plugin {
 </symbol>`);
 
         // AQ-1：批量加载以 keys 数组驱动并按位置配对，杜绝「6 项加载只解构 5 项」的错位回归
-        const STORE_KEYS = [SETTINGS_DATA, REVLOG_DATA, SUSPEND_TODAY_DATA, EXAM_PLANS_DATA, AI_BATCHES_DATA, SESSION_STATE_DATA] as const;
+        const STORE_KEYS = [SETTINGS_DATA, REVLOG_DATA, SUSPEND_TODAY_DATA, EXAM_PLANS_DATA, AI_BATCHES_DATA, SESSION_STATE_DATA, AI_JOBS_DATA] as const;
         const loaded = zipLoaded(STORE_KEYS, await Promise.all(STORE_KEYS.map(key => this.loadData(key))));
         this.settings = normalizeSettings(loaded[SETTINGS_DATA]);
         this.revlog = normalizeRevlog(loaded[REVLOG_DATA]); // AQ-3：清洗非法条目并由明细重建 days
@@ -145,6 +152,12 @@ export default class LvCardsPlugin extends Plugin {
             fallback: emptyAIBatches,
             normalize: normalizeAIBatches,
         }, loaded[AI_BATCHES_DATA]);
+        // ADR-7 第 2 步：AI 批次作业存储接入（同一批量加载批次，normalize 兜底）
+        this.aiJobs = await loadStore(this, {
+            key: AI_JOBS_DATA,
+            fallback: emptyAIJobs,
+            normalize: normalizeAIJobs,
+        }, loaded[AI_JOBS_DATA]);
         if (rollDateIfNeeded(this.suspendToday)) {
             await this.persist.save(SUSPEND_TODAY_DATA, this.suspendToday);
         }
@@ -1331,6 +1344,7 @@ export default class LvCardsPlugin extends Plugin {
                 loadCurrentDoc: () => this.loadCurrentDoc(),
                 loadNotebookMaterial: (nbId: string) => this.loadNotebookMaterial(nbId),
                 // AQ-14：signal 随调用传入——向导关闭/换源/重生取消后，晚到响应不写回、不触发 fallback
+                // ADR-7 第 3 步：生成阶段入账作业生命周期（drafting→generating→reviewing / failed/canceled）
                 generate: async (source: string, cfg: { count: number; language: string; type: "qa" | "cloze" }, opts?: { signal?: AbortSignal }) => {
                     // Prompt 模板库（294）：用户自定义模板优先，占位符同内置
                     const tpl = this.settings.aiPromptTemplate.trim();
@@ -1345,52 +1359,80 @@ export default class LvCardsPlugin extends Plugin {
                     if (estimateTokens(source) > 24000) {
                         throw new Error(this.i18n.aiTooLong);
                     }
+                    const jobId = `job-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+                    let job = createJob(jobId, { type: this.settings.aiMode, label: source.slice(0, 50), excerpt: source.slice(0, 200) }, cfg);
+                    job = transitionJob(job, { type: "GENERATE_START" }).job;
+                    this.aiJobs.jobs = pruneJobs([...this.aiJobs.jobs, job]);
+                    await this.persist.save(AI_JOBS_DATA, this.aiJobs).catch(() => { /* onFail 已记录 */ });
                     let fallbackNotified = false;
-                    const raw = await aiChat(
-                        {
-                            mode: this.settings.aiMode,
-                            endpoint: this.settings.aiEndpoint,
-                            apiKey: this.settings.aiKey,
-                            model: this.settings.aiModel,
-                            fallbackEndpoint: this.settings.aiFallbackEndpoint || undefined,
-                            fallbackApiKey: this.settings.aiFallbackKey || undefined,
-                            fallbackModel: this.settings.aiFallbackModel || undefined,
-                        },
-                        system, user,
-                        {
-                            signal: opts?.signal,
-                            onProvider: p => {
-                                if (p === "fallback" && !fallbackNotified) {
-                                    fallbackNotified = true;
-                                    showMessage(this.i18n.aiFallbackUsed, 2500, "info");
-                                }
+                    try {
+                        const raw = await aiChat(
+                            {
+                                mode: this.settings.aiMode,
+                                endpoint: this.settings.aiEndpoint,
+                                apiKey: this.settings.aiKey,
+                                model: this.settings.aiModel,
+                                fallbackEndpoint: this.settings.aiFallbackEndpoint || undefined,
+                                fallbackApiKey: this.settings.aiFallbackKey || undefined,
+                                fallbackModel: this.settings.aiFallbackModel || undefined,
                             },
-                        },
-                    );
-                    const cards = parseCards(raw).slice(0, cfg.count);
-                    // 批次元数据（质量反哺数据源，P2 消费）；tokens 供消耗历史（299）
-                    this.aiBatches.batches.push({
-                        id: `ai-${Date.now().toString(36)}`,
-                        date: localDate(Date.now()),
-                        deckID: "",
-                        blockIDs: [],
-                        tokens: estimateTokens(system) + estimateTokens(user) + estimateTokens(raw),
-                    });
-                    if (this.aiBatches.batches.length > 200) {
-                        this.aiBatches.batches = this.aiBatches.batches.slice(-200);
+                            system, user,
+                            {
+                                signal: opts?.signal,
+                                onProvider: p => {
+                                    if (p === "fallback" && !fallbackNotified) {
+                                        fallbackNotified = true;
+                                        showMessage(this.i18n.aiFallbackUsed, 2500, "info");
+                                    }
+                                },
+                            },
+                        );
+                        const parsed = parseCards(raw).slice(0, cfg.count);
+                        if (parsed.length === 0) {
+                            throw new Error((this.i18n as any).aiWizard?.emptyResult ?? "AI returned no cards");
+                        }
+                        job = transitionJob(job, {
+                            type: "GENERATE_OK",
+                            candidates: parsed.map(c => ({ q: c.q, a: c.a, d: c.d, keep: true, status: "pending" as const })),
+                        }).job;
+                        this.aiJobs.jobs = pruneJobs([...this.aiJobs.jobs, job]);
+                        await this.persist.save(AI_JOBS_DATA, this.aiJobs).catch(() => { /* onFail 已记录 */ });
+                        // 批次元数据（质量反哺数据源，P2 消费）；tokens 供消耗历史（299）
+                        this.aiBatches.batches.push({
+                            id: `ai-${Date.now().toString(36)}`,
+                            date: localDate(Date.now()),
+                            deckID: "",
+                            blockIDs: [],
+                            tokens: estimateTokens(system) + estimateTokens(user) + estimateTokens(raw),
+                        });
+                        if (this.aiBatches.batches.length > 200) {
+                            this.aiBatches.batches = this.aiBatches.batches.slice(-200);
+                        }
+                        this.persist.save(AI_BATCHES_DATA, this.aiBatches).catch(() => { /* onFail 已记录 */ });
+                        return { cards: parsed, jobId };
+                    } catch (e) {
+                        // 取消与失败都落账：取消记 CANCEL，失败记 GENERATE_FAIL——重开向导可续传
+                        job = transitionJob(job, isAICanceled(e)
+                            ? { type: "CANCEL" }
+                            : { type: "GENERATE_FAIL", error: e instanceof Error ? e.message : String(e) }).job;
+                        this.aiJobs.jobs = pruneJobs([...this.aiJobs.jobs, job]);
+                        await this.persist.save(AI_JOBS_DATA, this.aiJobs).catch(() => { /* onFail 已记录 */ });
+                        throw e;
                     }
-                    this.persist.save(AI_BATCHES_DATA, this.aiBatches).catch(() => { /* onFail 已记录 */ });
-                    return cards;
                 },
-                onCreate: (cards: { q: string; a: string }[], deckID: string, deckName: string) =>
-                    this.createAICards(cards, deckID, deckName),
+                onCreate: (cards: { q: string; a: string }[], indexes: number[], deckID: string, deckName: string, jobId: string) =>
+                    this.createAICards(cards, indexes, deckID, deckName, jobId),
+                // ADR-7 恢复入口：上次导入中断的续传/放弃
+                getUnfinishedJob: () => this.getUnfinishedAIJob(),
+                onResumeAIJob: (id: string) => this.resumeAIJobCommit(id),
+                onAbandonAIJob: (id: string) => this.abandonAIJob(id),
                 onClose: () => { /* svelteDialog 自理销毁 */ },
             },
         });
     }
 
-    /** AI 卡落库：挖空式单块写入「小驴闪卡/AI 制卡」文档 → addRiffCards（M2·FR9，riff 路径） */
-    private async createAICards(cards: { q: string; a: string }[], deckID: string, _deckName: string) {
+    /** ADR-7 第 3 步：逐卡提交 + 断点记录——每卡 appendBlock+入组成功即持久化，中断续传只处理 pending */
+    private async createAICards(cards: { q: string; a: string }[], indexes: number[], deckID: string, _deckName: string, jobId: string) {
         const nb = await this.targetNotebook();
         if (!nb) {
             throw new Error(this.i18n.onboardingNoNotebook);
@@ -1400,22 +1442,105 @@ export default class LvCardsPlugin extends Plugin {
         if (!docID) {
             throw new Error(this.i18n.quickCardFail);
         }
+        let job: AIJob | undefined = jobId ? this.aiJobs.jobs.find(j => j.id === jobId) : undefined;
+        if (job) {
+            job = transitionJob(job, { type: "COMMIT_START", deckID }).job;
+            this.aiJobs.jobs = pruneJobs([...this.aiJobs.jobs, job]);
+            await this.persist.save(AI_JOBS_DATA, this.aiJobs).catch(() => { /* onFail 已记录 */ });
+        }
         const blockIDs: string[] = [];
-        for (const c of cards) {
-            const ids = await appendBlock("markdown", `${c.q} ==${c.a}==`, docID);
-            blockIDs.push(...ids.slice(0, 1));
+        for (let i = 0; i < cards.length; i++) {
+            const ids = await appendBlock("markdown", `${cards[i].q} ==${cards[i].a}==`, docID);
+            const blockID = ids[0];
+            blockIDs.push(blockID);
+            // ADR-7：逐卡入组成功即记账（单卡批），中断后 pending 续传
+            await addRiffCards(deckID, [blockID]);
+            if (job) {
+                const r = transitionJob(job, { type: "CARD_CREATED", index: indexes[i] ?? i, blockID });
+                if (r.ok) {
+                    job = r.job;
+                    this.aiJobs.jobs = pruneJobs([...this.aiJobs.jobs, job]);
+                    await this.persist.save(AI_JOBS_DATA, this.aiJobs).catch(() => { /* onFail 已记录 */ });
+                }
+            }
         }
-        if (blockIDs.length === 0) {
-            throw new Error(this.i18n.quickCardFail);
-        }
-        await addRiffCards(deckID, blockIDs);
-        const batch = this.aiBatches.batches[this.aiBatches.batches.length - 1];
-        if (batch && batch.blockIDs.length === 0) {
-            batch.deckID = deckID;
-            batch.blockIDs = blockIDs;
-            this.persist.save(AI_BATCHES_DATA, this.aiBatches).catch(() => { /* onFail 已记录 */ });
+        if (job) {
+            const r = transitionJob(job, { type: "COMMIT_DONE" });
+            if (r.ok) {
+                job = r.job;
+                this.aiJobs.jobs = pruneJobs([...this.aiJobs.jobs, job]);
+                await this.persist.save(AI_JOBS_DATA, this.aiJobs).catch(() => { /* onFail 已记录 */ });
+            }
         }
         showMessage(this.i18n.deckAdded.replace("${n}", String(blockIDs.length)), 2000, "info");
+    }
+
+    /** ADR-7：恢复未完成的 AI 导入（向导「继续」入口）——从首个 pending 候选续传 */
+    private async resumeAIJobCommit(jobId: string) {
+        let job = this.aiJobs.jobs.find(j => j.id === jobId);
+        if (!job || !job.deckID) {
+            return;
+        }
+        const r = transitionJob(job, { type: "RESUME" });
+        if (!r.ok) {
+            return;
+        }
+        job = r.job;
+        const nb = await this.targetNotebook();
+        if (!nb) {
+            throw new Error(this.i18n.onboardingNoNotebook);
+        }
+        const date = localDate(job.createdAt);
+        const docID = await createDocWithMd(nb.id, `小驴闪卡/AI 制卡/${date}`, "");
+        if (!docID) {
+            throw new Error(this.i18n.quickCardFail);
+        }
+        let created = 0;
+        let idx = firstPendingIndex(job);
+        while (idx >= 0) {
+            const c = job.candidates[idx];
+            try {
+                const ids = await appendBlock("markdown", `${c.q} ==${c.a}==`, docID);
+                await addRiffCards(job.deckID, [ids[0]]);
+                const rr = transitionJob(job, { type: "CARD_CREATED", index: idx, blockID: ids[0] });
+                if (rr.ok) { job = rr.job; created += 1; }
+            } catch (e) {
+                const rr = transitionJob(job, { type: "CARD_FAILED", index: idx, error: e instanceof Error ? e.message : String(e) });
+                if (rr.ok) { job = rr.job; }
+                // 单卡失败继续下一张（失败明细在 job 中可查）
+            }
+            this.aiJobs.jobs = pruneJobs([...this.aiJobs.jobs.filter(j => j.id !== job!.id), job]);
+            await this.persist.save(AI_JOBS_DATA, this.aiJobs).catch(() => { /* onFail 已记录 */ });
+            idx = firstPendingIndex(job);
+        }
+        const done = transitionJob(job, { type: "COMMIT_DONE" });
+        if (done.ok) {
+            job = done.job;
+            this.aiJobs.jobs = pruneJobs([...this.aiJobs.jobs.filter(j => j.id !== job!.id), job]);
+            await this.persist.save(AI_JOBS_DATA, this.aiJobs).catch(() => { /* onFail 已记录 */ });
+        }
+        showMessage(this.i18n.deckAdded.replace("${n}", String(created)), 2000, "info");
+    }
+
+    /** ADR-7：向导「未完成导入」横幅数据（committing/failed/canceled 且仍有 pending） */
+    private getUnfinishedAIJob(): { id: string; done: number; total: number } | null {
+        const j = this.aiJobs.jobs.find(j =>
+            (j.status === "committing" || j.status === "failed" || j.status === "canceled")
+            && j.candidates.some(c => c.status === "pending"));
+        if (!j) {
+            return null;
+        }
+        return {
+            id: j.id,
+            done: j.candidates.filter(c => c.status === "created").length,
+            total: j.candidates.length,
+        };
+    }
+
+    /** ADR-7：放弃未完成导入（删除该 job 记录；已创建的卡保留不动） */
+    private abandonAIJob(jobId: string) {
+        this.aiJobs.jobs = this.aiJobs.jobs.filter(j => j.id !== jobId);
+        this.persist.save(AI_JOBS_DATA, this.aiJobs).catch(() => { /* onFail 已记录 */ });
     }
 
     /** 原生事件幂等去重（AQ-5）：eventId / cardID+1s 时间窗 */

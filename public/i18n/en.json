@@ -404,6 +404,8 @@
     },
     "aiWizardTitle": "AI Cards",
     "aiWizard": {
+        "resumeContinue": "Resume import",
+        "resumeHint": "Previous AI import unfinished (${done}/${total} cards placed). Continue?",
         "diffEasy": "Easy",
         "diffMid": "Medium",
         "diffHard": "Hard",

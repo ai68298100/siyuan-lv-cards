@@ -8,20 +8,29 @@
     import LvChip from "./kit/LvChip.svelte";
     import LvSteps from "./kit/LvSteps.svelte";
 
-    let { i18n, initialSource = "", loadCurrentDoc, loadNotebookMaterial, generate, onCreate, onClose }: {
+    let { i18n, initialSource = "", loadCurrentDoc, loadNotebookMaterial, generate, onCreate, onClose, getUnfinishedJob, onResumeAIJob, onAbandonAIJob }: {
         i18n: any;
         /** 预填材料（leech 改写联动） */
         initialSource?: string;
-        /** 调用方实现：构造 prompt → 调 AI → 解析卡片（含批次记录）；第三参为取消信号（AQ-14） */
-        generate: (source: string, cfg: { count: number; language: string; type: "qa" | "cloze" }, opts?: { signal?: AbortSignal }) => Promise<{ q: string; a: string }[]>;
-        onCreate: (cards: { q: string; a: string }[], deckID: string, deckName: string) => Promise<void>;
+        /** 调用方实现：构造 prompt → 调 AI → 解析卡片（ADR-7：返回 cards + jobId 供断点续传）；第三参为取消信号（AQ-14） */
+        generate: (source: string, cfg: { count: number; language: string; type: "qa" | "cloze" }, opts?: { signal?: AbortSignal }) => Promise<{ cards: { q: string; a: string; d?: number }[]; jobId: string }>;
+        /** ADR-7：逐卡提交——indexes 为各卡在作业 candidates 中的原始下标 */
+        onCreate: (cards: { q: string; a: string }[], indexes: number[], deckID: string, deckName: string, jobId: string) => Promise<void>;
         onClose: () => void;
         /** 载入当前打开文档（M2·FR6 输入源扩展；不可用时返回 null） */
         loadCurrentDoc?: () => Promise<{ name: string; content: string } | null>;
         /** 载入笔记本范围材料（M2·FR6 扩展） */
         loadNotebookMaterial?: (nbId: string) => Promise<string>;
+        /** 未完成的 AI 导入（ADR-7 恢复入口）；null=无 */
+        getUnfinishedJob?: () => { id: string; done: number; total: number } | null;
+        onResumeAIJob?: (id: string) => Promise<void>;
+        onAbandonAIJob?: (id: string) => void;
     } = $props();
     const t = $derived(i18n);
+
+    /** ADR-7 恢复入口：打开时检查未完成导入 */
+    let resume = $state<{ id: string; done: number; total: number } | null>(null);
+    let resumeBusy = $state(false);
 
     let step = $state(1);
     // 初值语义：leech 改写预填只在打开时注入一次
@@ -35,6 +44,8 @@
     let newName = $state("");
 
     let candidates: { q: string; a: string; d?: number; keep: boolean }[] = $state([]);
+    /** ADR-7：当前预览对应的作业 ID（导入按 candidates 下标断点记账；重生替换内容不换绑定） */
+    let currentJobId = $state("");
     let busy = $state(false);
     let creating = $state(false);
     let errorMsg = $state("");
@@ -116,6 +127,8 @@
     }
 
     onMount(async () => {
+        // ADR-7 恢复入口：打开时检查未完成的 AI 导入
+        resume = getUnfinishedJob?.() ?? null;
         try {
             decks = await getRiffDecks();
             if (decks.length > 0) {
@@ -125,6 +138,29 @@
             errorMsg = e?.message ?? String(e);
         }
     });
+
+    async function doResume() {
+        if (!resume || resumeBusy || !onResumeAIJob) {
+            return;
+        }
+        resumeBusy = true;
+        try {
+            await onResumeAIJob(resume.id);
+            resume = getUnfinishedJob?.() ?? null;
+        } catch (e: any) {
+            errorMsg = e?.message ?? String(e);
+        } finally {
+            resumeBusy = false;
+        }
+    }
+
+    function doAbandon() {
+        if (!resume || !onAbandonAIJob) {
+            return;
+        }
+        onAbandonAIJob(resume.id);
+        resume = null;
+    }
 
     // 生成请求守卫（AQ-14）：换源/重生/关闭向导即取消旧请求；晚到响应只接受最后一次
     let genSeq = 0;
@@ -153,7 +189,7 @@
         busy = true;
         errorMsg = "";
         try {
-            const cards = await generate(source.trim(), { count, language, type: cardType }, { signal: myCtrl.signal });
+            const { cards, jobId } = await generate(source.trim(), { count, language, type: cardType }, { signal: myCtrl.signal });
             if (seq !== genSeq) {
                 return; // 旧请求：候选与步骤不写回
             }
@@ -161,6 +197,8 @@
                 throw new Error(t.aiWizard.emptyResult);
             }
             candidates = cards.map(c => ({ ...c, keep: true }));
+            // ADR-7：绑定本次作业，导入时按候选下标断点记账
+            currentJobId = jobId;
             step = 2;
         } catch (e: any) {
             if (seq !== genSeq || isAICanceled(e)) {
@@ -187,7 +225,8 @@
         regenBusy = i;
         errorMsg = "";
         try {
-            const cards = await generate(source.trim(), { count: 1, language, type: cardType }, { signal: myCtrl.signal });
+            // 重生成仅替换候选内容：currentJobId 保持原绑定（下标对位不变；作业记录中该卡为旧文本，已知边界）
+            const { cards } = await generate(source.trim(), { count: 1, language, type: cardType }, { signal: myCtrl.signal });
             if (seq !== genSeq) {
                 return;
             }
@@ -212,7 +251,8 @@
     }
 
     async function importCards() {
-        const picked = candidates.filter(c => c.keep);
+        const pickedIdx = candidates.map((c, i) => (c.keep ? i : -1)).filter(i => i >= 0);
+        const picked = pickedIdx.map(i => candidates[i]);
         if (picked.length === 0 || creating) {
             return;
         }
@@ -230,7 +270,8 @@
                 errorMsg = t.quickCardNeedDeck;
                 return;
             }
-            await onCreate(picked.map(c => ({ q: c.q, a: c.a })), deckID, deckName);
+            // ADR-7：indexes 对应当前作业 candidates 下标（重生成替换内容，下标不变）
+            await onCreate(picked.map(c => ({ q: c.q, a: c.a })), pickedIdx, deckID, deckName, currentJobId);
             closeWizard();
         } catch (e: any) {
             errorMsg = e?.message ?? String(e);
@@ -241,6 +282,14 @@
 </script>
 
 <div class="lv-aiwiz b3-typography">
+    {#if resume}
+        <!-- ADR-7 恢复入口：上次导入中断，可续传或放弃（已落卡保留） -->
+        <div class="lv-aiwiz-resume" role="status">
+            <span class="fn__flex-1">{t.aiWizard.resumeHint.replace("${done}", String(resume.done)).replace("${total}", String(resume.total))}</span>
+            <button class="b3-button b3-button--text" disabled={resumeBusy} onclick={doResume}>{t.aiWizard.resumeContinue}</button>
+            <button class="b3-button b3-button--small" disabled={resumeBusy} onclick={doAbandon}>{window.siyuan.languages.cancel}</button>
+        </div>
+    {/if}
     <div class="lv-ob-head">
         <LvSteps steps={[t.aiWizard.stepCfg, t.aiWizard.stepPreview]} current={step - 1} />
         <div class="fn__flex-1"></div>
@@ -352,6 +401,17 @@
         align-items: center;
         gap: var(--lv-sp-2);
         margin-bottom: var(--lv-sp-3);
+    }
+    .lv-aiwiz-resume {
+        display: flex;
+        align-items: center;
+        gap: var(--lv-sp-2);
+        padding: var(--lv-sp-2) var(--lv-sp-3);
+        margin-bottom: var(--lv-sp-3);
+        border: 1px solid var(--lv-border);
+        border-radius: var(--lv-r-m);
+        background: var(--lv-primary-softer, transparent);
+        font-size: 12px;
     }
     .lv-aiwiz-list {
         display: flex;

@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.81.0 2026-10-03 · ADR-7 第 2+3 步：ai-jobs 存储接入 + 向导生命周期/恢复入口
+
+* **存储接入（第 2 步）**：`ai-jobs.json` 入批量加载批次（zipLoaded 键位扩展），经 loadStore normalize 兜底；写入统一走 persist 队列
+* **向导生命周期（第 3 步）**：生成阶段创建作业并入账（drafting→generating→reviewing；失败/取消落账后重开向导可续传）；导入改**逐卡提交**（appendBlock+单卡入组成功即 CARD_CREATED 记账持久化），中断后 pending 续传、已落卡如实保留
+* **恢复入口**：向导打开时检测未完成导入（committing/failed/canceled 且有 pending）→ 横幅显示「n/m 已落卡」+ 继续/放弃；继续走 `resumeAIJobCommit`（从首个 pending 续传，单卡失败不阻断后续）；放弃删除作业记录（已落卡不动）
+* AQ-17 实现顺序 3/4 完成（剩：真实模型联调，须过 G3-call）；重生成仅替换候选内容、保持作业绑定（已知边界：作业记录中该卡为旧文本）
+* 测试 158/158；i18n 528 对齐；0 errors/0 warnings；主包 gzip 25.58KB（预算内）
+
 ## v0.80.0 2026-10-03 · ADR-7 第 1 步落地：AI 批次作业状态机纯模块
 
 * `core/ai-jobs.ts`（零依赖纯模块，ADR-7 实现顺序第 1 步）：六态迁移表（drafting→generating→reviewing→committing→done，failed/canceled 带 resumeTo 回迁）、逐卡事件（CARD_CREATED/CARD_FAILED）、续传视角 `firstPendingIndex`、normalize 清洗（白名单状态/候选剔除/字段收敛）、容量维护（20 个上限优先淘汰已结作业）
