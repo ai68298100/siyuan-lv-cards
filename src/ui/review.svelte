@@ -69,6 +69,8 @@
         saveSessionState: (s: { date: string; reviewedIDs: string[]; skippedIDs: string[]; counters: { new: number; review: number; forget: number; skip: number } }) => void;
         clearSessionState: () => void;
         emitSessionFinished: (summary: { new: number; review: number; forget: number; skip: number }) => void;
+        /** 订阅设置变更（AT-10）：保存设置后回调，超时参数立即生效，返回取消函数 */
+        onSettingsChanged?: (cb: () => void) => () => void;
         /** 源上下文预览（M3）：来源块前后各 2 块（只读，不含自身） */
         getContextBlocks: (blockID: string) => Promise<{ id: string; html: string }[]>;
     }
@@ -131,6 +133,9 @@
     // 超时倒计时（M3·FR8）
     let timeoutLeft = $state(0);
     let timeoutTimer: ReturnType<typeof setInterval> | null = null;
+    // AT-10：最近一次生效的超时参数（设置变更时对比决定是否重启计时）
+    let lastTimeoutMode: "off" | "reveal" | "forget" = "off";
+    let lastTimeoutSeconds = 60;
     // 打字模式（M4·FR2，全局练习模式）
     let typingInput = $state("");
     let typingGrade = $state<{ chars: { ch: string; ok: boolean }[]; suggested: Rating1to4 } | null>(null);
@@ -854,6 +859,16 @@
         // 范围选择器数据源（失败静默：仅影响下拉项，不影响默认全部复习）
         getRiffDecks().then(d => (decks = d)).catch(() => { /* 旁路 */ });
         getNotebooks().then(n => (notebooks = n)).catch(() => { /* 旁路 */ });
+        // AT-10：设置保存后超时参数立即生效；评分风格/顺序等下一卡自然生效
+        const offSettings = ctx.onSettingsChanged?.(() => {
+            const s = ctx.settings();
+            if (current && !showAnswer && (s.timeoutMode !== lastTimeoutMode || s.timeoutSeconds !== lastTimeoutSeconds)) {
+                restartTimeout();
+            }
+            lastTimeoutMode = s.timeoutMode;
+            lastTimeoutSeconds = s.timeoutSeconds;
+        });
+        return () => offSettings?.();
     });
 
     // 遮罩 overlay 定位：DOM 更新与窗口缩放后重算（$effect 兼容 runes 模式）

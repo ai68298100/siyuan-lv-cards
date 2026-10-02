@@ -156,28 +156,80 @@ export const svelteDialog = (args: {
     height?: string,
     callback?: () => void;
 }) => {
+    // AR-2：关闭一次性——宿主 X / Esc / 内嵌组件回调并发时只销毁一次
+    let destroyed = false;
+    let unmounted = false;
+    let dialogHandle: { destroy: () => void } | null = null;
+    let componentInstance: ReturnType<typeof mount> | null = null;
+
+    const doUnmount = () => {
+        if (unmounted || !componentInstance) {
+            return;
+        }
+        unmounted = true;
+        try {
+            unmount(componentInstance);
+        } catch { /* 已卸载 */ }
+    };
+
+    const closeOnce = () => {
+        if (destroyed) {
+            return;
+        }
+        destroyed = true;
+        if (dialogHandle) {
+            try {
+                dialogHandle.destroy(); // destroyCallback 内完成 unmount + 业务 callback
+            } catch {
+                doUnmount();
+            }
+        } else {
+            doUnmount();
+        }
+    };
+
+    // AR-2：把可用的关闭动作注入内嵌组件的 onClose/onExit（mount 前包装）——
+    // 此前调用方传的是空 stub，组件内部「取消/完成/导入成功」根本关不掉对话框；
+    // 先执行调用方回调（持久化等语义），再关闭一次
+    const props = { ...(args.props || {}) };
+    for (const key of ["onClose", "onExit"]) {
+        const userFn = props[key];
+        if (typeof userFn === "function") {
+            props[key] = (...fnArgs: unknown[]) => {
+                try {
+                    userFn(...fnArgs);
+                } finally {
+                    closeOnce();
+                }
+            };
+        }
+    }
+
     let container = document.createElement('div')
     container.style.display = 'contents';
 
     // 内部处理 mount
-    let componentInstance = mount(args.component, {
+    componentInstance = mount(args.component, {
         target: container,
-        props: args.props || {}
+        props,
     });
 
-    const { dialog, close } = simpleDialog({
-        ...args,
+    const { dialog } = simpleDialog({
+        title: args.title,
         ele: container,
+        width: args.width,
+        height: args.height,
         callback: () => {
-            // 内部处理 unmount
-            unmount(componentInstance);
+            destroyed = true;
+            doUnmount();
             if (args.callback) args.callback();
         }
     });
+    dialogHandle = dialog;
 
     return {
         component: componentInstance,
         dialog,
-        close
+        close: closeOnce
     }
 }

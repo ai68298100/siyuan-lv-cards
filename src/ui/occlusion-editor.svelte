@@ -6,7 +6,8 @@
     let { blockID, i18n, onSave, onClose }: {
         blockID: string;
         i18n: any;
-        onSave: () => void;
+        /** AR-2：支持 Promise——入组成功才关闭，失败保留已画的遮挡 */
+        onSave: () => void | Promise<void>;
         onClose: () => void;
     } = $props();
     const t = $derived(i18n);
@@ -99,7 +100,7 @@
             const data = emptyOcclusion();
             data.rects = rects;
             await setBlockAttrs(blockID, serializeOcclusion(data));
-            onSave();
+            await onSave();
             onClose();
         } catch (e: any) {
             errorMsg = e?.message ?? String(e);

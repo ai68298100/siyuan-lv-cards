@@ -29,9 +29,32 @@ export interface RevlogData {
     entries: RevlogEntry[];
     /** 按本地日期聚合的每日统计，key = YYYY-MM-DD */
     days: Record<string, DayStat>;
+    /** 曾有有效评分的卡 ID（AQ-21）：明细被 2 万条上限截断后，首评语义仍由此保留 */
+    knownCards?: string[];
 }
 
 const EMPTY: RevlogData = { version: 1, entries: [], days: {} };
+
+/** knownCards 与明细共用上限（AQ-21），保证存储规模同阶 */
+const KNOWN_CARDS_MAX = 20000;
+
+/** 聚合快照口径（AQ-21）：日期在明细覆盖范围内的从明细重算；
+ * 早于最早保留明细日期的聚合是截断前历史快照，无法重算——结构合法则原样保留 */
+function dayStatWellFormed(v: unknown): v is DayStat {
+    if (!v || typeof v !== "object") {
+        return false;
+    }
+    const d = v as Record<string, unknown>;
+    return [d.new, d.review, d.forget].every(x => Number.isSafeInteger(x) && (x as number) >= 0);
+}
+
+/** 卡是否已有有效评分历史（AQ-21）：明细优先（多数命中可早退），截断卡再查 knownCards */
+function cardHasHistory(entries: RevlogEntry[], knownCards: string[] | undefined, cardID: string): boolean {
+    if (entries.some(e => e.cardID === cardID && e.rating > 0)) {
+        return true;
+    }
+    return knownCards !== undefined && knownCards.includes(cardID);
+}
 
 export function emptyRevlog(): RevlogData {
     return JSON.parse(JSON.stringify(EMPTY));
@@ -72,14 +95,25 @@ export function normalizeRevlog(raw: unknown): RevlogData {
         return emptyRevlog();
     }
     const obj = raw as Partial<RevlogData>;
+    const entries = Array.isArray(obj.entries)
+        ? obj.entries.map(sanitizeEntry).filter((e): e is RevlogEntry => e !== null)
+        : [];
+    // knownCards（AQ-21）：存储值 ∪ 明细内有评分的卡，去重限量；脏类型整表丢弃
+    const known = new Set<string>(
+        Array.isArray(obj.knownCards) ? obj.knownCards.filter((x): x is string => typeof x === "string" && !!x) : [],
+    );
+    for (const e of entries) {
+        if (e.rating > 0 && known.size < KNOWN_CARDS_MAX) {
+            known.add(e.cardID);
+        }
+    }
     const data: RevlogData = {
         version: 1,
-        entries: Array.isArray(obj.entries)
-            ? obj.entries.map(sanitizeEntry).filter((e): e is RevlogEntry => e !== null)
-            : [],
-        days: {},
+        entries,
+        // 原始 days 传入 recalcDays：截断前日期按快照保留（结构校验），其余由明细重建
+        days: obj.days && typeof obj.days === "object" ? (obj.days as Record<string, DayStat>) : {},
+        knownCards: [...known].slice(0, KNOWN_CARDS_MAX),
     };
-    // 聚合永远由清洗后的明细重建（AQ-3/AQ-21 口径一致），污染的 days 不透传
     recalcDays(data);
     return data;
 }
@@ -93,14 +127,20 @@ export function localDate(ts: number): string {
 
 export function appendRevlog(data: RevlogData, entry: RevlogEntry): void {
     if (entry.rating > 0) {
-        // 首次有效评分计为"新"，此后计为"复习"（AJ1 修复：day.new 不再永远为 0）
-        const seen = data.entries.some(e => e.cardID === entry.cardID && e.rating > 0);
+        // 首次有效评分计为"新"，此后计为"复习"（AJ1）；knownCards 兜住截断卡（AQ-21）
+        const seen = cardHasHistory(data.entries, data.knownCards, entry.cardID);
         const date = localDate(entry.ts);
         const day = data.days[date] ?? { new: 0, review: 0, forget: 0 };
         if (seen) {
             day.review += 1;
         } else {
             day.new += 1;
+            if (!data.knownCards) {
+                data.knownCards = [];
+            }
+            if (data.knownCards.length < KNOWN_CARDS_MAX && !data.knownCards.includes(entry.cardID)) {
+                data.knownCards.push(entry.cardID);
+            }
         }
         if (entry.rating === 1) {
             day.forget += 1;
@@ -114,16 +154,22 @@ export function appendRevlog(data: RevlogData, entry: RevlogEntry): void {
     }
 }
 
-/** 由明细重算每日聚合（幂等）。升级/修数后调用一次即可。 */
+/** 由明细重算每日聚合（幂等）。升级/修数后调用一次即可。
+ * AQ-21 快照策略：早于最早保留明细日期的旧聚合原样保留（明细已截断无法重算），其余重建。 */
 export function recalcDays(data: RevlogData): void {
+    const oldDays = data.days;
     const seen = new Set<string>();
-    data.days = {};
+    let minDate: string | null = null;
+    const rebuilt: Record<string, DayStat> = {};
     for (const e of data.entries) {
         if (e.rating <= 0) {
             continue;
         }
         const date = localDate(e.ts);
-        const day = data.days[date] ?? { new: 0, review: 0, forget: 0 };
+        if (minDate === null || date < minDate) {
+            minDate = date;
+        }
+        const day = rebuilt[date] ?? { new: 0, review: 0, forget: 0 };
         if (seen.has(e.cardID)) {
             day.review += 1;
         } else {
@@ -133,8 +179,18 @@ export function recalcDays(data: RevlogData): void {
         if (e.rating === 1) {
             day.forget += 1;
         }
-        data.days[date] = day;
+        rebuilt[date] = day;
     }
+    const out: Record<string, DayStat> = {};
+    if (minDate !== null) {
+        for (const [date, stat] of Object.entries(oldDays)) {
+            if (date < minDate && dayStatWellFormed(stat)) {
+                out[date] = stat;
+            }
+        }
+    }
+    Object.assign(out, rebuilt);
+    data.days = out;
 }
 
 export interface MergeResult {
@@ -225,6 +281,14 @@ export function mergeRevlog(data: RevlogData, imported: unknown, opts: MergeOpti
     if (data.entries.length > 20000) {
         data.entries = data.entries.slice(-20000);
     }
+    // knownCards 并集（AQ-21）：导入的卡同样保留首评语义
+    const known = new Set(data.knownCards ?? []);
+    for (const e of data.entries) {
+        if (e.rating > 0) {
+            known.add(e.cardID);
+        }
+    }
+    data.knownCards = [...known].slice(0, KNOWN_CARDS_MAX);
     recalcDays(data);
     return { added, skipped, forks, forkSamples };
 }
@@ -401,7 +465,7 @@ export function computeRetention(data: RevlogData): RetentionResult {
 }
 
 export function isCardNew(data: RevlogData, cardID: string): boolean {
-    return !data.entries.some(e => e.cardID === cardID && e.rating > 0);
+    return !cardHasHistory(data.entries, data.knownCards, cardID);
 }
 
 /** 连续学习天数（截止今天或昨天均算连续） */

@@ -30,6 +30,8 @@
         getXpEnabled: () => boolean;
         /** 订阅会话完成事件（549）：复习结束后跨页签刷新总览，返回取消函数 */
         onSessionFinished?: (cb: () => void) => () => void;
+        /** 订阅评分事件（AT-11）：原生/插件两路评分统一经此失效统计缓存，返回取消函数 */
+        onReviewed?: (cb: () => void) => () => void;
         /** 热力图范围周数（439） */
         getHeatmapWeeks: () => number;
     }
@@ -172,7 +174,23 @@
         return Math.min(100, Math.round((todayReview / target) * 100));
     }
 
+    /** AR-6：刷新 generation——手动刷新/session-finished/reviewed 并发时旧响应不覆盖新状态 */
+    let refreshSeq = 0;
+    let reviewedTimer: ReturnType<typeof setTimeout> | null = null;
+
+    /** AT-11：评分高频（连刷几张）时合并为一次刷新，保留用户当前页不闪动 */
+    function scheduleRefresh() {
+        if (reviewedTimer) {
+            clearTimeout(reviewedTimer);
+        }
+        reviewedTimer = setTimeout(() => {
+            reviewedTimer = null;
+            refresh();
+        }, 800);
+    }
+
     async function refresh() {
+        const seq = ++refreshSeq;
         loading = true;
         errorMsg = "";
         try {
@@ -180,6 +198,9 @@
                 getRiffDecks(),
                 getRiffDueCards(""),
             ]);
+            if (seq !== refreshSeq) {
+                return; // 旧响应：不改统计与到期数
+            }
             decks = deckList;
             totalCards = deckList.reduce((acc, d) => acc + (d.size ?? 0), 0);
             const revlog = ctx.getRevlog();
@@ -216,22 +237,40 @@
             const v2 = ctx.getV2Status();
             if (v2) {
                 try {
-                    v2Stats = summarizeStatistics(await getFlashcardStatistics({}));
+                    const stats = await getFlashcardStatistics({});
+                    if (seq === refreshSeq) {
+                        v2Stats = summarizeStatistics(stats);
+                    }
                 } catch {
-                    v2Stats = [];
+                    if (seq === refreshSeq) {
+                        v2Stats = [];
+                    }
                 }
             }
         } catch (e: any) {
-            errorMsg = e?.message ?? String(e);
+            if (seq === refreshSeq) {
+                errorMsg = e?.message ?? String(e);
+            }
         } finally {
-            loading = false;
+            if (seq === refreshSeq) {
+                loading = false;
+            }
         }
     }
 
     onMount(() => {
         refresh();
-        // 会话完成联动（549）：复习页结束会话后跨页签刷新总览
-        return ctx.onSessionFinished?.(() => refresh());
+        // 会话完成联动（549）+ 评分联动（AT-11）：跨页签失效总览缓存
+        const offFinished = ctx.onSessionFinished?.(() => refresh());
+        const offReviewed = ctx.onReviewed?.(() => scheduleRefresh());
+        return () => {
+            offFinished?.();
+            offReviewed?.();
+            if (reviewedTimer) {
+                clearTimeout(reviewedTimer);
+                reviewedTimer = null;
+            }
+        };
     });
 </script>
 

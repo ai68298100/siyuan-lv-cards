@@ -49,6 +49,8 @@
     let leechOnly = $state(false);
     let statusFilter = $state<"all" | "new" | "review" | "due">("all");
     let dueSet = new Set<string>();
+    let loadSeq = 0;  // AR-6：分页/刷新请求序号
+    let dueSeq = 0;   // AR-6：到期清单请求序号
     let savedList = $state<{ name: string; filter: string }[]>([]);
     let pickedSaved = $state("");
     let selected: string[] = $state([]);
@@ -90,18 +92,27 @@
     }
 
     async function load() {
+        // AR-6：快速分页/刷新并发时只接受最后一次响应
+        const seq = ++loadSeq;
         loading = true;
         errorMsg = "";
         try {
             const cards = await getRiffCards("", page, PAGE_SIZE);
+            if (seq !== loadSeq) {
+                return; // 旧页响应不覆盖筛选、页码与选择
+            }
             blocks = cards.blocks ?? [];
             selected = [];
             total = cards.total;
             pageCount = Math.max(1, cards.pageCount);
         } catch (e: any) {
-            errorMsg = e?.message ?? String(e);
+            if (seq === loadSeq) {
+                errorMsg = e?.message ?? String(e);
+            }
         } finally {
-            loading = false;
+            if (seq === loadSeq) {
+                loading = false;
+            }
         }
     }
 
@@ -114,10 +125,17 @@
         selected = selected.includes(id) ? selected.filter(x => x !== id) : [...selected, id];
     }
 
-    /** 「今日到期」按需拉取内核到期清单（切到该过滤项时一次性加载） */
+    /** 「今日到期」切换过滤项时拉取内核到期清单（AR-6：每次切入都重拉，评分后 due 集不陈旧） */
     async function onStatusChange() {
-        if (statusFilter === "due" && dueSet.size === 0) {
-            dueSet = new Set(await ctx.getDueBlockIDs());
+        if (statusFilter === "due") {
+            const seq = ++dueSeq;
+            try {
+                const ids = await ctx.getDueBlockIDs();
+                if (seq === dueSeq) {
+                    dueSet = new Set(ids);
+                    load();
+                }
+            } catch { /* 到期清单失败按空集处理，仅影响该过滤项 */ }
         }
     }
 

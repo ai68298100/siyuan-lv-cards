@@ -1,6 +1,6 @@
 {
   "schemaVersion": 3,
-  "generatedAt": "2026-10-02",
+  "generatedAt": "2026-10-03",
   "backlogDocument": "docs/17-待办清单.md",
   "planningOnly": true,
   "assignmentPolicy": {
@@ -745,8 +745,8 @@
       "revisitAt": "切片完成或宿主/模型/模板/schema/权限变化、用户反例出现时",
       "conditionalPrerequisites": [],
       "summary": {
-        "total": 16,
-        "done": 6,
+        "total": 17,
+        "done": 7,
         "pending": 10
       },
       "blocks": [
@@ -1239,8 +1239,8 @@
       ],
       "summary": {
         "total": 22,
-        "done": 10,
-        "pending": 12
+        "done": 11,
+        "pending": 11
       },
       "blocks": []
     },
@@ -1877,9 +1877,9 @@
       "revisitAt": "切片完成或宿主/模型/模板/schema/权限变化、用户反例出现时",
       "conditionalPrerequisites": [],
       "summary": {
-        "total": 33,
+        "total": 34,
         "done": 11,
-        "pending": 22
+        "pending": 23
       },
       "blocks": [
         "WP-dialog-lifecycle",
@@ -8336,8 +8336,8 @@
     },
     {
       "id": "AQ-21",
-      "status": "open",
-      "checkbox": " ",
+      "status": "done",
+      "checkbox": "x",
       "priority": "P1",
       "group": "AQ",
       "groupName": "v0.63.0 后一手调研与代码审计新增（2026-10-02，仅扩充规划）",
@@ -8546,8 +8546,8 @@
     },
     {
       "id": "AR-11",
-      "status": "open",
-      "checkbox": " ",
+      "status": "done",
+      "checkbox": "x",
       "priority": "P1",
       "group": "AR",
       "groupName": "第二轮：流程、模块边界与交互阻断（2026-10-02，仅扩充规划）",
@@ -14994,14 +14994,42 @@
           "section": "交互目标原型"
         }
       ]
+    },
+    {
+      "id": "BZ-1",
+      "status": "open",
+      "checkbox": " ",
+      "priority": "P2",
+      "group": "BZ",
+      "groupName": "第十轮：v0.65.0 开发过程新发现",
+      "title": "复习 Tab 懒加载异步挂载竞态真机验证",
+      "backlogLine": "- [ ] 🧪 [P2][BZ-1] **复习 Tab 懒加载异步挂载竞态真机验证**",
+      "primaryPackage": "WP-runtime-lifecycle",
+      "linksTo": [
+        "WP-ui-accessibility-platform"
+      ]
+    },
+    {
+      "id": "BZ-2",
+      "status": "open",
+      "checkbox": " ",
+      "priority": "P3",
+      "group": "BZ",
+      "groupName": "第十轮：v0.65.0 开发过程新发现",
+      "title": "knownCards 与内核删除卡的对账清理策略",
+      "backlogLine": "- [ ] [P3][BZ-2] **knownCards 与内核删除卡的对账清理策略**",
+      "primaryPackage": "WP-data-integrity",
+      "linksTo": [
+        "WP-management-search"
+      ]
     }
   ],
   "governanceDocument": "docs/30-待办治理与执行顺序.md",
   "governanceVersion": "1.2",
   "summary": {
     "packages": 38,
-    "total": 922,
-    "done": 179,
+    "total": 924,
+    "done": 181,
     "open": 740,
     "special": 3,
     "pending": 743

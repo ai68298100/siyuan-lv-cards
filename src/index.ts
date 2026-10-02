@@ -22,8 +22,7 @@ import { aiChat, estimateTokens, parseCards } from "./api/ai";
 import { normalizeSuspendToday, rollDateIfNeeded, isSuspended, suspend, type SuspendTodayData } from "./core/suspend-today";
 import { parseRevlogCsv } from "./core/revlog-csv";
 import { normalizeSessionState, type SessionState } from "./core/session-state";
-import { normalizeExamPlans, daysLeft, type ExamPlan, type ExamPlansData } from "./core/exam";
-import Review from "./ui/review.svelte";
+import { normalizeExamPlans, daysLeft, examReportStats, type ExamPlan, type ExamPlansData } from "./core/exam";
 import Hub from "./ui/hub.svelte";
 // 重组件对话框懒加载（AN 体积评审）：打开时才拉取对应 chunk
 const lazyComp = (loader: () => Promise<{ default: any }>) => {
@@ -35,6 +34,8 @@ const lazyComp = (loader: () => Promise<{ default: any }>) => {
         return cached;
     };
 };
+// 复习面板同样走懒加载（体积评审：主包重回预算；tab 首开一次性 chunk 加载）
+const loadReview = lazyComp(() => import("./ui/review.svelte"));
 const loadAIWizard = lazyComp(() => import("./ui/ai-wizard.svelte"));
 const loadOcclusionEditor = lazyComp(() => import("./ui/occlusion-editor.svelte"));
 const loadOnboarding = lazyComp(() => import("./ui/onboarding.svelte"));
@@ -103,7 +104,14 @@ export default class LvCardsPlugin extends Plugin {
     private saveSettingsNow() {
         // 角标心跳间隔可能随设置变化（440）：即时重建定时器
         this.setupBadgeTimer();
-        return this.persist.save(SETTINGS_DATA, this.settings);
+        const done = this.persist.save(SETTINGS_DATA, this.settings);
+        // AT-10：设置变更广播——复习面板据此重启超时计时（立即生效），其余项下一卡自然生效
+        done.then(() => {
+            try {
+                (this.eventBus as any).emit("lv-cards:settings-changed", { plugin: "lv-cards", v: 1 });
+            } catch { /* 事件旁路 */ }
+        }).catch(() => { /* onFail 已记录 */ });
+        return done;
     }
 
     /** Onboarding 完成标记（M12·FR?） */
@@ -197,6 +205,12 @@ export default class LvCardsPlugin extends Plugin {
                                 (plugin.eventBus as any).on("lv-cards:session-finished", handler);
                                 return () => (plugin.eventBus as any).off("lv-cards:session-finished", handler);
                             },
+                            // AT-11：原生/插件两路评分都经 appendRevlog 广播 reviewed，总览据此失效缓存
+                            onReviewed: (cb: () => void) => {
+                                const handler = () => cb();
+                                (plugin.eventBus as any).on("lv-cards:reviewed", handler);
+                                return () => (plugin.eventBus as any).off("lv-cards:reviewed", handler);
+                            },
                             getHeatmapWeeks: () => plugin.settings.heatmapWeeks,
                         },
                         managerCtx: {
@@ -260,9 +274,15 @@ export default class LvCardsPlugin extends Plugin {
             init() {
                 const div = document.createElement("div");
                 div.style.height = "100%";
-                const app = mount(Review, {
-                    target: div,
-                    props: {
+                this.element.appendChild(div);
+                // 懒加载 chunk 后异步挂载（v0.65 体积评审）；tab 已关则放弃挂载
+                loadReview().then(Review => {
+                    if (!div.isConnected) {
+                        return;
+                    }
+                    const app = mount(Review, {
+                        target: div,
+                        props: {
                         initialScope: (this.data?.scope as string) ?? plugin.settings.lastReviewScope,
                         initialCram: this.data?.cram === true,
                         ctx: {
@@ -320,6 +340,12 @@ export default class LvCardsPlugin extends Plugin {
                             // 会话结束即刷角标（549），不等 60s 心跳
                             plugin.refreshDueBadge();
                         },
+                        // AT-10：设置保存广播 → 复习面板超时参数立即生效
+                        onSettingsChanged: (cb: () => void) => {
+                            const handler = () => cb();
+                            (plugin.eventBus as any).on("lv-cards:settings-changed", handler);
+                            return () => (plugin.eventBus as any).off("lv-cards:settings-changed", handler);
+                        },
                         getContextBlocks: async (blockID: string) => {
                             const safe = blockID.replace(/'/g, "''");
                             const root = await sqlQuery(`SELECT root_id FROM blocks WHERE id='${safe}' LIMIT 1`);
@@ -343,9 +369,9 @@ export default class LvCardsPlugin extends Plugin {
                             return out;
                         },
                     } },
+                    });
+                    this.destroy = () => unmount(app);
                 });
-                this.element.appendChild(div);
-                this.destroy = () => unmount(app);
             },
         });
 
@@ -589,14 +615,22 @@ export default class LvCardsPlugin extends Plugin {
     }
 
     onunload() {
+        const unloadStart = Date.now();
         this.eventBus.off("click-flashcard-action", this.onNativeCardAction);
         this.eventBus.off("click-blockicon", this.onBlockIcon);
+        // AT-2：防抖中的设置保存立即落盘，禁用/重载不丢最后一次改动
+        if (this.settingsSaveTimer) {
+            clearTimeout(this.settingsSaveTimer);
+            this.settingsSaveTimer = null;
+            this.saveSettingsNow();
+        }
         this.flushRevlogSave();
         // AQ-4：卸载前尽力等在途写入落盘（Petal dispose 预算约 5s，上限 3s 不阻塞卸载）
         void this.persist.waitAll(3000).then(ok => {
             if (!ok) {
                 lvLog("warn", "unload: pending writes did not settle in 3s");
             }
+            lvLog("info", `unload cleanup done in ${Date.now() - unloadStart}ms`);
         });
         if (this.badgeTimer) {
             clearInterval(this.badgeTimer);
@@ -906,25 +940,53 @@ export default class LvCardsPlugin extends Plugin {
         showMessage(this.i18n.examReportWritten, 2000, "info");
     }
 
+    /** 笔记本归属集合（AR-11）：按 revlog 中出现的 blockID 分批查内核，落在该笔记本的才算命中范围 */
+    private async notebookBlockIDs(nbId: string, blockIDs: string[]): Promise<Set<string>> {
+        const safe = nbId.replace(/'/g, "''");
+        const out = new Set<string>();
+        for (let i = 0; i < blockIDs.length; i += 400) {
+            const chunk = blockIDs.slice(i, i + 400).map(id => `'${id.replace(/'/g, "''")}'`).join(",");
+            const rows = await sqlQuery(`SELECT id FROM blocks WHERE box='${safe}' AND id IN (${chunk})`);
+            for (const r of rows) {
+                out.add(String(r.id));
+            }
+        }
+        return out;
+    }
+
     private async buildExamReportMd(plan: ExamPlan): Promise<string> {
+        // AR-11：时间窗固定为「计划创建以来」，范围按计划过滤；无法归属的记录单独列示
+        let inScope: ((e: { deckID?: string; blockID?: string }) => boolean) | undefined;
+        if (plan.scopeKind === "deck") {
+            inScope = e => e.deckID === plan.scopeId;
+        } else if (plan.scopeKind === "notebook" && plan.scopeId) {
+            const window = this.revlog.entries.filter(e => e.rating > 0);
+            const ids = await this.notebookBlockIDs(plan.scopeId, [...new Set(window.map(e => e.blockID).filter(Boolean))]);
+            inScope = e => ids.has(e.blockID ?? "");
+        }
+        const s = examReportStats(plan, this.revlog.entries, { inScope });
         const left = daysLeft(plan.examDate);
-        const examTs = new Date(plan.examDate + "T23:59:59").getTime();
-        const from = Math.min(plan.createdAt, examTs - 90 * 86400000);
-        const to = Date.now() < examTs ? Date.now() : examTs;
-        const entries = this.revlog.entries.filter(e => e.ts >= from && e.ts <= to);
-        const reviews = entries.filter(e => e.rating > 0).length;
-        const forgets = entries.filter(e => e.rating === 1).length;
-        const activeDays = new Set(entries.filter(e => e.rating > 0).map(e => localDate(e.ts))).size;
-        return [
+        const scopeLine = plan.scopeName || plan.scopeKind;
+        const lines = [
             `# 考试复盘：${plan.name}`,
             `- 考试日期：${plan.examDate}（${left !== null && left < 0 ? "已结束" : `剩 ${left} 天`}）`,
-            `- 范围：${plan.scopeName}`,
-            `- 窗口内复习：${reviews} 次 / 遗忘：${forgets} 次 / 保持率：${reviews ? Math.round((1 - forgets / reviews) * 100) : "—"}%`,
-            `- 活跃天数：${activeDays}`,
+            `- 范围：${scopeLine}`,
+            `- 统计窗口：${new Date(s.windowFrom).toLocaleDateString()} 起（计划创建以来）`,
+            `- 窗口内复习：${s.reviews} 次 / 遗忘：${s.forgets} 次 / 保持率：${s.reviews ? Math.round((1 - s.forgets / s.reviews) * 100) : "—"}%`,
+            `- 活跃天数：${s.activeDays}`,
             `- 计划 cram 设置：考前 ${plan.cramDays} 天`,
-            "",
-            `> 由小驴闪卡生成 · ${new Date().toLocaleString()}`,
-        ].join("\n");
+        ];
+        if (!s.hasData) {
+            lines.push(`- ⚠️ 窗口内没有可核算的本地复习记录（本地日志起点晚于窗口或尚未复习），不将缺失计为 0`);
+        }
+        if (s.unattributed > 0) {
+            lines.push(`- ⚠️ 另有 ${s.unattributed} 条窗口内记录缺卡组信息（原生复习界面），未计入上方统计`);
+        }
+        if (plan.scopeKind === "notebook") {
+            lines.push(`- 口径：笔记本范围按来源块归属计算；已删除/移动的来源块无法归属，不计入`);
+        }
+        lines.push("", `> 由小驴闪卡生成 · ${new Date().toLocaleString()}`);
+        return lines.join("\n");
     }
 
     private async generateExamReport(plan: ExamPlan) {

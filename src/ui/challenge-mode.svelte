@@ -14,8 +14,28 @@
     let cards: { blockID: string; dom: string }[] = $state([]);
     let idx = $state(0);
     let timer: ReturnType<typeof setInterval> | null = null;
+    // AR-10：monotonic deadline——后台节流/休眠后按壁钟校正，不靠 interval 次数累计
+    let deadline = 0;
 
-    onDestroy(() => { if (timer) clearInterval(timer); });
+    onDestroy(() => { stopTimer(); });
+
+    function stopTimer() {
+        if (timer) {
+            clearInterval(timer);
+            timer = null;
+        }
+    }
+
+    function startTimer() {
+        stopTimer();
+        deadline = Date.now() + remaining * 1000;
+        timer = setInterval(() => {
+            remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+            if (remaining <= 0) {
+                finish(); // stopTimer 后 phase=done，interval 不再触发——0 秒只完成一次
+            }
+        }, 250);
+    }
 
     async function fetchDom(blockID: string): Promise<string> {
         try {
@@ -39,7 +59,12 @@
             }
             cards = loaded;
         } catch { /* 旁路 */ }
-        if (cards.length === 0) finish();
+        if (cards.length === 0) {
+            finish();
+            return;
+        }
+        // AR-10：计时点与材料加载完成一致，倒计时期间不吞作答时间
+        startTimer();
     }
 
     function mark(ok: boolean) {
@@ -49,7 +74,10 @@
     }
 
     function finish() {
-        if (timer) { clearInterval(timer); timer = null; }
+        stopTimer();
+        if (phase === "done") {
+            return; // AR-10：超时与手动停止并发只完成一次
+        }
         phase = "done";
     }
 </script>

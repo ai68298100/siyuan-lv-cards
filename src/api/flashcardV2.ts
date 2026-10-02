@@ -1,8 +1,13 @@
 /**
  * 内核闪卡 V2 API（feature/flashcard 分支，3.9.0）封装。
  * 端点清单见 docs/05-内核闪卡V2重构调研与应对.md；契约仍在变动，这里保持宽容解析、可降级。
+ * 契约纯逻辑（状态白名单/清洗/摘要）在 v2-contract.ts，此处再导出保持调用方 import 路径不变。
  */
 import { fetchSyncPost } from "siyuan";
+import { normalizeMigrationStatus, summarizeStatistics, type FlashcardV2State, type MigrationStatus } from "./v2-contract";
+
+export { normalizeMigrationStatus, summarizeStatistics };
+export type { FlashcardV2State, MigrationStatus };
 
 async function v2<T>(endpoint: string, payload: Record<string, unknown> = {}): Promise<T> {
     const resp = await fetchSyncPost(`/api/flashcard/${endpoint}`, payload);
@@ -13,33 +18,15 @@ async function v2<T>(endpoint: string, payload: Record<string, unknown> = {}): P
     return resp.data as T;
 }
 
-/** 迁移状态机：Legacy（纯旧数据）/ Preparing / Active（V2 生效）/ LegacyDiverged（迁移后旧侧又有写入） */
-export type FlashcardV2State = "Legacy" | "Preparing" | "Active" | "LegacyDiverged";
-
-export interface MigrationStatus {
-    state: FlashcardV2State;
-    report?: {
-        Complete?: boolean;
-        MigratedCards?: number;
-        ArchivedCards?: number;
-        ReviewSets?: number;
-        ReviewEvents?: number;
-        InvalidCards?: number;
-        UnmappedLogs?: number;
-    };
-}
-
 /**
  * 探测内核是否具备 V2 闪卡 API。
- * 返回 null = 当前内核无此端点（< 3.9.0），插件走 riff 兼容路径。
+ * 返回 null = 当前内核无此端点（< 3.9.0 或不可达），插件走 riff 兼容路径；
+ * 返回 state="Unknown" = 端点在但状态不可识别（保守降级，UI 显示未验证）。
  */
 export async function detectFlashcardV2(): Promise<MigrationStatus | null> {
     try {
-        const data = await v2<MigrationStatus>("getMigrationStatus");
-        if (data && typeof data.state === "string") {
-            return data;
-        }
-        return null;
+        const data = await v2<unknown>("getMigrationStatus");
+        return normalizeMigrationStatus(data);
     } catch {
         return null;
     }
@@ -115,22 +102,3 @@ export const getFlashcardStatistics = (payload: Record<string, unknown>) =>
 /** AnkiConnect 兼容端点：思源扮演 Anki（version/deckNames/addNotes/findNotes/storeMediaFile 等） */
 export const ankiConnect = (payload: { action: string; version?: number; params?: Record<string, unknown>; key?: string }) =>
     v2<{ result: unknown; error: string }>("ankiConnect", payload as unknown as Record<string, unknown>);
-
-// ---- 工具 ----
-
-/**
- * 从 getStatistics 的宽容返回中提取顶层标量摘要（契约未冻结，未知结构不渲染）。
- */
-export function summarizeStatistics(data: Record<string, unknown> | null): { key: string; value: string }[] {
-    if (!data || typeof data !== "object") {
-        return [];
-    }
-    const out: { key: string; value: string }[] = [];
-    const overview = (data.overview ?? data.result ?? data) as Record<string, unknown>;
-    for (const [k, v] of Object.entries(overview)) {
-        if (typeof v === "number" || typeof v === "string" || typeof v === "boolean") {
-            out.push({ key: k, value: String(v) });
-        }
-    }
-    return out;
-}

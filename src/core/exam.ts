@@ -93,3 +93,68 @@ export function dailyTarget(plan: ExamPlan, scopeSize?: number): number | null {
 export function todayKey(): string {
     return localDate(Date.now());
 }
+
+// ---- 考后复盘统计（AR-11）----
+
+export interface ExamReportStats {
+    /** 窗口起点 = 计划创建时刻（固定规则，不再用 min(created, exam-90d) 扩大） */
+    windowFrom: number;
+    windowTo: number;
+    reviews: number;
+    forgets: number;
+    activeDays: number;
+    /** 窗口内命中时间但无法归属范围的记录（如原生事件缺 deckID）——单独计数，不冒充 0 */
+    unattributed: number;
+    /** 窗口内是否出现过任何本地记录（false 时报告须声明“无可核算数据”而非全 0） */
+    hasData: boolean;
+}
+
+/**
+ * 计划窗口内的范围化统计（AR-11）：
+ * - 时间窗：[plan.createdAt, min(now, 考试日 23:59:59)]；
+ * - 范围：deck 按 deckID 精确归属；notebook/all 由调用方注入 inScope（blockID 归属需查内核）；
+ * - 归属不到的记录进 unattributed，缺失历史不宣称 0。
+ */
+export function examReportStats(
+    plan: ExamPlan,
+    entries: { ts: number; rating: number; deckID?: string; blockID?: string }[],
+    opts: { now?: number; inScope?: (e: { deckID?: string; blockID?: string }) => boolean } = {},
+): ExamReportStats {
+    const now = opts.now ?? Date.now();
+    const examTs = new Date(plan.examDate + "T23:59:59").getTime();
+    const windowFrom = plan.createdAt;
+    const windowTo = Math.min(now, Number.isFinite(examTs) ? examTs : now);
+    const inWindow = entries.filter(e => e.ts >= windowFrom && e.ts <= windowTo && e.rating > 0);
+    // deck 范围的归属规则是确定的（deckID 精确匹配），无需调用方注入；notebook/all 由调用方传入
+    const inScope = opts.inScope ?? (plan.scopeKind === "deck"
+        ? (e: { deckID?: string }) => e.deckID === plan.scopeId
+        : undefined);
+    let reviews = 0;
+    let forgets = 0;
+    let unattributed = 0;
+    const days = new Set<string>();
+    for (const e of inWindow) {
+        // deck 范围：缺 deckID（原生评分常见）无法归属——单独计数，不冒认也不冒充 0
+        if (plan.scopeKind === "deck" && !e.deckID) {
+            unattributed += 1;
+            continue;
+        }
+        if (inScope && !inScope(e)) {
+            continue;
+        }
+        reviews += 1;
+        if (e.rating === 1) {
+            forgets += 1;
+        }
+        days.add(localDate(e.ts));
+    }
+    return {
+        windowFrom,
+        windowTo,
+        reviews,
+        forgets,
+        activeDays: days.size,
+        unattributed,
+        hasData: inWindow.length > 0,
+    };
+}

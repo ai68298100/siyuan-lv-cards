@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-    appendRevlog, emptyRevlog, mergeRevlog, normalizeRevlog, recalcDays, calcStreak, calcXp, localDate, lastNDays, weekCompare, calcMilestones,
+    appendRevlog, emptyRevlog, isCardNew, mergeRevlog, normalizeRevlog, recalcDays, calcStreak, calcXp, localDate, lastNDays, weekCompare, calcMilestones,
     type RevlogData,
 } from "../src/core/revlog";
 const entry = (ts: number, cardID: string, rating: number, source: "native" | "plugin" = "plugin") =>
@@ -201,16 +201,16 @@ describe("calcXp（M8·FR3）", () => {
 });
 
 describe("normalizeRevlog 运行时清洗（AQ-3）", () => {
-    it("合法条目原样保留，聚合由明细重建", () => {
+    it("合法条目原样保留，聚合由明细重建；结构性损坏的 days 不透传", () => {
         const t = Date.now();
         const d = normalizeRevlog({
             version: 1,
             entries: [entry(t, "c1", 3), entry(t + 1, "c1", 1)],
-            days: { "1999-01-01": { new: 99, review: 99, forget: 99 } },
+            days: { "1999-01-01": { new: NaN, review: 99, forget: 0 } },
         });
         expect(d.entries).toHaveLength(2);
         expect(d.days[localDate(t)]).toEqual({ new: 1, review: 1, forget: 1 });
-        expect(d.days["1999-01-01"]).toBeUndefined(); // 污染聚合不透传
+        expect(d.days["1999-01-01"]).toBeUndefined(); // NaN 等结构性损坏丢弃
     });
 
     it("非法条目逐条剔除：NaN/负/越界时间、非法评分、非字符串卡 ID；数字字符串评分按修复收敛", () => {
@@ -261,6 +261,79 @@ describe("normalizeRevlog 运行时清洗（AQ-3）", () => {
         const once = normalizeRevlog(raw);
         const twice = normalizeRevlog(JSON.parse(JSON.stringify(once)));
         expect(twice).toEqual(once);
+    });
+});
+
+describe("revlog 截断聚合一致性（AQ-21）", () => {
+    const DAY = 86400000;
+    const at = (daysAgo: number, hour = 12) => {
+        const d = new Date();
+        d.setHours(hour, 0, 0, 0);
+        return d.getTime() - daysAgo * DAY;
+    };
+
+    it("20,001+ 条截断后重载：截断前日期聚合保留、不重复计数", () => {
+        const d = emptyRevlog();
+        // 60 天前开始每天 400 条 → 24000 条，明细被截到最近 2 万条
+        for (let i = 0; i < 24000; i++) {
+            appendRevlog(d, entry(at(60) + i * (DAY / 400), `c${i % 100}`, 3));
+        }
+        expect(d.entries.length).toBe(20000);
+        const oldDate = localDate(at(60));
+        const oldStat = { ...d.days[oldDate] };
+        expect(oldStat.review + oldStat.new).toBeGreaterThan(0);
+        // 模拟重载（JSON round-trip + normalize）
+        const reloaded = normalizeRevlog(JSON.parse(JSON.stringify(d)));
+        expect(reloaded.days[oldDate]).toEqual(oldStat); // 截断前快照原样保留
+        expect(reloaded.entries.length).toBe(20000);      // 不重复计数
+        const twice = normalizeRevlog(JSON.parse(JSON.stringify(reloaded)));
+        expect(twice.days).toEqual(reloaded.days);        // 幂等
+    });
+
+    it("截断卡的后续评分按复习计（knownCards 保留首评语义）", () => {
+        const d = emptyRevlog();
+        // 最早的一张卡：其明细最终被 2 万条上限截掉
+        appendRevlog(d, entry(at(60), "truncated", 3));
+        // 其余用重复卡 ID（生产常见形态，append 走明细早退路径）
+        for (let i = 0; i < 20050; i++) {
+            appendRevlog(d, entry(at(1) + i, `c${i % 50}`, 3));
+        }
+        expect(d.entries.some(e => e.cardID === "truncated")).toBe(false);
+        const reloaded = normalizeRevlog(JSON.parse(JSON.stringify(d)));
+        expect(isCardNew(reloaded, "truncated")).toBe(false);
+        const dayBefore = reloaded.days[localDate(Date.now())] ?? { new: 0, review: 0, forget: 0 };
+        appendRevlog(reloaded, entry(Date.now() + 1, "truncated", 3));
+        const dayAfter = reloaded.days[localDate(Date.now())];
+        expect(dayAfter.review).toBe(dayBefore.review + 1); // 复习，不再误计为新卡
+    });
+
+    it("快照日期污染值不透传；覆盖范围内以明细重算为准", () => {
+        const t = Date.now();
+        const d = normalizeRevlog({
+            entries: [entry(t, "c1", 3)],
+            days: {
+                "1999-01-01": { new: -5, review: NaN, forget: 0 },  // 非法 → 丢弃
+                "1999-06-01": { new: 2, review: 3, forget: 1 },     // 合法快照 → 保留
+            },
+            knownCards: ["c1", 42, "", "c2"],
+        });
+        expect(d.days["1999-01-01"]).toBeUndefined();
+        expect(d.days["1999-06-01"]).toEqual({ new: 2, review: 3, forget: 1 });
+        expect(d.knownCards).toEqual(["c1", "c2"]);
+    });
+
+    it("mergeRevlog 保留快照日期并入 knownCards", () => {
+        const d = emptyRevlog();
+        appendRevlog(d, entry(at(3), "old", 3));
+        const snapshotDate = localDate(at(3));
+        // 大量重复卡条目把 old 的明细截断（走明细早退路径）
+        for (let i = 0; i < 20010; i++) {
+            appendRevlog(d, entry(at(1) + i, `x${i % 50}`, 3));
+        }
+        expect(d.entries.some(e => e.cardID === "old")).toBe(false);
+        mergeRevlog(d, { entries: [entry(Date.now(), "imported", 2)] });
+        expect(d.days[snapshotDate]).toBeDefined();       // 截断前聚合仍在
+        expect(isCardNew(d, "imported")).toBe(false);      // 导入卡进入 knownCards
     });
 });
 

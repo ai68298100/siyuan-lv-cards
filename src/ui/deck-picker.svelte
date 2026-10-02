@@ -7,7 +7,8 @@
         confirmLabel?: string;
         /** 调用方已持有卡组列表时直传，避免重复请求 */
         decks?: RiffDeck[] | null;
-        onConfirm: (deckID: string, deckName: string) => void;
+        /** AR-2：支持 Promise——成功后才关闭，失败保留选择与输入 */
+        onConfirm: (deckID: string, deckName: string) => void | Promise<void>;
         onClose: () => void;
     } = $props();
 
@@ -51,7 +52,8 @@
             if (!deckID) {
                 return;
             }
-            onConfirm(deckID, deckName);
+            // AR-2：等写入成功才关闭；失败/取消保留编辑内容与选择
+            await onConfirm(deckID, deckName);
             onClose();
         } catch (e: any) {
             errorMsg = e?.message ?? String(e);
