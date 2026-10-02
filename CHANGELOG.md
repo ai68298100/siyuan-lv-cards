@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.90.0 2026-10-03 · Kit smoke 第五批：布局壳组件头部契约
+
+* **LvSection**（title/sub 渲染、title 缺省不渲染区块头）、**LvPage**（title/subtitle/dot 渲染、title 缺省无页头）、**LvDrawer**（open=true 渲染遮罩+title、open=false 无遮罩）——6 组布局壳契约单测
+* 已知限制：Esc→onclose 经 svelte:window 的 window 级 keydown 在 happy-dom 下模拟不可靠，归 docs/34 V 项真机验收（注释在案）
+* 纯 props Kit smoke 覆盖达 **13 个**组件（含布局壳的头部契约）；children/actions snippet 内容维持暂缓
+* 测试 180→186；0 errors/0 warnings；主包 gzip 27.34KB（预算内）
+
 ## v0.89.0 2026-10-03 · Kit smoke 第四批：LvTabs + LvRow
 
 * **LvTabs**（页签渲染/active `aria-selected`+高亮类/点击 onchange 携带 id/点当前页签仍触发——hub 重挂载自愈语义允许）、**LvRow**（label 渲染/hint 缺省不渲染/提供时置于 label 下方）——5 组 smoke 单测
