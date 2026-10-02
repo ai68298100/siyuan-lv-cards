@@ -28,6 +28,8 @@
         testAnkiClient: () => Promise<string>;
         storageStats: () => { file: string; size: string; lastWrite: number }[];
         exportSettings: () => void;
+        /** 笔记本清单（605 落盘笔记本选择） */
+        getNotebooks: () => Promise<{ id: string; name: string }[]>;
         exportRevlogCsv: () => void;
         importRevlogCsv: (fileText: string) => Promise<{ added: number; skipped: number }>;
         importRevlogMerge: (fileText: string, onFork?: "skip" | "preferImport") => Promise<{ added: number; skipped: number; forks: number }>;
@@ -39,6 +41,8 @@
     let draft: LvCardsSettings = $state(JSON.parse(JSON.stringify(ctx.settings)));
     let v2Label = $state(ctx.getV2Status());
     let voices = $state<{ name: string }[]>([]);
+    /** 笔记本清单（605） */
+    let notebooks = $state<{ id: string; name: string }[]>([]);
 
     onMount(() => {
         try {
@@ -48,6 +52,7 @@
                 speechSynthesis.onvoiceschanged = load;
             }
         } catch { /* 旁路 */ }
+        ctx.getNotebooks().then(n => (notebooks = n)).catch(() => { /* 旁路 */ });
     });
     let ankiLabel = $state("");
 
@@ -411,6 +416,12 @@
     </LvSection>
 
     <LvSection title={t.settings.aiSection} sub={t.settings.aiSectionHint}>
+        <LvRow label={t.settings.targetNotebook} hint={t.settings.targetNotebookHint}>
+            <LvSelect
+                bind:value={draft.targetNotebookId}
+                options={[{ value: "", label: t.settings.targetNotebookFirst }, ...notebooks.map(n => ({ value: n.id, label: n.name }))]}
+            />
+        </LvRow>
         <LvRow label={t.settings.markerEnabled} hint={t.settings.markerEnabledHint}>
             <LvSwitch bind:checked={draft.markerEnabled} />
         </LvRow>

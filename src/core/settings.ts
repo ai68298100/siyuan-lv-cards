@@ -89,6 +89,8 @@ export interface LvCardsSettings {
     aiFallbackModel: string;
     /** Prompt 模板（294）：自定义 system 模板，空=内置默认；支持 ${count}/${language}/${type} 占位符 */
     aiPromptTemplate: string;
+    /** 快速制卡/标记制卡落盘笔记本（605）：id，空=第一个打开的笔记本 */
+    targetNotebookId: string;
     /** AnkiConnect 客户端（M9·FR1）：连本机 Anki Desktop */
     ankiClientUrl: string;
     ankiClientKey: string;
@@ -155,6 +157,7 @@ export function defaultSettings(): LvCardsSettings {
         aiFallbackKey: "",
         aiFallbackModel: "",
         aiPromptTemplate: "",
+        targetNotebookId: "",
         ankiClientUrl: "http://127.0.0.1:8765",
         ankiClientKey: "",
         cardMaxWidth: 880,

@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.61.0 2026-10-01 · 请求层 + 存储入口 + 落盘笔记本
+
+* 工程：libs/request.ts 统一请求层——AbortController 15s 超时（超时映射 code=504 入错误码表），riff.ts 全端点迁移
+* 工程：libs/store.ts TypedStore 入口（loadStore：key+fallback+normalize，绝不抛错阻塞启动）；core/ai-batches.ts schema 清洗（id/date 必填、blockIDs 过滤、200 条上限）接入
+* 设置：「落盘笔记本」下拉（targetNotebookId）——快速制卡/标记制卡/帮助/示例/AI 卡/学习报告/考试复盘 7 个落盘点统一走 targetNotebook()
+* 修复：onload 中 normalizeSessionState 重复调用；目标笔记本未设置时行为与旧版一致
+* i18n +3 键（498 对齐）；测试 27/27；主包 gzip 31.75KB（预算内）
+
 ## v0.60.0 2026-10-01 · Kit 控件组专项
 
 * Kit +5：LvSwitch / LvSelect / LvInput（`$bindable` 封装 b3 原生控件）、LvSteps（向导步骤指示器）、LvSkeleton（骨架屏 row/block）；工具 lvConfirm.ts（Promise 化确认框）

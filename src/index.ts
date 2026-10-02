@@ -5,6 +5,8 @@ import { Plugin, Menu, getAllEditor, showMessage, fetchSyncPost, openTab } from 
 
 import { svelteDialog, confirmDialogBool } from "./libs/dialog";
 import { lvLog, lvLogDump } from "./libs/log";
+import { loadStore } from "./libs/store";
+import { normalizeAIBatches, emptyAIBatches, type AIBatchesData } from "./core/ai-batches";
 import { defaultSettings, normalizeSettings, type LvCardsSettings } from "./core/settings";
 import { PERSONA_PRESETS } from "./core/personas";
 import {
@@ -62,7 +64,7 @@ export default class LvCardsPlugin extends Plugin {
     private settingsSaveTimer: ReturnType<typeof setTimeout> | null = null;
     private suspendToday: SuspendTodayData = { date: "", cardIDs: [] };
     private examPlans: ExamPlansData = { version: 1, plans: [] };
-    private aiBatches: { version: 1; batches: { id: string; date: string; deckID: string; blockIDs: string[]; tokens?: number }[] } = { version: 1, batches: [] };
+    private aiBatches: AIBatchesData = { version: 1, batches: [] };
     private saveSettingsSoon() {
         if (this.settingsSaveTimer) clearTimeout(this.settingsSaveTimer);
         this.settingsSaveTimer = setTimeout(() => {
@@ -108,11 +110,12 @@ export default class LvCardsPlugin extends Plugin {
         this.suspendToday = normalizeSuspendToday(loadedSuspend);
         this.examPlans = normalizeExamPlans(loadedExam);
         this.sessionState = normalizeSessionState(loadedSession, localDate(Date.now()));
-        this.sessionState = normalizeSessionState(loadedSession, localDate(Date.now()));
-        const loadedBatches = await this.loadData(AI_BATCHES_DATA);
-        if (loadedBatches && typeof loadedBatches === "object" && Array.isArray((loadedBatches as any).batches)) {
-            this.aiBatches = loadedBatches;
-        }
+        // AI 批次走 TypedStore 入口（322）：结构清洗 + 兜底，非法条目剔除（526）
+        this.aiBatches = await loadStore(this, {
+            key: AI_BATCHES_DATA,
+            fallback: emptyAIBatches,
+            normalize: normalizeAIBatches,
+        });
         if (rollDateIfNeeded(this.suspendToday)) {
             await this.saveData(SUSPEND_TODAY_DATA, this.suspendToday);
         }
@@ -858,12 +861,12 @@ export default class LvCardsPlugin extends Plugin {
     /** 考后复盘报告（M7·FR6）：计划窗口内的复习统计 Markdown，复制到剪贴板 */
     /** 复盘报告写入复盘文档（M7·FR6 深化）：除剪贴板外可一键写入「小驴闪卡/考试复盘」文档 */
     private async writeExamReportDoc(plan: ExamPlan): Promise<void> {
-        const notebooks = await getNotebooks();
-        if (notebooks.length === 0) {
+        const nb = await this.targetNotebook();
+        if (!nb) {
             throw new Error(this.i18n.onboardingNoNotebook);
         }
         const md = await this.buildExamReportMd(plan);
-        const docID = await createDocWithMd(notebooks[0].id, `小驴闪卡/考试复盘/${plan.name}`, md);
+        const docID = await createDocWithMd(nb.id, `小驴闪卡/考试复盘/${plan.name}`, md);
         if (!docID) {
             throw new Error(this.i18n.quickCardFail);
         }
@@ -897,17 +900,26 @@ export default class LvCardsPlugin extends Plugin {
         showMessage(this.i18n.examReportCopied, 2500, "info");
     }
 
+    /** 落盘笔记本（605）：设置指定优先，否则第一个打开的笔记本 */
+    private async targetNotebook(): Promise<{ id: string; name: string } | null> {
+        const notebooks = await getNotebooks();
+        if (notebooks.length === 0) {
+            return null;
+        }
+        return notebooks.find(n => n.id === this.settings.targetNotebookId) ?? notebooks[0];
+    }
+
     /** 内置帮助文档（485）：同路径复用「小驴闪卡/使用帮助」文档，内容随插件更新；
      * 帮助文案经动态 import 走独立 chunk（不占主包体积预算） */
     private async openHelpDoc() {
-        const notebooks = await getNotebooks();
-        if (notebooks.length === 0) {
+        const nb = await this.targetNotebook();
+        if (!nb) {
             showMessage(this.i18n.onboardingNoNotebook, 2500, "error");
             return;
         }
         const { helpMarkdown } = await import("./help");
         const lang = (window.siyuan as any)?.languages?.lang ?? "zh_CN";
-        const docID = await createDocWithMd(notebooks[0].id, "小驴闪卡/使用帮助", helpMarkdown(lang));
+        const docID = await createDocWithMd(nb.id, "小驴闪卡/使用帮助", helpMarkdown(lang));
         if (!docID) {
             showMessage(this.i18n.quickCardFail, 2500, "error");
             return;
@@ -918,8 +930,8 @@ export default class LvCardsPlugin extends Plugin {
     /** 示例工作区（476）：创建 5 张不同形态的示例卡（普通/公式/挖空/列表/问答）并入「示例卡组」 */
     private async createSampleWorkspace() {
         try {
-            const notebooks = await getNotebooks();
-            if (notebooks.length === 0) {
+            const nb = await this.targetNotebook();
+            if (!nb) {
                 showMessage(this.i18n.onboardingNoNotebook, 2500, "error");
                 return;
             }
@@ -930,7 +942,7 @@ export default class LvCardsPlugin extends Plugin {
                 const newId = (created as any)?.id ?? (created as any);
                 deck = { id: String(newId), name: "示例卡组", size: 0, updated: "" } as any;
             }
-            const docID = await createDocWithMd(notebooks[0].id, "小驴闪卡/示例卡片", "");
+            const docID = await createDocWithMd(nb.id, "小驴闪卡/示例卡片", "");
             if (!docID) {
                 throw new Error(this.i18n.quickCardFail);
             }
@@ -967,12 +979,12 @@ export default class LvCardsPlugin extends Plugin {
             props: {
                 i18n: this.i18n,
                 onCreate: async (markdown: string, deckID: string) => {
-                    const notebooks = await getNotebooks();
-                    if (notebooks.length === 0) {
+                    const nb = await this.targetNotebook();
+                    if (!nb) {
                         throw new Error(this.i18n.onboardingNoNotebook);
                     }
                     // 同路径重复创建复用既有文档（内核语义），返回其文档 ID
-                    const docID = await createDocWithMd(notebooks[0].id, "小驴闪卡/快速制卡", "");
+                    const docID = await createDocWithMd(nb.id, "小驴闪卡/快速制卡", "");
                     if (!docID) {
                         throw new Error(this.i18n.quickCardFail);
                     }
@@ -1069,13 +1081,13 @@ export default class LvCardsPlugin extends Plugin {
                 i18n: this.i18n,
                 items,
                 onCreate: async (picked: MarkerItem[]) => {
-                    const notebooks = await getNotebooks();
-                    if (notebooks.length === 0) {
+                    const nb = await this.targetNotebook();
+                    if (!nb) {
                         throw new Error(this.i18n.onboardingNoNotebook);
                     }
                     // 问答块统一落在「小驴闪卡/标记制卡/<日期>」文档（同路径复用既有文档）
                     const today = localDate(Date.now());
-                    const docID = await createDocWithMd(notebooks[0].id, `小驴闪卡/标记制卡/${today}`, "");
+                    const docID = await createDocWithMd(nb.id, `小驴闪卡/标记制卡/${today}`, "");
                     if (!docID) {
                         throw new Error(this.i18n.quickCardFail);
                     }
@@ -1244,12 +1256,12 @@ export default class LvCardsPlugin extends Plugin {
 
     /** AI 卡落库：挖空式单块写入「小驴闪卡/AI 制卡」文档 → addRiffCards（M2·FR9，riff 路径） */
     private async createAICards(cards: { q: string; a: string }[], deckID: string, _deckName: string) {
-        const notebooks = await getNotebooks();
-        if (notebooks.length === 0) {
+        const nb = await this.targetNotebook();
+        if (!nb) {
             throw new Error(this.i18n.onboardingNoNotebook);
         }
         const date = localDate(Date.now());
-        const docID = await createDocWithMd(notebooks[0].id, `小驴闪卡/AI 制卡/${date}`, "");
+        const docID = await createDocWithMd(nb.id, `小驴闪卡/AI 制卡/${date}`, "");
         if (!docID) {
             throw new Error(this.i18n.quickCardFail);
         }
@@ -1432,6 +1444,13 @@ export default class LvCardsPlugin extends Plugin {
                     storageStats: () => this.storageStats(),
                     generateExamReport: (plan: ExamPlan) => this.generateExamReport(plan),
                     exportSettings: () => this.exportSettings(),
+                    getNotebooks: async () => {
+                        try {
+                            return await getNotebooks();
+                        } catch {
+                            return [];
+                        }
+                    },
                     importSettings: async (fileText: string) => {
                         this.settings = normalizeSettings(JSON.parse(fileText));
                         await this.saveSettingsNow();
@@ -1501,11 +1520,11 @@ export default class LvCardsPlugin extends Plugin {
 
     /** 学习报告写入思源文档（M5·FR6 深化） */
     private async writeReportDoc(md: string) {
-        const notebooks = await getNotebooks();
-        if (notebooks.length === 0) {
+        const nb = await this.targetNotebook();
+        if (!nb) {
             throw new Error(this.i18n.onboardingNoNotebook);
         }
-        const docID = await createDocWithMd(notebooks[0].id, `小驴闪卡/学习报告/${localDate(Date.now())}`, md);
+        const docID = await createDocWithMd(nb.id, `小驴闪卡/学习报告/${localDate(Date.now())}`, md);
         if (!docID) {
             throw new Error(this.i18n.quickCardFail);
         }
