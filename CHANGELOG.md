@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.73.0 2026-10-03 · 巡检轮：CI 全绿核实 + 回归自查 + 最后三组测试盲区
+
+* GitHub CI 巡检：v0.64→v0.72 全部推送提交的 CI 运行均为 success（含最新 main）
+* 回归自查抽查：AQ-2（显示答案 onclick + persistSession 落盘）与 AQ-5（native-events 测试）修复点与测试均在位，未被后续改动削弱
+* 最后三组测试盲区：**ai-batches**（id/date 校验剔除、blockIDs 过滤、200 条截尾、tokens 非有限回 undefined、幂等）；**suspend-today**（跨日清空、suspend 去重自动滚日、结构非法落空库）；**friendlyError**（错误码命中 i18n、未命中透传、非 Error 值）
+* 至此 src/core 与 src/libs 全部纯函数模块均有直接单测覆盖
+* 测试 130→140；0 errors/0 warnings；主包 gzip 25.58KB（预算内）
+
 ## v0.72.0 2026-10-03 · 测试盲区补齐 + AO 立项提案齐备
 
 * 测试盲区三组补齐：**occlusion 数据契约**（serialize↔parse 往返、坏 JSON/错版本/rects 非数组宽容 null、多框顺序）；**并发池 PromiseLimitPool**（并发上限、严格串行排空、失败传播）；**AI 输出解析**（```json 围栏与噪声容忍、question/answer 别名、d 难度越界过滤、空 q/a 剔除、非数组抛错）
