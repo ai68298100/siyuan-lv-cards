@@ -2,7 +2,7 @@
 
 # Lv Cards · 小驴闪卡
 
-**The all-in-one flashcard cockpit for SiYuan — stats · manager · review · exam · AI cards, on top of the native FSRS scheduler**
+**A full-lifecycle flashcard learning platform for SiYuan — capture · create · practice · review · apply · maintain, on top of the native FSRS scheduler**
 
 中文 ｜ [English](./README.en.md)
 
@@ -17,7 +17,7 @@
 
 > **Note**: The primary README and all design docs are in Chinese (the author's language). This English page covers the essentials; dive into [docs/](./docs/README.md) with your translator of choice for the full design material.
 
-SiYuan ships a built-in FSRS flashcard system, but the two most-requested missing pieces ([issue #10326](https://github.com/siyuan-note/siyuan/issues/10326)) — **card management** and **statistics** — remained open, while Anki, Obsidian, RemNote, Quizlet and 墨墨 have long proven dozens of features SiYuan doesn't have. Lv Cards closes that gap: scheduling is **always the kernel's** (go-fsrs) — the plugin is a pure add-on cockpit, uninstall-safe and fully interoperable with the native review UI.
+SiYuan ships a built-in FSRS flashcard system. Lv Cards aims to become its most complete local-first learning platform: absorbing proven mechanisms from Anki, Obsidian, RemNote, Quizlet, language tools, reading tools and exam products across the full lifecycle. AI is planned as a cross-cutting learning copilot for capture, understanding, card design, practice, application, maintenance, reporting and SiYuan Agent workflows. The planned workflow requires reviewable proposals; the current version supports AI preview editing, while per-card source and invocation provenance remain future work. The kernel remains authoritative for formal scheduling. Stable capabilities ship first; V2, external-service and infrastructure-heavy capabilities remain in a tracked later pool, with no silent export of user data.
 
 ## ✨ Features
 
@@ -59,8 +59,14 @@ Design docs and user guides are in [docs/](./docs/README.md) (Chinese): user gui
 
 ## 🗺 Roadmap
 
-- **v1.x**: FSRS parameter panel & optimizer loop · Anki `.apkg` import · streaming AI generation · knowledge graph · deck sharing
-- **V2 follow-ups** (auto-activate on SiYuan ≥ 3.9.0): official statistics deep-viz · third-party card-type bridge · AST query builder
+Version numbers are delivery windows; the long-term roadmap has four lanes:
+
+- **Currently deliverable**: core card creation, review, statistics, management, exams, AI preview, export and platform fallbacks
+- **Near-term enhancements**: full card types, field templates, language materials, course packages, application practice and content versioning
+- **Host/external dependencies**: V2 card types, live media, deep series integration, Anki extensions and cloud AI
+- **Long-term exploration**: cloud sync, collaboration, content marketplace, full incremental reading, standalone clients and widgets
+
+Capabilities that are not yet feasible remain tracked with dependencies, fallbacks and review conditions; they are not removed from the product vision. See the [layered roadmap](./docs/04-路线图.md) and [full product strategy](./docs/27-产品使命与全功能战略.md).
 
 ## 🙏 Credits
 
