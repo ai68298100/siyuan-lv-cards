@@ -600,6 +600,14 @@
         (rootEl ?? cardEl)?.focus?.();
     }
 
+    /** 浮层焦点移入（542）：帮助浮层打开即聚焦自身，Esc 关闭后归还 */
+    let helpEl: HTMLDivElement | null = $state(null);
+    $effect(() => {
+        if (helpOpen && helpEl) {
+            helpEl.focus();
+        }
+    });
+
     function togglePeek() {
         if (peek) {
             peek = null;
@@ -1028,7 +1036,7 @@
 
     {#if helpOpen}
         <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-        <div class="lv-help lv-glass" tabindex="-1" transition:fade={{ duration: 160 }} onclick={(e: Event) => e.stopPropagation()}>
+        <div class="lv-help lv-glass" tabindex="-1" bind:this={helpEl} transition:fade={{ duration: 160 }} onclick={(e: Event) => e.stopPropagation()}>
             <div class="lv-help-head">
                 <span>{t.review.helpTitle}</span>
                 <div class="fn__flex-1"></div>

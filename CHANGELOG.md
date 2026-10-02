@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.62.0 2026-10-01 · 架构文档 + 浮层可达性收尾
+
+* docs/14 §8：lv-cards:* 事件契约表固化（reviewed/streak-changed/session-finished/gateway-changed 的触发时机、payload、幂等性、失败隔离约定）
+* docs/24：架构决策记录（ADR）起步——双轨 Gateway / Kit-only UI / 内核唯一调度源 / 体积预算 / 数据契约五条 Accepted
+* a11y：帮助浮层打开即焦点移入（Esc 关闭后焦点归还卡面，闭环 542）
+* 待办审计：6 项陈旧/已覆盖条目核实归档（CSV 导入早已存在、目标达成语义已实现等）
+* 测试 27/27；0 errors；主包 gzip 31.81KB（预算内）
+
 ## v0.61.0 2026-10-01 · 请求层 + 存储入口 + 落盘笔记本
 
 * 工程：libs/request.ts 统一请求层——AbortController 15s 超时（超时映射 code=504 入错误码表），riff.ts 全端点迁移
