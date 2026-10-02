@@ -53,6 +53,7 @@
     "personaApplyHint": "将覆盖模块开关与推荐参数（保存后生效，可随时再改）。下方为将发生的改动：",
     "personaNoChange": "当前设置与此预设一致，无需改动。",
     "dashboard": {
+        "dashboard": "unfinishedAI",
         "docUnattributedNote": "另有 ${n} 张卡无法归属文档（块已删除/移动），未计入",
         "docCards": "${n} 张卡有记录",
         "unattributedNote": "另有 ${n} 张卡的记录缺卡组信息（原生复习界面），未计入分解",

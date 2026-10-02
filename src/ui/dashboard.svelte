@@ -34,6 +34,10 @@
         onReviewed?: (cb: () => void) => () => void;
         /** 文档维度覆盖（AQ-12）：块归属查内核后聚合；null=查询失败隐藏 */
         getDocCoverage?: () => Promise<{ docs: { docID: string; title: string; seen: number }[]; unattributed: number } | null>;
+        /** 未完成的 AI 导入（ADR-7）：null=无 */
+        getUnfinishedAIJob?: () => { id: string; done: number; total: number } | null;
+        /** 打开 AI 向导（未完成导入的续传入口在其中） */
+        openAIWizard?: () => void;
         /** 热力图范围周数（439） */
         getHeatmapWeeks: () => number;
     }
@@ -56,6 +60,8 @@
     let deckCov = $state<DeckCoverage | null>(null);
     /** 文档维度覆盖（AQ-12）：null=查询失败/未提供，隐藏该区 */
     let docCov = $state<{ docs: { docID: string; title: string; seen: number }[]; unattributed: number } | null>(null);
+    /** 未完成的 AI 导入（ADR-7）：null=无 */
+    let unfinishedAI = $state<{ id: string; done: number; total: number } | null>(null);
     let totalCards = $state(0);
     let heat: { date: string; stat: { new: number; review: number; forget: number } }[] = $state([]);
     let revlogNote = $state("");
@@ -223,6 +229,7 @@
             coverage = coverageStats(revlog, totalCards || undefined);
             deckCov = deckCoverage(revlog, deckList.map(d => ({ id: d.id, size: d.size })));
             docCov = ctx.getDocCoverage ? await ctx.getDocCoverage() : null;
+            unfinishedAI = ctx.getUnfinishedAIJob?.() ?? null;
             if (seq !== refreshSeq) {
                 return; // 文档归属查询期间用户已刷新（AR-6 generation 守卫）
             }
@@ -323,6 +330,18 @@
     {:else}
         {#if errorMsg}
             <LvError message={errorMsg} onretry={refresh} retryLabel={t.dashboard.refresh} />
+        {/if}
+
+        <!-- ADR-7：未完成的 AI 导入提示——总览即可见，点击打开向导（恢复横幅在其中） -->
+        {#if unfinishedAI}
+            <button
+                class="lv-card2 lv-unfinished-ai"
+                onclick={() => ctx.openAIWizard?.()}
+            >
+                <span>⏳ {t.dashboard.unfinishedAI
+                    .replace("${done}", String(unfinishedAI.done))
+                    .replace("${total}", String(unfinishedAI.total))}</span>
+            </button>
         {/if}
 
         {#if totalCards === 0}
@@ -622,6 +641,19 @@
     }
 
     .lv-cards { gap: var(--lv-sp-3); margin-bottom: var(--lv-sp-4); }
+    .lv-unfinished-ai {
+        display: block;
+        width: 100%;
+        text-align: left;
+        font-size: 12px;
+        color: var(--b3-theme-on-surface);
+        border: 1px dashed var(--lv-primary-border, var(--b3-theme-primary));
+        border-radius: var(--lv-r-m);
+        padding: var(--lv-sp-2) var(--lv-sp-3);
+        margin-bottom: var(--lv-sp-3);
+        cursor: pointer;
+        &:hover { background: var(--lv-primary-softer, transparent); }
+    }
     .lv-hint { color: var(--b3-theme-on-surface); }
     .lv-loading {
         display: flex;

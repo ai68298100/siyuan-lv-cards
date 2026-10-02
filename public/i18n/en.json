@@ -53,6 +53,7 @@
     "personaApplyHint": "Overwrites module switches and recommended parameters (applied on save, changeable anytime). Changes that will happen:",
     "personaNoChange": "Current settings already match this preset.",
     "dashboard": {
+        "dashboard": "unfinishedAI",
         "docUnattributedNote": "${n} cards cannot be attributed to a doc (block deleted/moved) — excluded",
         "docCards": "${n} cards reviewed",
         "unattributedNote": "${n} cards have records without deck info (native review UI) — excluded from breakdown",

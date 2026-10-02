@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.91.0 2026-10-03 · ADR-7 收尾：总览未完成导入提示
+
+* ADR-7 最后一处可见性断点修复：未完成 AI 导入此前只在打开向导时可见（恢复横幅）——现总览页新增提示条「有未完成的 AI 导入（n/m 已落卡）」，点击直接打开向导（恢复横幅在其中），生成/导入后经 onReviewed 自动刷新
+* docs/22 术语表补「AI 作业」条目
+* 测试 186/186；i18n 531 对齐；0 errors/0 warnings；主包 gzip 27.34KB（预算内）
+
 ## v0.90.0 2026-10-03 · Kit smoke 第五批：布局壳组件头部契约
 
 * **LvSection**（title/sub 渲染、title 缺省不渲染区块头）、**LvPage**（title/subtitle/dot 渲染、title 缺省无页头）、**LvDrawer**（open=true 渲染遮罩+title、open=false 无遮罩）——6 组布局壳契约单测
