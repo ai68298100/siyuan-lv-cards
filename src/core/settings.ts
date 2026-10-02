@@ -38,6 +38,14 @@ export interface LvCardsSettings {
     markerEnabled: boolean;
     /** Gateway 探测结果落库（320）：最近一次 V2 探测状态（加载时刷新，重探即写+广播） */
     gatewayState: string;
+    /** 卡面字号缩放（438）：0.85-1.25，1=跟随主题 */
+    cardFontScale: number;
+    /** 热力图范围（439）：周数 */
+    heatmapWeeks: number;
+    /** 角标刷新间隔秒（440）：0=关闭心跳 */
+    badgeRefreshSec: number;
+    /** 评分按钮密度（441）：cozy 舒适 / compact 紧凑 */
+    ratingDensity: "cozy" | "compact";
     /** leech 判定阈值（遗忘次数） */
     leechThreshold: number;
     /** 答案朗读（TTS，Web Speech） */
@@ -107,6 +115,10 @@ export function defaultSettings(): LvCardsSettings {
         xpEnabled: false,
         markerEnabled: true,
         gatewayState: "",
+        cardFontScale: 1,
+        heatmapWeeks: 17,
+        badgeRefreshSec: 60,
+        ratingDensity: "cozy",
         leechThreshold: 8,
         ttsEnabled: true,
         ttsRate: 1,

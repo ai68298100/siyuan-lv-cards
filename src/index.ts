@@ -72,6 +72,8 @@ export default class LvCardsPlugin extends Plugin {
 
     private saveSettingsNow() {
         this.trackSave(SETTINGS_DATA);
+        // 角标心跳间隔可能随设置变化（440）：即时重建定时器
+        this.setupBadgeTimer();
         return this.saveData(SETTINGS_DATA, this.settings).catch(() => { /* 旁路 */ });
     }
 
@@ -171,6 +173,7 @@ export default class LvCardsPlugin extends Plugin {
                                 (plugin.eventBus as any).on("lv-cards:session-finished", handler);
                                 return () => (plugin.eventBus as any).off("lv-cards:session-finished", handler);
                             },
+                            getHeatmapWeeks: () => plugin.settings.heatmapWeeks,
                         },
                         managerCtx: {
                             i18n: plugin.i18n,
@@ -244,6 +247,8 @@ export default class LvCardsPlugin extends Plugin {
                             dictationEnabled: plugin.settings.dictationEnabled,
                             requeueAgain: plugin.settings.requeueAgain,
                             dailyReviewTarget: plugin.settings.dailyReviewTarget,
+                            cardFontScale: plugin.settings.cardFontScale,
+                            ratingDensity: plugin.settings.ratingDensity,
                             sfxEnabled: plugin.settings.sfxEnabled,
                             batchLimit: plugin.settings.batchLimit,
                             typingEnabled: plugin.settings.typingEnabled,
@@ -426,17 +431,29 @@ export default class LvCardsPlugin extends Plugin {
 
     onLayoutReady() {
         this.refreshDueBadge();
-        // 到期数心跳（60s）；顺带执行每日到期提醒与积压预警（X 组）
+        this.setupBadgeTimer();
+        // Onboarding 首启自动弹出（M12：!onboarded 时延迟 2s 弹出，避免与布局渲染竞争）
+        if (!this.settings.onboarded) {
+            setTimeout(() => this.openOnboarding(), 2000);
+        }
+    }
+
+    /** 角标心跳（440）：间隔可在设置调（30/60s 或关闭），保存设置后即时生效 */
+    private setupBadgeTimer() {
+        if (this.badgeTimer) {
+            clearInterval(this.badgeTimer);
+            this.badgeTimer = null;
+        }
+        const sec = this.settings.badgeRefreshSec;
+        if (!sec || sec < 5) {
+            return; // 关闭心跳（0 或非法值）
+        }
         this.badgeTimer = setInterval(() => {
             this.refreshDueBadge();
             this.checkDailyReminder();
             this.checkBacklogWarn();
             this.checkExamMilestones();
-        }, 60_000);
-        // Onboarding 首启自动弹出（M12：!onboarded 时延迟 2s 弹出，避免与布局渲染竞争）
-        if (!this.settings.onboarded) {
-            setTimeout(() => this.openOnboarding(), 2000);
-        }
+        }, sec * 1000);
     }
 
     /** 每日到期提醒：到设定时间且仍有到期卡时通知一次（X 组，基础版） */

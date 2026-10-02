@@ -30,6 +30,8 @@
         getXpEnabled: () => boolean;
         /** 订阅会话完成事件（549）：复习结束后跨页签刷新总览，返回取消函数 */
         onSessionFinished?: (cb: () => void) => () => void;
+        /** 热力图范围周数（439） */
+        getHeatmapWeeks: () => number;
     }
 
     let { ctx }: { ctx: DashboardCtx } = $props();
@@ -180,7 +182,7 @@
             totalCards = deckList.reduce((acc, d) => acc + (d.size ?? 0), 0);
             const revlog = ctx.getRevlog();
             streak = calcStreak(revlog);
-            heat = lastNDays(revlog, 119);
+            heat = lastNDays(revlog, Math.max(4, ctx.getHeatmapWeeks()) * 7);
             const todayKey = heat[heat.length - 1]?.date;
             const reviewedToday = todayKey ? (revlog.days[todayKey]?.review ?? 0) : 0;
             todayReview = reviewedToday;

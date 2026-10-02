@@ -33,6 +33,10 @@
         requeueAgain: boolean;
         /** 每日复习目标（完成页进度展示） */
         dailyReviewTarget: number;
+        /** 卡面字号缩放（438） */
+        cardFontScale: number;
+        /** 评分按钮密度（441） */
+        ratingDensity: "cozy" | "compact";
     }
 
     export interface ReviewCtx {
@@ -854,7 +858,7 @@
             <button class="b3-button b3-button--small" onclick={skip}>{t.review.skip}</button>
         </div>
         <div class="lv-card b3-typography" class:lv-anim-glow={showAnswer} bind:this={cardEl} style={`max-width:${ctx.settings().cardMaxWidth}px; width:100%; margin:0 auto;`}>
-            <div class="lv-card-content" class:lv-masked={!showAnswer}>{@html cardHtml}</div>
+            <div class="lv-card-content" class:lv-masked={!showAnswer} style={`font-size:${ctx.settings().cardFontScale || 1}em`}>{@html cardHtml}</div>
             {#if occl && occlBox}
                 <!-- 遮罩 overlay：问题态实心（点击逐框显隐），答案态半透明全显 -->
                 <svg
@@ -969,7 +973,7 @@
                 {/if}
             </div>
         {/if}
-        <div class="lv-actions">
+        <div class="lv-actions" class:lv-actions-compact={ctx.settings().ratingDensity === "compact"}>
             {#if !showAnswer}
                 <button class="b3-button b3-button--text lv-btn-wide" onclick={() => (showAnswer = true)}>{t.review.showAnswer}</button>
             {:else if ctx.settings().ratingStyle === "three"}
@@ -1192,6 +1196,8 @@
 
         .lv-actions {
             display: flex; gap: var(--lv-sp-3); justify-content: center;
+            /* 紧凑密度（441）：评分按钮收窄高度与内边距 */
+            &.lv-actions-compact { gap: var(--lv-sp-2); .lv-btn-rate { max-width: 150px; padding: 4px 0; } }
             .lv-btn-wide { flex: 1; }
             .lv-btn-rate {
                 flex: 1;

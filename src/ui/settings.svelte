@@ -427,6 +427,36 @@
         </LvRow>
     </LvSection>
 
+    <LvSection title={t.settings.appearance}>
+        <LvRow label={t.settings.cardFontScale}>
+            <LvSlider value={draft.cardFontScale} min={0.85} max={1.25} step={0.05} suffix="×" onchange={(v) => (draft.cardFontScale = v)} />
+        </LvRow>
+        <LvRow label={t.settings.ratingDensity}>
+            <LvSegmented
+                options={[
+                    { value: "cozy", label: t.settings.densityCozy },
+                    { value: "compact", label: t.settings.densityCompact },
+                ]}
+                value={draft.ratingDensity}
+                onchange={(v) => (draft.ratingDensity = v as "cozy" | "compact")}
+            />
+        </LvRow>
+        <LvRow label={t.settings.heatmapWeeks}>
+            <select class="b3-select fn__size-200" bind:value={draft.heatmapWeeks}>
+                <option value={17}>17 {t.settings.weeks}</option>
+                <option value={26}>26 {t.settings.weeks}</option>
+                <option value={52}>52 {t.settings.weeks}</option>
+            </select>
+        </LvRow>
+        <LvRow label={t.settings.badgeRefreshSec} hint={t.settings.badgeRefreshSecHint}>
+            <select class="b3-select fn__size-200" bind:value={draft.badgeRefreshSec}>
+                <option value={0}>{t.settings.badgeOff}</option>
+                <option value={30}>30s</option>
+                <option value={60}>60s</option>
+            </select>
+        </LvRow>
+    </LvSection>
+
     <LvSection title={t.settings.dataSection}>
         <LvRow label="Flashcard V2" hint={t.dashboard.v2Active}>
             {#snippet children()}
