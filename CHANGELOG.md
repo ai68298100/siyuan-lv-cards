@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.86.0 2026-10-03 · 组件测试基建：Kit 组件可挂载测试
+
+* 测试基建：`vitest.config.ts`（happy-dom + svelte 插件 + @ 别名 + browser 条件）+ devDeps `happy-dom`/`@testing-library/svelte`——Svelte 组件从此可在单测中挂载
+* 首批 Kit smoke 测试：**LvStat**（label/value 渲染、denom/progress 缺省不渲染）、**LvSteps**（步骤渲染、`aria-current="step"` 落在当前步、onclick 回跳触发、缺省禁用）——渲染契约与 a11y 语义被测试锁定
+* 已知限制（记录在案）：以 snippet 传子的组件（LvChip 等）因 createRawSnippet 与 browser 条件编译的模块错位暂不纳入，待测试基建升级后补测
+* 测试 158→162；0 errors/0 warnings；主包 gzip 27.34KB（预算内）
+
 ## v0.85.0 2026-10-03 · docs-only：巡检轮（CI 门禁在线核实 + 规范同步）
 
 * GitHub CI 巡检：v0.84.0 引入的 Governance consistency 门禁在线上运行成功（两次推送全绿，35s）——治理自动化正式生效

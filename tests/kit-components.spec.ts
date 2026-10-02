@@ -1,0 +1,53 @@
+import { describe, expect, it } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/svelte";
+import LvStat from "../src/ui/kit/LvStat.svelte";
+import LvSteps from "../src/ui/kit/LvSteps.svelte";
+
+// Kit 组件 smoke 测试（组件测试基建首批，v0.86.0）：渲染契约 + 关键交互/语义
+// 注意：不用 screen 全局查询（未卸载的渲染会互相污染），一律以 container 作用域查询
+
+describe("LvStat", () => {
+    it("渲染 label 与 value；denom 缺省不显示分母", () => {
+        const { container } = render(LvStat, { label: "今日到期", value: 7 });
+        expect(container.textContent).toContain("今日到期");
+        expect(container.textContent).toContain("7");
+        expect(container.querySelector(".lv-stat-denom")).toBeNull();
+    });
+
+    it("progress >= 0 时渲染进度条，<0 不渲染", () => {
+        const { container } = render(LvStat, { label: "今日已复习", value: 5, denom: "200", progress: 50 });
+        expect(container.querySelector(".lv-stat-progress")).toBeTruthy();
+        const r2 = render(LvStat, { label: "X", value: 1, progress: -1 });
+        expect(r2.container.querySelector(".lv-stat-progress")).toBeNull();
+    });
+});
+
+describe("LvSteps", () => {
+    it("渲染全部步骤，当前步带 aria-current=step", () => {
+        const { container } = render(LvSteps, { steps: ["配置", "预览"], current: 1 });
+        const btns = [...container.querySelectorAll("button")];
+        expect(btns).toHaveLength(2);
+        expect(btns[0].getAttribute("aria-current")).toBeNull();
+        expect(btns[1].getAttribute("aria-current")).toBe("step");
+        expect(btns[0].textContent).toContain("配置");
+    });
+
+    it("onclick 缺省时按钮禁用；点击可用步骤触发回跳", async () => {
+        let jumped = -1;
+        const { container } = render(LvSteps, {
+            steps: ["a", "b"],
+            current: 1,
+            onclick: (i: number) => { jumped = i; },
+        });
+        const btns = [...container.querySelectorAll("button")];
+        await fireEvent.click(btns[0]);
+        expect(jumped).toBe(0);
+        const disabled = render(LvSteps, { steps: ["a", "b"], current: 0 });
+        for (const b of disabled.container.querySelectorAll("button")) {
+            expect(b.disabled).toBe(true);
+        }
+    });
+});
+
+// LvChip 等以 snippet 传子的组件暂不纳入：happy-dom 下 createRawSnippet 与 browser 条件编译存在模块错位（snippet.render 缺失），待测试基建升级后补测。
+
