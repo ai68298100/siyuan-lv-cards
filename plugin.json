@@ -40,8 +40,8 @@
     "zh-CN": "思源闪卡驾驶舱与大杂烩：统计仪表盘、闪卡管理器、自研复习面板、考试倒排、Anki 导入、AI 制卡——构建在内核原生 FSRS 之上。"
   },
   "readme": {
-    "default": "README.md",
-    "zh-CN": "README.zh-CN.md"
+    "default": "README.en.md",
+    "zh-CN": "README.md"
   },
   "icon": "icon.png",
   "preview": "preview.png",
