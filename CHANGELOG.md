@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.80.0 2026-10-03 · ADR-7 第 1 步落地：AI 批次作业状态机纯模块
+
+* `core/ai-jobs.ts`（零依赖纯模块，ADR-7 实现顺序第 1 步）：六态迁移表（drafting→generating→reviewing→committing→done，failed/canceled 带 resumeTo 回迁）、逐卡事件（CARD_CREATED/CARD_FAILED）、续传视角 `firstPendingIndex`、normalize 清洗（白名单状态/候选剔除/字段收敛）、容量维护（20 个上限优先淘汰已结作业）
+* 语义要点：非法迁移返回 ok:false 且 job 原样不变（纯函数）；CANCEL 记录 resumeTo+「canceled by user」；COMMIT_DONE 拒绝仍有 pending 的作业；source 摘要三字段截断（隐私边界）
+* 迁移表全覆盖单测 9 组：主链/失败回迁/取消续传/非法迁移/越界拒绝/纯函数性/清洗/淘汰/摘要边界
+* 未接线（按 ADR 实现顺序：存储接入与向导 UI 为后续切片）；测试 149→158；0 errors/0 warnings；主包 gzip 25.58KB 不变
+
 ## v0.79.0 2026-10-03 · docs-only：候选 ADR-7「AI 批次作业状态机」设计定稿
 
 * docs/24 新增**候选 ADR-7**（AQ-17 设计草案，R54 确认的唯一实现缺口）：ai-jobs.json 存储契约、六态状态机（drafting/generating/reviewing/committing/done/failed/canceled）、逐卡断点续传（每卡成功即持久化，续传只处理 pending）、孤儿防护（卡组先建即记 deckID 不重建）、取消语义（已创建保留如实入账）、幂等重试（成功标记永不重复）
