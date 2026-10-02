@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.60.0 2026-10-01 · Kit 控件组专项
+
+* Kit +5：LvSwitch / LvSelect / LvInput（`$bindable` 封装 b3 原生控件）、LvSteps（向导步骤指示器）、LvSkeleton（骨架屏 row/block）；工具 lvConfirm.ts（Promise 化确认框）
+* 采用：设置页 14 个开关行、timeoutMode/aiMode 下拉、AI 区 6 个文本输入行全部换装组件；AI 向导步骤头换 LvSteps；管理器加载态换 LvSkeleton
+* docs/16：组件目录 14→19+1 工具
+* 测试 27/27；0 errors；主包 gzip 31.50KB（预算内）
+
 ## v0.59.0 2026-10-01 · AI 深化批 + 诊断基建
 
 * AI：Provider 回退链（备用端点/Key/模型，主端点失败自动切换）

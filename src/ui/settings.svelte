@@ -10,6 +10,9 @@
     import LvChip from "./kit/LvChip.svelte";
     import LvSegmented from "./kit/LvSegmented.svelte";
     import LvSlider from "./kit/LvSlider.svelte";
+    import LvSwitch from "./kit/LvSwitch.svelte";
+    import LvSelect from "./kit/LvSelect.svelte";
+    import LvInput from "./kit/LvInput.svelte";
 
     export interface SettingsCtx {
         i18n: any;
@@ -291,19 +294,19 @@
             <input class="b3-text-field fn__size-60" type="number" min="0" bind:value={draft.batchLimit} />
         </LvRow>
         <LvRow label={t.settings.randomOrder}>
-            <input class="b3-switch" type="checkbox" bind:checked={draft.randomOrder} />
+            <LvSwitch bind:checked={draft.randomOrder} />
         </LvRow>
         <LvRow label={t.settings.reverseOrder} hint={t.settings.reverseOrderHint}>
-            <input class="b3-switch" type="checkbox" bind:checked={draft.reverseOrder} />
+            <LvSwitch bind:checked={draft.reverseOrder} />
         </LvRow>
         <LvRow label={t.settings.hideMetaUntilAnswer} hint={t.settings.hideMetaHint}>
-            <input class="b3-switch" type="checkbox" bind:checked={draft.hideMetaUntilAnswer} />
+            <LvSwitch bind:checked={draft.hideMetaUntilAnswer} />
         </LvRow>
         <LvRow label={t.settings.requeueAgain} hint={t.settings.requeueAgainHint}>
-            <input class="b3-switch" type="checkbox" bind:checked={draft.requeueAgain} />
+            <LvSwitch bind:checked={draft.requeueAgain} />
         </LvRow>
         <LvRow label={t.settings.xpEnabled} hint={t.settings.xpEnabledHint}>
-            <input class="b3-switch" type="checkbox" bind:checked={draft.xpEnabled} />
+            <LvSwitch bind:checked={draft.xpEnabled} />
         </LvRow>
         <LvRow label={t.settings.leechThreshold}>
             <input class="b3-text-field fn__size-60" type="number" min="1" bind:value={draft.leechThreshold} />
@@ -322,11 +325,14 @@
             />
         </LvRow>
         <LvRow label={t.settings.timeoutMode}>
-            <select class="b3-select fn__size-200" bind:value={draft.timeoutMode}>
-                <option value="off">{t.settings.timeoutOff}</option>
-                <option value="reveal">{t.settings.timeoutReveal}</option>
-                <option value="forget">{t.settings.timeoutForget}</option>
-            </select>
+        <LvSelect
+            bind:value={draft.timeoutMode}
+            options={[
+                { value: "off", label: t.settings.timeoutOff },
+                { value: "reveal", label: t.settings.timeoutReveal },
+                { value: "forget", label: t.settings.timeoutForget },
+            ]}
+        />
         </LvRow>
         {#if draft.timeoutMode !== "off"}
             <LvRow label={t.settings.timeoutSeconds}>
@@ -334,24 +340,24 @@
             </LvRow>
         {/if}
         <LvRow label={t.settings.typingEnabled}>
-            <input class="b3-switch" type="checkbox" bind:checked={draft.typingEnabled} />
+            <LvSwitch bind:checked={draft.typingEnabled} />
         </LvRow>
         {#if draft.typingEnabled}
             <LvRow label={t.settings.typingStrict}>
-                <input class="b3-switch" type="checkbox" bind:checked={draft.typingStrict} />
+                <LvSwitch bind:checked={draft.typingStrict} />
             </LvRow>
             <LvRow label={t.settings.dictationEnabled}>
-                <input class="b3-switch" type="checkbox" bind:checked={draft.dictationEnabled} />
+                <LvSwitch bind:checked={draft.dictationEnabled} />
             </LvRow>
         {/if}
         <LvRow label={t.settings.choiceEnabled}>
-            <input class="b3-switch" type="checkbox" bind:checked={draft.choiceEnabled} />
+            <LvSwitch bind:checked={draft.choiceEnabled} />
         </LvRow>
     </LvSection>
 
     <LvSection title={t.settings.studyVoice}>
         <LvRow label={t.settings.ttsEnabled}>
-            <input class="b3-switch" type="checkbox" bind:checked={draft.ttsEnabled} />
+            <LvSwitch bind:checked={draft.ttsEnabled} />
         </LvRow>
         {#if draft.ttsEnabled}
             <LvRow label={t.settings.ttsRate}>
@@ -367,7 +373,7 @@
             </LvRow>
         {/if}
         <LvRow label={t.settings.sfxEnabled} hint={t.settings.sfxHint}>
-            <input class="b3-switch" type="checkbox" bind:checked={draft.sfxEnabled} />
+            <LvSwitch bind:checked={draft.sfxEnabled} />
         </LvRow>
         {#if draft.sfxEnabled}
             <LvRow label={t.settings.sfxStyle}>
@@ -392,7 +398,7 @@
             <input class="b3-text-field fn__size-60" type="time" bind:value={draft.quietEnd} />
         </LvRow>
         <LvRow label={t.settings.reminderEnabled}>
-            <input class="b3-switch" type="checkbox" bind:checked={draft.reminderEnabled} />
+            <LvSwitch bind:checked={draft.reminderEnabled} />
         </LvRow>
         {#if draft.reminderEnabled}
             <LvRow label={t.settings.reminderTime}>
@@ -406,35 +412,38 @@
 
     <LvSection title={t.settings.aiSection} sub={t.settings.aiSectionHint}>
         <LvRow label={t.settings.markerEnabled} hint={t.settings.markerEnabledHint}>
-            <input class="b3-switch" type="checkbox" bind:checked={draft.markerEnabled} />
+            <LvSwitch bind:checked={draft.markerEnabled} />
         </LvRow>
         <LvRow label={t.settings.aiMode}>
             {#snippet children()}
-                <select class="b3-select fn__size-200" bind:value={draft.aiMode}>
-                    <option value="siyuan">{t.settings.aiModeSiyuan}</option>
-                    <option value="custom">{t.settings.aiModeCustom}</option>
-                </select>
+                <LvSelect
+                    bind:value={draft.aiMode}
+                    options={[
+                        { value: "siyuan", label: t.settings.aiModeSiyuan },
+                        { value: "custom", label: t.settings.aiModeCustom },
+                    ]}
+                />
             {/snippet}
         </LvRow>
         {#if draft.aiMode === "custom"}
             <LvRow label={t.settings.aiEndpoint}>
-                <input class="b3-text-field fn__size-200" placeholder="https://api.example.com/v1" bind:value={draft.aiEndpoint} />
+            <LvInput bind:value={draft.aiEndpoint} placeholder="https://api.example.com/v1" width="200px" />
             </LvRow>
             <LvRow label={t.settings.aiModel}>
-                <input class="b3-text-field fn__size-200" placeholder="gpt-4o-mini" bind:value={draft.aiModel} />
+                <LvInput bind:value={draft.aiModel} placeholder="gpt-4o-mini" width="200px" />
             </LvRow>
             <LvRow label={t.settings.aiKey} hint={t.settings.aiKeyHint}>
-                <input class="b3-text-field fn__size-200" type="password" bind:value={draft.aiKey} />
+                <LvInput bind:value={draft.aiKey} type="password" width="200px" />
             </LvRow>
             <LvRow label={t.settings.aiFallbackEndpoint} hint={t.settings.aiFallbackHint}>
-                <input class="b3-text-field fn__size-200" placeholder="https://backup.example.com/v1" bind:value={draft.aiFallbackEndpoint} />
+                <LvInput bind:value={draft.aiFallbackEndpoint} placeholder="https://backup.example.com/v1" width="200px" />
             </LvRow>
             {#if draft.aiFallbackEndpoint}
                 <LvRow label={t.settings.aiFallbackModel}>
-                    <input class="b3-text-field fn__size-200" placeholder="gpt-4o-mini" bind:value={draft.aiFallbackModel} />
+                    <LvInput bind:value={draft.aiFallbackModel} placeholder="gpt-4o-mini" width="200px" />
                 </LvRow>
                 <LvRow label={t.settings.aiFallbackKey}>
-                    <input class="b3-text-field fn__size-200" type="password" bind:value={draft.aiFallbackKey} />
+                    <LvInput bind:value={draft.aiFallbackKey} type="password" width="200px" />
                 </LvRow>
             {/if}
             <LvRow label={t.settings.aiPromptTemplate} hint={t.settings.aiPromptTemplateHint}>
@@ -453,7 +462,7 @@
 
     <LvSection title={t.settings.exam}>
         <LvRow label={t.settings.examEnabled}>
-            <input class="b3-switch" type="checkbox" bind:checked={draft.examEnabled} />
+            <LvSwitch bind:checked={draft.examEnabled} />
         </LvRow>
         <LvRow label={t.settings.examDate}>
             <input class="b3-text-field fn__size-200" type="date" bind:value={draft.examDate} disabled={!draft.examEnabled} />

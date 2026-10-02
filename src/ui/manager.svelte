@@ -7,6 +7,7 @@
     import LvPage from "./kit/LvPage.svelte";
     import LvEmpty from "./kit/LvEmpty.svelte";
     import LvError from "./kit/LvError.svelte";
+    import LvSkeleton from "./kit/LvSkeleton.svelte";
     import LvChip from "./kit/LvChip.svelte";
 
     export interface ManagerCtx {
@@ -258,10 +259,7 @@
 
     {#if loading}
         <div class="lv-card2 lv-loading">
-            <div class="lv-skeleton" style="height: 44px"></div>
-            <div class="lv-skeleton" style="height: 44px"></div>
-            <div class="lv-skeleton" style="height: 44px"></div>
-            <div class="lv-skeleton" style="height: 44px"></div>
+            <LvSkeleton shape="row" count={4} height={44} />
         </div>
     {:else if errorMsg}
         <LvError message={errorMsg} onretry={load} retryLabel={t.dashboard.refresh} />

@@ -5,6 +5,7 @@
     import LvSection from "./kit/LvSection.svelte";
     import LvRow from "./kit/LvRow.svelte";
     import LvChip from "./kit/LvChip.svelte";
+    import LvSteps from "./kit/LvSteps.svelte";
 
     let { i18n, initialSource = "", loadCurrentDoc, loadNotebookMaterial, generate, onCreate, onClose }: {
         i18n: any;
@@ -173,7 +174,7 @@
 
 <div class="lv-aiwiz b3-typography">
     <div class="lv-ob-head">
-        <span class="lv-ob-step">{t.aiWizard.step} {step} / 2 · {step === 1 ? t.aiWizard.stepCfg : t.aiWizard.stepPreview}</span>
+        <LvSteps steps={[t.aiWizard.stepCfg, t.aiWizard.stepPreview]} current={step - 1} />
         <div class="fn__flex-1"></div>
         <button class="b3-button b3-button--small" onclick={onClose}>✕</button>
     </div>
