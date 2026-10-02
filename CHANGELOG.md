@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.75.0 2026-10-03 · riff API 契约测试 + 术语表补齐
+
+* 新增 riff API 契约测试（mock 全局 fetch）：**payload 形状锁定**——`reviewedCards→[{cardID}]` 映射、review/skip/add/batchSet 请求体；错误映射（code≠0 抛 msg、无 msg 带错误码）、请求头 JSON、超时 AbortError→code=504（friendlyError 可映射）——内核契约面首次有测试护栏
+* docs/22 术语表补 8 条：作答耗时、knownCards、卡片覆盖、SR 语法、动态建议等 v0.64-v0.72 新引入概念
+* 测试 137→143；0 errors/0 warnings；主包 gzip 25.58KB（预算内）
+
 ## v0.74.0 2026-10-03 · 死代码清理 + 帮助补 Obsidian SR 语法
 
 * 移除模板遗留死代码约 550 行（全部经引用核查为零引用）：`libs/setting-utils.ts`（宿主 Setting 包装类）、`libs/promise-pool.ts`（并发池，含其测试）、`libs/components/` 整目录（Form/setting-panel/sidebar-tabs-layout/b3-typography）、`libs/index.d.ts`（仅为 setting-utils 服务的环境类型）
