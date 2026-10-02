@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.102.0 2026-10-03 · 测试宿主方案：snippet 传子组件可测（限制解除）
+
+* 解决 v0.86 记录的基建限制：以**测试宿主组件**（tests/helpers/*Host.svelte，{#snippet} 在 .svelte 文件内定义可正常编译）替代 createRawSnippet——绕开模块解析错位，snippet 传子的 Kit 组件从此可挂载测试
+* 首个宿主单测：LvChip 渲染 children 与 tone 语义色（LvChipHost）
+* docs/16 限制说明更新为已解决（宿主方案留痕）
+* 测试 198→199；0 errors/0 warnings；主包 gzip 27.51KB（预算内）
+
 ## v0.101.0 2026-10-03 · ADR-7 修复：预览移除候选的下标错位 + 未勾选 skipped 语义
 
 * 修复（v0.81 回归）：预览 ✕ 移除候选后下标错位——wizard 候选携带 `origIndex`（✕ 移除后仍指向作业 candidates 原位），逐卡 `CARD_CREATED` 不再标记错误候选

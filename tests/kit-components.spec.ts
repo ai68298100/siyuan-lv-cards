@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/svelte";
 import LvStat from "../src/ui/kit/LvStat.svelte";
 import LvSteps from "../src/ui/kit/LvSteps.svelte";
+import LvChipHost from "./helpers/LvChipHost.svelte";
 
 // Kit 组件 smoke 测试（组件测试基建首批，v0.86.0）：渲染契约 + 关键交互/语义
 // 注意：不用 screen 全局查询（未卸载的渲染会互相污染），一律以 container 作用域查询
@@ -49,5 +50,13 @@ describe("LvSteps", () => {
     });
 });
 
-// LvChip 等以 snippet 传子的组件暂不纳入：happy-dom 下 createRawSnippet 与 browser 条件编译存在模块错位（snippet.render 缺失），待测试基建升级后补测。
+// snippet 传子的组件经测试宿主（tests/helpers/*Host.svelte，以 .svelte 内 {#snippet} 定义子内容）
+// 挂载测试——绕开 createRawSnippet 的模块解析错位（v0.103 解决此前"暂不纳入"的限制）。
+describe("LvChip（经测试宿主）", () => {
+    it("渲染 children 与 tone 语义色", () => {
+        const { container } = render(LvChipHost, { tone: "error", label: "考前" });
+        expect(container.textContent).toContain("考前");
+        expect(container.querySelector(".lv-chip2--error")).toBeTruthy();
+    });
+});
 
