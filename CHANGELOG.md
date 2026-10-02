@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.87.0 2026-10-03 · Kit smoke 第二批：基础组件四件
+
+* **LvProgress**（0-100 钳制）、**LvKbd**（键位渲染）、**LvEmpty**（文案/空态无按钮/action 按钮触发）、**LvError**（role=alert/重试触发/无 onretry 无按钮）——7 组 smoke 单测
+* 纯 props Kit 组件 smoke 覆盖：LvStat/LvSteps/LvProgress/LvKbd/LvEmpty/LvError 六个（snippet 传子组件的 LvSection/LvDrawer/LvPage 维持暂缓）
+* 测试 162→169；0 errors/0 warnings；主包 gzip 27.34KB（预算内）
+
 ## v0.86.0 2026-10-03 · 组件测试基建：Kit 组件可挂载测试
 
 * 测试基建：`vitest.config.ts`（happy-dom + svelte 插件 + @ 别名 + browser 条件）+ devDeps `happy-dom`/`@testing-library/svelte`——Svelte 组件从此可在单测中挂载
