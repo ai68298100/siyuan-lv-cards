@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.88.0 2026-10-03 · Kit smoke 第三批：交互组件 + 测试稳定性
+
+* **LvSegmented**（选中 aria-checked/点击 onchange 携带值/点击当前项不触发/disabled 全禁用）、**LvSwitch**（checked 反映/change 携带新值/disabled 传递）——6 组交互契约单测
+* AQ-21 截断重载测试超时 30s→60s（两次 20k round-trip 对系统负载敏感，负载高峰误报）
+* 纯 props + 事件类 Kit smoke 覆盖达 8 个组件
+* 测试 169→175；0 errors/0 warnings；主包 gzip 27.34KB（预算内）
+
 ## v0.87.0 2026-10-03 · Kit smoke 第二批：基础组件四件
 
 * **LvProgress**（0-100 钳制）、**LvKbd**（键位渲染）、**LvEmpty**（文案/空态无按钮/action 按钮触发）、**LvError**（role=alert/重试触发/无 onretry 无按钮）——7 组 smoke 单测

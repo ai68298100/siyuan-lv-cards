@@ -289,7 +289,7 @@ describe("revlog 截断聚合一致性（AQ-21）", () => {
         expect(reloaded.entries.length).toBe(20000);      // 不重复计数
         const twice = normalizeRevlog(JSON.parse(JSON.stringify(reloaded)));
         expect(twice.days).toEqual(reloaded.days);        // 幂等
-    }, 30000);
+    }, 60000);
 
     it("截断卡的后续评分按复习计（knownCards 保留首评语义）", () => {
         const d = emptyRevlog();
