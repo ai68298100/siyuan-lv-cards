@@ -710,9 +710,9 @@
       "revisitAt": "切片完成或宿主/模型/模板/schema/权限变化、用户反例出现时",
       "conditionalPrerequisites": [],
       "summary": {
-        "total": 54,
+        "total": 55,
         "done": 10,
-        "pending": 44
+        "pending": 45
       },
       "blocks": []
     },
@@ -15022,17 +15022,31 @@
       "linksTo": [
         "WP-management-search"
       ]
+    },
+    {
+      "id": "A-06",
+      "status": "open",
+      "checkbox": " ",
+      "priority": "P1",
+      "group": "A",
+      "groupName": "工程与仓库基建",
+      "title": "发布包内容决策：dist 打包含全量内部文档",
+      "backlogLine": "- [ ] [P1][A-06] **发布包内容决策：dist 打包含全量内部文档（约 720K / 34 篇）**",
+      "primaryPackage": "WP-release-trust",
+      "linksTo": [
+        "WP-support-discovery-education"
+      ]
     }
   ],
   "governanceDocument": "docs/30-待办治理与执行顺序.md",
   "governanceVersion": "1.2",
   "summary": {
     "packages": 38,
-    "total": 924,
+    "total": 925,
     "done": 186,
-    "open": 735,
+    "open": 736,
     "special": 3,
-    "pending": 738
+    "pending": 739
   },
   "experienceDocument": "docs/32-产品体验优化与页面蓝图.md",
   "experienceRefinements": [
