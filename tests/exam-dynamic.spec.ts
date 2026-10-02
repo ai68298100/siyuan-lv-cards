@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dynamicPlanAdvice, type ExamPlan } from "../src/core/exam";
+import { dailyTarget, dynamicPlanAdvice, type ExamPlan } from "../src/core/exam";
 
 const DAY = 86400000;
 const NOW = 1_800_000_000_000;
@@ -76,5 +76,23 @@ describe("dynamicPlanAdvice（AQ-8 动态重算建议层）", () => {
         const a = dynamicPlanAdvice(p, { now: NOW, capacity: 50, observed: 10, dailyCap: 999 });
         expect(a.baseDaily).toBe(40);
         expect(a.todayTarget).toBe(40);
+    });
+});
+
+describe("dailyTarget（M7 简易日均，动态建议前身）", () => {
+    // dailyTarget 走 daysLeft（系统时钟），examDate 相对今天构造
+    const in30 = (() => {
+        const d = new Date();
+        d.setDate(d.getDate() + 30);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    })();
+    const p30 = plan({ examDate: in30 });
+
+    it("容量/剩余天数有效时向上取整，缺失返回 null", () => {
+        expect(dailyTarget({ ...p30, totalCards: 100 }, undefined)).toBe(4); // ceil(100/30)
+        expect(dailyTarget({ ...p30, totalCards: undefined }, undefined)).toBeNull();
+        // deck 规模仅在 scopeKind="deck" 时参与（口径与实现一致）
+        expect(dailyTarget({ ...p30, totalCards: undefined, scopeKind: "deck" }, 40)).toBe(2); // ceil(40/30)
+        expect(dailyTarget({ ...p30, totalCards: undefined, scopeKind: "all" }, 40)).toBeNull();
     });
 });

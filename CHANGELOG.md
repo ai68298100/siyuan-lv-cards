@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.76.0 2026-10-03 · 事件契约补登记 + 最后两个测试盲区
+
+* docs/14 §8 事件契约表补 `lv-cards:settings-changed`（v0.71 引入但未入契约文档）：触发时机=设置保存成功落盘后、payload `{}`（消费方自行重读）、幂等性=防抖合并后的最终值
+* 测试盲区收官：**lvLog 环形缓冲**（dump 格式、500 字符截断、200 条上限、非字符串消息、clear）；**dailyTarget**（向上取整、缺失 null、deck 规模仅 deck 范围参与的口径边界用测试固化）
+* 测试 143→148；0 errors/0 warnings；主包 gzip 25.58KB（预算内）
+
 ## v0.75.0 2026-10-03 · riff API 契约测试 + 术语表补齐
 
 * 新增 riff API 契约测试（mock 全局 fetch）：**payload 形状锁定**——`reviewedCards→[{cardID}]` 映射、review/skip/add/batchSet 请求体；错误映射（code≠0 抛 msg、无 msg 带错误码）、请求头 JSON、超时 AbortError→code=504（friendlyError 可映射）——内核契约面首次有测试护栏
