@@ -21,7 +21,7 @@
         openReview: () => void;
         openManager: () => void;
         openOnboarding: () => void;
-        getAIBatches: () => { id: string; date: string; deckID: string; blockIDs: string[] }[];
+        getAIBatches: () => { id: string; date: string; deckID: string; blockIDs: string[]; tokens?: number }[];
         getLeechCards: () => { blockID: string; lapses: number }[];
         rewriteWithAI: (blockID: string) => void;
         writeReportDoc: (md: string) => Promise<void>;
@@ -103,6 +103,8 @@
         img.src = url;
     }
     let aiQuality = $state<{ date: string; cards: number; reviews: number; rate: number | null }[]>([]);
+    /** AI 累计 token 消耗（299） */
+    let tokensTotal = $state(0);
     let leech: { blockID: string; lapses: number }[] = $state([]);
     let examChip = $state<{ name: string; days: number } | null>(null);
     let targets = $state({ new: 0, review: 0 });
@@ -205,6 +207,8 @@
                     const stat = reviewStatsFor(revlog, b.blockIDs);
                     return { date: b.date, cards: b.blockIDs.length, reviews: stat.reviews, rate: stat.rate };
                 });
+            // token 消耗历史（299）：全部批次累计（旧批次无 tokens 字段按 0 计）
+            tokensTotal = ctx.getAIBatches().reduce((acc, b) => acc + (b.tokens ?? 0), 0);
             leech = ctx.getLeechCards().slice(0, 8);
             examChip = ctx.getExamCountdown();
             targets = ctx.getDailyTargets();
@@ -425,6 +429,11 @@
         </LvSection>
 
         <LvSection title={t.aiQuality.title} sub={t.aiQuality.sub}>
+            {#snippet actions()}
+                {#if tokensTotal > 0}
+                    <span class="ft__smaller ft__on-surface" title={t.aiQuality.tokensTip}>≈{tokensTotal} tokens</span>
+                {/if}
+            {/snippet}
             {#if aiQuality.length === 0}
                 <div class="lv-hint">{t.aiQuality.none}</div>
             {:else}

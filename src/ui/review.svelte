@@ -15,6 +15,7 @@
     import LvKbd from "./kit/LvKbd.svelte";
     import LvChip from "./kit/LvChip.svelte";
     import LvError from "./kit/LvError.svelte";
+    import { friendlyError } from "@/api/errors";
 
     export interface ReviewSettings {
         ratingStyle: "four" | "three";
@@ -299,7 +300,7 @@
                 await setCurrent(queue[0]);
             }
         } catch (e: any) {
-            errorMsg = e?.message ?? String(e);
+            errorMsg = friendlyError(e, t);
         } finally {
             loading = false;
         }
@@ -544,7 +545,7 @@
             await next();
         } catch (e: any) {
             // 评分失败保留现场（AJ11）：当前卡/答案态/队列不动，只提示错误
-            errorMsg = e?.message ?? String(e);
+            errorMsg = friendlyError(e, t);
         } finally {
             submitting = false;
         }
@@ -565,7 +566,7 @@
             sessionSkipped = [...sessionSkipped, current.cardID];
             await next();
         } catch (e: any) {
-            errorMsg = e?.message ?? String(e);
+            errorMsg = friendlyError(e, t);
         } finally {
             submitting = false;
         }
@@ -627,7 +628,7 @@
             showReschedule = false;
             await next();
         } catch (e: any) {
-            errorMsg = e?.message ?? String(e);
+            errorMsg = friendlyError(e, t);
         }
     }
 

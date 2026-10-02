@@ -4,6 +4,7 @@ import { mount, unmount } from "svelte";
 import { Plugin, Menu, getAllEditor, showMessage, fetchSyncPost, openTab } from "siyuan";
 
 import { svelteDialog, confirmDialogBool } from "./libs/dialog";
+import { lvLog, lvLogDump } from "./libs/log";
 import { defaultSettings, normalizeSettings, type LvCardsSettings } from "./core/settings";
 import { PERSONA_PRESETS } from "./core/personas";
 import {
@@ -61,7 +62,7 @@ export default class LvCardsPlugin extends Plugin {
     private settingsSaveTimer: ReturnType<typeof setTimeout> | null = null;
     private suspendToday: SuspendTodayData = { date: "", cardIDs: [] };
     private examPlans: ExamPlansData = { version: 1, plans: [] };
-    private aiBatches: { version: 1; batches: { id: string; date: string; deckID: string; blockIDs: string[] }[] } = { version: 1, batches: [] };
+    private aiBatches: { version: 1; batches: { id: string; date: string; deckID: string; blockIDs: string[]; tokens?: number }[] } = { version: 1, batches: [] };
     private saveSettingsSoon() {
         if (this.settingsSaveTimer) clearTimeout(this.settingsSaveTimer);
         this.settingsSaveTimer = setTimeout(() => {
@@ -594,7 +595,10 @@ export default class LvCardsPlugin extends Plugin {
             } else {
                 this.updateBadge(count);
             }
-        }).catch(() => { /* 旁路，静默 */ });
+        }).catch((e) => {
+            lvLog("warn", "refreshDueBadge failed: " + (e instanceof Error ? e.message : e));
+            /* 旁路，静默 */
+        });
     }
 
     private milestonesSeen = new Set<string>();
@@ -790,7 +794,7 @@ export default class LvCardsPlugin extends Plugin {
         } catch { /* 旁路 */ }
         const text = [
             "Lv Cards diagnostics",
-            "plugin version: 0.26.0",
+            "plugin version: " + ((this as any).manifest?.version ?? "unknown"),
             "siyuan/kernel: " + kv,
             "V2 state: " + (this.flashcardV2 ? this.flashcardV2.state : "N/A (<3.9.0)"),
             "modules on: " + Object.entries(this.settings.modules).filter(([, v]) => v).map(([k]) => k).join(", "),
@@ -798,6 +802,9 @@ export default class LvCardsPlugin extends Plugin {
             "streak: " + calcStreak(this.revlog),
             "due today (badge): " + this.lastDue,
             "plans: " + this.examPlans.plans.length,
+            "",
+            "--- recent log (324) ---",
+            lvLogDump() || "(empty)",
         ].join("\n");
         navigator.clipboard.writeText(text).then(
             () => showMessage(this.i18n.diagCopied, 2000, "info"),
@@ -1188,7 +1195,11 @@ export default class LvCardsPlugin extends Plugin {
                 loadCurrentDoc: () => this.loadCurrentDoc(),
                 loadNotebookMaterial: (nbId: string) => this.loadNotebookMaterial(nbId),
                 generate: async (source: string, cfg: { count: number; language: string; type: "qa" | "cloze" }) => {
-                    const system = this.i18n.aiSystemPrompt;
+                    // Prompt 模板库（294）：用户自定义模板优先，占位符同内置
+                    const tpl = this.settings.aiPromptTemplate.trim();
+                    const system = tpl
+                        ? tpl.replace("${count}", String(cfg.count)).replace("${language}", cfg.language).replace("${type}", cfg.type)
+                        : this.i18n.aiSystemPrompt;
                     const user = this.i18n.aiUserPrompt
                         .replace("${source}", source)
                         .replace("${count}", String(cfg.count))
@@ -1198,16 +1209,25 @@ export default class LvCardsPlugin extends Plugin {
                         throw new Error(this.i18n.aiTooLong);
                     }
                     const raw = await aiChat(
-                        { mode: this.settings.aiMode, endpoint: this.settings.aiEndpoint, apiKey: this.settings.aiKey, model: this.settings.aiModel },
+                        {
+                            mode: this.settings.aiMode,
+                            endpoint: this.settings.aiEndpoint,
+                            apiKey: this.settings.aiKey,
+                            model: this.settings.aiModel,
+                            fallbackEndpoint: this.settings.aiFallbackEndpoint || undefined,
+                            fallbackApiKey: this.settings.aiFallbackKey || undefined,
+                            fallbackModel: this.settings.aiFallbackModel || undefined,
+                        },
                         system, user,
                     );
                     const cards = parseCards(raw).slice(0, cfg.count);
-                    // 批次元数据（质量反哺数据源，P2 消费）
+                    // 批次元数据（质量反哺数据源，P2 消费）；tokens 供消耗历史（299）
                     this.aiBatches.batches.push({
                         id: `ai-${Date.now().toString(36)}`,
                         date: localDate(Date.now()),
                         deckID: "",
                         blockIDs: [],
+                        tokens: estimateTokens(system) + estimateTokens(user) + estimateTokens(raw),
                     });
                     if (this.aiBatches.batches.length > 200) {
                         this.aiBatches.batches = this.aiBatches.batches.slice(-200);

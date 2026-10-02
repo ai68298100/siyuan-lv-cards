@@ -426,6 +426,28 @@
             <LvRow label={t.settings.aiKey} hint={t.settings.aiKeyHint}>
                 <input class="b3-text-field fn__size-200" type="password" bind:value={draft.aiKey} />
             </LvRow>
+            <LvRow label={t.settings.aiFallbackEndpoint} hint={t.settings.aiFallbackHint}>
+                <input class="b3-text-field fn__size-200" placeholder="https://backup.example.com/v1" bind:value={draft.aiFallbackEndpoint} />
+            </LvRow>
+            {#if draft.aiFallbackEndpoint}
+                <LvRow label={t.settings.aiFallbackModel}>
+                    <input class="b3-text-field fn__size-200" placeholder="gpt-4o-mini" bind:value={draft.aiFallbackModel} />
+                </LvRow>
+                <LvRow label={t.settings.aiFallbackKey}>
+                    <input class="b3-text-field fn__size-200" type="password" bind:value={draft.aiFallbackKey} />
+                </LvRow>
+            {/if}
+            <LvRow label={t.settings.aiPromptTemplate} hint={t.settings.aiPromptTemplateHint}>
+                {#snippet children()}
+                    <div class="fn__flex fn__flex-wrap" style="gap: 6px; margin-bottom: 6px">
+                        <button class="b3-button b3-button--small" onclick={() => (draft.aiPromptTemplate = t.settings.aiPromptGeneric)}>{t.settings.aiPromptGenericLabel}</button>
+                        <button class="b3-button b3-button--small" onclick={() => (draft.aiPromptTemplate = t.settings.aiPromptExam)}>{t.settings.aiPromptExamLabel}</button>
+                        <button class="b3-button b3-button--small" onclick={() => (draft.aiPromptTemplate = t.settings.aiPromptLanguage)}>{t.settings.aiPromptLanguageLabel}</button>
+                        <button class="b3-button b3-button--small" onclick={() => (draft.aiPromptTemplate = "")}>{t.settings.aiPromptReset}</button>
+                    </div>
+                    <textarea class="b3-text-field fn__size-200" rows="4" style="width: 100%; resize: vertical" bind:value={draft.aiPromptTemplate}></textarea>
+                {/snippet}
+            </LvRow>
         {/if}
     </LvSection>
 

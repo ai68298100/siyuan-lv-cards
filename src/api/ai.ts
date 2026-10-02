@@ -10,6 +10,10 @@ export interface AIConfig {
     endpoint: string;
     apiKey: string;
     model: string;
+    /** 备用端点（300 回退链）：主端点失败时自动切换（仅 custom 模式） */
+    fallbackEndpoint?: string;
+    fallbackApiKey?: string;
+    fallbackModel?: string;
 }
 
 export async function aiChat(cfg: AIConfig, system: string, user: string): Promise<string> {
@@ -17,27 +21,18 @@ export async function aiChat(cfg: AIConfig, system: string, user: string): Promi
         if (!cfg.endpoint) {
             throw new Error("custom endpoint is empty");
         }
-        const url = cfg.endpoint.replace(/\/+$/, "") + "/chat/completions";
-        const resp = await fetch(url, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                ...(cfg.apiKey ? { Authorization: `Bearer ${cfg.apiKey}` } : {}),
-            },
-            body: JSON.stringify({
-                model: cfg.model || "gpt-4o-mini",
-                messages: [
-                    { role: "system", content: system },
-                    { role: "user", content: user },
-                ],
-                temperature: 0.4,
-            }),
-        });
-        if (!resp.ok) {
-            throw new Error(`AI HTTP ${resp.status}`);
+        try {
+            return await chatCompletions(cfg, system, user);
+        } catch (e) {
+            // 回退链（300）：主端点失败且配置了备用端点时自动切换
+            if (cfg.fallbackEndpoint && cfg.fallbackEndpoint !== cfg.endpoint) {
+                return await chatCompletions(
+                    { ...cfg, endpoint: cfg.fallbackEndpoint, apiKey: cfg.fallbackApiKey ?? "", model: cfg.fallbackModel || cfg.model },
+                    system, user,
+                );
+            }
+            throw e;
         }
-        const j: any = await resp.json();
-        return String(j?.choices?.[0]?.message?.content ?? "");
     }
     // siyuan 内置 AI
     const resp = await fetchSyncPost("/api/ai/chatGPT", {
@@ -51,6 +46,30 @@ export async function aiChat(cfg: AIConfig, system: string, user: string): Promi
     }
     const d = resp.data;
     return typeof d === "string" ? d : String(d?.content ?? d?.text ?? "");
+}
+
+async function chatCompletions(cfg: AIConfig, system: string, user: string): Promise<string> {
+    const url = cfg.endpoint.replace(/\/+$/, "") + "/chat/completions";
+    const resp = await fetch(url, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            ...(cfg.apiKey ? { Authorization: `Bearer ${cfg.apiKey}` } : {}),
+        },
+        body: JSON.stringify({
+            model: cfg.model || "gpt-4o-mini",
+            messages: [
+                { role: "system", content: system },
+                { role: "user", content: user },
+            ],
+            temperature: 0.4,
+        }),
+    });
+    if (!resp.ok) {
+        throw new Error(`AI HTTP ${resp.status}`);
+    }
+    const j: any = await resp.json();
+    return String(j?.choices?.[0]?.message?.content ?? "");
 }
 
 /** 粗略 token 估算（中英混按 4 字符/token） */

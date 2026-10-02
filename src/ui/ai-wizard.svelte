@@ -96,6 +96,21 @@
         }
     }
 
+    /** 剪贴板导入（298）：粘贴字幕/讲义直通向导（权限拒绝时降级提示） */
+    async function loadClipboard() {
+        try {
+            const text = (await navigator.clipboard.readText()).trim();
+            if (text) {
+                source = source ? `${source}\n\n${text}` : text;
+                errorMsg = "";
+            } else {
+                errorMsg = t.aiWizard.noClipboard;
+            }
+        } catch {
+            errorMsg = t.aiWizard.noClipboardPerm;
+        }
+    }
+
     onMount(async () => {
         try {
             decks = await getRiffDecks();
@@ -177,6 +192,7 @@
                         </select>
                     {/if}
                     <button class="b3-button b3-button--small" onclick={loadSelection}>{t.aiWizard.loadSelection}</button>
+                    <button class="b3-button b3-button--small" onclick={loadClipboard}>{t.aiWizard.loadClipboard}</button>
                 </div>
                 {#if source}
                     <div class="ft__smaller ft__on-surface" style="margin-top: 4px">≈ {Math.ceil(source.length / 4)} tokens</div>

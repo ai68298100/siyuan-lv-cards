@@ -83,6 +83,12 @@ export interface LvCardsSettings {
     aiEndpoint: string;
     aiKey: string;
     aiModel: string;
+    /** AI 备用端点（300 回退链）：主端点失败自动切换（custom 模式） */
+    aiFallbackEndpoint: string;
+    aiFallbackKey: string;
+    aiFallbackModel: string;
+    /** Prompt 模板（294）：自定义 system 模板，空=内置默认；支持 ${count}/${language}/${type} 占位符 */
+    aiPromptTemplate: string;
     /** AnkiConnect 客户端（M9·FR1）：连本机 Anki Desktop */
     ankiClientUrl: string;
     ankiClientKey: string;
@@ -145,6 +151,10 @@ export function defaultSettings(): LvCardsSettings {
         aiEndpoint: "",
         aiKey: "",
         aiModel: "",
+        aiFallbackEndpoint: "",
+        aiFallbackKey: "",
+        aiFallbackModel: "",
+        aiPromptTemplate: "",
         ankiClientUrl: "http://127.0.0.1:8765",
         ankiClientKey: "",
         cardMaxWidth: 880,
