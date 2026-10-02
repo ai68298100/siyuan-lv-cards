@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.98.0 2026-10-03 · Kit smoke 第六批：可绑定包装组件（收官）
+
+* **LvSlider**（区间/步长/初值反映、oninput 触发 onchange 携带数值）、**LvInput**（type/placeholder/disabled 透传、oninput 携带字符串）、**LvSelect**（options 渲染与初值选中、change 携带新值、disabled 透传）——6 组输入契约单测
+* 纯 props/事件/可绑定 Kit smoke 覆盖达 **11 个**组件；仅剩 snippet 传子组件（LvSection/LvDrawer/LvPage 内容与 LvChip）维持暂缓——**可离线测试的 Kit 层至此全部覆盖**
+* 测试 193→198；0 errors/0 warnings；主包 gzip 27.51KB（预算内）
+
 ## v0.97.0 2026-10-03 · 基线登记修正 + 治理脚本基线版本门禁
 
 * 修正 docs/17「当前基线」滞后（登记在 v0.95.0、实际已到 v0.96.0）——该漂移两轮内发生两次，根因是基线更新无门禁
