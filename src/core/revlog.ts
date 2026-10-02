@@ -322,6 +322,40 @@ export function studySecondsOn(data: RevlogData, dateKey: string): number {
     return total;
 }
 
+export interface CoverageStats {
+    /** 本地有评分记录的不同卡数（revlog.cardID 口径） */
+    seenCards: number;
+    /** 分母：内核卡组规模合计；未提供时 null（此时不算覆盖率） */
+    totalCards: number | null;
+    /** 覆盖率 0-1；分母缺失/为 0 时 null（不推算） */
+    coverage: number | null;
+    /** 本地记录起点日期（口径注记用）；无记录为 null */
+    sinceDate: string | null;
+}
+
+/** 卡片覆盖（AQ-12 本地证据口径）：覆盖率≠掌握率，分母=内核卡组规模合计，窗口=插件启用起 */
+export function coverageStats(data: RevlogData, totalCards?: number): CoverageStats {
+    const seen = new Set<string>();
+    let earliest = "";
+    for (const e of data.entries) {
+        if (e.rating <= 0) {
+            continue;
+        }
+        seen.add(e.cardID);
+        const d = localDate(e.ts);
+        if (!earliest || d < earliest) {
+            earliest = d;
+        }
+    }
+    const denom = totalCards && totalCards > 0 ? Math.round(totalCards) : null;
+    return {
+        seenCards: seen.size,
+        totalCards: denom,
+        coverage: denom !== null ? Math.min(1, seen.size / denom) : null,
+        sinceDate: seen.size > 0 ? earliest : null,
+    };
+}
+
 export interface CurvePoint {
     days: number;
     /** 0-1，成功率 */

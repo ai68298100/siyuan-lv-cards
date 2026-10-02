@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-    appendRevlog, emptyRevlog, isCardNew, mergeRevlog, normalizeRevlog, recalcDays, revlogToCsv, studySecondsOn, calcStreak, calcXp, localDate, lastNDays, weekCompare, calcMilestones,
+    appendRevlog, emptyRevlog, isCardNew, mergeRevlog, normalizeRevlog, recalcDays, revlogToCsv, studySecondsOn, coverageStats, calcStreak, calcXp, localDate, lastNDays, weekCompare, calcMilestones,
     type RevlogData,
 } from "../src/core/revlog";
 const entry = (ts: number, cardID: string, rating: number, source: "native" | "plugin" = "plugin") =>
@@ -418,5 +418,22 @@ describe("作答耗时与导出契约（AQ-13/AQ-9）", () => {
         const dst = emptyRevlog();
         mergeRevlog(dst, { entries: [{ ts: at(0), cardID: "m", rating: 2, dur: 40 }] });
         expect(dst.entries[0].dur).toBe(40);
+    });
+
+    it("coverageStats（AQ-12 本地证据口径）：去重计数、分母缺失不算覆盖率", () => {
+        const d = emptyRevlog();
+        appendRevlog(d, { ...entry(at(2), "c1", 3), dur: 10 });
+        appendRevlog(d, { ...entry(at(1), "c1", 3), dur: 10 }); // 同卡去重
+        appendRevlog(d, { ...entry(at(0), "c2", 1), dur: 10 });
+        appendRevlog(d, entry(at(0) + 1, "skip-only", 0)); // 仅跳过不计入
+        const s = coverageStats(d, 4);
+        expect(s.seenCards).toBe(2);
+        expect(s.totalCards).toBe(4);
+        expect(s.coverage).toBe(0.5);
+        expect(s.sinceDate).toBe(localDate(at(2)));
+        const noDenom = coverageStats(d);
+        expect(noDenom.totalCards).toBeNull();
+        expect(noDenom.coverage).toBeNull();
+        expect(coverageStats(emptyRevlog(), 10).sinceDate).toBeNull();
     });
 });

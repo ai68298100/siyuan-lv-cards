@@ -2,7 +2,7 @@
     import { onMount } from "svelte";
     import { getRiffDecks, getRiffDueCards, type RiffDeck } from "@/api/riff";
     import { getFlashcardStatistics, summarizeStatistics, type MigrationStatus } from "@/api/flashcardV2";
-    import { calcStreak, lastNDays, localDate, studySecondsOn, computeRetention, computeRetentionCurve, reviewStatsFor, weekCompare, calcMilestones, calcXp, type RevlogData, type RetentionResult, type CurvePoint, type WeekDelta, type Milestones, type XpResult } from "@/core/revlog";
+    import { calcStreak, lastNDays, localDate, studySecondsOn, coverageStats, computeRetention, computeRetentionCurve, reviewStatsFor, weekCompare, calcMilestones, calcXp, type RevlogData, type RetentionResult, type CurvePoint, type WeekDelta, type Milestones, type XpResult, type CoverageStats } from "@/core/revlog";
     import { openTab } from "siyuan";
     import LvPage from "./kit/LvPage.svelte";
     import LvSection from "./kit/LvSection.svelte";
@@ -48,6 +48,8 @@
     let todayReview = $state(0);
     /** 今日作答用时分钟（AQ-13）：无 dur 记录时为 0 不展示 */
     let todayStudyMinutes = $state(0);
+    /** 卡片覆盖（AQ-12 本地证据口径）：分母缺失时为 null 不展示 */
+    let coverage = $state<CoverageStats | null>(null);
     let totalCards = $state(0);
     let heat: { date: string; stat: { new: number; review: number; forget: number } }[] = $state([]);
     let revlogNote = $state("");
@@ -212,6 +214,7 @@
             const reviewedToday = todayKey ? (revlog.days[todayKey]?.review ?? 0) : 0;
             todayReview = reviewedToday;
             todayStudyMinutes = Math.round(studySecondsOn(revlog, localDate(Date.now())) / 60);
+            coverage = coverageStats(revlog, totalCards || undefined);
             dueCount = due.unreviewedCount;
             newCount = due.unreviewedNewCardCount;
             oldCount = due.unreviewedOldCardCount;
@@ -361,6 +364,17 @@
                 </div>
             </div>
         </div>
+
+        <!-- AQ-12：本地证据口径的覆盖视图——覆盖率≠掌握率，分母=内核卡组规模合计，窗口=插件启用起 -->
+        {#if coverage && coverage.coverage !== null}
+            <div class="ft__smaller ft__on-surface" style="margin: calc(-1 * var(--lv-sp-2)) 0 var(--lv-sp-2); opacity: .85">
+                {t.dashboard.coverageLine
+                    .replace("${a}", String(coverage.seenCards))
+                    .replace("${b}", String(coverage.totalCards))
+                    .replace("${pct}", String(Math.round(coverage.coverage * 100)))
+                    .replace("${since}", coverage.sinceDate ?? "")}
+            </div>
+        {/if}
 
         <LvSection title={t.dashboard.heatmap} sub={revlogNote ? `${t.dashboard.since} ${revlogNote}` : ""}>
             <LvHeatmap days={heat} />
