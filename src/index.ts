@@ -1522,8 +1522,8 @@ export default class LvCardsPlugin extends Plugin {
         showMessage(this.i18n.deckAdded.replace("${n}", String(created)), 2000, "info");
     }
 
-    /** ADR-7：向导「未完成导入」横幅数据（committing/failed/canceled 且仍有 pending） */
-    private getUnfinishedAIJob(): { id: string; done: number; total: number } | null {
+    /** ADR-7：向导「未完成导入」横幅数据（committing/failed/canceled 且仍有 pending）；含失败明细供导出 */
+    private getUnfinishedAIJob(): { id: string; done: number; total: number; failed: { index: number; q: string; error: string }[] } | null {
         const j = this.aiJobs.jobs.find(j =>
             (j.status === "committing" || j.status === "failed" || j.status === "canceled")
             && j.candidates.some(c => c.status === "pending"));
@@ -1534,6 +1534,9 @@ export default class LvCardsPlugin extends Plugin {
             id: j.id,
             done: j.candidates.filter(c => c.status === "created").length,
             total: j.candidates.length,
+            failed: j.candidates
+                .map((c, index) => ({ index, q: c.q, error: c.error ?? "" }))
+                .filter(c => c.error !== ""),
         };
     }
 

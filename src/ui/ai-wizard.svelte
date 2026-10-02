@@ -1,6 +1,7 @@
 <script lang="ts">
     import { onMount } from "svelte";
     import { fade } from "svelte/transition";
+    import { showMessage } from "siyuan";
     import { getRiffDecks, createRiffDeck, type RiffDeck } from "@/api/riff";
     import { isAICanceled } from "@/api/ai";
     import LvSection from "./kit/LvSection.svelte";
@@ -21,15 +22,15 @@
         loadCurrentDoc?: () => Promise<{ name: string; content: string } | null>;
         /** 载入笔记本范围材料（M2·FR6 扩展） */
         loadNotebookMaterial?: (nbId: string) => Promise<string>;
-        /** 未完成的 AI 导入（ADR-7 恢复入口）；null=无 */
-        getUnfinishedJob?: () => { id: string; done: number; total: number } | null;
+        /** 未完成的 AI 导入（ADR-7 恢复入口）；null=无；failed=失败明细供导出 */
+        getUnfinishedJob?: () => { id: string; done: number; total: number; failed: { index: number; q: string; error: string }[] } | null;
         onResumeAIJob?: (id: string) => Promise<void>;
         onAbandonAIJob?: (id: string) => void;
     } = $props();
     const t = $derived(i18n);
 
     /** ADR-7 恢复入口：打开时检查未完成导入 */
-    let resume = $state<{ id: string; done: number; total: number } | null>(null);
+    let resume = $state<{ id: string; done: number; total: number; failed: { index: number; q: string; error: string }[] } | null>(null);
     let resumeBusy = $state(false);
 
     let step = $state(1);
@@ -286,6 +287,19 @@
         <!-- ADR-7 恢复入口：上次导入中断，可续传或放弃（已落卡保留） -->
         <div class="lv-aiwiz-resume" role="status">
             <span class="fn__flex-1">{t.aiWizard.resumeHint.replace("${done}", String(resume.done)).replace("${total}", String(resume.total))}</span>
+            {#if resume.failed.length > 0}
+                <button
+                    class="b3-button b3-button--small"
+                    title={t.aiWizard.resumeCopyFailed}
+                    onclick={() => {
+                        const lines = resume.failed.map(f => `#${f.index + 1} [${f.error}] ${f.q}`);
+                        navigator.clipboard.writeText(lines.join("\n")).then(
+                            () => showMessage(t.aiWizard.resumeCopied, 1500, "info"),
+                            () => { /* 剪贴板不可用静默 */ },
+                        );
+                    }}
+                >{t.aiWizard.resumeCopyFailed}({resume.failed.length})</button>
+            {/if}
             <button class="b3-button b3-button--text" disabled={resumeBusy} onclick={doResume}>{t.aiWizard.resumeContinue}</button>
             <button class="b3-button b3-button--small" disabled={resumeBusy} onclick={doAbandon}>{window.siyuan.languages.cancel}</button>
         </div>

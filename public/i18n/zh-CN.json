@@ -404,6 +404,8 @@
     },
     "aiWizardTitle": "AI 制卡",
     "aiWizard": {
+        "aiWizard": "resumeCopied",
+        "aiWizard": "resumeCopyFailed",
         "resumeContinue": "继续导入",
         "resumeHint": "上次有未完成的 AI 导入（${done}/${total} 已落卡），是否继续？",
         "diffEasy": "易",
