@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.99.0 2026-10-03 · docs-only：术语表交叉引用 + Kit 规范补测试覆盖说明
+
+* docs/22 术语表三行（作答耗时/动态建议/AI 作业）补 docs/17 条目 ID 交叉引用（AQ-13/AQ-8/AQ-17+ADR-7）——术语可追溯
+* docs/16 补记 Kit 单测覆盖现状（13 个纯 props 组件已测）与 snippet 传子组件的限制说明
+* docs/17 基线登记同步 v0.99.0
+* docs-only 轮次：测试 198/198、0 errors/0 warnings、governance OK、主包 gzip 27.51KB 不变
+
 ## v0.98.0 2026-10-03 · Kit smoke 第六批：可绑定包装组件（收官）
 
 * **LvSlider**（区间/步长/初值反映、oninput 触发 onchange 携带数值）、**LvInput**（type/placeholder/disabled 透传、oninput 携带字符串）、**LvSelect**（options 渲染与初值选中、change 携带新值、disabled 透传）——6 组输入契约单测
