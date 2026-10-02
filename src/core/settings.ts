@@ -170,29 +170,91 @@ export function defaultSettings(): LvCardsSettings {
     };
 }
 
+/** 数值字段规格（AQ-22）：[默认值, min, max]，写入前 round；浮点字段单独表 */
+const INT_FIELDS: [keyof LvCardsSettings, number, number, number][] = [
+    ["dailyNewTarget", 20, 0, 9999],
+    ["dailyReviewTarget", 200, 0, 9999],
+    ["timeoutSeconds", 60, 5, 3600],
+    ["batchLimit", 0, 0, 500],
+    ["leechThreshold", 8, 1, 100],
+    ["backlogDays", 3, 1, 90],
+    ["cardMaxWidth", 880, 320, 1600],
+];
+const FLOAT_FIELDS: [keyof LvCardsSettings, number, number, number][] = [
+    ["cardFontScale", 1, 0.85, 1.25],
+    ["ttsRate", 1, 0.5, 2],
+];
+/** 枚举字段规格：字符串枚举与离散数值共用白名单语义 */
+const ENUM_FIELDS: [keyof LvCardsSettings, readonly string[], string][] = [
+    ["ratingStyle", ["four", "three"], "four"],
+    ["timeoutMode", ["off", "reveal", "forget"], "off"],
+    ["ratingDensity", ["cozy", "compact"], "cozy"],
+    ["sfxStyle", ["chime", "wood", "bell"], "chime"],
+    ["aiMode", ["siyuan", "custom"], "siyuan"],
+];
+const BOOL_FIELDS: (keyof LvCardsSettings)[] = [
+    "randomOrder", "typingEnabled", "typingStrict", "dictationEnabled", "choiceEnabled", "requeueAgain",
+    "xpEnabled", "markerEnabled", "hideMetaUntilAnswer", "reverseOrder", "ttsEnabled", "reminderEnabled",
+    "sfxEnabled", "examEnabled", "dailyTipEnabled", "onboarded",
+];
+const STR_FIELDS: (keyof LvCardsSettings)[] = [
+    "gatewayState", "ttsVoice", "aiEndpoint", "aiKey", "aiModel", "aiFallbackEndpoint", "aiFallbackKey",
+    "aiFallbackModel", "aiPromptTemplate", "targetNotebookId", "ankiClientKey", "lastHubTab", "lastReviewScope",
+];
+
 export function normalizeSettings(raw: unknown): LvCardsSettings {
     const def = defaultSettings();
     if (!raw || typeof raw !== "object") {
         return def;
     }
-    const obj = raw as Partial<LvCardsSettings> & { modules?: Record<string, unknown> };
+    const obj = raw as Partial<LvCardsSettings> & Record<string, unknown>;
+    // 未知字段经展开保留（ADR-5：前向兼容只增不删）；已知字段逐项校验（AQ-22）
     const merged: LvCardsSettings = {
         ...def,
         ...obj,
         version: SETTINGS_VERSION,
         persona: normalizePersona(obj.persona),
-        modules: { ...def.modules },
-    };
-    if (obj.modules && typeof obj.modules === "object") {
-        for (const [key, value] of Object.entries(obj.modules)) {
-            if (typeof value !== "boolean") {
-                continue;
-            }
-            // 旧 ID 迁移；被合并的旧模块（fsrsPanel）直接丢弃
-            const migrated = LEGACY_MODULE_IDS[key] === undefined ? key : LEGACY_MODULE_IDS[key];
-            if (migrated && MODULE_IDS.includes(migrated)) {
-                merged.modules[migrated] = value;
-            }
+        modules: normalizeModules(obj.modules, def.modules),
+        heatmapWeeks: pick(obj.heatmapWeeks, [17, 26, 52], 17),
+        badgeRefreshSec: toBadgeSec(obj.badgeRefreshSec),
+        quietStart: toHHMM(obj.quietStart, def.quietStart),
+        quietEnd: toHHMM(obj.quietEnd, def.quietEnd),
+        reminderTime: toHHMM(obj.reminderTime, def.reminderTime),
+        examDate: toDateStr(obj.examDate),
+        savedFilters: toFilters(obj.savedFilters),
+        ankiClientUrl: toStr(obj.ankiClientUrl, def.ankiClientUrl),
+    } as LvCardsSettings;
+    for (const [key, d, min, max] of INT_FIELDS) {
+        (merged as unknown as Record<string, unknown>)[key] = toInt(obj[key], d, min, max);
+    }
+    for (const [key, d, min, max] of FLOAT_FIELDS) {
+        (merged as unknown as Record<string, unknown>)[key] = toNum(obj[key], d, min, max);
+    }
+    for (const [key, allowed, d] of ENUM_FIELDS) {
+        (merged as unknown as Record<string, unknown>)[key] = pickStr(obj[key], allowed, d);
+    }
+    for (const key of BOOL_FIELDS) {
+        (merged as unknown as Record<string, unknown>)[key] = toBool(obj[key], def[key] as boolean);
+    }
+    for (const key of STR_FIELDS) {
+        (merged as unknown as Record<string, unknown>)[key] = toStr(obj[key]);
+    }
+    return merged;
+}
+
+function normalizeModules(raw: unknown, defModules: Record<string, boolean>): Record<string, boolean> {
+    const merged = { ...defModules };
+    if (!raw || typeof raw !== "object") {
+        return merged;
+    }
+    for (const [key, value] of Object.entries(raw)) {
+        if (typeof value !== "boolean") {
+            continue;
+        }
+        // 旧 ID 迁移；被合并的旧模块（fsrsPanel）直接丢弃
+        const migrated = LEGACY_MODULE_IDS[key] === undefined ? key : LEGACY_MODULE_IDS[key];
+        if (migrated && MODULE_IDS.includes(migrated)) {
+            merged[migrated] = value;
         }
     }
     return merged;
@@ -200,4 +262,61 @@ export function normalizeSettings(raw: unknown): LvCardsSettings {
 
 function normalizePersona(value: unknown): PersonaId {
     return value === "exam" || value === "notes" || value === "language" || value === "custom" ? value : "custom";
+}
+
+/** 数值修复：数字/纯数字字符串收敛为有限数并钳制范围，其余回默认（AQ-22） */
+function toNum(v: unknown, def: number, min: number, max: number): number {
+    const n = typeof v === "number" ? v : typeof v === "string" && v.trim() !== "" ? Number(v) : NaN;
+    if (!Number.isFinite(n)) {
+        return def;
+    }
+    return Math.min(max, Math.max(min, n));
+}
+
+function toInt(v: unknown, def: number, min: number, max: number): number {
+    return Math.round(toNum(v, def, min, max));
+}
+
+/** 角标心跳：0=关闭合法；其余 5-3600 秒 */
+function toBadgeSec(v: unknown): number {
+    const n = toInt(v, 60, 0, 3600);
+    return n === 0 ? 0 : Math.max(5, n);
+}
+
+function toBool(v: unknown, def: boolean): boolean {
+    return typeof v === "boolean" ? v : def;
+}
+
+function toStr(v: unknown, def = ""): string {
+    return typeof v === "string" ? v : def;
+}
+
+/** HH:mm 白名单格式（免打扰/提醒时间），非法回默认 */
+function toHHMM(v: unknown, def: string): string {
+    return typeof v === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(v) ? v : def;
+}
+
+/** 考试日期：空串或 YYYY-MM-DD，非法清空 */
+function toDateStr(v: unknown): string {
+    return typeof v === "string" && (/^\d{4}-\d{2}-\d{2}$/.test(v) || v === "") ? v : "";
+}
+
+/** 离散合法值（热力图周数），不在集合回默认 */
+function pick(v: unknown, allowed: number[], def: number): number {
+    return allowed.includes(v as number) ? (v as number) : def;
+}
+
+function pickStr<T extends string>(v: unknown, allowed: readonly T[], def: T): T {
+    return allowed.includes(v as T) ? (v as T) : def;
+}
+
+/** 已存筛选：条目逐个校验 name+filter 均为字符串，上限 50 条 */
+function toFilters(v: unknown): { name: string; filter: string }[] {
+    if (!Array.isArray(v)) {
+        return [];
+    }
+    return v
+        .filter((f): f is { name: string; filter: string } =>
+            !!f && typeof f === "object" && typeof (f as any).name === "string" && typeof (f as any).filter === "string")
+        .slice(0, 50);
 }

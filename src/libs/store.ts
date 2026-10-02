@@ -14,11 +14,33 @@ export interface StoreDef<T> {
     normalize: (raw: unknown) => T;
 }
 
-export async function loadStore<T>(plugin: { loadData: (key: string) => Promise<any> }, def: StoreDef<T>): Promise<T> {
+export async function loadStore<T>(
+    plugin: { loadData: (key: string) => Promise<any> },
+    def: StoreDef<T>,
+    /** 已随批量加载取出的原文（AQ-1）：传入则不再二次 loadData */
+    preloaded?: unknown,
+): Promise<T> {
     try {
-        const raw = await plugin.loadData(def.key);
+        const raw = preloaded !== undefined ? preloaded : await plugin.loadData(def.key);
         return def.normalize(raw ?? def.fallback());
     } catch {
         return def.fallback();
     }
+}
+
+/**
+ * 按位置配对批量 loadData 的结果（AQ-1 回归核心）：
+ * Promise.all([...keys.map(load)]) 的返回值按位置对应 keys，
+ * 历史上解构数量与键数量错位导致会话状态读到 AI 批次数据。
+ * 长度不一致直接抛错（宁可启动失败也不静默错位）。
+ */
+export function zipLoaded<K extends string>(keys: readonly K[], values: readonly unknown[]): Record<K, unknown> {
+    if (values.length !== keys.length) {
+        throw new Error(`load mismatch: ${keys.length} keys vs ${values.length} values`);
+    }
+    const out = {} as Record<K, unknown>;
+    keys.forEach((key, i) => {
+        out[key] = values[i];
+    });
+    return out;
 }

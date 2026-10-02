@@ -426,6 +426,8 @@
     "aiTypeQaHint": "Q&A: specific, actively recallable questions with concise accurate answers",
     "aiTypeClozeHint": "Cloze: answers should be key terms or numbers from the material",
     "aiTooLong": "Material too long — split it and generate in parts",
+    "aiFallbackUsed": "Primary endpoint failed — switched to the fallback endpoint",
+    "storageWriteFail": "Some plugin data failed to save (retries exhausted). Check disk/sync status; see Copy diagnostics for details.",
     "menuAICard": "AI cards",
     "cardTypeTyping": "Typing",
     "retention": {

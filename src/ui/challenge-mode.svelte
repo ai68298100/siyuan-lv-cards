@@ -1,7 +1,7 @@
 <script lang="ts">
     import { onDestroy } from "svelte";
-    import { fetchSyncPost } from "siyuan";
-    import type { RiffDueCard } from "@/api/riff";
+    import { getRiffDueCards, type RiffDueCard } from "@/api/riff";
+    import { getBlockDOM } from "@/api/siyuan";
 
     let { i18n, onExit }: { i18n: any; onExit: () => void } = $props();
     const t = $derived(i18n);
@@ -19,8 +19,8 @@
 
     async function fetchDom(blockID: string): Promise<string> {
         try {
-            const r = await fetchSyncPost("/api/block/getBlockDOM", { id: blockID });
-            return r?.data?.dom ?? "";
+            // AQ-20：统一内核响应校验，非 0 不再静默渲染空
+            return await getBlockDOM(blockID);
         } catch { return ""; }
     }
 
@@ -29,8 +29,8 @@
         remaining = DURATION;
         known = 0; unknown = 0; idx = 0;
         try {
-            const resp = await fetchSyncPost("/api/riff/getRiffDueCards", { deckID: "" });
-            const due: RiffDueCard[] = resp?.data?.cards ?? [];
+            const data = await getRiffDueCards("");
+            const due: RiffDueCard[] = data?.cards ?? [];
             const slice = due.slice(0, 30);
             const loaded: { blockID: string; dom: string }[] = [];
             for (const c of slice) {

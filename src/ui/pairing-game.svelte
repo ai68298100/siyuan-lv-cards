@@ -1,6 +1,6 @@
 <script lang="ts">
     import { getRiffDueCards } from "@/api/riff";
-    import { fetchSyncPost } from "siyuan";
+    import { getBlockDOM } from "@/api/siyuan";
 
     /** 配对挑战（M4·FR4）：到期挖空卡限时配对——左列题面（挖空）× 右列答案（mark 文本），
      * 只入激励不计调度。无挖空的卡自动跳过。 */
@@ -51,8 +51,8 @@
             for (const c of candidates) {
                 if (found.length >= 8) { break; }
                 try {
-                    const resp = await fetchSyncPost("/api/block/getBlockDOM", { id: c.blockID });
-                    const html = resp?.data?.dom ?? "";
+                    // AQ-20：统一内核响应校验，非 0 视为单卡失败跳过
+                    const html = await getBlockDOM(c.blockID);
                     const holder = document.createElement("div");
                     holder.innerHTML = html;
                     const marks = Array.from(holder.querySelectorAll("mark"))

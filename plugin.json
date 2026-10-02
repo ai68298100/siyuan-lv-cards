@@ -2,7 +2,7 @@
   "name": "siyuan-lv-cards",
   "author": "ai68298100",
   "url": "https://github.com/ai68298100/siyuan-lv-cards",
-  "version": "0.63.0",
+  "version": "0.64.0",
   "minAppVersion": "3.8.0",
   "kernels": [
     "windows",
@@ -36,8 +36,8 @@
     "zh-CN": "小驴闪卡"
   },
   "description": {
-    "default": "The all-in-one flashcard cockpit for SiYuan: statistics dashboard, card manager, custom review panel, exam deadline, Anki import, AI card generation — on top of the native FSRS scheduler.",
-    "zh-CN": "思源闪卡驾驶舱与大杂烩：统计仪表盘、闪卡管理器、自研复习面板、考试倒排、Anki 导入、AI 制卡——构建在内核原生 FSRS 之上。"
+    "default": "A local-first, full-lifecycle flashcard learning platform for SiYuan: capture, understand, create, practice, review, apply, maintain and connect knowledge with AI and the native FSRS scheduler.",
+    "zh-CN": "思源的全域闪卡学习平台：以 AI 辅助知识捕获、理解、制卡、练习、复习、应用、维护和生态联动——正式调度由内核原生 FSRS 负责。"
   },
   "readme": {
     "default": "README.en.md",
@@ -60,6 +60,8 @@
     "spaced repetition",
     "间隔重复",
     "Anki",
+    "AI",
+    "Agent",
     "statistics",
     "统计",
     "记忆"

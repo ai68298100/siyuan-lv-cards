@@ -1,13 +1,13 @@
 <script lang="ts">
     import { onDestroy, onMount } from "svelte";
     import { fade } from "svelte/transition";
-    import { fetchSyncPost, openTab, showMessage } from "siyuan";
+    import { openTab, showMessage } from "siyuan";
     import {
         getRiffDueCards, getRiffDecks, getNotebookRiffDueCards, getTreeRiffDueCards, reviewRiffCard, skipReviewRiffCard,
         batchSetRiffCardsDueTime,
         type RiffDueCard, type RiffDeck, type Rating,
     } from "@/api/riff";
-    import { getNotebooks, getBlockAttrs, type Notebook } from "@/api/siyuan";
+    import { getNotebooks, getBlockAttrs, getBlockDOM, type Notebook } from "@/api/siyuan";
     import { isCardNew, calcStreak, type RevlogData } from "@/core/revlog";
     import { gradeTyping, type Rating1to4 } from "@/core/card-types";
     import { parseOcclusion, type OcclusionData } from "@/core/occlusion";
@@ -16,6 +16,7 @@
     import LvChip from "./kit/LvChip.svelte";
     import LvError from "./kit/LvError.svelte";
     import { friendlyError } from "@/api/errors";
+    import { lvLog } from "@/libs/log";
 
     export interface ReviewSettings {
         ratingStyle: "four" | "three";
@@ -64,8 +65,8 @@
         suspendToday: (cardID: string) => void;
         openDashboard: () => void;
         onScopePersist: (scopeKey: string) => void;
-        getSessionState: () => { date: string; reviewedIDs: string[]; counters: { new: number; review: number; forget: number; skip: number } } | null;
-        saveSessionState: (s: { date: string; reviewedIDs: string[]; counters: { new: number; review: number; forget: number; skip: number } }) => void;
+        getSessionState: () => { date: string; reviewedIDs: string[]; skippedIDs: string[]; counters: { new: number; review: number; forget: number; skip: number } } | null;
+        saveSessionState: (s: { date: string; reviewedIDs: string[]; skippedIDs: string[]; counters: { new: number; review: number; forget: number; skip: number } }) => void;
         clearSessionState: () => void;
         emitSessionFinished: (summary: { new: number; review: number; forget: number; skip: number }) => void;
         /** 源上下文预览（M3）：来源块前后各 2 块（只读，不含自身） */
@@ -100,6 +101,7 @@
     let errorMsg = $state("");
     let submitting = $state(false); // 评分/跳过提交锁（AJ8：重复点击只产生一次写入）
     let loadSeq = 0;                // 卡面异步加载序号（AJ10：旧 DOM 不覆盖新卡）
+    let queueSeq = 0;               // 队列请求序号（AQ-19：旧范围/旧重试响应不覆盖新队列）
     let sessionSkipped: string[] = []; // 本场跳过排除集（AJ9：跳过的卡不再被下一批拉回）
     let lastAnswered: { html: string; card: RiffDueCard } | null = null; // 回看数据源（AJ2：不再自动打开）
 
@@ -113,6 +115,16 @@
         counters: { new: number; review: number; forget: number; skip: number };
     }
     let history: HistorySnapshot[] = [];
+
+    /** 会话快照统一出口（AQ-2）：计数与 skip 集合的当前值即时落盘 */
+    function persistSession() {
+        ctx.saveSessionState({
+            date: todayKey(),
+            reviewedIDs,
+            skippedIDs: sessionSkipped,
+            counters: { new: sessionNew, review: sessionReview, forget: sessionForget, skip: sessionSkip },
+        });
+    }
 
     // 回看上一张（M3·FR6）
     let peek = $state<{ html: string; card: RiffDueCard } | null>(null);
@@ -143,11 +155,12 @@
     async function loadBlockDOM(blockID: string) {
         const seq = ++loadSeq;
         try {
-            const resp = await fetchSyncPost("/api/block/getBlockDOM", { id: blockID });
+            // AQ-20：统一内核响应校验（非 0/缺字段抛错），失败保留旧卡面
+            const dom = await getBlockDOM(blockID);
             if (seq !== loadSeq) {
                 return; // 已切到新卡，丢弃旧响应
             }
-            cardHtml = resp?.data?.dom ?? "";
+            cardHtml = dom;
             // 打字题期望答案 = 高亮（mark）文本合集；无 mark 则退化为全文
             const holder = document.createElement("div");
             holder.innerHTML = cardHtml;
@@ -167,10 +180,16 @@
                     occl = null;
                 }
             }
-        } catch {
-            if (seq === loadSeq) {
-                cardHtml = "";
-                expectedText = "";
+        } catch (e) {
+            if (seq !== loadSeq) {
+                return;
+            }
+            if (!cardHtml) {
+                // 新卡首载失败：给出可重试错误态（旧卡面本就不存在）
+                errorMsg = friendlyError(e, t);
+            } else {
+                // 刷新失败（已有卡面）：保留旧内容，仅记诊断
+                lvLog("warn", "card DOM refresh failed: " + (e instanceof Error ? e.message : e));
             }
         }
     }
@@ -204,8 +223,7 @@
             return cached;
         }
         try {
-            const resp = await fetchSyncPost("/api/block/getBlockDOM", { id: blockID });
-            const dom = resp?.data?.dom ?? "";
+            const dom = await getBlockDOM(blockID);
             const holder = document.createElement("div");
             holder.innerHTML = dom;
             const marks = Array.from(holder.querySelectorAll("mark"))
@@ -255,6 +273,7 @@
     }
 
     async function loadQueue() {
+        const seq = ++queueSeq; // AQ-19：范围切换/重试并发时只接受最后一次请求
         loading = true;
         errorMsg = "";
         try {
@@ -267,6 +286,9 @@
                 data = await getTreeRiffDueCards(scopeKey.slice(4), reviewedIDs);
             } else {
                 data = await getRiffDueCards("", reviewedIDs);
+            }
+            if (seq !== queueSeq) {
+                return; // 旧响应：不改队列、卡面、计数或计时器
             }
             let cards = data.cards ?? [];
             // 「今天不学」+ 本场已跳过的卡本地过滤（内核调度不受影响，AJ9）
@@ -302,9 +324,14 @@
                 await setCurrent(queue[0]);
             }
         } catch (e: any) {
+            if (seq !== queueSeq) {
+                return; // 失败的旧请求不覆盖新状态
+            }
             errorMsg = friendlyError(e, t);
         } finally {
-            loading = false;
+            if (seq === queueSeq) {
+                loading = false;
+            }
         }
     }
 
@@ -319,6 +346,9 @@
         occlBox = null;
         occlHidden = [];
         await loadBlockDOM(card.blockID);
+        if (card !== current) {
+            return; // 等待期间已切卡（AQ-19）：不重启旧卡计时器、不朗读旧卡
+        }
         restartTimeout();
         // 听写模式：问题态自动朗读答案（M4·FR6，需打字模式开启）
         if (ctx.settings().typingEnabled && ctx.settings().dictationEnabled && expectedText) {
@@ -521,6 +551,7 @@
         sessionReview = snap.counters.review;
         sessionForget = snap.counters.forget;
         sessionSkip = snap.counters.skip;
+        persistSession(); // 撤销后的计数同样落盘（AQ-2）
         restartTimeout();
         showMessage(t.review.undoDone, 1500, "info");
     }
@@ -544,11 +575,6 @@
             await reviewRiffCard(current.deckID, current.cardID, rating, reviewedIDs);
             ctx.appendRevlog({ cardID: current.cardID, deckID: current.deckID, blockID: current.blockID, rating, source: "plugin" });
             reviewedIDs = [...reviewedIDs, current.cardID];
-            ctx.saveSessionState({
-                date: todayKey(),
-                reviewedIDs,
-                counters: { new: sessionNew, review: sessionReview, forget: sessionForget, skip: sessionSkip },
-            });
             if (rating === 1) {
                 sessionForget += 1;
                 // 忘记卡本批重现（M3）：评 1 的卡在批尾再出现一次，会话内强化，不动内核调度
@@ -560,6 +586,8 @@
             } else {
                 sessionReview += 1;
             }
+            // AQ-2：先更新计数再落盘——重载恢复的进度与界面一致，不丢刚评的一张
+            persistSession();
             await next();
         } catch (e: any) {
             // 评分失败保留现场（AJ11）：当前卡/答案态/队列不动，只提示错误
@@ -582,6 +610,8 @@
             }
             sessionSkip += 1;
             sessionSkipped = [...sessionSkipped, current.cardID];
+            // AQ-2：skip 也落盘——故障注入重载后跳过的卡不重复出现
+            persistSession();
             await next();
         } catch (e: any) {
             errorMsg = friendlyError(e, t);
@@ -814,6 +844,7 @@
         const ss = ctx.getSessionState();
         if (ss && ss.reviewedIDs.length > 0) {
             reviewedIDs = ss.reviewedIDs;
+            sessionSkipped = ss.skippedIDs ?? []; // AQ-2：跳过集合恢复，重载不重复出卡
             sessionNew = ss.counters.new;
             sessionReview = ss.counters.review;
             sessionForget = ss.counters.forget;
@@ -1004,7 +1035,8 @@
                         <button class="b3-button b3-button--small lv-choice-btn" onclick={startChoice}>🎲 {t.review.choiceMake}</button>
                     {/if}
                 {/if}
-                <button class="b3-button b3-button--text lv-reveal">{t.review.showAnswer}</button>
+                <!-- AQ-2：显示答案按钮补 onclick——此前覆盖层按钮无处理器且容器点击跳过 button，鼠标点击翻面失效 -->
+                <button class="b3-button b3-button--text lv-reveal" onclick={() => (showAnswer = true)}>{t.review.showAnswer}</button>
                 <span class="lv-reveal-hint" aria-hidden="true">⎵ {t.review.revealHint}</span>
             {/if}
             {#if typingGrade}
@@ -1186,6 +1218,19 @@
 
             .lv-typing { margin-top: var(--lv-sp-3); }
 
+            // AQ-2：翻面覆盖层按钮（inset:0）在最底层；交互元素抬高一层，鼠标可直达
+            .lv-typing,
+            .lv-choices,
+            .lv-reschedule {
+                position: relative;
+                z-index: 1;
+            }
+            // 遮挡 overlay 需绝对定位贴图（内联 left/top 才生效），且高于翻面层接收 rect 点击
+            .lv-occl-overlay {
+                position: absolute;
+                z-index: 1;
+            }
+
             .lv-tts-row { display: flex; justify-content: flex-end; margin-top: var(--lv-sp-2); }
 
             .lv-choice-btn { margin-top: var(--lv-sp-3); }
@@ -1219,6 +1264,7 @@
 
             .lv-reveal {
                 position: absolute; inset: 0;
+                z-index: 0;
                 width: 100%; height: 100%;
                 background: transparent;
                 color: var(--b3-theme-on-surface);

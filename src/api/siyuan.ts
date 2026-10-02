@@ -2,6 +2,7 @@
  * 通用思源 API（非 riff/V2 域）。
  */
 import { fetchSyncPost } from "siyuan";
+import { unwrapKernelData, dataStr } from "@/libs/kernel-response";
 
 export interface Notebook {
     id: string;
@@ -39,10 +40,13 @@ export const appendBlock = async (dataType: "markdown", data: string, parentID: 
 /** 读块自定义属性（遮挡数据存于 lv-occlusion 属性） */
 export const getBlockAttrs = async (id: string): Promise<Record<string, string>> => {
     const resp = await fetchSyncPost("/api/attr/getBlockAttrs", { id });
-    if (!resp || resp.code !== 0) {
-        throw new Error(resp?.msg || `kernel error (code=${resp?.code ?? "unknown"})`);
-    }
-    return (resp.data ?? {}) as Record<string, string>;
+    return unwrapKernelData<Record<string, string>>(resp) ?? {};
+};
+
+/** 读块 DOM（AQ-20 统一入口）：非 0/字段缺失抛错，调用方 catch 后保留旧卡面 */
+export const getBlockDOM = async (id: string): Promise<string> => {
+    const resp = await fetchSyncPost("/api/block/getBlockDOM", { id });
+    return dataStr(unwrapKernelData(resp), "dom");
 };
 
 /** 写块自定义属性 */

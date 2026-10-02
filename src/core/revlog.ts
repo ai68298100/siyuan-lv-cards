@@ -37,16 +37,51 @@ export function emptyRevlog(): RevlogData {
     return JSON.parse(JSON.stringify(EMPTY));
 }
 
+/** ts 合法范围：非负且不超过 2100 年（同步损坏/伪造时间戳不进入统计） */
+const TS_MAX = 4102444800000;
+
+/** 单条运行时清洗（AQ-3）：非法条目剔除而非整库兜底，NaN/越界评分/非字符串 ID 一律拒绝 */
+function sanitizeEntry(raw: unknown): RevlogEntry | null {
+    if (!raw || typeof raw !== "object") {
+        return null;
+    }
+    const o = raw as Record<string, unknown>;
+    const ts = Number(o.ts);
+    if (!Number.isFinite(ts) || ts < 0 || ts > TS_MAX) {
+        return null;
+    }
+    if (typeof o.cardID !== "string" || !o.cardID) {
+        return null;
+    }
+    const rating = Number(o.rating);
+    if (!Number.isInteger(rating) || rating < 0 || rating > 4) {
+        return null;
+    }
+    return {
+        ts,
+        cardID: o.cardID,
+        deckID: typeof o.deckID === "string" ? o.deckID : "",
+        blockID: typeof o.blockID === "string" ? o.blockID : "",
+        rating,
+        source: o.source === "native" ? "native" : "plugin",
+    };
+}
+
 export function normalizeRevlog(raw: unknown): RevlogData {
     if (!raw || typeof raw !== "object") {
         return emptyRevlog();
     }
     const obj = raw as Partial<RevlogData>;
-    return {
+    const data: RevlogData = {
         version: 1,
-        entries: Array.isArray(obj.entries) ? obj.entries : [],
-        days: obj.days && typeof obj.days === "object" ? obj.days : {},
+        entries: Array.isArray(obj.entries)
+            ? obj.entries.map(sanitizeEntry).filter((e): e is RevlogEntry => e !== null)
+            : [],
+        days: {},
     };
+    // 聚合永远由清洗后的明细重建（AQ-3/AQ-21 口径一致），污染的 days 不透传
+    recalcDays(data);
+    return data;
 }
 
 export function localDate(ts: number): string {

@@ -2,6 +2,7 @@
     import { onMount } from "svelte";
     import { fade } from "svelte/transition";
     import { getRiffDecks, createRiffDeck, type RiffDeck } from "@/api/riff";
+    import { isAICanceled } from "@/api/ai";
     import LvSection from "./kit/LvSection.svelte";
     import LvRow from "./kit/LvRow.svelte";
     import LvChip from "./kit/LvChip.svelte";
@@ -11,8 +12,8 @@
         i18n: any;
         /** 预填材料（leech 改写联动） */
         initialSource?: string;
-        /** 调用方实现：构造 prompt → 调 AI → 解析卡片（含批次记录） */
-        generate: (source: string, cfg: { count: number; language: string; type: "qa" | "cloze" }) => Promise<{ q: string; a: string }[]>;
+        /** 调用方实现：构造 prompt → 调 AI → 解析卡片（含批次记录）；第三参为取消信号（AQ-14） */
+        generate: (source: string, cfg: { count: number; language: string; type: "qa" | "cloze" }, opts?: { signal?: AbortSignal }) => Promise<{ q: string; a: string }[]>;
         onCreate: (cards: { q: string; a: string }[], deckID: string, deckName: string) => Promise<void>;
         onClose: () => void;
         /** 载入当前打开文档（M2·FR6 输入源扩展；不可用时返回 null） */
@@ -123,23 +124,52 @@
         }
     });
 
+    // 生成请求守卫（AQ-14）：换源/重生/关闭向导即取消旧请求；晚到响应只接受最后一次
+    let genSeq = 0;
+    let genCtrl: AbortController | null = null;
+
+    function cancelGeneration() {
+        genSeq += 1; // 使在途响应失效
+        genCtrl?.abort();
+        genCtrl = null;
+        busy = false;
+    }
+
+    /** 关闭向导：先取消在途请求再回调宿主（取消不触发 fallback、不写回已关闭向导） */
+    function closeWizard() {
+        cancelGeneration();
+        onClose();
+    }
+
     async function run() {
         if (!source.trim() || busy) {
             return;
         }
+        const seq = ++genSeq;
+        genCtrl = new AbortController();
+        const myCtrl = genCtrl;
         busy = true;
         errorMsg = "";
         try {
-            const cards = await generate(source.trim(), { count, language, type: cardType });
+            const cards = await generate(source.trim(), { count, language, type: cardType }, { signal: myCtrl.signal });
+            if (seq !== genSeq) {
+                return; // 旧请求：候选与步骤不写回
+            }
             if (cards.length === 0) {
                 throw new Error(t.aiWizard.emptyResult);
             }
             candidates = cards.map(c => ({ ...c, keep: true }));
             step = 2;
         } catch (e: any) {
+            if (seq !== genSeq || isAICanceled(e)) {
+                return; // 取消/被新请求取代：静默，草稿保留可重试
+            }
             errorMsg = e?.message ?? String(e);
         } finally {
-            busy = false;
+            if (seq === genSeq) {
+                busy = false;
+                genCtrl = null;
+            }
         }
     }
 
@@ -149,10 +179,16 @@
         if (regenBusy !== null || busy) {
             return;
         }
+        const seq = ++genSeq;
+        genCtrl = new AbortController();
+        const myCtrl = genCtrl;
         regenBusy = i;
         errorMsg = "";
         try {
-            const cards = await generate(source.trim(), { count: 1, language, type: cardType });
+            const cards = await generate(source.trim(), { count: 1, language, type: cardType }, { signal: myCtrl.signal });
+            if (seq !== genSeq) {
+                return;
+            }
             if (cards.length > 0) {
                 const keep = candidates[i].keep;
                 candidates[i] = { ...cards[0], keep };
@@ -161,8 +197,14 @@
                 errorMsg = t.aiWizard.emptyResult;
             }
         } catch (e: any) {
+            if (seq !== genSeq || isAICanceled(e)) {
+                return;
+            }
             errorMsg = e?.message ?? String(e);
         } finally {
+            if (seq === genSeq) {
+                genCtrl = null;
+            }
             regenBusy = null;
         }
     }
@@ -187,7 +229,7 @@
                 return;
             }
             await onCreate(picked.map(c => ({ q: c.q, a: c.a })), deckID, deckName);
-            onClose();
+            closeWizard();
         } catch (e: any) {
             errorMsg = e?.message ?? String(e);
         } finally {
@@ -200,7 +242,7 @@
     <div class="lv-ob-head">
         <LvSteps steps={[t.aiWizard.stepCfg, t.aiWizard.stepPreview]} current={step - 1} />
         <div class="fn__flex-1"></div>
-        <button class="b3-button b3-button--small" onclick={onClose}>✕</button>
+                <button class="b3-button b3-button--small" onclick={closeWizard}>✕</button>
     </div>
 
     {#if step === 1}
@@ -246,7 +288,7 @@
                 <div class="ft__smaller" style="color: var(--b3-theme-error); margin-bottom: var(--lv-sp-2)">{errorMsg}</div>
             {/if}
             <div class="fn__flex" style="justify-content: flex-end; gap: var(--lv-sp-2)">
-                <button class="b3-button b3-button--cancel" onclick={onClose}>{window.siyuan.languages.cancel}</button>
+                <button class="b3-button b3-button--cancel" onclick={closeWizard}>{window.siyuan.languages.cancel}</button>
                 <div class="fn__space"></div>
                 <button class="b3-button b3-button--text lv-btn-primary" disabled={busy || !source.trim()} onclick={run}>
                     {busy ? t.aiWizard.generating : `${t.aiWizard.generate} →`}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-    appendRevlog, emptyRevlog, mergeRevlog, recalcDays, calcStreak, calcXp, localDate, lastNDays, weekCompare, calcMilestones,
+    appendRevlog, emptyRevlog, mergeRevlog, normalizeRevlog, recalcDays, calcStreak, calcXp, localDate, lastNDays, weekCompare, calcMilestones,
     type RevlogData,
 } from "../src/core/revlog";
 const entry = (ts: number, cardID: string, rating: number, source: "native" | "plugin" = "plugin") =>
@@ -197,6 +197,70 @@ describe("calcXp（M8·FR3）", () => {
         expect(x.xp).toBe(0);
         expect(x.level).toBe(1);
         expect(x.toNext).toBe(50);
+    });
+});
+
+describe("normalizeRevlog 运行时清洗（AQ-3）", () => {
+    it("合法条目原样保留，聚合由明细重建", () => {
+        const t = Date.now();
+        const d = normalizeRevlog({
+            version: 1,
+            entries: [entry(t, "c1", 3), entry(t + 1, "c1", 1)],
+            days: { "1999-01-01": { new: 99, review: 99, forget: 99 } },
+        });
+        expect(d.entries).toHaveLength(2);
+        expect(d.days[localDate(t)]).toEqual({ new: 1, review: 1, forget: 1 });
+        expect(d.days["1999-01-01"]).toBeUndefined(); // 污染聚合不透传
+    });
+
+    it("非法条目逐条剔除：NaN/负/越界时间、非法评分、非字符串卡 ID；数字字符串评分按修复收敛", () => {
+        const t = Date.now();
+        const d = normalizeRevlog({
+            entries: [
+                { ts: NaN, cardID: "c1", rating: 3 },
+                { ts: -5, cardID: "c2", rating: 3 },
+                { ts: 99999999999999, cardID: "c3", rating: 3 },
+                { ts: t, cardID: "", rating: 3 },
+                { ts: t, cardID: 42, rating: 3 },
+                { ts: t, cardID: "c4", rating: 2.5 },
+                { ts: t, cardID: "c4", rating: 5 },
+                { ts: t, cardID: "c4", rating: -1 },
+                // 存储自愈语义（与 mergeRevlog 一致）：数字字符串评分修复为数值保留
+                { ts: t, cardID: "c4", rating: "3" },
+                null,
+                "junk",
+                { ts: t, cardID: "ok", rating: 4, deckID: 7, blockID: null, source: "native" },
+            ],
+        });
+        expect(d.entries.map(e => e.cardID)).toEqual(["c4", "ok"]);
+        expect(d.entries[0]).toMatchObject({ rating: 3, source: "plugin" });
+        expect(d.entries[1]).toMatchObject({ rating: 4, source: "native", deckID: "", blockID: "" });
+    });
+
+    it("随机脏输入不产生 NaN、不抛错（fuzz）", () => {
+        const junk = [
+            0, false, "", undefined,
+            { entries: "x" },
+            { entries: [{ ts: 1 }] },
+            { entries: Array.from({ length: 50 }, (_, i) => ({ ts: i % 2 ? NaN : i, cardID: i % 3 ? null : `c${i}`, rating: i * 1.5 })) },
+        ];
+        for (const j of junk) {
+            expect(() => normalizeRevlog(j)).not.toThrow();
+        }
+        const d = normalizeRevlog(junk[junk.length - 1]);
+        for (const e of d.entries) {
+            expect(Number.isFinite(e.ts)).toBe(true);
+            expect(Number.isInteger(e.rating)).toBe(true);
+            expect(e.rating >= 0 && e.rating <= 4).toBe(true);
+        }
+    });
+
+    it("清洗幂等：normalize(normalize(x)) 与 normalize(x) 一致", () => {
+        const t = Date.now();
+        const raw = { entries: [entry(t, "c1", 3), { ts: t, cardID: "bad", rating: 9 }] };
+        const once = normalizeRevlog(raw);
+        const twice = normalizeRevlog(JSON.parse(JSON.stringify(once)));
+        expect(twice).toEqual(once);
     });
 });
 

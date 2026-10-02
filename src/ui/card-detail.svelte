@@ -1,6 +1,6 @@
 <script lang="ts">
     import { onMount } from "svelte";
-    import { fetchSyncPost } from "siyuan";
+    import { getBlockDOM } from "@/api/siyuan";
     import type { SearchBlock } from "@/api/riff";
     import LvDrawer from "./kit/LvDrawer.svelte";
 
@@ -17,9 +17,10 @@
     onMount(async () => {
         const seq = ++loadSeq;
         try {
-            const resp = await fetchSyncPost("/api/block/getBlockDOM", { id: block.id });
+            // AQ-20：统一内核响应校验，失败回退块文本预览
+            const dom = await getBlockDOM(block.id);
             if (seq === loadSeq) {
-                html = resp?.data?.dom ?? "";
+                html = dom;
             }
         } catch {
             if (seq === loadSeq) {

@@ -60,3 +60,94 @@ describe("exam（M7）", () => {
         expect((twice as any).unknownField).toEqual({ nested: true });
     });
 });
+
+describe("settings 运行时字段校验（AQ-22）", () => {
+    it("数值类型修复 + 范围钳制", () => {
+        const s = normalizeSettings({
+            timeoutSeconds: "abc",       // 非数字 → 默认 60
+            dailyNewTarget: "30",        // 数字字符串收敛
+            dailyReviewTarget: 99999,    // 越界钳制
+            batchLimit: -5,              // 负值钳 0
+            cardFontScale: 9,            // 0.85-1.25 钳制
+            ttsRate: 0.1,                // 0.5-2 钳制
+            leechThreshold: 0,           // 1-100 钳制
+            cardMaxWidth: "720",
+            backlogDays: NaN,
+        });
+        expect(s.timeoutSeconds).toBe(60);
+        expect(s.dailyNewTarget).toBe(30);
+        expect(s.dailyReviewTarget).toBe(9999);
+        expect(s.batchLimit).toBe(0);
+        expect(s.cardFontScale).toBe(1.25);
+        expect(s.ttsRate).toBe(0.5);
+        expect(s.leechThreshold).toBe(1);
+        expect(s.cardMaxWidth).toBe(720);
+        expect(s.backlogDays).toBe(3);
+    });
+
+    it("角标心跳 0 合法（关闭），其余 5-3600", () => {
+        expect(normalizeSettings({ badgeRefreshSec: 0 }).badgeRefreshSec).toBe(0);
+        expect(normalizeSettings({ badgeRefreshSec: 1 }).badgeRefreshSec).toBe(5);
+        expect(normalizeSettings({ badgeRefreshSec: 99999 }).badgeRefreshSec).toBe(3600);
+        expect(normalizeSettings({ badgeRefreshSec: "x" }).badgeRefreshSec).toBe(60);
+    });
+
+    it("枚举与离散值白名单", () => {
+        const s = normalizeSettings({
+            ratingStyle: "five",
+            timeoutMode: 3,
+            ratingDensity: null,
+            sfxStyle: "gong",
+            aiMode: "openai",
+            heatmapWeeks: 30,
+        });
+        expect(s.ratingStyle).toBe("four");
+        expect(s.timeoutMode).toBe("off");
+        expect(s.ratingDensity).toBe("cozy");
+        expect(s.sfxStyle).toBe("chime");
+        expect(s.aiMode).toBe("siyuan");
+        expect(s.heatmapWeeks).toBe(17);
+        expect(normalizeSettings({ heatmapWeeks: 52 }).heatmapWeeks).toBe(52);
+    });
+
+    it("布尔与字符串：类型非法回默认", () => {
+        const s = normalizeSettings({
+            randomOrder: "yes",
+            onboarded: 1,
+            aiKey: { leak: true },
+            ankiClientUrl: 0,
+            reminderTime: "25:99",
+            quietStart: "23:00",
+            examDate: "2026/11/01",
+        });
+        expect(s.randomOrder).toBe(false);
+        expect(s.onboarded).toBe(false);
+        expect(s.aiKey).toBe("");
+        expect(s.ankiClientUrl).toBe("http://127.0.0.1:8765");
+        expect(s.reminderTime).toBe("20:00");
+        expect(s.quietStart).toBe("23:00");
+        expect(s.examDate).toBe("");
+    });
+
+    it("savedFilters 条目清洗与限量", () => {
+        const s = normalizeSettings({
+            savedFilters: [
+                { name: "a", filter: "x" },
+                { name: 1, filter: "y" },
+                null,
+                { name: "b" },
+                { name: "c", filter: "z" },
+            ],
+        });
+        expect(s.savedFilters).toEqual([{ name: "a", filter: "x" }, { name: "c", filter: "z" }]);
+        expect(normalizeSettings({ savedFilters: "no" }).savedFilters).toEqual([]);
+    });
+
+    it("损坏 JSON 语义（null/数组/字符串）整体落默认", () => {
+        for (const raw of [null, [1, 2], "corrupt", 42]) {
+            const s = normalizeSettings(raw);
+            expect(s.dailyReviewTarget).toBe(200);
+            expect(s.aiMode).toBe("siyuan");
+        }
+    });
+});

@@ -1,6 +1,6 @@
 <script lang="ts">
     import { onMount } from "svelte";
-    import { fetchSyncPost } from "siyuan";
+    import { getBlockDOM, setBlockAttrs } from "@/api/siyuan";
     import { emptyOcclusion, serializeOcclusion, type OcclusionRect } from "@/core/occlusion";
 
     let { blockID, i18n, onSave, onClose }: {
@@ -56,8 +56,8 @@
 
     onMount(async () => {
         try {
-            const resp = await fetchSyncPost("/api/block/getBlockDOM", { id: blockID });
-            const dom = resp?.data?.dom ?? "";
+            // AQ-20：统一内核响应校验，非 0/缺字段直接进错误态
+            const dom = await getBlockDOM(blockID);
             if (preview) {
                 preview.innerHTML = dom;
                 const img = preview.querySelector("img");
@@ -98,7 +98,7 @@
         try {
             const data = emptyOcclusion();
             data.rects = rects;
-            await fetchSyncPost("/api/attr/setBlockAttrs", { id: blockID, attrs: serializeOcclusion(data) });
+            await setBlockAttrs(blockID, serializeOcclusion(data));
             onSave();
             onClose();
         } catch (e: any) {

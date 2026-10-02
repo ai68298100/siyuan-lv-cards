@@ -1,21 +1,23 @@
 import "./index.scss";
 
 import { mount, unmount } from "svelte";
-import { Plugin, Menu, getAllEditor, showMessage, fetchSyncPost, openTab } from "siyuan";
+import { Plugin, Menu, getAllEditor, showMessage, openTab } from "siyuan";
 
 import { svelteDialog, confirmDialogBool } from "./libs/dialog";
 import { lvLog, lvLogDump } from "./libs/log";
-import { loadStore } from "./libs/store";
+import { loadStore, zipLoaded } from "./libs/store";
+import { createPersist, type PersistQueue } from "./libs/persist";
 import { normalizeAIBatches, emptyAIBatches, type AIBatchesData } from "./core/ai-batches";
 import { defaultSettings, normalizeSettings, type LvCardsSettings } from "./core/settings";
 import { PERSONA_PRESETS } from "./core/personas";
+import { normalizeNativeCardAction, NativeEventDeduper } from "./core/native-events";
 import {
-    appendRevlog, calcStreak, emptyRevlog, leechCards, localDate, normalizeRevlog, recalcDays, revlogToCsv, mergeRevlog,
+    appendRevlog, calcStreak, emptyRevlog, leechCards, localDate, normalizeRevlog, revlogToCsv, mergeRevlog,
     type RevlogData, type RevlogEntry,
 } from "./core/revlog";
 import { detectFlashcardV2, type MigrationStatus } from "./api/flashcardV2";
 import { addRiffCards, createRiffDeck, getDueCount, getRiffCardsByBlockIDs, getRiffDecks, getRiffDueCards, removeRiffCards } from "./api/riff";
-import { appendBlock, createDocWithMd, getNotebooks, exportMdContent, sqlQuery, kernelVersion } from "./api/siyuan";
+import { appendBlock, createDocWithMd, getNotebooks, getBlockDOM, exportMdContent, sqlQuery, kernelVersion } from "./api/siyuan";
 import { aiChat, estimateTokens, parseCards } from "./api/ai";
 import { normalizeSuspendToday, rollDateIfNeeded, isSuspended, suspend, type SuspendTodayData } from "./core/suspend-today";
 import { parseRevlogCsv } from "./core/revlog-csv";
@@ -65,6 +67,31 @@ export default class LvCardsPlugin extends Plugin {
     private suspendToday: SuspendTodayData = { date: "", cardIDs: [] };
     private examPlans: ExamPlansData = { version: 1, plans: [] };
     private aiBatches: AIBatchesData = { version: 1, batches: [] };
+    /** 统一持久化队列（AQ-4）：同 key 串行 + 有限重试 + 失败可观测 */
+    private persist: PersistQueue = createPersist(
+        (key, data) => this.saveData(key, data),
+        {
+            attempts: 2,
+            retryDelayMs: 500,
+            onOk: key => this.trackSave(key),
+            onFail: (key, error) => {
+                lvLog("error", `persist ${key} failed: ${error.message}`);
+                this.notifyPersistFail();
+            },
+        },
+    );
+    private lastPersistToast = 0;
+    /** 写入最终失败的用户提示（限流 30s 一次，避免刷屏） */
+    private notifyPersistFail() {
+        const now = Date.now();
+        if (now - this.lastPersistToast < 30000) {
+            return;
+        }
+        this.lastPersistToast = now;
+        try {
+            showMessage(this.i18n.storageWriteFail, 4000, "error");
+        } catch { /* i18n 未就绪时仅留日志 */ }
+    }
     private saveSettingsSoon() {
         if (this.settingsSaveTimer) clearTimeout(this.settingsSaveTimer);
         this.settingsSaveTimer = setTimeout(() => {
@@ -74,10 +101,9 @@ export default class LvCardsPlugin extends Plugin {
     }
 
     private saveSettingsNow() {
-        this.trackSave(SETTINGS_DATA);
         // 角标心跳间隔可能随设置变化（440）：即时重建定时器
         this.setupBadgeTimer();
-        return this.saveData(SETTINGS_DATA, this.settings).catch(() => { /* 旁路 */ });
+        return this.persist.save(SETTINGS_DATA, this.settings);
     }
 
     /** Onboarding 完成标记（M12·FR?） */
@@ -85,7 +111,7 @@ export default class LvCardsPlugin extends Plugin {
         this.settings.onboarded = true;
         this.saveSettingsNow();
     }
-    private sessionState: SessionState = { date: "", reviewedIDs: [], counters: { new: 0, review: 0, forget: 0, skip: 0 } };
+    private sessionState: SessionState = { date: "", reviewedIDs: [], skippedIDs: [], counters: { new: 0, review: 0, forget: 0, skip: 0 } };
     /** 最近一次到期数（角标点击行为统一用：>0 开复习，否则开中心） */
     private lastDue = 0;
 
@@ -96,28 +122,22 @@ export default class LvCardsPlugin extends Plugin {
 <path d="M11 16h6M11 20h10" stroke="currentColor" stroke-width="2"></path>
 </symbol>`);
 
-        const [loadedSettings, loadedRevlog, loadedSuspend, loadedExam, loadedSession] = await Promise.all([
-            this.loadData(SETTINGS_DATA),
-            this.loadData(REVLOG_DATA),
-            this.loadData(SUSPEND_TODAY_DATA),
-            this.loadData(EXAM_PLANS_DATA),
-            this.loadData(AI_BATCHES_DATA),
-            this.loadData(SESSION_STATE_DATA),
-        ]);
-        this.settings = normalizeSettings(loadedSettings);
-        this.revlog = normalizeRevlog(loadedRevlog);
-        recalcDays(this.revlog); // AJ1 迁移：由明细重建每日聚合（幂等）
-        this.suspendToday = normalizeSuspendToday(loadedSuspend);
-        this.examPlans = normalizeExamPlans(loadedExam);
-        this.sessionState = normalizeSessionState(loadedSession, localDate(Date.now()));
-        // AI 批次走 TypedStore 入口（322）：结构清洗 + 兜底，非法条目剔除（526）
+        // AQ-1：批量加载以 keys 数组驱动并按位置配对，杜绝「6 项加载只解构 5 项」的错位回归
+        const STORE_KEYS = [SETTINGS_DATA, REVLOG_DATA, SUSPEND_TODAY_DATA, EXAM_PLANS_DATA, AI_BATCHES_DATA, SESSION_STATE_DATA] as const;
+        const loaded = zipLoaded(STORE_KEYS, await Promise.all(STORE_KEYS.map(key => this.loadData(key))));
+        this.settings = normalizeSettings(loaded[SETTINGS_DATA]);
+        this.revlog = normalizeRevlog(loaded[REVLOG_DATA]); // AQ-3：清洗非法条目并由明细重建 days
+        this.suspendToday = normalizeSuspendToday(loaded[SUSPEND_TODAY_DATA]);
+        this.examPlans = normalizeExamPlans(loaded[EXAM_PLANS_DATA]);
+        this.sessionState = normalizeSessionState(loaded[SESSION_STATE_DATA], localDate(Date.now()));
+        // AI 批次走 TypedStore 入口（322）：结构清洗 + 兜底，非法条目剔除（526）；复用批量加载结果不再二次读盘
         this.aiBatches = await loadStore(this, {
             key: AI_BATCHES_DATA,
             fallback: emptyAIBatches,
             normalize: normalizeAIBatches,
-        });
+        }, loaded[AI_BATCHES_DATA]);
         if (rollDateIfNeeded(this.suspendToday)) {
-            await this.saveData(SUSPEND_TODAY_DATA, this.suspendToday);
+            await this.persist.save(SUSPEND_TODAY_DATA, this.suspendToday);
         }
 
         // 探测内核闪卡 V2（feature/flashcard 分支 / 3.9.0）：决定走 V2 还是 riff 兼容路径
@@ -188,11 +208,11 @@ export default class LvCardsPlugin extends Plugin {
                                     ...plugin.settings.savedFilters.filter(f => f.name !== name),
                                     { name, filter },
                                 ];
-                                plugin.saveData(SETTINGS_DATA, plugin.settings).catch(() => { /* 旁路 */ });
+                                plugin.persist.save(SETTINGS_DATA, plugin.settings).catch(() => { /* onFail 已记录 */ });
                             },
                             deleteFilter: (name: string) => {
                                 plugin.settings.savedFilters = plugin.settings.savedFilters.filter(f => f.name !== name);
-                                plugin.saveData(SETTINGS_DATA, plugin.settings).catch(() => { /* 旁路 */ });
+                                plugin.persist.save(SETTINGS_DATA, plugin.settings).catch(() => { /* onFail 已记录 */ });
                             },
                             getLeechCards: () => {
                                 const items = leechCards(plugin.revlog, plugin.settings.leechThreshold);
@@ -277,21 +297,21 @@ export default class LvCardsPlugin extends Plugin {
                         isSuspendedToday: (cardID: string) => isSuspended(plugin.suspendToday, cardID),
                         suspendToday: (cardID: string) => {
                             suspend(plugin.suspendToday, cardID);
-                            plugin.saveData(SUSPEND_TODAY_DATA, plugin.suspendToday).catch(() => { /* 旁路 */ });
+                            plugin.persist.save(SUSPEND_TODAY_DATA, plugin.suspendToday).catch(() => { /* onFail 已记录 */ });
                         },
                         openDashboard: () => plugin.openTabOf(TAB_DASHBOARD),
                         onScopePersist: (key: string) => {
                             plugin.settings.lastReviewScope = key;
-                            plugin.saveData(SETTINGS_DATA, plugin.settings).catch(() => { /* 旁路 */ });
+                            plugin.persist.save(SETTINGS_DATA, plugin.settings).catch(() => { /* onFail 已记录 */ });
                         },
                         getSessionState: () => plugin.sessionState,
                         saveSessionState: (s: SessionState) => {
                             plugin.sessionState = s;
-                            plugin.saveData(SESSION_STATE_DATA, plugin.sessionState).catch(() => { /* 旁路 */ });
+                            plugin.persist.save(SESSION_STATE_DATA, plugin.sessionState).catch(() => { /* onFail 已记录 */ });
                         },
                         clearSessionState: () => {
-                            plugin.sessionState = { date: "", reviewedIDs: [], counters: { new: 0, review: 0, forget: 0, skip: 0 } };
-                            plugin.saveData(SESSION_STATE_DATA, plugin.sessionState).catch(() => { /* 旁路 */ });
+                            plugin.sessionState = { date: "", reviewedIDs: [], skippedIDs: [], counters: { new: 0, review: 0, forget: 0, skip: 0 } };
+                            plugin.persist.save(SESSION_STATE_DATA, plugin.sessionState).catch(() => { /* onFail 已记录 */ });
                         },
                         emitSessionFinished: (summary: { new: number; review: number; forget: number; skip: number }) => {
                             try {
@@ -313,9 +333,10 @@ export default class LvCardsPlugin extends Plugin {
                             const out: { id: string; html: string }[] = [];
                             for (const b of window) {
                                 try {
-                                    const resp = await fetchSyncPost("/api/block/getBlockDOM", { id: b.id });
-                                    if (resp?.data?.dom) {
-                                        out.push({ id: String(b.id), html: resp.data.dom });
+                                    // AQ-20：统一 getBlockDOM 封装（非 0 抛错），单块失败跳过
+                                    const dom = await getBlockDOM(String(b.id));
+                                    if (dom) {
+                                        out.push({ id: String(b.id), html: dom });
                                     }
                                 } catch { /* 单块失败跳过 */ }
                             }
@@ -571,6 +592,12 @@ export default class LvCardsPlugin extends Plugin {
         this.eventBus.off("click-flashcard-action", this.onNativeCardAction);
         this.eventBus.off("click-blockicon", this.onBlockIcon);
         this.flushRevlogSave();
+        // AQ-4：卸载前尽力等在途写入落盘（Petal dispose 预算约 5s，上限 3s 不阻塞卸载）
+        void this.persist.waitAll(3000).then(ok => {
+            if (!ok) {
+                lvLog("warn", "unload: pending writes did not settle in 3s");
+            }
+        });
         if (this.badgeTimer) {
             clearInterval(this.badgeTimer);
             this.badgeTimer = null;
@@ -806,6 +833,11 @@ export default class LvCardsPlugin extends Plugin {
             "streak: " + calcStreak(this.revlog),
             "due today (badge): " + this.lastDue,
             "plans: " + this.examPlans.plans.length,
+            "",
+            "--- persist (AQ-4) ---",
+            ...this.persist.stats().map(s =>
+                `${s.key}: ok=${s.ok} fail=${s.fail}${s.lastOkTs ? ` lastOk=${new Date(s.lastOkTs).toISOString()}` : ""}${s.lastError ? ` lastError=${s.lastError}` : ""}`),
+            ...(this.persist.hasFailures() ? [] : ["all writes ok"]),
             "",
             "--- recent log (324) ---",
             lvLogDump() || "(empty)",
@@ -1134,7 +1166,7 @@ export default class LvCardsPlugin extends Plugin {
                         ...preset.params,
                         persona: id,
                     };
-                    this.saveData(SETTINGS_DATA, this.settings).catch(() => { /* 旁路 */ });
+                    this.persist.save(SETTINGS_DATA, this.settings).catch(() => { /* onFail 已记录 */ });
                 },
                 createSampleCards: (nbId: string) => this.createSampleCards(nbId),
                 openReview: () => this.openTabOf(TAB_REVIEW),
@@ -1174,13 +1206,13 @@ export default class LvCardsPlugin extends Plugin {
         } else {
             this.examPlans.plans.push(plan);
         }
-        this.saveData(EXAM_PLANS_DATA, this.examPlans).catch(() => { /* 旁路 */ });
+        this.persist.save(EXAM_PLANS_DATA, this.examPlans).catch(() => { /* onFail 已记录 */ });
         return this.examPlans;
     }
 
     private deleteExamPlan(id: string): ExamPlansData {
         this.examPlans.plans = this.examPlans.plans.filter(p => p.id !== id);
-        this.saveData(EXAM_PLANS_DATA, this.examPlans).catch(() => { /* 旁路 */ });
+        this.persist.save(EXAM_PLANS_DATA, this.examPlans).catch(() => { /* onFail 已记录 */ });
         return this.examPlans;
     }
 
@@ -1201,7 +1233,8 @@ export default class LvCardsPlugin extends Plugin {
                 initialSource,
                 loadCurrentDoc: () => this.loadCurrentDoc(),
                 loadNotebookMaterial: (nbId: string) => this.loadNotebookMaterial(nbId),
-                generate: async (source: string, cfg: { count: number; language: string; type: "qa" | "cloze" }) => {
+                // AQ-14：signal 随调用传入——向导关闭/换源/重生取消后，晚到响应不写回、不触发 fallback
+                generate: async (source: string, cfg: { count: number; language: string; type: "qa" | "cloze" }, opts?: { signal?: AbortSignal }) => {
                     // Prompt 模板库（294）：用户自定义模板优先，占位符同内置
                     const tpl = this.settings.aiPromptTemplate.trim();
                     const system = tpl
@@ -1215,6 +1248,7 @@ export default class LvCardsPlugin extends Plugin {
                     if (estimateTokens(source) > 24000) {
                         throw new Error(this.i18n.aiTooLong);
                     }
+                    let fallbackNotified = false;
                     const raw = await aiChat(
                         {
                             mode: this.settings.aiMode,
@@ -1226,6 +1260,15 @@ export default class LvCardsPlugin extends Plugin {
                             fallbackModel: this.settings.aiFallbackModel || undefined,
                         },
                         system, user,
+                        {
+                            signal: opts?.signal,
+                            onProvider: p => {
+                                if (p === "fallback" && !fallbackNotified) {
+                                    fallbackNotified = true;
+                                    showMessage(this.i18n.aiFallbackUsed, 2500, "info");
+                                }
+                            },
+                        },
                     );
                     const cards = parseCards(raw).slice(0, cfg.count);
                     // 批次元数据（质量反哺数据源，P2 消费）；tokens 供消耗历史（299）
@@ -1239,7 +1282,7 @@ export default class LvCardsPlugin extends Plugin {
                     if (this.aiBatches.batches.length > 200) {
                         this.aiBatches.batches = this.aiBatches.batches.slice(-200);
                     }
-                    this.saveData(AI_BATCHES_DATA, this.aiBatches).catch(() => { /* 旁路 */ });
+                    this.persist.save(AI_BATCHES_DATA, this.aiBatches).catch(() => { /* onFail 已记录 */ });
                     return cards;
                 },
                 onCreate: (cards: { q: string; a: string }[], deckID: string, deckName: string) =>
@@ -1273,27 +1316,37 @@ export default class LvCardsPlugin extends Plugin {
         if (batch && batch.blockIDs.length === 0) {
             batch.deckID = deckID;
             batch.blockIDs = blockIDs;
-            this.saveData(AI_BATCHES_DATA, this.aiBatches).catch(() => { /* 旁路 */ });
+            this.persist.save(AI_BATCHES_DATA, this.aiBatches).catch(() => { /* onFail 已记录 */ });
         }
         showMessage(this.i18n.deckAdded.replace("${n}", String(blockIDs.length)), 2000, "info");
     }
 
-    private onNativeCardAction = (event: CustomEvent) => {        try {
-            const detail: any = event?.detail ?? {};
-            const cardID: string = detail?.cardID ?? detail?.id ?? "";
-            if (!cardID) {
+    /** 原生事件幂等去重（AQ-5）：eventId / cardID+1s 时间窗 */
+    private nativeDeduper = new NativeEventDeduper();
+
+    private onNativeCardAction = (event: CustomEvent) => {
+        try {
+            const normalized = normalizeNativeCardAction(event?.detail, Date.now());
+            // 非法评分（5、-1、2.5）或缺卡 ID：丢弃并进诊断，不产生脏 revlog
+            if (!normalized) {
+                lvLog("warn", "native rating dropped: invalid event shape");
                 return;
             }
-            const rating = Number(detail?.rating ?? detail?.level ?? 0);
-            const entry: RevlogEntry = {
-                ts: Date.now(),
-                cardID,
-                deckID: detail?.deckID ?? "",
-                blockID: detail?.blockID ?? "",
-                rating: Number.isFinite(rating) ? rating : 0,
+            if (this.nativeDeduper.seen((event?.detail as any)?.eid, normalized.cardID, normalized.ts)) {
+                lvLog("info", "native rating deduped: " + normalized.cardID);
+                return;
+            }
+            if (normalized.timeEstimated) {
+                lvLog("info", "native rating time estimated (kernel did not provide ts)");
+            }
+            this.appendRevlog({
+                ts: normalized.ts,
+                cardID: normalized.cardID,
+                deckID: normalized.deckID,
+                blockID: normalized.blockID,
+                rating: normalized.rating,
                 source: "native",
-            };
-            this.appendRevlog(entry);
+            });
         } catch {
             // 统计属于旁路功能，绝不影响主流程
         }
@@ -1337,14 +1390,8 @@ export default class LvCardsPlugin extends Plugin {
             clearTimeout(this.saveRevlogTimer);
             this.saveRevlogTimer = null;
         }
-        // AK：失败单次重试（1.5s 后），仍失败等下次修改触发
-        this.saveData(REVLOG_DATA, this.revlog)
-            .then(() => this.trackSave(REVLOG_DATA))
-            .catch(() => {
-                setTimeout(() => {
-                    this.saveData(REVLOG_DATA, this.revlog).then(() => this.trackSave(REVLOG_DATA)).catch(() => { /* 放弃本次，等下次修改 */ });
-                }, 1500);
-            });
+        // AQ-4：重试与失败记录统一由 persist 队列承担，成功回调解构 trackSave
+        this.persist.save(REVLOG_DATA, this.revlog).catch(() => { /* onFail 已记录，等下次修改触发 */ });
     }
 
     private openTabOf(type: string, data?: Record<string, unknown>) {
@@ -1432,7 +1479,7 @@ export default class LvCardsPlugin extends Plugin {
                     getSuspendedCount: () => this.suspendToday.cardIDs.length,
                     restoreAllSuspended: () => {
                         this.suspendToday.cardIDs = [];
-                        this.saveData(SUSPEND_TODAY_DATA, this.suspendToday).catch(() => { /* 旁路 */ });
+                        this.persist.save(SUSPEND_TODAY_DATA, this.suspendToday).catch(() => { /* onFail 已记录 */ });
                         showMessage(this.i18n.settingsSaved, 2000, "info");
                     },
                     testAnkiClient: () => this.testAnkiClient(),
@@ -1454,14 +1501,14 @@ export default class LvCardsPlugin extends Plugin {
                     importRevlogCsv: async (fileText: string) => {
                         const imported = parseRevlogCsv(fileText);
                         const result = mergeRevlog(this.revlog, imported);
-                        await this.saveData(REVLOG_DATA, this.revlog);
+                        await this.persist.save(REVLOG_DATA, this.revlog);
                         this.refreshDueBadge();
                         return result;
                     },
                     importRevlogMerge: async (fileText: string, onFork?: "skip" | "preferImport") => {
                         const imported = JSON.parse(fileText);
                         const result = mergeRevlog(this.revlog, imported, { onFork });
-                        await this.saveData(REVLOG_DATA, this.revlog);
+                        await this.persist.save(REVLOG_DATA, this.revlog);
                         this.refreshDueBadge();
                         return result;
                     },
@@ -1508,7 +1555,7 @@ export default class LvCardsPlugin extends Plugin {
     /** 清空本地复习日志（热力图与连击归零；不影响内核调度） */
     private clearRevlog() {
         this.revlog = emptyRevlog();
-        this.saveData(REVLOG_DATA, this.revlog).catch(() => { /* 旁路 */ });
+        this.persist.save(REVLOG_DATA, this.revlog).catch(() => { /* onFail 已记录 */ });
         this.refreshDueBadge();
         showMessage(this.i18n.settingsSaved, 2000, "info");
     }
