@@ -10,6 +10,7 @@
 * AR-6/AT-11：dashboard 刷新 generation 守卫 + 原生/插件两路评分经 reviewed 事件 800ms 合并自刷；manager 分页与到期清单各自序号守卫，切入「今日到期」即重拉（顺带修复 dueSet 非响应式导致过滤不刷新）
 * AT-10：设置保存广播 settings-changed 事件，复习超时参数立即重启计时（评分风格/顺序下一卡自然生效）；AT-2：onunload 冲刷防抖中的设置保存 + 清理计时日志
 * 体积：复习面板移入懒加载 chunk（首开一次性加载）——主包 31.92KB→25.01KB gzip，review chunk 10.02KB，预算内余量充足
+* AR-7：复习超时同款 deadline 持续计时政策——后台节流按壁钟校正、剩余时长可预期（替代 interval tick 累减），后台不自动重复评分
 * 待办：勾选 AQ-21/AR-11（离线证据完整），新增 BZ-1（懒加载挂载竞态真机验证）/BZ-2（knownCards 对账清理），docs/17 与 31 索引同步 924 条
 * 测试 71→84；i18n 512 对齐；0 errors；主包 gzip 25.01KB（预算内）
 

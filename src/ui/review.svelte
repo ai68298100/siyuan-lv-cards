@@ -452,13 +452,17 @@
             timeoutLeft = 0;
             return;
         }
+        lastTimeoutMode = s.timeoutMode;
+        lastTimeoutSeconds = s.timeoutSeconds;
         timeoutLeft = s.timeoutSeconds;
+        // AR-7：deadline 持续计时政策——后台节流/休眠后按壁钟校正，恢复前台剩余时长可预期，不自动重复评分
+        const deadline = Date.now() + s.timeoutSeconds * 1000;
         timeoutTimer = setInterval(() => {
             if (!current || showAnswer) {
                 stopTimeout();
                 return;
             }
-            timeoutLeft -= 1;
+            timeoutLeft = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
             if (timeoutLeft <= 0) {
                 stopTimeout();
                 if (s.timeoutMode === "reveal") {
@@ -467,7 +471,7 @@
                     rate(1, true);
                 }
             }
-        }, 1000);
+        }, 250);
     }
 
     function stopTimeout() {
