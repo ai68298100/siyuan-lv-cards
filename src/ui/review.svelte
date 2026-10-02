@@ -46,6 +46,8 @@
         hideMetaUntilAnswer: boolean;
         /** 队列倒序（431） */
         reverseOrder: boolean;
+        /** 单卡作答耗时封顶秒（AQ-13） */
+        answerTimeCapSec: number;
         /** 每日一语（375） */
         dailyTipEnabled: boolean;
     }
@@ -104,6 +106,8 @@
     let submitting = $state(false); // 评分/跳过提交锁（AJ8：重复点击只产生一次写入）
     let loadSeq = 0;                // 卡面异步加载序号（AJ10：旧 DOM 不覆盖新卡）
     let queueSeq = 0;               // 队列请求序号（AQ-19：旧范围/旧重试响应不覆盖新队列）
+    // AQ-13：题面呈现时刻（monotonic 按壁钟差），评分时按设置封顶后记入 revlog.dur
+    let cardShownAt = 0;
     let sessionSkipped: string[] = []; // 本场跳过排除集（AJ9：跳过的卡不再被下一批拉回）
     let lastAnswered: { html: string; card: RiffDueCard } | null = null; // 回看数据源（AJ2：不再自动打开）
 
@@ -350,6 +354,7 @@
         occl = null;
         occlBox = null;
         occlHidden = [];
+        cardShownAt = Date.now(); // AQ-13：题面呈现即作答计时起点（与内核「题面到评分」口径一致）
         await loadBlockDOM(card.blockID);
         if (card !== current) {
             return; // 等待期间已切卡（AQ-19）：不重启旧卡计时器、不朗读旧卡
@@ -582,7 +587,10 @@
             const wasNew = isCardNew(ctx.getRevlog(), current.cardID);
             playSfx(rating);
             await reviewRiffCard(current.deckID, current.cardID, rating, reviewedIDs);
-            ctx.appendRevlog({ cardID: current.cardID, deckID: current.deckID, blockID: current.blockID, rating, source: "plugin" });
+            // AQ-13：作答耗时按设置封顶（后台停留/离席不制造超长样本），原生事件无此字段保持 N/A
+            const cap = Math.max(5, ctx.settings().answerTimeCapSec || 60);
+            const dur = cardShownAt > 0 ? Math.min(cap, Math.max(0, Math.round((Date.now() - cardShownAt) / 1000))) : undefined;
+            ctx.appendRevlog({ cardID: current.cardID, deckID: current.deckID, blockID: current.blockID, rating, source: "plugin", ...(dur !== undefined ? { dur } : {}) });
             reviewedIDs = [...reviewedIDs, current.cardID];
             if (rating === 1) {
                 sessionForget += 1;

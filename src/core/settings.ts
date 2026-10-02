@@ -72,6 +72,8 @@ export interface LvCardsSettings {
     sfxEnabled: boolean;
     /** 音效风格（250）：chime 清音 / wood 木鱼 / bell 铃 */
     sfxStyle: "chime" | "wood" | "bell";
+    /** 单卡作答耗时封顶秒（AQ-13）：超过按封顶记入 revlog.dur，不改变评分与到期 */
+    answerTimeCapSec: number;
     /** 考试模式 */
     examEnabled: boolean;
     /** 考试日期 YYYY-MM-DD，空为未设置 */
@@ -148,6 +150,7 @@ export function defaultSettings(): LvCardsSettings {
         backlogDays: 3,
         sfxEnabled: false,
         sfxStyle: "chime",
+        answerTimeCapSec: 60,
         examEnabled: false,
         examDate: "",
         savedFilters: [],
@@ -179,6 +182,7 @@ const INT_FIELDS: [keyof LvCardsSettings, number, number, number][] = [
     ["leechThreshold", 8, 1, 100],
     ["backlogDays", 3, 1, 90],
     ["cardMaxWidth", 880, 320, 1600],
+    ["answerTimeCapSec", 60, 5, 3600],
 ];
 const FLOAT_FIELDS: [keyof LvCardsSettings, number, number, number][] = [
     ["cardFontScale", 1, 0.85, 1.25],

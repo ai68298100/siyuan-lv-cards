@@ -53,6 +53,7 @@
     "personaApplyHint": "将覆盖模块开关与推荐参数（保存后生效，可随时再改）。下方为将发生的改动：",
     "personaNoChange": "当前设置与此预设一致，无需改动。",
     "dashboard": {
+        "studyTime": "今日作答(分)",
         "title": "闪卡中心 · 总览",
         "todayDue": "今日到期",
         "newCards": "新卡",
@@ -186,6 +187,8 @@
         "statusDue": "状态：今日到期"
     },
     "settings": {
+        "answerTimeCap": "单卡作答计时上限",
+        "answerTimeCapHint": "超过此时长的作答按上限计入本地耗时统计，不影响评分与到期",
         "personaSection": "画像预设",
         "modules": "功能模块",
         "lockedModule": "基础组件，不可关闭",
@@ -357,6 +360,12 @@
     "onboardingSample2": "小驴闪卡用的调度算法是？==FSRS（思源内核原生）==",
     "hubTabExam": "考试",
     "exam": {
+        "adviceToday": "今日建议 ${n} 张",
+        "adviceBehind": "含落后补偿 ${n}",
+        "adviceOverCap": "按当前每日上限需 ${n} 天，来不及",
+        "adviceExpired": "考试已结束，不再给出学习建议",
+        "adviceCapacityUnknown": "范围容量未知（未填总卡量），仅展示本地已观察 ${observed} 次",
+        "advicePreview": "建议仅供参考，不改内核调度",
         "newPlan": "新建考试计划",
         "emptyHint": "还没有考试计划。创建一个，让每天该学多少一目了然。",
         "untitled": "未命名计划",

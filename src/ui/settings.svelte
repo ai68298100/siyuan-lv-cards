@@ -239,6 +239,7 @@
         draft.dailyNewTarget = Math.max(0, Number(draft.dailyNewTarget) || 0);
         draft.dailyReviewTarget = Math.max(0, Number(draft.dailyReviewTarget) || 0);
         draft.timeoutSeconds = Math.min(3600, Math.max(5, Number(draft.timeoutSeconds) || 60));
+        draft.answerTimeCapSec = Math.min(3600, Math.max(5, Number(draft.answerTimeCapSec) || 60));
         draft.leechThreshold = Math.max(1, Number(draft.leechThreshold) || 8);
         ctx.save(draft);
         ctx.close();
@@ -347,6 +348,10 @@
                 <LvSlider value={draft.timeoutSeconds} min={5} max={600} step={5} suffix="s" onchange={(v) => (draft.timeoutSeconds = v)} />
             </LvRow>
         {/if}
+        <!-- AQ-13：单卡作答耗时封顶（只影响本地统计，不改评分与到期） -->
+        <LvRow label={t.settings.answerTimeCap} hint={t.settings.answerTimeCapHint}>
+            <LvSlider value={draft.answerTimeCapSec} min={5} max={600} step={5} suffix="s" onchange={(v) => (draft.answerTimeCapSec = v)} />
+        </LvRow>
         <LvRow label={t.settings.typingEnabled}>
             <LvSwitch bind:checked={draft.typingEnabled} />
         </LvRow>

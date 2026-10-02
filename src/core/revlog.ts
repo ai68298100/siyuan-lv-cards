@@ -16,6 +16,8 @@ export interface RevlogEntry {
     rating: number;
     /** 来源：native=官方复习界面 / plugin=本插件面板 */
     source: "native" | "plugin";
+    /** 作答耗时秒（AQ-13，插件面板可选记录；原生事件无此字段不补 0）；封顶见 settings.answerTimeCapSec */
+    dur?: number;
 }
 
 export interface DayStat {
@@ -87,6 +89,8 @@ function sanitizeEntry(raw: unknown): RevlogEntry | null {
         blockID: typeof o.blockID === "string" ? o.blockID : "",
         rating,
         source: o.source === "native" ? "native" : "plugin",
+        // dur（AQ-13）：有限且在 0-3600 内才保留，其余丢弃不猜
+        ...(Number.isFinite(Number(o.dur)) && Number(o.dur) >= 0 && Number(o.dur) <= 3600 ? { dur: Math.round(Number(o.dur)) } : {}),
     };
 }
 
@@ -246,6 +250,8 @@ export function mergeRevlog(data: RevlogData, imported: unknown, opts: MergeOpti
             blockID: String(raw.blockID ?? ""),
             rating,
             source: raw.source === "native" ? "native" : "plugin",
+            ...(Number.isFinite(Number(raw.dur)) && Number(raw.dur) >= 0 && Number(raw.dur) <= 3600
+                ? { dur: Math.round(Number(raw.dur)) } : {}),
         };
         const k = key(entry);
         if (seen.has(k)) {
@@ -293,14 +299,27 @@ export function mergeRevlog(data: RevlogData, imported: unknown, opts: MergeOpti
     return { added, skipped, forks, forkSamples };
 }
 
-/** CSV 导出行（M10·FR1）：date,ts,cardID,deckID,blockID,rating,source */
+/** CSV 导出行（M10·FR1）：date,ts,cardID,deckID,blockID,rating,source,duration,review_state
+ * AQ-9：duration 缺失留空；review_state 显式缺失留空（本地无内核复习状态，不猜测） */
 export function revlogToCsv(data: RevlogData): string {
     const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
-    const rows = ["date,ts,cardID,deckID,blockID,rating,source"];
+    const rows = ["date,ts,cardID,deckID,blockID,rating,source,duration,review_state"];
     for (const e of data.entries) {
-        rows.push(`${localDate(e.ts)},${e.ts},${esc(e.cardID)},${esc(e.deckID)},${esc(e.blockID)},${e.rating},${e.source}`);
+        const dur = typeof e.dur === "number" && Number.isFinite(e.dur) ? String(Math.round(e.dur)) : "";
+        rows.push(`${localDate(e.ts)},${e.ts},${esc(e.cardID)},${esc(e.deckID)},${esc(e.blockID)},${e.rating},${e.source},${dur},`);
     }
     return rows.join("\n");
+}
+
+/** 指定日期的作答总耗时秒（AQ-13）：仅统计带 dur 的有效评分；原生记录无 dur 不计入也不补 0 */
+export function studySecondsOn(data: RevlogData, dateKey: string): number {
+    let total = 0;
+    for (const e of data.entries) {
+        if (e.rating > 0 && typeof e.dur === "number" && localDate(e.ts) === dateKey) {
+            total += e.dur;
+        }
+    }
+    return total;
 }
 
 export interface CurvePoint {

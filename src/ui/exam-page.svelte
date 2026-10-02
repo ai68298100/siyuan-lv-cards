@@ -3,14 +3,15 @@
     import { getRiffDecks, type RiffDeck } from "@/api/riff";
     import { getNotebooks, type Notebook } from "@/api/siyuan";
     import {
-        dailyTarget, daysLeft, isCramActive,
-        type ExamPlan, type ExamPlansData, type ExamScopeKind,
+        dailyTarget, daysLeft, dynamicPlanAdvice, examReportStats, isCramActive,
+        type ExamPlan, type ExamPlansData, type ExamScopeKind, type DynamicPlanAdvice,
     } from "@/core/exam";
+    import type { RevlogData } from "@/core/revlog";
     import LvChip from "./kit/LvChip.svelte";
     import LvEmpty from "./kit/LvEmpty.svelte";
     import LvRow from "./kit/LvRow.svelte";
 
-    let { i18n, plans, onSavePlan, onDeletePlan, onReviewScope, onReport, onWriteReport }: {
+    let { i18n, plans, onSavePlan, onDeletePlan, onReviewScope, onReport, onWriteReport, getRevlog, getDailyCap }: {
         i18n: any;
         plans: ExamPlansData;
         onSavePlan: (plan: ExamPlan) => void;
@@ -21,6 +22,10 @@
         onReport: (plan: ExamPlan) => void;
         /** 写入复盘文档 */
         onWriteReport: (plan: ExamPlan) => void;
+        /** 本地复习日志（AQ-8 动态建议用，只读） */
+        getRevlog: () => RevlogData;
+        /** 每日复习上限设置（不可行判定用） */
+        getDailyCap: () => number;
     } = $props();
     const t = $derived(i18n);
 
@@ -64,6 +69,23 @@
     function targetFor(plan: ExamPlan): number | null {
         const size = plan.scopeKind === "deck" ? decks.find(d => d.id === plan.scopeId)?.size : undefined;
         return dailyTarget(plan, size);
+    }
+
+    /** AQ-8 动态建议：deck 范围容量取实时规模；all 用手填总量；notebook 归属需查内核，回退简单日均 */
+    function adviceFor(plan: ExamPlan): { advice: DynamicPlanAdvice; capacity: number | undefined } | null {
+        if (!plan.enabled || plan.archived) {
+            return null;
+        }
+        const revlog = getRevlog();
+        const observed = examReportStats(plan, revlog.entries).reviews;
+        if (plan.scopeKind === "deck") {
+            const capacity = decks.find(d => d.id === plan.scopeId)?.size;
+            return { advice: dynamicPlanAdvice(plan, { capacity, observed, dailyCap: getDailyCap() }), capacity };
+        }
+        if (plan.scopeKind === "all") {
+            return { advice: dynamicPlanAdvice(plan, { capacity: plan.totalCards, observed, dailyCap: getDailyCap() }), capacity: plan.totalCards };
+        }
+        return null; // notebook：范围归属需内核查询，保持简单日均展示
     }
 
     let formError = $state("");
@@ -143,6 +165,25 @@
                         <div class="lv-mini-track" style="flex:1">
                             <div class="lv-mini-fill" style={`width:${Math.min(100, Math.round((left ?? 0) / Math.max(1, (left ?? 0) + 30) * 100))}%`}></div>
                         </div>
+                    </div>
+                {/if}
+                {#if plan.enabled ? adviceFor(plan) : null}
+                    {@const adv = adviceFor(plan)!}
+                    <div class="lv-plan-advice ft__smaller ft__on-surface">
+                        {#if adv.advice.infeasible === "expired"}
+                            <span>{t.exam.adviceExpired}</span>
+                        {:else if adv.advice.capacityUnknown}
+                            <span>{t.exam.adviceCapacityUnknown.replace("${observed}", String(adv.advice.observed))}</span>
+                        {:else if adv.advice.todayTarget !== null}
+                            <span>📅 {t.exam.adviceToday.replace("${n}", String(adv.advice.todayTarget))}</span>
+                            {#if adv.advice.behind > 0}
+                                <span> · {t.exam.adviceBehind.replace("${n}", String(adv.advice.behind))}</span>
+                            {/if}
+                            {#if adv.advice.infeasible === "over-capacity" && adv.advice.daysNeededAtCap !== null}
+                                <span> · ⚠️ {t.exam.adviceOverCap.replace("${n}", String(adv.advice.daysNeededAtCap))}</span>
+                            {/if}
+                            <span style="opacity:.65">{t.exam.advicePreview}</span>
+                        {/if}
                     </div>
                 {/if}
                 <div class="fn__flex lv-plan-actions">
@@ -225,6 +266,10 @@
         display: flex; align-items: center; gap: var(--lv-sp-3);
         font-size: 12px; color: var(--b3-theme-on-surface);
         margin: var(--lv-sp-2) 0;
+    }
+    .lv-plan-advice {
+        display: flex; flex-wrap: wrap; gap: 4px; align-items: baseline;
+        margin: var(--lv-sp-1) 0 0;
     }
     .lv-plan-actions { gap: var(--lv-sp-2); }
     .lv-editmask {

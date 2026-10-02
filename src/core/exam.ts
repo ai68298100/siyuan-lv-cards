@@ -94,6 +94,82 @@ export function todayKey(): string {
     return localDate(Date.now());
 }
 
+// ---- 考试计划动态重算建议（AQ-8，现版建议层：只读展示，不改内核 due）----
+
+export interface DynamicPlanAdvice {
+    /** 今日建议学习量（基础日均 + 落后补偿）；无法核算时 null */
+    todayTarget: number | null;
+    /** 基础日均 = 剩余量 / 剩余天数（向上取整） */
+    baseDaily: number;
+    /** 按日均应完成而未完成的量（落后补偿部分，≥0） */
+    behind: number;
+    /** 本地已观察的范围内有效评分次数（证据窗口=计划创建以来） */
+    observed: number;
+    /** true = 容量未知（未填总卡量且非 deck 范围），建议按未知历史口径展示 */
+    capacityUnknown: boolean;
+    /** 不可行原因：expired=考试已过；over-capacity=按每日上限剩余天数不够；null=可行 */
+    infeasible: null | "expired" | "over-capacity";
+    /** 按当前每日上限需要的最少天数（over-capacity 时展示） */
+    daysNeededAtCap: number | null;
+}
+
+/**
+ * 动态倒排建议（AQ-8）：
+ * - 学习日 = 距考试剩余天数（含今天）；容量 = 用户手填 totalCards 或 deck 实时规模；
+ * - 落后补偿 = 已过天数 × 基础日均 − 本地已观察；今日建议 = 基础日均 + 补偿；
+ * - 卡量变化（deck size 更新）与数据变化（本地记录增长）都即时反映在下一次计算；
+ * - 只读建议：预览/取消不写任何 due，正式调度只走内核。
+ */
+export function dynamicPlanAdvice(
+    plan: ExamPlan,
+    opts: {
+        now?: number;
+        /** 范围容量：deck 实时规模或手填总卡量；未知传 undefined */
+        capacity?: number;
+        /** 本地已观察的范围内有效评分次数（examReportStats(...).reviews） */
+        observed: number;
+        /** 每日复习上限（设置），用于不可行判定 */
+        dailyCap: number;
+    },
+): DynamicPlanAdvice {
+    const now = opts.now ?? Date.now();
+    const observed = Math.max(0, Math.round(opts.observed));
+    // 剩余天数按注入时钟计算（与 now 同一口径，考试日当天=0）
+    const [y, m, d] = plan.examDate.split("-").map(Number);
+    if (!y || !m || !d) {
+        return { todayTarget: null, baseDaily: 0, behind: 0, observed, capacityUnknown: true, infeasible: null, daysNeededAtCap: null };
+    }
+    const examDay = new Date(y, m - 1, d).getTime();
+    const today = new Date(now);
+    today.setHours(0, 0, 0, 0);
+    const left = Math.round((examDay - today.getTime()) / 86400000);
+    if (left < 0) {
+        return { todayTarget: null, baseDaily: 0, behind: 0, observed, capacityUnknown: false, infeasible: "expired", daysNeededAtCap: null };
+    }
+    const capacityRaw = opts.capacity ?? plan.totalCards;
+    const capacity = capacityRaw && capacityRaw > 0 ? Math.round(capacityRaw) : null;
+    const elapsedDays = Math.max(0, Math.floor((now - plan.createdAt) / 86400000));
+    if (capacity === null) {
+        // 容量未知：不推算 FSRS/全量，只给日均参考（剩余天数直接摊 0）——明确按未知历史展示
+        return { todayTarget: null, baseDaily: 0, behind: 0, observed, capacityUnknown: true, infeasible: null, daysNeededAtCap: null };
+    }
+    const remaining = Math.max(0, capacity - observed);
+    const studyDays = Math.max(1, left);
+    const baseDaily = Math.ceil(remaining / studyDays);
+    // 应完成基线 = 已过天数 × 日均（含今天之前）；落后 = 基线 − 已观察
+    const expectedByNow = Math.min(remaining, baseDaily * Math.min(elapsedDays, studyDays));
+    const behind = Math.max(0, Math.round(expectedByNow - observed));
+    const todayTarget = Math.min(remaining, baseDaily + behind);
+    const cap = opts.dailyCap > 0 ? Math.floor(opts.dailyCap) : null;
+    let infeasible: DynamicPlanAdvice["infeasible"] = null;
+    let daysNeededAtCap: number | null = null;
+    if (cap !== null && remaining > cap * studyDays) {
+        infeasible = "over-capacity";
+        daysNeededAtCap = Math.ceil(remaining / cap);
+    }
+    return { todayTarget, baseDaily, behind, observed, capacityUnknown: false, infeasible, daysNeededAtCap };
+}
+
 // ---- 考后复盘统计（AR-11）----
 
 export interface ExamReportStats {

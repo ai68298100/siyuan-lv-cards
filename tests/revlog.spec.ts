@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-    appendRevlog, emptyRevlog, isCardNew, mergeRevlog, normalizeRevlog, recalcDays, calcStreak, calcXp, localDate, lastNDays, weekCompare, calcMilestones,
+    appendRevlog, emptyRevlog, isCardNew, mergeRevlog, normalizeRevlog, recalcDays, revlogToCsv, studySecondsOn, calcStreak, calcXp, localDate, lastNDays, weekCompare, calcMilestones,
     type RevlogData,
 } from "../src/core/revlog";
 const entry = (ts: number, cardID: string, rating: number, source: "native" | "plugin" = "plugin") =>
@@ -356,5 +356,67 @@ describe("revlog 2 万条性能预算（G 组·内存审计）", () => {    it("
         const elapsed = performance.now() - t0;
         // 宽松预算（CI 波动安全）：2 万条全链路 < 2000ms
         expect(elapsed).toBeLessThan(2000);
+    });
+});
+
+describe("作答耗时与导出契约（AQ-13/AQ-9）", () => {
+    const DAY = 86400000;
+    const at = (daysAgo: number) => {
+        const d = new Date();
+        d.setHours(12, 0, 0, 0);
+        return d.getTime() - daysAgo * DAY;
+    };
+
+    it("sanitize：dur 保留 0-3600 有限数，越界/脏类型丢弃", () => {
+        const t = Date.now();
+        const d = normalizeRevlog({
+            entries: [
+                { ts: t, cardID: "a", rating: 3, dur: 12.6 },
+                { ts: t, cardID: "b", rating: 3, dur: 5000 },
+                { ts: t, cardID: "c", rating: 3, dur: "9" },
+                { ts: t, cardID: "e", rating: 3, dur: -1 },
+                { ts: t, cardID: "f", rating: 3 },
+            ],
+        });
+        const get = (id: string) => d.entries.find(e => e.cardID === id);
+        expect(get("a")?.dur).toBe(13);
+        expect(get("b")?.dur).toBeUndefined();
+        expect(get("c")?.dur).toBe(9);
+        expect(get("e")?.dur).toBeUndefined();
+        expect(get("f")?.dur).toBeUndefined();
+    });
+
+    it("studySecondsOn：按日汇总仅计带 dur 的有效评分", () => {
+        const d = emptyRevlog();
+        appendRevlog(d, { ...entry(at(0), "a", 3), dur: 30 });
+        appendRevlog(d, { ...entry(at(0) + 1, "b", 3), dur: 45 });
+        appendRevlog(d, { ...entry(at(1), "c", 3), dur: 60 });
+        appendRevlog(d, entry(at(0) + 2, "d", 3)); // 无 dur 不计
+        expect(studySecondsOn(d, localDate(at(0)))).toBe(75);
+        expect(studySecondsOn(d, localDate(at(1)))).toBe(60);
+    });
+
+    it("CSV 导出含 duration 与显式缺失的 review_state；新旧格式互读兼容", async () => {
+        const d = emptyRevlog();
+        appendRevlog(d, { ...entry(at(0), "a", 3), dur: 25 });
+        appendRevlog(d, entry(at(0) + 1, "b", 1));
+        const csv = revlogToCsv(d);
+        expect(csv.split("\n")[0]).toBe("date,ts,cardID,deckID,blockID,rating,source,duration,review_state");
+        expect(csv.split("\n")[1]).toContain(",25,");
+        expect(csv.split("\n")[1].endsWith(",")).toBe(true); // review_state 显式缺失留空
+        expect(csv.split("\n")[2].split(",")[7]).toBe("");   // 无 dur 留空
+        const { parseRevlogCsv } = await import("../src/core/revlog-csv");
+        const parsed = parseRevlogCsv(csv);
+        expect(parsed.entries).toHaveLength(2);
+        expect(parsed.entries[0].dur).toBe(25);
+        expect(parsed.entries[1].dur).toBeUndefined();
+        // 旧 7 列格式兼容
+        const legacy = parseRevlogCsv(`date,ts,cardID,deckID,blockID,rating,source\n${localDate(at(0))},${at(0)},c1,dk,blk,3,plugin`);
+        expect(legacy.entries[0]).toMatchObject({ cardID: "c1", rating: 3 });
+        expect(legacy.entries[0].dur).toBeUndefined();
+        // merge 透传 dur
+        const dst = emptyRevlog();
+        mergeRevlog(dst, { entries: [{ ts: at(0), cardID: "m", rating: 2, dur: 40 }] });
+        expect(dst.entries[0].dur).toBe(40);
     });
 });

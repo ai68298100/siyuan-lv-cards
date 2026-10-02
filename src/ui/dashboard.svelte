@@ -2,7 +2,7 @@
     import { onMount } from "svelte";
     import { getRiffDecks, getRiffDueCards, type RiffDeck } from "@/api/riff";
     import { getFlashcardStatistics, summarizeStatistics, type MigrationStatus } from "@/api/flashcardV2";
-    import { calcStreak, lastNDays, localDate, computeRetention, computeRetentionCurve, reviewStatsFor, weekCompare, calcMilestones, calcXp, type RevlogData, type RetentionResult, type CurvePoint, type WeekDelta, type Milestones, type XpResult } from "@/core/revlog";
+    import { calcStreak, lastNDays, localDate, studySecondsOn, computeRetention, computeRetentionCurve, reviewStatsFor, weekCompare, calcMilestones, calcXp, type RevlogData, type RetentionResult, type CurvePoint, type WeekDelta, type Milestones, type XpResult } from "@/core/revlog";
     import { openTab } from "siyuan";
     import LvPage from "./kit/LvPage.svelte";
     import LvSection from "./kit/LvSection.svelte";
@@ -46,6 +46,8 @@
     let oldCount = $state(0);
     let streak = $state(0);
     let todayReview = $state(0);
+    /** 今日作答用时分钟（AQ-13）：无 dur 记录时为 0 不展示 */
+    let todayStudyMinutes = $state(0);
     let totalCards = $state(0);
     let heat: { date: string; stat: { new: number; review: number; forget: number } }[] = $state([]);
     let revlogNote = $state("");
@@ -209,6 +211,7 @@
             const todayKey = heat[heat.length - 1]?.date;
             const reviewedToday = todayKey ? (revlog.days[todayKey]?.review ?? 0) : 0;
             todayReview = reviewedToday;
+            todayStudyMinutes = Math.round(studySecondsOn(revlog, localDate(Date.now())) / 60);
             dueCount = due.unreviewedCount;
             newCount = due.unreviewedNewCardCount;
             oldCount = due.unreviewedOldCardCount;
@@ -344,6 +347,14 @@
                     <LvStat label={t.dashboard.streak} value={streak} tone="warn" animate />
                 </div>
             </div>
+            {#if todayStudyMinutes > 0}
+                <div class="fn__flex-1" style="min-width: 140px; display: flex;">
+                    <div style="flex: 1">
+                        <!-- AQ-13：今日作答用时（仅统计带耗时的插件面板评分；原生无字段不补 0） -->
+                        <LvStat label={t.dashboard.studyTime} value={todayStudyMinutes} tone="neutral" />
+                    </div>
+                </div>
+            {/if}
             <div class="fn__flex-1" style="min-width: 140px; display: flex;">
                 <div style="flex: 1">
                     <LvStat label={t.dashboard.totalCards} value={totalCards} tone="neutral" animate />

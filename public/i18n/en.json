@@ -53,6 +53,7 @@
     "personaApplyHint": "Overwrites module switches and recommended parameters (applied on save, changeable anytime). Changes that will happen:",
     "personaNoChange": "Current settings already match this preset.",
     "dashboard": {
+        "studyTime": "Today's time (min)",
         "title": "Card Hub · Overview",
         "todayDue": "Due Today",
         "newCards": "New",
@@ -186,6 +187,8 @@
         "statusDue": "Status: Due today"
     },
     "settings": {
+        "answerTimeCap": "Per-card time cap",
+        "answerTimeCapHint": "Answers longer than this count as the cap in local time stats; rating and scheduling unchanged",
         "personaSection": "Persona Presets",
         "modules": "Modules",
         "lockedModule": "Core component, cannot be disabled",
@@ -357,6 +360,12 @@
     "onboardingSample2": "Which scheduler does Lv Cards use? ==FSRS, native in the SiYuan kernel==",
     "hubTabExam": "Exam",
     "exam": {
+        "adviceToday": "Today's target: ${n} cards",
+        "adviceBehind": "incl. ${n} catch-up",
+        "adviceOverCap": "needs ${n} days at current daily cap — not feasible",
+        "adviceExpired": "Exam is over — no study advice",
+        "adviceCapacityUnknown": "Scope size unknown (total not set); ${observed} local reviews observed",
+        "advicePreview": "advice only — kernel scheduling untouched",
         "newPlan": "New exam plan",
         "emptyHint": "No exam plans yet. Create one to see daily pacing at a glance.",
         "untitled": "Untitled plan",

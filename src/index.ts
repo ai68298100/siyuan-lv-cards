@@ -261,6 +261,9 @@ export default class LvCardsPlugin extends Plugin {
                             onWriteReport: (plan: ExamPlan) => plugin.writeExamReportDoc(plan),
                             onReviewScope: (kind: "all" | "deck" | "notebook", scopeId: string, cram: boolean) =>
                                 plugin.openReviewScope(kind, scopeId, cram),
+                            // AQ-8：动态建议只读输入（本地日志 + 每日上限）
+                            getRevlog: () => plugin.revlog,
+                            getDailyCap: () => plugin.settings.dailyReviewTarget,
                         } : null,
                     },
                 });
@@ -311,6 +314,7 @@ export default class LvCardsPlugin extends Plugin {
                             batchLimit: plugin.settings.batchLimit,
                             typingEnabled: plugin.settings.typingEnabled,
                             typingStrict: plugin.settings.typingStrict,
+                            answerTimeCapSec: plugin.settings.answerTimeCapSec,
                         }),
                         appendRevlog: (e) => plugin.appendRevlog(e),
                         getRevlog: () => plugin.revlog,

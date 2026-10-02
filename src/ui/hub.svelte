@@ -19,6 +19,9 @@
             onReviewScope: (scopeKind: ExamScopeKind, scopeId: string, cram: boolean) => void;
             onReport: (plan: ExamPlan) => void;
             onWriteReport: (plan: ExamPlan) => void;
+            /** AQ-8 动态建议只读输入 */
+            getRevlog: () => import("@/core/revlog").RevlogData;
+            getDailyCap: () => number;
         } | null;
         initialTab?: string;
         onTabChange?: (id: string) => void;
@@ -90,6 +93,8 @@
                             onReviewScope={exam.onReviewScope}
                             onReport={exam.onReport}
                             onWriteReport={exam.onWriteReport}
+                            getRevlog={exam.getRevlog}
+                            getDailyCap={exam.getDailyCap}
                         />
                     {:else if examError}
                         <div style="padding: var(--lv-sp-5); color: var(--b3-theme-error); font-size: 13px">{examError}</div>
