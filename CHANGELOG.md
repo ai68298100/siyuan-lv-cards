@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.103.0 2026-10-03 · A-06 决策落地：发布包裁剪为用户向文档 + Kit smoke 第五批（LvSection 宿主）
+
+* **A-06 发布包内容决策落地**：dist 静态拷贝从全量 34 篇内部文档裁剪为用户向五件（20-FAQ/21-上手指南/22-术语表/23-许可证/PRIVACY，stripBase 平铺防 docs/docs 嵌套）；内部调研与治理文档经 GitHub 仓库获取；README 双语仍随包。决策可逆（git revert vite.config.ts）
+* **Kit smoke 第五批（LvSection 宿主）**：LvSectionHost（children+actions snippet 完整形态）——title/sub/children/actions 四要素渲染断言
+* 修复 LvSectionHost 重复 describe（v0.102 遗留）
+* 测试 198→198（重整）；0 errors/0 warnings；主包 gzip 27.51KB（预算内）
+
 ## v0.102.0 2026-10-03 · 测试宿主方案：snippet 传子组件可测（限制解除）
 
 * 解决 v0.86 记录的基建限制：以**测试宿主组件**（tests/helpers/*Host.svelte，{#snippet} 在 .svelte 文件内定义可正常编译）替代 createRawSnippet——绕开模块解析错位，snippet 传子的 Kit 组件从此可挂载测试

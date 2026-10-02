@@ -1,22 +1,19 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { render, fireEvent } from "@testing-library/svelte";
-import LvSection from "../src/ui/kit/LvSection.svelte";
 import LvPage from "../src/ui/kit/LvPage.svelte";
 import LvDrawer from "../src/ui/kit/LvDrawer.svelte";
+import LvSectionHost from "./helpers/LvSectionHost.svelte";
 
-// Kit 组件 smoke 测试（组件测试基建第五批，v0.90.0）：
-// 布局壳组件的「纯 props 头部契约」——children/actions snippet 内容不在覆盖范围（基建限制见 kit-components.spec.ts 注）
+// Kit 组件 smoke 测试（组件测试基建第五批，v0.90.0 + 第五批补充，v0.103.0）：
+// 布局壳组件的头部契约 + snippet 传子组件（经测试宿主 tests/helpers/*Host.svelte）
 
-describe("LvSection", () => {
-    it("渲染 title；sub 提供时以 · 前缀附于其后", () => {
-        const { container } = render(LvSection, { title: "保持曲线", sub: "实测" });
+describe("LvSection（经测试宿主：children+actions snippet）", () => {
+    it("渲染 title/sub/children/actions 四要素", () => {
+        const { container } = render(LvSectionHost, { title: "保持曲线", sub: "实测" });
         expect(container.textContent).toContain("保持曲线");
         expect(container.textContent).toContain("· 实测");
-    });
-
-    it("title 缺省时不渲染区块头", () => {
-        const { container } = render(LvSection, {});
-        expect(container.querySelector(".lv-secthead")).toBeNull();
+        expect(container.textContent).toContain("子内容");
+        expect(container.querySelector("[data-testid=section-action]")?.textContent).toContain("导出");
     });
 });
 

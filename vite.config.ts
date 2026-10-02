@@ -82,7 +82,14 @@ export default defineConfig(buildTarget === "kernel" ? {
             targets: [
                 ...packageImageTargets,
                 { src: "./README*.md", dest: "./" },
-                { src: "./docs/*.md", dest: "./docs", rename: { stripBase: true } },
+                // A-06 决策（v0.103）：发布包仅随用户向文档（FAQ/上手指南/术语表/许可证/隐私），
+                // 内部调研与治理文档经 GitHub 仓库获取；新增用户向文档时在此追加
+                // 注意：显式文件目标（非通配）才会平铺到 dest；通配形式会产生 docs/docs 嵌套
+                { src: "./docs/20-*.md", dest: "./docs", rename: { stripBase: true } },
+                { src: "./docs/21-*.md", dest: "./docs", rename: { stripBase: true } },
+                { src: "./docs/22-*.md", dest: "./docs", rename: { stripBase: true } },
+                { src: "./docs/23-*.md", dest: "./docs", rename: { stripBase: true } },
+                { src: "./docs/P*.md", dest: "./docs", rename: { stripBase: true } },
                 { src: "./asset/*", dest: "./asset", rename: { stripBase: true } },
                 { src: "./plugin.json", dest: "./" },
             ],

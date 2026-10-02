@@ -711,8 +711,8 @@
       "conditionalPrerequisites": [],
       "summary": {
         "total": 55,
-        "done": 10,
-        "pending": 45
+        "done": 11,
+        "pending": 44
       },
       "blocks": []
     },
@@ -15025,8 +15025,8 @@
     },
     {
       "id": "A-06",
-      "status": "open",
-      "checkbox": " ",
+      "status": "done",
+      "checkbox": "x",
       "priority": "P1",
       "group": "A",
       "groupName": "工程与仓库基建",
@@ -15043,10 +15043,10 @@
   "summary": {
     "packages": 38,
     "total": 925,
-    "done": 186,
-    "open": 736,
+    "done": 187,
+    "open": 735,
     "special": 3,
-    "pending": 739
+    "pending": 738
   },
   "experienceDocument": "docs/32-产品体验优化与页面蓝图.md",
   "experienceRefinements": [
