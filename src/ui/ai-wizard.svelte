@@ -46,8 +46,8 @@
     let newName = $state("");
 
     let candidates: { q: string; a: string; d?: number; keep: boolean }[] = $state([]);
-    /** AQ-16 预览 lint：与 candidates 对齐的提示数组（批内重复/过长/过短） */
-    let lintWarnings: (string[] | null)[] = $state([]);
+    /** AQ-16 预览 lint：随 candidates（含编辑）响应式重算（批内重复/过长/过短） */
+    let lintWarnings: string[][] = $derived.by(() => lintAICards(candidates.map(c => ({ q: c.q, a: c.a }))));
     /** ADR-7：当前预览对应的作业 ID（导入按 candidates 下标断点记账；重生替换内容不换绑定） */
     let currentJobId = $state("");
     let busy = $state(false);
@@ -201,7 +201,6 @@
                 throw new Error(t.aiWizard.emptyResult);
             }
             candidates = cards.map(c => ({ ...c, keep: true }));
-            lintWarnings = lintAICards(cards);
             // ADR-7：绑定本次作业，导入时按候选下标断点记账
             currentJobId = jobId;
             step = 2;

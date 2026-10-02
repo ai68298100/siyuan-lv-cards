@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.93.0 2026-10-03 · AQ-16 lint 响应式重算 + 行号引用核对
+
+* 修正：lint 改为 `$derived.by` 随 candidates（含 textarea 编辑）响应式重算——此前仅生成时计算一次，用户编辑后提示不更新（v0.92 CHANGELOG 的「编辑后重算」描述不实，已修正实现与文档一致）
+* docs/33 行号引用抽查：review.svelte rate()/riff.ts reviewRiffCard/forget-requeue 三处引用仍与源码语义一致，无需更新
+* 测试 192/192；0 errors/0 warnings；主包 gzip 27.34KB（预算内）
+
 ## v0.92.0 2026-10-03 · AQ-16 预览 lint（离线子集）：重复/过长/过短提示
 
 * 新增 `core/ai-lint.ts`（零依赖纯模块）：批内重复（忽略大小写/空白）、过长（q/a >300 字符）、过短（问题 <4 字符）三类静态提示——只标记不删除，取舍由用户勾选
