@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.72.0 2026-10-03 · 测试盲区补齐 + AO 立项提案齐备
+
+* 测试盲区三组补齐：**occlusion 数据契约**（serialize↔parse 往返、坏 JSON/错版本/rects 非数组宽容 null、多框顺序）；**并发池 PromiseLimitPool**（并发上限、严格串行排空、失败传播）；**AI 输出解析**（```json 围栏与噪声容忍、question/answer 别名、d 难度越界过滤、空 q/a 剔除、非数组抛错）
+* `parseCards`/`estimateTokens` 拆至零依赖模块 ai-parse.ts（ai.ts 再导出，调用方 import 不变）——AI 网络层与解析层测试解耦
+* docs/17 AO 组立项提案 4 份齐备（均标注「待用户授权立项」）：Orbit 阅读态迷你复习、hashcards 内容寻址防重复、olmps/memo 代码卡型、anki-jlpt 语音例句卡
+* 测试 115→130；0 errors/0 warnings；主包 gzip 25.38KB（预算内）
+
 ## v0.71.0 2026-10-03 · 质量收口：svelte warnings 25→0 + AO 立项提案
 
 * 真问题修复 4 条：LvSteps 步骤指示器以 `aria-current="step"` 取代非法的 button+listitem 组合；遮挡画布 SVG 补 `role="img"`+aria-label（键盘替代为撤销/清空按钮）、删除框加注释豁免；AI 向导死 CSS `.lv-ob-step` 清理
