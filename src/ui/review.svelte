@@ -102,16 +102,11 @@
     let hintLevel: HintLevel | null = $state(null);
     let hintText = $state("");
     let hintLog: ReturnType<typeof logHint>[] = $state([]);
-    // BJ-4：遗忘卡错误原因标注（评分后可选旁路动作）
-    const ERROR_REASONS_ZH: Record<string, string> = {
-        "memory-blank": "记忆空白",
-        "concept-confusion": "概念混淆",
-        "condition-missed": "条件遗漏",
-        "step-error": "步骤错误",
-        "question-unclear": "题面不清",
-        "source-outdated": "来源过时",
-        "attention-lapse": "注意力中断",
-    };
+    // BJ-4：遗忘卡错误原因标注（评分后可选旁路动作；标签走 i18n errReasons 段）
+    const ERROR_REASON_IDS = [
+        "memory-blank", "concept-confusion", "condition-missed",
+        "step-error", "question-unclear", "source-outdated", "attention-lapse",
+    ] as const;
     let showErrTags = $state(false);
     let errTagCardID = $state("");
     let errTagged = $state(false);
@@ -1249,9 +1244,9 @@
         <!-- BJ-4：遗忘卡错误原因标注（旁路增强；点选后自动隐藏） -->
         <div class="lv-err-tags">
             <span class="ft__smaller ft__on-surface">{t.review.errTagPrompt}</span>
-            {#each Object.entries(ERROR_REASONS_ZH) as [reason, label] (reason)}
-                <button class="b3-button b3-button--small lv-err-tag" onclick={() => { ctx.tagErrorReason?.(errTagCardID, reason); errTagged = true; }}>
-                    {label}
+            {#each ERROR_REASON_IDS as rid (rid)}
+                <button class="b3-button b3-button--small lv-err-tag" onclick={() => { ctx.tagErrorReason?.(errTagCardID, rid); errTagged = true; }}>
+                    {t.errReasons[rid] ?? rid}
                 </button>
             {/each}
         </div>
