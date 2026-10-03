@@ -1622,9 +1622,9 @@
    "revisitAt": "切片完成或宿主/模型/模板/schema/权限变化、用户反例出现时",
    "conditionalPrerequisites": [],
    "summary": {
-    "total": 83,
+    "total": 84,
     "done": 22,
-    "pending": 61
+    "pending": 62
    },
    "blocks": [
     "WP-card-authoring",
@@ -15085,17 +15085,35 @@
      "proposalId": "BX-9"
     }
    ]
+  },
+  {
+   "id": "AQ-23",
+   "status": "open",
+   "checkbox": " ",
+   "priority": "P3",
+   "group": "AQ",
+   "groupName": "v0.63.0 后一手调研与代码审计新增（2026-10-02，仅扩充规划）",
+   "title": "**画像预设数据契约测试债（兜底巡检 v0.110.1 盘点登记）**：src/core/personas.ts（55 行静态预设）是 core 唯一无直接测试的纯模块——预设 modules 键需对 MODULES 注册表逐键校验（注册表演进后防静默漂移）、params 数值在 settings normalize 允许范围内。 owner=`WP-ui-accessibility-platform`；阶段即测即清。验收：PERSONA_PRESETS 每条 modules 键 ∈ 注册表 id 集、params 值域合法，一条 spec 覆盖。 AI：不适用。 无 AI/缺能力：即本条主体。",
+   "backlogLine": 734,
+   "primaryPackage": "WP-ui-accessibility-platform",
+   "linksTo": [
+    "WP-content-object-model"
+   ],
+   "relatedLegacyIds": [],
+   "phase": "即测即清",
+   "specificationDocument": "",
+   "acceptanceReferences": []
   }
  ],
  "governanceDocument": "docs/30-待办治理与执行顺序.md",
  "governanceVersion": "1.2",
  "summary": {
   "packages": 38,
-  "total": 927,
+  "total": 928,
   "done": 187,
-  "open": 737,
+  "open": 738,
   "special": 3,
-  "pending": 740
+  "pending": 741
  },
  "experienceDocument": "docs/32-产品体验优化与页面蓝图.md",
  "experienceRefinements": [
