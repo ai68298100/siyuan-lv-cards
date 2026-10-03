@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.110.0 2026-10-03 · AT-5 大库基准 + revlog O(n²) 热点修复
+
+* **性能修复（appendRevlog 首评判定 O(n²)→O(1)）**：卡历史判定原对全量 entries 做线性扫描，5 万条写入需 13.5s+；改为 WeakMap 缓存 Set（按数组身份自动失效）+ 截断改 splice 原地裁剪（slice 重建数组会让 2 万条上限后每次 append 触发 O(2万) 缓存重建）；50k 全链路 13.5s → ~4s
+* 新增 tests/big-library.spec.ts（AT-5 离线子集，6 组规模预算）：1k/10k/50k 条全链路（写入+重算+聚合+leech+覆盖+CSV）、10k normalize 加载路径、打字判分恒定耗时、1 万条会话状态清洗；规模档测试显式 vitest 超时防 CI 并行波动
+* 真机报告（固定设备/思源版本/UI 面板路径）仍归 docs/17 AT-5 本条
+* 测试 230→236；0 errors/0 warnings；governance OK
+
 ## v0.109.0 2026-10-03 · AT-4 due 请求扇出收敛：generation + 短 TTL 共享缓存
 
 * 新增 src/libs/due-cache.ts 纯模块（createDueCache）：同 scope 并发请求合并为一次（in-flight 去重）、TTL 内复用、invalidate 提升 generation 使旧代条目立即失效、失败不缓存（下次读取即重试）、LRU 有界防泄漏（6 组单测覆盖全部语义）

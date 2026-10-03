@@ -50,9 +50,27 @@ function dayStatWellFormed(v: unknown): v is DayStat {
     return [d.new, d.review, d.forget].every(x => Number.isSafeInteger(x) && (x as number) >= 0);
 }
 
-/** 卡是否已有有效评分历史（AQ-21）：明细优先（多数命中可早退），截断卡再查 knownCards */
+/** 卡是否已有有效评分历史（AQ-21）：明细优先（多数命中可早退），截断卡再查 knownCards。
+ * AT-5：entries 线性扫描以 WeakMap 缓存按数组身份失效——appendRevlog 高频调用从 O(n) 降到 O(1)
+ * 缓存命中（缓存键=数组引用，slice/重建/merge 后自动失效重算一次）。 */
+const historyCache = new WeakMap<RevlogEntry[], Set<string>>();
+
+function knownSetOf(entries: RevlogEntry[]): Set<string> {
+    let set = historyCache.get(entries);
+    if (!set) {
+        set = new Set<string>();
+        for (const e of entries) {
+            if (e.rating > 0) {
+                set.add(e.cardID);
+            }
+        }
+        historyCache.set(entries, set);
+    }
+    return set;
+}
+
 function cardHasHistory(entries: RevlogEntry[], knownCards: string[] | undefined, cardID: string): boolean {
-    if (entries.some(e => e.cardID === cardID && e.rating > 0)) {
+    if (knownSetOf(entries).has(cardID)) {
         return true;
     }
     return knownCards !== undefined && knownCards.includes(cardID);
@@ -145,6 +163,8 @@ export function appendRevlog(data: RevlogData, entry: RevlogEntry): void {
             if (data.knownCards.length < KNOWN_CARDS_MAX && !data.knownCards.includes(entry.cardID)) {
                 data.knownCards.push(entry.cardID);
             }
+            // AT-5：新卡同步进缓存集合，保持 O(1) 首评判定（同数组引用下缓存继续有效）
+            historyCache.get(data.entries)?.add(entry.cardID);
         }
         if (entry.rating === 1) {
             day.forget += 1;
@@ -152,9 +172,11 @@ export function appendRevlog(data: RevlogData, entry: RevlogEntry): void {
         data.days[date] = day;
     }
     data.entries.push(entry);
-    // 日志上限保护：仅保留最近 2 万条明细，聚合数据永久保留
+    // 日志上限保护：仅保留最近 2 万条明细，聚合数据永久保留。
+    // AT-5：原地裁剪（splice）而非 slice 重建——历史缓存按数组身份失效，slice 会让
+    // 20k 条之后的每次 append 都触发 O(2万) 重建；被裁掉的卡在缓存集合中保留是正确语义（曾有历史）。
     if (data.entries.length > 20000) {
-        data.entries = data.entries.slice(-20000);
+        data.entries.splice(0, data.entries.length - 20000);
     }
 }
 
@@ -217,6 +239,8 @@ export function mergeRevlog(data: RevlogData, imported: unknown, opts: MergeOpti
     if (!imported || typeof imported !== "object" || !Array.isArray((imported as any).entries)) {
         throw new Error("invalid revlog file");
     }
+    // AT-5：merge 会 filter/slice 重建 entries 数组——提前丢弃历史缓存（按数组身份失效）
+    historyCache.delete(data.entries);
     const key = (e: RevlogEntry) => `${e.ts}|${e.cardID}|${e.rating}|${e.source}`;
     const pairKey = (ts: number, cardID: string) => `${ts}|${cardID}`;
     const seen = new Set(data.entries.map(key));
@@ -285,7 +309,8 @@ export function mergeRevlog(data: RevlogData, imported: unknown, opts: MergeOpti
         added += 1;
     }
     if (data.entries.length > 20000) {
-        data.entries = data.entries.slice(-20000);
+        // AT-5：同 appendRevlog——原地裁剪，配合首部 historyCache.delete 已足够
+        data.entries.splice(0, data.entries.length - 20000);
     }
     // knownCards 并集（AQ-21）：导入的卡同样保留首评语义
     const known = new Set(data.knownCards ?? []);
