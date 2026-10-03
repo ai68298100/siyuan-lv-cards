@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.110.3 2026-10-04 · 第一梯队微项清零：AT-4 收尾 + AQ-23 契约测试
+
+* AT-4 收尾（P1）：管理器 getDueBlockIDs 改走共享 due 缓存（与 badge/总览合并请求，扇出清零）；dueCache.stats()（hits/misses/coalesced）接入诊断面板 persist 段同位展示——AT-4 验收测量工具齐备
+* AQ-23（P3）勾选：新增 tests/personas.spec.ts 4 组画像预设数据契约（modules 键 ∈ MODULE_DEFS 注册表、核心模块开启、params 经 normalizeSettings 同口径校验、id/i18n 键完整）——core 目录纯模块测试覆盖收官
+* 测试 240→244；0 errors/0 warnings；governance OK（930 条，188 done）
+
 ## v0.110.2 2026-10-03 · 真机验收首轮：openTab 修复 + 加载兼容性处置
 
 * **修复（真机发现）**：openTabOf 调用已被移除的 Plugin 实例方法 openTab——思源 3.8.6 上点击顶栏/菜单/命令入口即抛 "this.openTab is not a function"，页签无法打开；改用模块级 openTab 函数 + custom 页签契约（id=plugin.name+type 无分隔符连写，与 addTab 注册键一致）。该 bug 经 `as any` 绕过类型检查、单测桩环境无法覆盖，由真机 e2e 首轮捕获

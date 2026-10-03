@@ -21,9 +21,9 @@ import {
     type RevlogData, type RevlogEntry,
 } from "./core/revlog";
 import { detectFlashcardV2, type MigrationStatus } from "./api/flashcardV2";
-import { createRiffDeck, getRiffCardsByBlockIDs, getRiffDecks, getRiffDueCards, removeRiffCards } from "./api/riff";
+import { createRiffDeck, getRiffCardsByBlockIDs, getRiffDecks, removeRiffCards } from "./api/riff";
 // AT-4：addRiffCards 取经 due-shared 的包装版（建卡成功即失效共享 due 缓存），badge/提醒走共享缓存
-import { addRiffCards, cachedDueCount, invalidateDueCache } from "./api/due-shared";
+import { addRiffCards, cachedDueCount, dueCache, invalidateDueCache } from "./api/due-shared";
 import { appendBlock, createDocWithMd, getNotebooks, getBlockDOM, getBlockDocMap, getDocTitles, exportMdContent, sqlQuery, kernelVersion } from "./api/siyuan";
 import { aiChat, estimateTokens, parseCards, isAICanceled } from "./api/ai";
 import { normalizeSuspendToday, rollDateIfNeeded, isSuspended, suspend, type SuspendTodayData } from "./core/suspend-today";
@@ -288,7 +288,8 @@ export default class LvCardsPlugin extends Plugin {
                             },
                             getDueBlockIDs: async () => {
                                 try {
-                                    const due = await getRiffDueCards("");
+                                    // AT-4 收尾（v0.110.3）：管理器去重预检走共享缓存，与 badge/总览等合并请求
+                                    const due = await dueCache.get("");
                                     return (due.cards ?? []).map(c => c.blockID).filter(Boolean);
                                 } catch {
                                     return [];
@@ -919,6 +920,8 @@ export default class LvCardsPlugin extends Plugin {
             ...this.persist.stats().map(s =>
                 `${s.key}: ok=${s.ok} fail=${s.fail}${s.lastOkTs ? ` lastOk=${new Date(s.lastOkTs).toISOString()}` : ""}${s.lastError ? ` lastError=${s.lastError}` : ""}`),
             ...(this.persist.hasFailures() ? [] : ["all writes ok"]),
+            "--- due cache (AT-4) ---",
+            `dueCache: ${JSON.stringify(dueCache.stats())}`,
             "",
             "--- recent log (324) ---",
             lvLogDump() || "(empty)",

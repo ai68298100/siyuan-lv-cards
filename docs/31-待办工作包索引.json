@@ -1623,8 +1623,8 @@
    "conditionalPrerequisites": [],
    "summary": {
     "total": 84,
-    "done": 22,
-    "pending": 62
+    "done": 23,
+    "pending": 61
    },
    "blocks": [
     "WP-card-authoring",
@@ -15088,8 +15088,8 @@
   },
   {
    "id": "AQ-23",
-   "status": "open",
-   "checkbox": " ",
+   "status": "done",
+   "checkbox": "x",
    "priority": "P3",
    "group": "AQ",
    "groupName": "v0.63.0 后一手调研与代码审计新增（2026-10-02，仅扩充规划）",
@@ -15142,10 +15142,10 @@
  "summary": {
   "packages": 38,
   "total": 930,
-  "done": 187,
-  "open": 740,
+  "done": 188,
+  "open": 739,
   "special": 3,
-  "pending": 743
+  "pending": 742
  },
  "experienceDocument": "docs/32-产品体验优化与页面蓝图.md",
  "experienceRefinements": [
