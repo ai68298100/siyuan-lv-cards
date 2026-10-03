@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.128.0 2026-10-04 · BJ-2 分级提示阶梯（纯模块）
+
+* 新增 core/hint-ladder.ts：五级阶梯（recall-target→keyword→context→explanation→full）+ 稀疏阶梯（缺失级别自动跳过，full 兜底=即翻面）+ 循环回首 + nextHint 下一级推进 + HintLogEntry 追加日志 + hintStats（提示次数/去重卡数/最深级别）
+* 设计约束：提示不自动提交评分（纯逻辑返回，调用方决定展示与记录）；提示内容来源=知识对象/卡片可选 levels 字段
+* 8 组单测；测试 320→328；0 errors/0 warnings
+
 ## v0.127.0 2026-10-04 · BJ-1 统计分栏：dashboard 能力分布
 
 * dashboard ctx 新增 getCapabilityShare（基于已登记知识对象实例的 capabilityShare 排序）
