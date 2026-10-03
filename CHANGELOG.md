@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.117.0 2026-10-04 · BU-12 输出 schema 注册表
+
+* 新增 core/ai-schemas.ts：8 输出形态 schema（cards-json/scan/clarify/route/split/leak/distractor/rewrite，与 prompt-templates output 对接口径）
+* validateRows 宽容收敛校验（AJ5 同口径）：类型可收敛则收敛（数字字符串→数值/任意→string）、required 缺失记入 errors 不静默吞、坏行跳过、可选字段类型不符省略；7 组单测
+* 测试 280→287；0 errors/0 warnings
 ## v0.116.0 2026-10-04 · BU-5/BV 提示词模板注册表
 
 * 新增 core/prompt-templates.ts：10 模板注册表（generic/exam/language 三预设迁移 + BV 家族 7 新模板：教学价值扫描/目标澄清/卡型路由/原子拆解/反泄漏/干扰项/烂卡改写）
