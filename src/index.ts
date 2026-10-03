@@ -162,13 +162,21 @@ export default class LvCardsPlugin extends Plugin {
             await this.persist.save(SUSPEND_TODAY_DATA, this.suspendToday);
         }
 
-        // 探测内核闪卡 V2（feature/flashcard 分支 / 3.9.0）：决定走 V2 还是 riff 兼容路径
-        this.flashcardV2 = await detectFlashcardV2();
-        // Gateway 探测结果落库（320）：设置页与诊断可直接读，无需重探
-        if (this.flashcardV2 && this.settings.gatewayState !== this.flashcardV2.state) {
-            this.settings.gatewayState = this.flashcardV2.state;
-            this.saveSettingsSoon();
-        }
+        // AT-3：启动探测不阻塞插件初始化——探测异步进行，完成后再落库；
+        // 断核/慢核/旧内核都在 V2_TIMEOUT_MS 内转 N/A（null）， riff 兼容路径立即可用，
+        // 菜单 redetectV2 可随时重试。所有读取方（菜单/诊断/getV2Status）均为运行时读取，
+        // 探测完成前短暂显示 N/A 属预期。
+        this.flashcardV2 = null;
+        detectFlashcardV2()
+            .then(status => {
+                this.flashcardV2 = status;
+                // Gateway 探测结果落库（320）：设置页与诊断可直接读，无需重探
+                if (status && this.settings.gatewayState !== status.state) {
+                    this.settings.gatewayState = status.state;
+                    this.saveSettingsSoon();
+                }
+            })
+            .catch(() => { /* detectFlashcardV2 内部已兜底为 null，此处仅防御 */ });
 
         // 原生复习界面的评分事件 → 本地 revlog（宽容解析，事件结构变化不致崩）
         this.eventBus.on("click-flashcard-action", this.onNativeCardAction);

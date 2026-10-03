@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.108.0 2026-10-03 · AT-3 V2 请求超时层与启动探测隔离
+
+* 新增 src/libs/timeout.ts 可取消超时层（withTimeout + TimeoutError）：与任意 Promise 组合的有界等待，任一方先落定即清计时器不泄漏，迟到一方的 settle 静默忽略（6 组单测：快/慢/断三态 + 计时器清除）
+* V2 内核请求统一接入 3s 有界等待（V2_TIMEOUT_MS）：getMigrationStatus 探测与 getStatistics 等全部 /api/flashcard/* 端点在断核/慢核下 3s 内转 N/A/可重试，不再无限期挂起；菜单 redetectV2 重试路径保持
+* 启动探测异步化：onload 不再 await 探测——插件初始化不被旧内核/慢内核阻塞，riff 兼容路径立即可用；探测完成后异步落库 gatewayState，菜单/诊断/getV2Status 均为运行时读取（完成前短暂显示 N/A 属预期）
+* 测试 218→224；0 errors/0 warnings；governance OK
+
 ## v0.107.0 2026-10-03 · BX-3 本场偏好：复习面板会话内设置覆盖
 
 * 复习面板新增「本场偏好」弹层（⚙ 头部按钮）：评分按钮风格（四档/三档）、队列倒序、超时模式三项可会话内即时覆盖，不落盘不污染全局设置

@@ -5,12 +5,16 @@
  */
 import { fetchSyncPost } from "siyuan";
 import { normalizeMigrationStatus, summarizeStatistics, type FlashcardV2State, type MigrationStatus } from "./v2-contract";
+import { withTimeout } from "../libs/timeout";
 
 export { normalizeMigrationStatus, summarizeStatistics };
 export type { FlashcardV2State, MigrationStatus };
 
+/** AT-3：V2 内核请求统一有界等待（本地内核 3s 足够；超时/断核/慢核都转 N/A 或可重试） */
+export const V2_TIMEOUT_MS = 3000;
+
 async function v2<T>(endpoint: string, payload: Record<string, unknown> = {}): Promise<T> {
-    const resp = await fetchSyncPost(`/api/flashcard/${endpoint}`, payload);
+    const resp = await withTimeout(fetchSyncPost(`/api/flashcard/${endpoint}`, payload), V2_TIMEOUT_MS, `/api/flashcard/${endpoint}`);
     // AJ5：与 riff 同口径的响应校验
     if (!resp || resp.code !== 0) {
         throw new Error(resp?.msg || `kernel error (code=${resp?.code ?? "unknown"})`);
@@ -19,8 +23,8 @@ async function v2<T>(endpoint: string, payload: Record<string, unknown> = {}): P
 }
 
 /**
- * 探测内核是否具备 V2 闪卡 API。
- * 返回 null = 当前内核无此端点（< 3.9.0 或不可达），插件走 riff 兼容路径；
+ * 探测内核是否具备 V2 闪卡 API（AT-3：有界等待，慢核/断核在 V2_TIMEOUT_MS 内转 null）。
+ * 返回 null = 当前内核无此端点（< 3.9.0 或不可达/超时），插件走 riff 兼容路径（可经菜单 redetectV2 重试）；
  * 返回 state="Unknown" = 端点在但状态不可识别（保守降级，UI 显示未验证）。
  */
 export async function detectFlashcardV2(): Promise<MigrationStatus | null> {
