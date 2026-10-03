@@ -111,8 +111,9 @@ export default class LvCardsPlugin extends Plugin {
         },
     );
     private lastPersistToast = 0;
-    /** 写入最终失败的用户提示（限流 30s 一次，避免刷屏） */
+    /** 写入最终失败的用户提示（限流 30s 一次，避免刷屏；置位 hadPersistFail 供恢复跟踪） */
     private notifyPersistFail() {
+        this.hadPersistFail = true;
         const now = Date.now();
         if (now - this.lastPersistToast < 30000) {
             return;
@@ -1072,9 +1073,16 @@ export default class LvCardsPlugin extends Plugin {
     }
 
     private storageLastWrite: Record<string, number> = {};
+    /** AQ-4：失败→恢复跟踪（onFail 置位，下次 onOk 展示恢复提示并清除） */
+    private hadPersistFail = false;
 
     private trackSave(file: string) {
         this.storageLastWrite[file] = Date.now();
+        if (this.hadPersistFail) {
+            this.hadPersistFail = false;
+            // AQ-4：恢复可观测——失败后首次成功写入给用户确认
+            try { showMessage(this.i18n.settingsSaved, 1500, "info"); } catch { /* 旁路 */ }
+        }
     }
 
     private storageStats() {

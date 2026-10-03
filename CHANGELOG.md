@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.135.0 2026-10-04 · AQ-4 恢复可观测 + AS-4 收尾
+
+* persist 队列新增失败→恢复跟踪：onFail 置位 hadPersistFail，下次 onOk 展示「保存成功」提示确认恢复（此前失败后静默恢复用户无感知）
+* AS-4 勾选（基础版+保存成功播报均已接入 LvLive/review 面板）
+* 341/341 测试；0 errors/0 warnings；主包 gzip 92.58KB（≤95KB 内）
 ## v0.134.1 2026-10-04 · BJ-4 标注标签国际化修复
 
 * 修复：BJ-4 错误原因标注 chips 标签此前硬编码中文（英文用户看到中文标签），改为 i18n errReasons 段引用
