@@ -645,7 +645,7 @@
 
         {#if koStats && koStats.length > 0}
             <!-- BJ-1：能力分布（基于已登记知识对象实例；口径=插件侧标注覆盖） -->
-            <LvSection title={t.capability.title} sub={t.capability.sub}>
+            <LvSection title={t.capability?.title ?? "Capability"} sub={t.capability?.sub ?? ""}>
                 <div class="fn__flex fn__flex-wrap lv-caps">
                     {#each koStats as s (s.cap)}
                         <div class="lv-stat-mini">
@@ -659,11 +659,11 @@
 
         {#if errStats && errStats.length > 0}
             <!-- BJ-4：错误原因分布（遗忘卡标注；口径=全量累计） -->
-            <LvSection title={t.errReasons.title} sub={t.errReasons.sub}>
+            <LvSection title={t.errReasons?.title ?? "Error reasons"} sub={t.errReasons?.sub ?? ""}>
                 <div class="fn__flex fn__flex-wrap lv-caps">
                     {#each errStats as s (s.reason)}
                         <div class="lv-stat-mini">
-                            <div class="lv-mini-label">{t.errReasons[s.reason] ?? s.reason}</div>
+                            <div class="lv-mini-label">{t.errReasons?.[s.reason] ?? s.reason}</div>
                             <div class="lv-mini-num">{s.count}</div>
                         </div>
                     {/each}
