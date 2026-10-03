@@ -172,6 +172,10 @@
             "deriving": "Deriving…",
             "deriveLabel": "Derive card type",
             "register": "Register as knowledge object",
+            "capability": {
+                "title": "Capability distribution",
+                "sub": "Based on registered knowledge-object instances · plugin-side tagging coverage"
+            },
             "revise": "Revise fact",
             "reviseLabel": "Core fact (revising)",
             "saveRevise": "Save revision",

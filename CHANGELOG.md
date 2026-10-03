@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.127.0 2026-10-04 · BJ-1 统计分栏：dashboard 能力分布
+
+* dashboard ctx 新增 getCapabilityShare（基于已登记知识对象实例的 capabilityShare 排序）
+* 总览新增「能力分布」LvSection（八类+unspecified 桶，计数+占比；无实例时区块隐藏）；i18n capability 段 3 键（590 对齐）
+* AT-14 勾选（验收修订版达成：门禁 ⑨ 生效 + 主包 91KB ≤ 95KB 新预算）
+* 320/320 测试；0 errors/0 warnings；governance OK（931 条，192 done）
 ## v0.126.0 2026-10-04 · BK-1 UI 收官：ko-panel 修订模式 + 快速制卡自动注册
 
 * ko-panel 新增修订模式：「修订事实」→ 编辑框（实例清单保持可见，受影响实例一目了然）→ 保存回调携带新事实；未传 onrevise 不显示按钮（宿主可选）

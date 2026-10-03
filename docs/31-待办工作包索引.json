@@ -353,8 +353,8 @@
    "conditionalPrerequisites": [],
    "summary": {
     "total": 26,
-    "done": 6,
-    "pending": 20
+    "done": 7,
+    "pending": 19
    },
    "blocks": [
     "WP-management-search"
@@ -15138,8 +15138,8 @@
   },
   {
    "id": "AT-14",
-   "status": "open",
-   "checkbox": " ",
+   "status": "done",
+   "checkbox": "x",
    "priority": "P2",
    "group": "AT",
    "groupName": "Petal 生命周期与性能卫生（第五轮定向，仅扩充规划）",
@@ -15158,10 +15158,10 @@
  "summary": {
   "packages": 38,
   "total": 931,
-  "done": 192,
-  "open": 736,
+  "done": 193,
+  "open": 735,
   "special": 3,
-  "pending": 739
+  "pending": 738
  },
  "experienceDocument": "docs/32-产品体验优化与页面蓝图.md",
  "experienceRefinements": [

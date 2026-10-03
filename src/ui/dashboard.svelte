@@ -41,6 +41,8 @@
         openAIWizard?: () => void;
         /** 热力图范围周数（439） */
         getHeatmapWeeks: () => number;
+        /** BJ-1：能力分布统计（基于已登记知识对象实例；口径=插件侧标注覆盖） */
+        getCapabilityShare?: () => { cap: string; count: number; pct: number }[];
     }
 
     let { ctx }: { ctx: DashboardCtx } = $props();
@@ -63,6 +65,8 @@
     let docCov = $state<{ docs: { docID: string; title: string; seen: number }[]; unattributed: number } | null>(null);
     /** 未完成的 AI 导入（ADR-7）：null=无 */
     let unfinishedAI = $state<{ id: string; done: number; total: number } | null>(null);
+    /** BJ-1：能力分布（知识对象实例标注；null=宿主未提供或无数据） */
+    let koStats = $state<{ cap: string; count: number; pct: number }[] | null>(null);
     let totalCards = $state(0);
     let heat: { date: string; stat: { new: number; review: number; forget: number } }[] = $state([]);
     let revlogNote = $state("");
@@ -231,6 +235,8 @@
             deckCov = deckCoverage(revlog, deckList.map(d => ({ id: d.id, size: d.size })));
             docCov = ctx.getDocCoverage ? await ctx.getDocCoverage() : null;
             unfinishedAI = ctx.getUnfinishedAIJob?.() ?? null;
+            // BJ-1：能力分布（可选 ctx；无实例返回空数组→区块隐藏）
+            koStats = ctx.getCapabilityShare?.() ?? null;
             if (seq !== refreshSeq) {
                 return; // 文档归属查询期间用户已刷新（AR-6 generation 守卫）
             }
@@ -631,6 +637,20 @@
                 <div class="lv-hint">{t.dashboard.forecastTbd}</div>
             {/if}
         </LvSection>
+
+        {#if koStats && koStats.length > 0}
+            <!-- BJ-1：能力分布（基于已登记知识对象实例；口径=插件侧标注覆盖） -->
+            <LvSection title={t.capability.title} sub={t.capability.sub}>
+                <div class="fn__flex fn__flex-wrap lv-caps">
+                    {#each koStats as s (s.cap)}
+                        <div class="lv-stat-mini">
+                            <div class="lv-mini-label">{s.cap}</div>
+                            <div class="lv-mini-num">{s.count} <span class="ft__smaller ft__on-surface">({s.pct}%)</span></div>
+                        </div>
+                    {/each}
+                </div>
+            </LvSection>
+        {/if}
     {/if}
 </LvPage>
 

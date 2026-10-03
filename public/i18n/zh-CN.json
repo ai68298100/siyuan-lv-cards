@@ -172,6 +172,10 @@
             "deriving": "派生中…",
             "deriveLabel": "派生卡型",
             "register": "注册为知识对象",
+            "capability": {
+                "title": "能力分布",
+                "sub": "基于已登记知识对象实例 · 口径=插件侧标注覆盖"
+            },
             "revise": "修订事实",
             "reviseLabel": "核心事实（修订）",
             "saveRevise": "保存修订",

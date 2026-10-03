@@ -27,6 +27,7 @@ import { addRiffCards, cachedDueCount, dueCache, invalidateDueCache } from "./ap
 import { createPerf } from "./libs/perf";
 import { cardsCreatedEvent, gatewayChangedEvent, LV_EVENTS, reviewedEvent, sessionFinishedEvent, settingsChangedEvent, streakChangedEvent } from "./libs/events";
 import { deriveInstance, emptyKnowledgeObjects, findBySource, normalizeKnowledgeObjects, registerObject, removeInstance, toggleInstance, type KnowledgeObjectsData } from "./core/knowledge-objects";
+import { capabilityShare } from "./core/capability-types";
 import { addRelation, detachCard, emptyCardRelations, normalizeCardRelations, relationsOf, removeRelation, type CardRelationsData, type RelationType } from "./core/card-relations";
 import { appendBlock, createDocWithMd, getNotebooks, getBlockDOM, getBlockDocMap, getDocTitles, exportMdContent, sqlQuery, kernelVersion } from "./api/siyuan";
 import { aiChat, estimateTokens, parseCards, isAICanceled } from "./api/ai";
@@ -279,6 +280,11 @@ export default class LvCardsPlugin extends Plugin {
                                 }
                             },
                             getHeatmapWeeks: () => plugin.settings.heatmapWeeks,
+                            // BJ-1：能力分布统计（基于已登记知识对象实例；未登记卡不计入——口径=插件侧标注覆盖）
+                            getCapabilityShare: () => {
+                                const all = plugin.knowledgeObjects.objects.flatMap(o => o.instances);
+                                return capabilityShare(all);
+                            },
                         },
                         managerCtx: {
                             i18n: plugin.i18n,
