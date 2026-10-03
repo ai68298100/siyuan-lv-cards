@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.110.2 2026-10-03 · 真机验收首轮：openTab 修复 + 加载兼容性处置
+
+* **修复（真机发现）**：openTabOf 调用已被移除的 Plugin 实例方法 openTab——思源 3.8.6 上点击顶栏/菜单/命令入口即抛 "this.openTab is not a function"，页签无法打开；改用模块级 openTab 函数 + custom 页签契约（id=plugin.name+type 无分隔符连写，与 addTab 注册键一致）。该 bug 经 `as any` 绕过类型检查、单测桩环境无法覆盖，由真机 e2e 首轮捕获
+* **加载兼容性处置**：3.8.6 真机上多 chunk CJS 产物出现 require 相对 chunk 失败（同机构建的其他插件正常，文件哈希逐字节一致仍失败，根因待查，登记待办）；真机验收改用单文件内联产物（inlineDynamicImports，282KB/gzip 88KB）
+* 真机环境证据：思源 3.8.6 桌面端加载、启用、onboarding 完成落盘 settings.json、示例卡组创建（AR-4）；DevTools 性能面板 LCP 0.84s / INP 16ms（AT-6 素材）
+* 已知内核行为：getRiffDueCards 全局（deckID=""）对自建卡包新卡返回 0（卡组维度正常返回）——全局角标/复习范围受影响，登记待办
+
 ## v0.110.1 2026-10-03 · 兜底巡检：排版减号判分修复 + due 缓存跨代击穿修复
 
 * **打字判分修复（BX-1）**：排版减号 U+2212 无 NFKC 兼容分解、属符号类被宽松判分剥离——"−1"（公式/多数输入法）失去符号变 "1"。归一化补排版减号→ASCII 减号折叠；+3 组测试（−1≡-1、−1≢1、全角减号/加号折叠保留）

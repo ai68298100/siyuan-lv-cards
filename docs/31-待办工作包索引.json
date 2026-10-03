@@ -131,9 +131,9 @@
    "revisitAt": "切片完成或宿主/模型/模板/schema/权限变化、用户反例出现时",
    "conditionalPrerequisites": [],
    "summary": {
-    "total": 43,
+    "total": 44,
     "done": 6,
-    "pending": 37
+    "pending": 38
    },
    "blocks": [
     "WP-session-recovery",
@@ -1877,9 +1877,9 @@
    "revisitAt": "切片完成或宿主/模型/模板/schema/权限变化、用户反例出现时",
    "conditionalPrerequisites": [],
    "summary": {
-    "total": 34,
+    "total": 35,
     "done": 11,
-    "pending": 23
+    "pending": 24
    },
    "blocks": [
     "WP-dialog-lifecycle",
@@ -15103,17 +15103,49 @@
    "phase": "即测即清",
    "specificationDocument": "",
    "acceptanceReferences": []
+  },
+  {
+   "id": "AT-12",
+   "status": "open",
+   "checkbox": " ",
+   "priority": "P1",
+   "group": "AT",
+   "groupName": "Petal 生命周期与性能卫生（第五轮定向，仅扩充规划）",
+   "title": "**真机构建产物单文件约束（3.8.6 分包 CJS 加载失败）**（兜底巡检+真机 e2e 2026-10-04 发现，证据 docs/34 E2E-1 发现 1）：思源 3.8.6 插件 require shim 为 `ut==='siyuan'?内部:window.require(ut)`——相对路径 chunk require 原样透传 Electron Node require，以应用包为基准解析必然失败；多分包 CJS 构建全部受累（本插件 chunk 版、官方 install-package、siyuan-home；siyuan-exam 间歇）。 owner=`WP-runtime-lifecycle`；阶段即决。验收：真机构建采用单文件内联产物（vite.config.inline.mjs，inlineDynamicImports，gzip 88KB）并入发布链（A-06 发布包内容核查含 chunk 完整性替代方案）；长期方案（ESM 产物/上游修复跟踪）留观。 AI：不适用。 无 AI/缺能力：即本条主体。",
+   "backlogLine": 782,
+   "primaryPackage": "WP-runtime-lifecycle",
+   "linksTo": [],
+   "relatedLegacyIds": [],
+   "phase": "即决",
+   "specificationDocument": "",
+   "acceptanceReferences": []
+  },
+  {
+   "id": "AT-13",
+   "status": "open",
+   "checkbox": " ",
+   "priority": "P2",
+   "group": "AT",
+   "groupName": "Petal 生命周期与性能卫生（第五轮定向，仅扩充规划）",
+   "title": "**全局 due 查询对手建卡包返回 0（内核 3.8.6 行为核实）**（真机 e2e 2026-10-04 发现，证据 docs/34 E2E-1 发现 2）：getRiffDueCards deckID=\"\" 对 createRiffDeck 手建卡包的新卡返回 0（卡组维度正常返回 2/2）——全局角标、复习「全部」范围在仅含手建卡包时恒空。 owner=`WP-gateway-contract`；阶段 W2 核实上游行为（新内核版本回归测试）后决定是否前端聚合兜底（遍历 getRiffDecks 逐包求和，注意与 AT-4 缓存协同）。验收：全局角标/全部范围在有 due 卡时非零，或登记内核缺陷链接。 AI：不适用。 无 AI/缺能力：即本条主体。",
+   "backlogLine": 782,
+   "primaryPackage": "WP-gateway-contract",
+   "linksTo": [],
+   "relatedLegacyIds": [],
+   "phase": "W2 核实上游行为后决定前端聚合兜底",
+   "specificationDocument": "",
+   "acceptanceReferences": []
   }
  ],
  "governanceDocument": "docs/30-待办治理与执行顺序.md",
  "governanceVersion": "1.2",
  "summary": {
   "packages": 38,
-  "total": 928,
+  "total": 930,
   "done": 187,
-  "open": 738,
+  "open": 740,
   "special": 3,
-  "pending": 741
+  "pending": 743
  },
  "experienceDocument": "docs/32-产品体验优化与页面蓝图.md",
  "experienceRefinements": [

@@ -1652,8 +1652,20 @@ export default class LvCardsPlugin extends Plugin {
     }
 
     private openTabOf(type: string, data?: Record<string, unknown>) {
-        const anySelf = this as any;
-        anySelf.openTab({ app: this.app, type, customData: data });
+        // 真机验收修正（v0.110.2）：Plugin 实例在 3.8.6 上没有 openTab 方法（旧实例 API 已移除，
+        // 仅剩模块级 openTab 函数）——此前经 anySelf 绕过类型检查，真机点击入口即抛
+        // "this.openTab is not a function"。改用模块级 openTab + custom 页签契约。
+        // 注意 id 必须与 addTab 注册键一致：bundle 中 addTab 以 this.name + type「无分隔符」
+        // 登记 models（source: common.js addTab 实现），带 "-" 会查不到模型导致页签空白。
+        openTab({
+            app: this.app,
+            custom: {
+                id: `${this.name}${type}`,
+                icon: "iconLvCards",
+                title: type === TAB_REVIEW ? this.i18n.menuReview : this.i18n.menuDashboard,
+                data,
+            },
+        });
     }
 
     private showTopbarMenu(evt: MouseEvent) {
