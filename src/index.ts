@@ -24,6 +24,7 @@ import { detectFlashcardV2, type MigrationStatus } from "./api/flashcardV2";
 import { createRiffDeck, getRiffCardsByBlockIDs, getRiffDecks, removeRiffCards } from "./api/riff";
 // AT-4：addRiffCards 取经 due-shared 的包装版（建卡成功即失效共享 due 缓存），badge/提醒走共享缓存
 import { addRiffCards, cachedDueCount, dueCache, invalidateDueCache } from "./api/due-shared";
+import { createPerf } from "./libs/perf";
 import { appendBlock, createDocWithMd, getNotebooks, getBlockDOM, getBlockDocMap, getDocTitles, exportMdContent, sqlQuery, kernelVersion } from "./api/siyuan";
 import { aiChat, estimateTokens, parseCards, isAICanceled } from "./api/ai";
 import { normalizeSuspendToday, rollDateIfNeeded, isSuspended, suspend, type SuspendTodayData } from "./core/suspend-today";
@@ -79,6 +80,8 @@ export default class LvCardsPlugin extends Plugin {
     /** AI 批次作业（ADR-7 第 2 步）：断点续传的状态载体 */
     private aiJobs: AIJobsData = emptyAIJobs();
     /** 统一持久化队列（AQ-4）：同 key 串行 + 有限重试 + 失败可观测 */
+    /** AT-6：启动/首交互/评分性能指标 */
+    private perf = createPerf();
     private persist: PersistQueue = createPersist(
         (key, data) => this.saveData(key, data),
         {
@@ -134,6 +137,8 @@ export default class LvCardsPlugin extends Plugin {
     private lastDue = 0;
 
     async onload() {
+        // AT-6：启动性能计时起点（onload 首行）
+        this.perf.markStart();
         this.addIcons(`<symbol id="iconLvCards" viewBox="0 0 32 32">
 <path d="M6 10h16v16H6z" fill="none" stroke="currentColor" stroke-width="2"></path>
 <path d="M10 6h16v16" fill="none" stroke="currentColor" stroke-width="2"></path>
@@ -144,6 +149,7 @@ export default class LvCardsPlugin extends Plugin {
         const STORE_KEYS = [SETTINGS_DATA, REVLOG_DATA, SUSPEND_TODAY_DATA, EXAM_PLANS_DATA, AI_BATCHES_DATA, SESSION_STATE_DATA, AI_JOBS_DATA] as const;
         const loaded = zipLoaded(STORE_KEYS, await Promise.all(STORE_KEYS.map(key => this.loadData(key))));
         this.settings = normalizeSettings(loaded[SETTINGS_DATA]);
+        this.perf.setCold(!this.settings.onboarded); // AT-6：首轮未完成引导=冷启动
         this.revlog = normalizeRevlog(loaded[REVLOG_DATA]); // AQ-3：清洗非法条目并由明细重建 days
         this.suspendToday = normalizeSuspendToday(loaded[SUSPEND_TODAY_DATA]);
         this.examPlans = normalizeExamPlans(loaded[EXAM_PLANS_DATA]);

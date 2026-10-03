@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.111.0 2026-10-04 · AT-6 性能指标：启动/首交互/评分埋点 + P50/P95 诊断
+
+* 新增 src/libs/perf.ts 纯模块：markStart（onload 首行）/markLayoutReady（onLayoutReady）/评分采样（复用 AQ-13 dur 漏斗，appendRevlog 单点接入）/p50-p95 线性插值/50 样本环形上限/diagLines 诊断段（persist/due cache 段同位，含冷热启动标记，onboarded 判定）
+* 修复实现边界：t0=0 为合法时间戳（performance.now 从 0 起），改 started 标志位判定；P50/P95 预算为开发机参考值非 SLA，超预算仅诊断标注不阻断
+* 测试 244→254（perf 10 组：百分位数学/状态机/采样上限/诊断输出）；0 errors/0 warnings；主包 gzip 28.04KB
+
 ## v0.110.3 2026-10-04 · 第一梯队微项清零：AT-4 收尾 + AQ-23 契约测试
 
 * AT-4 收尾（P1）：管理器 getDueBlockIDs 改走共享 due 缓存（与 badge/总览合并请求，扇出清零）；dueCache.stats()（hits/misses/coalesced）接入诊断面板 persist 段同位展示——AT-4 验收测量工具齐备
