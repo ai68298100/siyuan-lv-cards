@@ -42,6 +42,22 @@ export function emptyErrorTags(): ErrorTagsData {
     return { version: 1, tags: [] };
 }
 
+/** 整库清洗：坏条目剔除（缺 cardID/非法 reason/缺 date） */
+export function normalizeErrorTags(raw: unknown): ErrorTagsData {
+    const arr = (raw as any)?.tags;
+    if (!Array.isArray(arr)) return emptyErrorTags();
+    const tags: ErrorTag[] = [];
+    for (const r of arr) {
+        if (!r || typeof r !== "object") continue;
+        const cardID = typeof r.cardID === "string" ? r.cardID : "";
+        const reason = normalizeErrorReason(r.reason);
+        const date = typeof r.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(r.date) ? r.date : "";
+        if (!cardID || !reason || !date) continue;
+        tags.push({ cardID, reason, date });
+    }
+    return { version: 1, tags };
+}
+
 /** 标注错误原因：同卡同日覆盖前值（可改选）；返回是否发生变更 */
 export function tagError(data: ErrorTagsData, cardID: string, reason: ErrorReason, date: string): boolean {
     if (!cardID) return false;

@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.131.0 2026-10-04 · BJ-4 标注 UI + error-tags.json 存储接线
+
+* review.svelte 遗忘评分后显示七类错误原因 chips 行（旁路增强：点选即标注并隐藏，不阻塞下一张；ctx 注入 tagErrorReason）
+* error-tags.json 入 STORE_KEYS 批载 + normalizeErrorTags 白名单清洗 + saveErrorTags persist 方法；PRIVACY 披露 + 存储体检 +2 行
+* i18n +1 键（errTagPrompt，592 对齐）；335/335 测试；0 errors/0 warnings；governance OK（931 条）
 ## v0.130.0 2026-10-04 · BJ-2 复习面板提示集成：hint 按钮 + 阶梯展示 + 日志
 
 * review.svelte 集成 BJ-2 提示阶梯：问题态新增「提示」按钮，点击逐步揭示提示文本（从卡面 HTML 剥离标签后取前 30 字符为 keyword 级，full 级翻面）

@@ -116,6 +116,7 @@
         "showAnswer": "Show Answer",
         "revealHint": "Space to flip",
         "hintBtn": "Hint",
+        "errTagPrompt": "Why did you forget?",
         "againBtn": "Again",
         "know": "Know",
         "vague": "Vague",

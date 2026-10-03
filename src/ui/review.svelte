@@ -66,6 +66,8 @@
         /** 初始 cram 模式（考前：lapses 降序） */
         initialCram?: boolean;
         appendRevlog: (entry: { cardID: string; deckID: string; blockID: string; rating: number; source: "plugin" }) => void;
+        /** BJ-4：遗忘卡错误原因标注（旁路增强） */
+        tagErrorReason?: (cardID: string, reason: string) => void;
         getRevlog: () => RevlogData;
         isSuspendedToday: (cardID: string) => boolean;
         suspendToday: (cardID: string) => void;
@@ -98,6 +100,19 @@
     let hintLevel: HintLevel | null = $state(null);
     let hintText = $state("");
     let hintLog: ReturnType<typeof logHint>[] = $state([]);
+    // BJ-4：遗忘卡错误原因标注（评分后可选旁路动作）
+    const ERROR_REASONS_ZH: Record<string, string> = {
+        "memory-blank": "记忆空白",
+        "concept-confusion": "概念混淆",
+        "condition-missed": "条件遗漏",
+        "step-error": "步骤错误",
+        "question-unclear": "题面不清",
+        "source-outdated": "来源过时",
+        "attention-lapse": "注意力中断",
+    };
+    let showErrTags = $state(false);
+    let errTagCardID = $state("");
+    let errTagged = $state(false);
     let cardHtml = $state("");
     // 复习范围（M3·FR1）：all | deck:<id> | notebook:<id>
     // 初值语义：范围仅经命令/考试入口传入一次，运行时由用户切换
@@ -629,6 +644,12 @@
             reviewedIDs = [...reviewedIDs, current.cardID];
             if (rating === 1) {
                 sessionForget += 1;
+                // BJ-4：遗忘后显示错误原因标注（旁路增强，不阻塞下一张）
+                if (ctx.tagErrorReason) {
+                    errTagCardID = current.cardID;
+                    errTagged = false;
+                    showErrTags = true;
+                }
                 // 忘记卡本批重现（M3）：评 1 的卡在批尾再出现一次，会话内强化，不动内核调度
                 if (eff().requeueAgain) {
                     queue = [...queue, { ...current, lvRequeue: 1 }];
@@ -1222,6 +1243,18 @@
         </div>
     {/if}
 
+    {#if showErrTags && !errTagged && ctx.tagErrorReason}
+        <!-- BJ-4：遗忘卡错误原因标注（旁路增强；点选后自动隐藏） -->
+        <div class="lv-err-tags">
+            <span class="ft__smaller ft__on-surface">{t.review.errTagPrompt}</span>
+            {#each Object.entries(ERROR_REASONS_ZH) as [reason, label] (reason)}
+                <button class="b3-button b3-button--small lv-err-tag" onclick={() => { ctx.tagErrorReason?.(errTagCardID, reason); errTagged = true; }}>
+                    {label}
+                </button>
+            {/each}
+        </div>
+    {/if}
+
     {#if helpOpen}
         <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
         <div class="lv-help lv-glass" tabindex="-1" bind:this={helpEl} transition:fade={{ duration: 160 }} onclick={(e: Event) => e.stopPropagation()}>
@@ -1331,6 +1364,16 @@
             .lv-timeout-low { color: var(--b3-theme-error); font-weight: 700; }
             .lv-tags { display: flex; gap: var(--lv-sp-1); }
         }
+
+        .lv-err-tags {
+            display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+            padding: var(--lv-sp-2) var(--lv-sp-3);
+            margin: 0 auto;
+            font-size: 12px;
+            background: var(--b3-theme-surface);
+            border-radius: var(--b3-border-radius);
+        }
+        .lv-err-tag { opacity: .8; }
 
         .lv-card {
             flex: 1;
