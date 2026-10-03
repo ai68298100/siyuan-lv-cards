@@ -29,7 +29,7 @@ import { cardsCreatedEvent, gatewayChangedEvent, LV_EVENTS, reviewedEvent, sessi
 import { deriveInstance, emptyKnowledgeObjects, findBySource, normalizeKnowledgeObjects, registerObject, removeInstance, toggleInstance, type KnowledgeObjectsData } from "./core/knowledge-objects";
 import { capabilityShare } from "./core/capability-types";
 import { addRelation, detachCard, emptyCardRelations, normalizeCardRelations, relationsOf, removeRelation, type CardRelationsData, type RelationType } from "./core/card-relations";
-import { emptyErrorTags, normalizeErrorTags, tagError, type ErrorTagsData, type ErrorReason } from "./core/error-reasons";
+import { emptyErrorTags, errorReasonStats, normalizeErrorTags, tagError, type ErrorTagsData, type ErrorReason } from "./core/error-reasons";
 import { appendBlock, createDocWithMd, getNotebooks, getBlockDOM, getBlockDocMap, getDocTitles, exportMdContent, sqlQuery, kernelVersion } from "./api/siyuan";
 import { aiChat, estimateTokens, parseCards, isAICanceled } from "./api/ai";
 import { normalizeSuspendToday, rollDateIfNeeded, isSuspended, suspend, type SuspendTodayData } from "./core/suspend-today";
@@ -289,6 +289,12 @@ export default class LvCardsPlugin extends Plugin {
                             getCapabilityShare: () => {
                                 const all = plugin.knowledgeObjects.objects.flatMap(o => o.instances);
                                 return capabilityShare(all);
+                            },
+                            getErrorReasonStats: () => {
+                                const stats = errorReasonStats(plugin.errorTags.tags);
+                                return Object.entries(stats)
+                                    .filter(([, count]) => count > 0)
+                                    .map(([reason, count]) => ({ reason, count }));
                             },
                         },
                         managerCtx: {

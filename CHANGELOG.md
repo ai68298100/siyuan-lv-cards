@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.132.0 2026-10-04 · BJ-4 仪表盘错误原因分布
+
+* dashboard ctx 新增 getErrorReasonStats（errorReasonStats 全量累计，>0 过滤）
+* 总览新增「错误原因分布」LvSection（七类原因本地化标签 + 计数；无标注时区块隐藏）
+* AT-14 勾选（门禁 ⑨ 生效 + 预算修订达成）；i18n errReasons 段 10 键（601 对齐）
+* 335/335 测试；0 errors/0 warnings；governance OK（931 条）
 ## v0.131.0 2026-10-04 · BJ-4 标注 UI + error-tags.json 存储接线
 
 * review.svelte 遗忘评分后显示七类错误原因 chips 行（旁路增强：点选即标注并隐藏，不阻塞下一张；ctx 注入 tagErrorReason）

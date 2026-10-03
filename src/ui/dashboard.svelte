@@ -43,6 +43,8 @@
         getHeatmapWeeks: () => number;
         /** BJ-1：能力分布统计（基于已登记知识对象实例；口径=插件侧标注覆盖） */
         getCapabilityShare?: () => { cap: string; count: number; pct: number }[];
+        /** BJ-4：错误原因分布统计（遗忘卡标注；口径=当日或全量） */
+        getErrorReasonStats?: () => { reason: string; count: number }[];
     }
 
     let { ctx }: { ctx: DashboardCtx } = $props();
@@ -67,6 +69,8 @@
     let unfinishedAI = $state<{ id: string; done: number; total: number } | null>(null);
     /** BJ-1：能力分布（知识对象实例标注；null=宿主未提供或无数据） */
     let koStats = $state<{ cap: string; count: number; pct: number }[] | null>(null);
+    /** BJ-4：错误原因分布（遗忘卡标注；null=宿主未提供或无数据） */
+    let errStats = $state<{ reason: string; count: number }[] | null>(null);
     let totalCards = $state(0);
     let heat: { date: string; stat: { new: number; review: number; forget: number } }[] = $state([]);
     let revlogNote = $state("");
@@ -237,6 +241,7 @@
             unfinishedAI = ctx.getUnfinishedAIJob?.() ?? null;
             // BJ-1：能力分布（可选 ctx；无实例返回空数组→区块隐藏）
             koStats = ctx.getCapabilityShare?.() ?? null;
+            errStats = ctx.getErrorReasonStats?.() ?? null;
             if (seq !== refreshSeq) {
                 return; // 文档归属查询期间用户已刷新（AR-6 generation 守卫）
             }
@@ -646,6 +651,20 @@
                         <div class="lv-stat-mini">
                             <div class="lv-mini-label">{s.cap}</div>
                             <div class="lv-mini-num">{s.count} <span class="ft__smaller ft__on-surface">({s.pct}%)</span></div>
+                        </div>
+                    {/each}
+                </div>
+            </LvSection>
+        {/if}
+
+        {#if errStats && errStats.length > 0}
+            <!-- BJ-4：错误原因分布（遗忘卡标注；口径=全量累计） -->
+            <LvSection title={t.errReasons.title} sub={t.errReasons.sub}>
+                <div class="fn__flex fn__flex-wrap lv-caps">
+                    {#each errStats as s (s.reason)}
+                        <div class="lv-stat-mini">
+                            <div class="lv-mini-label">{t.errReasons[s.reason] ?? s.reason}</div>
+                            <div class="lv-mini-num">{s.count}</div>
                         </div>
                     {/each}
                 </div>
