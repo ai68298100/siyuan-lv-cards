@@ -24,6 +24,10 @@
         getLapsesMap: () => Record<string, number>;
         /** 今日到期块 ID 清单（内核到期卡片，含 blockID） */
         getDueBlockIDs: () => Promise<string[]>;
+        /** BK-2：关系视图/增删（v0.123.0；可选——旧宿主不传则详情不显示关系区） */
+        relationsOfBlock?: (blockID: string) => { relation: { from: string; to: string; type: string; createdAt: number }; direction: "outgoing" | "incoming" }[];
+        addRelation?: (from: string, to: string, type: string) => void;
+        removeRelation?: (from: string, to: string, type: string) => void;
     }
 
     let { ctx }: { ctx: ManagerCtx } = $props();
@@ -56,6 +60,7 @@
     let pickedSaved = $state("");
     let selected: string[] = $state([]);
     let detail: SearchBlock | null = $state(null);
+    let detailRelations: { relation: { from: string; to: string; type: string; createdAt: number }; direction: "outgoing" | "incoming" }[] = $state([]);
 
     let filteredBlocks = $derived(
         (() => {
@@ -194,6 +199,8 @@
             return;
         }
         detail = b;
+        // BK-2：详情打开时载入该块的关系视图（本地镜像，增删后经 ctx 刷新）
+        detailRelations = ctx.relationsOfBlock?.(b.id) ?? [];
     }
 
     function openDoc(block: SearchBlock) {
@@ -318,6 +325,17 @@
         {t}
         onOpenDoc={() => openDoc(detail!)}
         onClose={() => (detail = null)}
+        relationsCtx={ctx.relationsOfBlock ? {
+            relations: detailRelations,
+            onadd: (f, to, ty) => {
+                ctx.addRelation?.(f, to, ty);
+                detailRelations = ctx.relationsOfBlock?.(detail!.id) ?? [];
+            },
+            onremove: (f, to, ty) => {
+                ctx.removeRelation?.(f, to, ty);
+                detailRelations = ctx.relationsOfBlock?.(detail!.id) ?? [];
+            },
+        } : undefined}
     />
 {/if}
 

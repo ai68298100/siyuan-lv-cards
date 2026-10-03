@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.123.0 2026-10-04 · BK-2 UI：关系查看/新建/删除面板
+
+* 新增 relations-panel.svelte（Kit 级 props 注入可测）：双向视图（→/←方向标注）+ 七类关系本地化 + 新建表单校验（目标必填/拒自环）+ 逐行删除；4 组组件单测
+* card-detail 抽屉嵌入关系区（manager ctx 注入 relationsOfBlock/addRelation/removeRelation，旧宿主缺省不显示）；管理器删卡同步 detachCard 端点清理
+* 实体 id 口径声明：当前=块 ID（core/card-relations.ts 头注）；i18n +15 键（546→561）
+* 测试 309→313；0 errors/0 warnings；主包 gzip 30.21KB
 ## v0.122.0 2026-10-04 · BK-1/BK-2 存储接线：知识对象与关系图入列插件私有数据
 
 * knowledge-objects.json / relations.json 并入 STORE_KEYS 批量加载（AQ-1 同模式）+ normalize 白名单清洗 + persist 保存方法（saveKnowledgeObjects/saveCardRelations，重试与失败记录由队列承担）

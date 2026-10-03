@@ -1,10 +1,12 @@
 /**
  * BK-2 卡片关系图（纯模块，node 可单测）。
- * 设计：关系是**纯元数据**（插件私有 relations.json）——只记录卡与卡之间的语义关联，
+ * 设计：关系是**纯元数据**（插件私有 relations.json）——只记录实体之间的语义关联，
  * 绝不产生第二调度器（不改变内核 due/间隔；BH-3 口径）。
+ * 实体 id 口径：当前=承载卡的**块 ID**（思源块原子性；UI 从卡片详情抽屉以块维度操作），
+ * from/to 为透明字符串，未来换 riff cardID 无需改结构。
  * 关系类型：sibling（兄弟变体）/ prerequisite（前置）/ example（示例）/ counterexample（反例）/
  * source（来源）/ application（应用）/ alternative（替代表述）。
- * 规则：仅手工创建（不自动推理建边）；无自环；同 from+to+type 去重；删除内核卡时按 cardID 端点清理。
+ * 规则：仅手工创建（不自动推理建边）；无自环；同 from+to+type 去重；删除实体时按端点清理。
  */
 
 export const RELATION_TYPES = [

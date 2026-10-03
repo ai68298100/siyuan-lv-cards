@@ -3,12 +3,19 @@
     import { getBlockDOM } from "@/api/siyuan";
     import type { SearchBlock } from "@/api/riff";
     import LvDrawer from "./kit/LvDrawer.svelte";
+    import RelationsPanel from "./relations-panel.svelte";
 
-    let { block, t, onOpenDoc, onClose }: {
+    let { block, t, onOpenDoc, onClose, relationsCtx }: {
         block: SearchBlock;
         t: any;
         onOpenDoc: () => void;
         onClose: () => void;
+        /** BK-2：关系面板数据与持久化回调（宿主注入；缺省=不显示关系区） */
+        relationsCtx?: {
+            relations: { relation: { from: string; to: string; type: string; createdAt: number }; direction: "outgoing" | "incoming" }[];
+            onadd: (from: string, to: string, type: string) => void;
+            onremove: (from: string, to: string, type: string) => void;
+        };
     } = $props();
 
     let html = $state("");
@@ -39,6 +46,15 @@
         <div>{t.manager.detailBlockId}: {block.id}</div>
         {#if block.hPath}<div>{block.hPath}</div>{/if}
     </div>
+    {#if relationsCtx}
+        <RelationsPanel
+            entityId={block.id}
+            relations={relationsCtx.relations}
+            t={t}
+            onadd={relationsCtx.onadd}
+            onremove={relationsCtx.onremove}
+        />
+    {/if}
 </LvDrawer>
 
 <style>

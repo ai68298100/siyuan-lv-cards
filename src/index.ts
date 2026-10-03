@@ -27,7 +27,7 @@ import { addRiffCards, cachedDueCount, dueCache, invalidateDueCache } from "./ap
 import { createPerf } from "./libs/perf";
 import { cardsCreatedEvent, gatewayChangedEvent, LV_EVENTS, reviewedEvent, sessionFinishedEvent, settingsChangedEvent, streakChangedEvent } from "./libs/events";
 import { emptyKnowledgeObjects, normalizeKnowledgeObjects, type KnowledgeObjectsData } from "./core/knowledge-objects";
-import { emptyCardRelations, normalizeCardRelations, type CardRelationsData } from "./core/card-relations";
+import { addRelation, detachCard, emptyCardRelations, normalizeCardRelations, relationsOf, removeRelation, type CardRelationsData, type RelationType } from "./core/card-relations";
 import { appendBlock, createDocWithMd, getNotebooks, getBlockDOM, getBlockDocMap, getDocTitles, exportMdContent, sqlQuery, kernelVersion } from "./api/siyuan";
 import { aiChat, estimateTokens, parseCards, isAICanceled } from "./api/ai";
 import { normalizeSuspendToday, rollDateIfNeeded, isSuspended, suspend, type SuspendTodayData } from "./core/suspend-today";
@@ -311,6 +311,18 @@ export default class LvCardsPlugin extends Plugin {
                                     return (due.cards ?? []).map(c => c.blockID).filter(Boolean);
                                 } catch {
                                     return [];
+                                }
+                            },
+                            // BK-2：关系视图/增删（relations.json 持久化经 saveCardRelations）
+                            relationsOfBlock: (blockID: string) => relationsOf(plugin.cardRelations, blockID),
+                            addRelation: (from: string, to: string, type: string) => {
+                                if (addRelation(plugin.cardRelations, from, to, type as RelationType)) {
+                                    plugin.saveCardRelations();
+                                }
+                            },
+                            removeRelation: (from: string, to: string, type: string) => {
+                                if (removeRelation(plugin.cardRelations, from, to, type as RelationType)) {
+                                    plugin.saveCardRelations();
                                 }
                             },
                         },
@@ -911,6 +923,14 @@ export default class LvCardsPlugin extends Plugin {
             // 🧪 deckID 传空的跨集删除语义待 docs/18 实测确认
             await removeRiffCards("", ids);
             invalidateDueCache(); // AT-4：删卡改变到期数
+            // BK-2：内核卡已删，关系图端点同步清理
+            let detached = 0;
+            for (const id of ids) {
+                detached += detachCard(this.cardRelations, id);
+            }
+            if (detached > 0) {
+                this.saveCardRelations();
+            }
             showMessage(this.i18n.deckRemoved.replace("${n}", String(ids.length)), 2000, "info");
         } catch (e: any) {
             showMessage(e?.message ?? String(e), 3000, "error");
