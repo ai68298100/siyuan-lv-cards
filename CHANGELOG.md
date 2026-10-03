@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.140.0 2026-10-04 · BJ-2 提示级别指示器 + 代码清理
+
+* hintLevelText()：提示文本区域显示当前级别位置（如 1/2）
+* 清理未使用导入（HINT_LEVELS/buildSummary）
+* 341/341 测试；0 errors/0 warnings
 ## v0.139.0 2026-10-04 · BJ-2 full 级行为修正（即翻面）+ AS-4 保存成功播报接线
 
 * BJ-2 行为修正：full 级=即翻面（showAnswer=true 并重置提示状态），此前 full 级展示全文为 hint text 与设计意图不符
