@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.121.0 2026-10-04 · BK-2 卡片关系图（纯模块）
+
+* 新增 core/card-relations.ts：七类关系（兄弟/前置/示例/反例/来源/应用/替代）——normalize 清洗（自环/坏边/重复剔除）、addRelation 去重建边、removeRelation 删边、relationsOf 双向视图、detachCard 内核卡删除端点清理
+* 纯元数据定位：不改变内核 due/间隔，绝不产生第二调度器（BH-3 口径）；仅手工建边不自动推理
+* 6 组单测；测试 303→309；0 errors/0 warnings
 ## v0.120.0 2026-10-04 · BK-1 知识对象与卡实例分离（纯模块）
 
 * 新增 core/knowledge-objects.ts：KnowledgeObject（核心事实 + N 题型卡实例）模型——实例挂内核 riff cardID（卡片身份归内核），对象用 ko- 私有 id；存储设计小节在模块头（knowledge-objects.json，persist 队列同口径）
