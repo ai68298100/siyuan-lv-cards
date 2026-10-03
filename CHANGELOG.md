@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.115.0 2026-10-04 · BU-20 黄金样本评测集（离线子集）：九类卡型契约
+
+* 新增 tests/golden-samples.spec.ts：问答/挖空/语言/表格/代码/公式/长材料/冲突来源/脏输出九类脱敏 fixture，钉死 parseCards+lintAICards 输出契约（未来换模型/提示词的回归基线）
+* 契约要点：围栏与噪声容忍、cloze/LaTeX/代码缩进逐字符保真、冲突来源不合并留用户裁决、脏输出丢弃口径（空卡丢、坏难度丢标注不丢卡、字符串难度收敛）、token 估算有界
+* 测试 263→274（黄金 11 组）；0 errors/0 warnings
+
 ## v0.114.0 2026-10-04 · AX-2 事件契约版本化 + AQ-16 解析上限
 
 * 勾选 AX-2（P1）：新增 libs/events.ts 事件契约单一事实源——LV_EVENTS 事件名常量（6 事件）+ builders（plugin/v=1/ts 毫秒统一填充，payload 只增不改约定）+ 幂等键构造注释；index.ts 全部 emit/on 迁移（裸字符串清零，含此前遗漏的 gateway-changed）；4 组契约单测
