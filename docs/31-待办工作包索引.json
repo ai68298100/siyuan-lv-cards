@@ -352,9 +352,9 @@
    "revisitAt": "切片完成或宿主/模型/模板/schema/权限变化、用户反例出现时",
    "conditionalPrerequisites": [],
    "summary": {
-    "total": 25,
+    "total": 26,
     "done": 6,
-    "pending": 19
+    "pending": 20
    },
    "blocks": [
     "WP-management-search"
@@ -15135,17 +15135,33 @@
    "phase": "W2 核实上游行为后决定前端聚合兜底",
    "specificationDocument": "",
    "acceptanceReferences": []
+  },
+  {
+   "id": "AT-14",
+   "status": "open",
+   "checkbox": " ",
+   "priority": "P2",
+   "group": "AT",
+   "groupName": "Petal 生命周期与性能卫生（第五轮定向，仅扩充规划）",
+   "title": "**主包体积回降计划**（v0.124.0 登记：BK-1 存储接线后主包 gzip 32.05KB 破自设 32KB 预算，归因知识对象模块+ko ctx 接线入主包；门禁未 CI 化故未拦截——治理缺口同记）：候选手段=①诊断字符串模板延迟构建 ②ko/relations ctx 操作改为懒加载模块转发 ③i18n 精简（低优）④32KB 门禁纳入 check-governance 防复发。 owner=`WP-performance`；阶段 W2。验收：主包 gzip 回到 32KB 内且新门禁入 check-governance。 AI：不适用。 无 AI/缺能力：即本条主体。",
+   "backlogLine": 783,
+   "primaryPackage": "WP-performance",
+   "linksTo": [],
+   "relatedLegacyIds": [],
+   "phase": "W2",
+   "specificationDocument": "",
+   "acceptanceReferences": []
   }
  ],
  "governanceDocument": "docs/30-待办治理与执行顺序.md",
  "governanceVersion": "1.2",
  "summary": {
   "packages": 38,
-  "total": 930,
+  "total": 931,
   "done": 192,
-  "open": 735,
+  "open": 736,
   "special": 3,
-  "pending": 738
+  "pending": 739
  },
  "experienceDocument": "docs/32-产品体验优化与页面蓝图.md",
  "experienceRefinements": [

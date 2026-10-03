@@ -144,3 +144,21 @@ export function activeInstances(obj: KnowledgeObject): CardInstance[] {
 export function findObject(data: KnowledgeObjectsData, id: string): KnowledgeObject | undefined {
     return data.objects.find(o => o.id === id);
 }
+
+/** 按来源块查找（一个块至多注册一个对象——BK-1 口径，多题型走实例派生） */
+export function findBySource(data: KnowledgeObjectsData, sourceBlockID: string): KnowledgeObject | undefined {
+    return data.objects.find(o => o.sourceBlockID === sourceBlockID);
+}
+
+/** 注册新对象：fact=块文本规范表述，来源块绑定；返回新对象（id 自动生成 ko- 前缀） */
+export function registerObject(data: KnowledgeObjectsData, fact: string, sourceBlockID: string, now: number = Date.now()): KnowledgeObject {
+    const obj: KnowledgeObject = {
+        id: `ko-${now.toString(36)}`,
+        fact: fact.trim().slice(0, 500),
+        sourceBlockID,
+        instances: [],
+        updatedAt: now,
+    };
+    data.objects.push(obj);
+    return obj;
+}

@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.124.0 2026-10-04 · BK-1 制卡派生 UI：知识对象面板 + 详情抽屉嵌入
+
+* 新增 ko-panel.svelte（props 注入可测）：核心事实展示 + 实例清单（停用开关翻转/移除）+ 派生下拉（自动排除已有卡型；deriving 禁用态）；5 组组件单测
+* card-detail 嵌入知识对象区：未注册显示「注册为知识对象」（fact=块文本），已注册显示面板；manager koCtx 注入（快照/注册/停用/移除/异步派生——派生查 getRiffCardsByBlockIDs 取 riff 卡 ID）
+* i18n ko 段 22 键（584 对齐）；测试 313→318；0 errors/0 warnings
+* ⚠️ 主包 gzip 32.05KB 破自设 32KB 预算：登记 AT-14 回降计划（门禁未 CI 化，治理缺口同记）
 ## v0.123.0 2026-10-04 · BK-2 UI：关系查看/新建/删除面板
 
 * 新增 relations-panel.svelte（Kit 级 props 注入可测）：双向视图（→/←方向标注）+ 七类关系本地化 + 新建表单校验（目标必填/拒自环）+ 逐行删除；4 组组件单测

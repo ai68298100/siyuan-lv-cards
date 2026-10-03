@@ -28,6 +28,14 @@
         relationsOfBlock?: (blockID: string) => { relation: { from: string; to: string; type: string; createdAt: number }; direction: "outgoing" | "incoming" }[];
         addRelation?: (from: string, to: string, type: string) => void;
         removeRelation?: (from: string, to: string, type: string) => void;
+        /** BK-1：知识对象快照与操作（可选——旧宿主不传则详情不显示知识对象区） */
+        ko?: {
+            snapshot: (blockID: string) => { registered: boolean; fact: string; instances: { cardID: string; cardType: string; capability: string | null; disabled: boolean }[] };
+            register: (blockID: string, fact: string) => void;
+            toggle: (blockID: string, cardID: string, disabled: boolean) => void;
+            remove: (blockID: string, cardID: string) => void;
+            derive: (blockID: string, cardType: string) => Promise<void>;
+        };
     }
 
     let { ctx }: { ctx: ManagerCtx } = $props();
@@ -61,6 +69,8 @@
     let selected: string[] = $state([]);
     let detail: SearchBlock | null = $state(null);
     let detailRelations: { relation: { from: string; to: string; type: string; createdAt: number }; direction: "outgoing" | "incoming" }[] = $state([]);
+    let detailKo: { registered: boolean; fact: string; instances: { cardID: string; cardType: string; capability: string | null; disabled: boolean }[] } | null = $state(null);
+    let koDeriving = $state(false);
 
     let filteredBlocks = $derived(
         (() => {
@@ -201,6 +211,7 @@
         detail = b;
         // BK-2：详情打开时载入该块的关系视图（本地镜像，增删后经 ctx 刷新）
         detailRelations = ctx.relationsOfBlock?.(b.id) ?? [];
+        detailKo = ctx.ko ? ctx.ko.snapshot(b.id) : null;
     }
 
     function openDoc(block: SearchBlock) {
@@ -334,6 +345,31 @@
             onremove: (f, to, ty) => {
                 ctx.removeRelation?.(f, to, ty);
                 detailRelations = ctx.relationsOfBlock?.(detail!.id) ?? [];
+            },
+        } : undefined}
+        koCtx={ctx.ko ? {
+            snapshot: detailKo ?? { registered: false, fact: "", instances: [] },
+            deriving: koDeriving,
+            onregister: () => {
+                ctx.ko?.register(detail!.id, detail!.content ?? "");
+                detailKo = ctx.ko!.snapshot(detail!.id);
+            },
+            ontoggle: (cardID, disabled) => {
+                ctx.ko?.toggle(detail!.id, cardID, disabled);
+                detailKo = ctx.ko!.snapshot(detail!.id);
+            },
+            onremove: (cardID) => {
+                ctx.ko?.remove(detail!.id, cardID);
+                detailKo = ctx.ko!.snapshot(detail!.id);
+            },
+            onderive: async (cardType) => {
+                koDeriving = true;
+                try {
+                    await ctx.ko?.derive(detail!.id, cardType);
+                } finally {
+                    koDeriving = false;
+                    detailKo = ctx.ko!.snapshot(detail!.id);
+                }
             },
         } : undefined}
     />

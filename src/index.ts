@@ -26,7 +26,7 @@ import { createRiffDeck, getRiffCardsByBlockIDs, getRiffDecks, removeRiffCards }
 import { addRiffCards, cachedDueCount, dueCache, invalidateDueCache } from "./api/due-shared";
 import { createPerf } from "./libs/perf";
 import { cardsCreatedEvent, gatewayChangedEvent, LV_EVENTS, reviewedEvent, sessionFinishedEvent, settingsChangedEvent, streakChangedEvent } from "./libs/events";
-import { emptyKnowledgeObjects, normalizeKnowledgeObjects, type KnowledgeObjectsData } from "./core/knowledge-objects";
+import { deriveInstance, emptyKnowledgeObjects, findBySource, normalizeKnowledgeObjects, registerObject, removeInstance, toggleInstance, type KnowledgeObjectsData } from "./core/knowledge-objects";
 import { addRelation, detachCard, emptyCardRelations, normalizeCardRelations, relationsOf, removeRelation, type CardRelationsData, type RelationType } from "./core/card-relations";
 import { appendBlock, createDocWithMd, getNotebooks, getBlockDOM, getBlockDocMap, getDocTitles, exportMdContent, sqlQuery, kernelVersion } from "./api/siyuan";
 import { aiChat, estimateTokens, parseCards, isAICanceled } from "./api/ai";
@@ -324,6 +324,44 @@ export default class LvCardsPlugin extends Plugin {
                                 if (removeRelation(plugin.cardRelations, from, to, type as RelationType)) {
                                     plugin.saveCardRelations();
                                 }
+                            },
+                            // BK-1：知识对象快照与操作（派生=查 riff 卡 ID 后登记实例）
+                            ko: {
+                                snapshot: (blockID: string) => {
+                                    const obj = findBySource(plugin.knowledgeObjects, blockID);
+                                    return obj
+                                        ? { registered: true, fact: obj.fact, instances: obj.instances.map(i => ({ ...i })) }
+                                        : { registered: false, fact: "", instances: [] };
+                                },
+                                register: (blockID: string, fact: string) => {
+                                    if (!findBySource(plugin.knowledgeObjects, blockID)) {
+                                        registerObject(plugin.knowledgeObjects, fact, blockID);
+                                        plugin.saveKnowledgeObjects();
+                                    }
+                                },
+                                toggle: (blockID: string, cardID: string, disabled: boolean) => {
+                                    const obj = findBySource(plugin.knowledgeObjects, blockID);
+                                    if (obj && toggleInstance(obj, cardID, disabled)) {
+                                        plugin.saveKnowledgeObjects();
+                                    }
+                                },
+                                remove: (blockID: string, cardID: string) => {
+                                    const obj = findBySource(plugin.knowledgeObjects, blockID);
+                                    if (obj && removeInstance(obj, cardID)) {
+                                        plugin.saveKnowledgeObjects();
+                                    }
+                                },
+                                derive: async (blockID: string, cardType: string) => {
+                                    const obj = findBySource(plugin.knowledgeObjects, blockID);
+                                    if (!obj) return;
+                                    try {
+                                        const { blocks } = await getRiffCardsByBlockIDs([blockID]);
+                                        const cardID = blocks?.[0]?.id;
+                                        if (cardID && deriveInstance(obj, { cardID, cardType })) {
+                                            await plugin.saveKnowledgeObjects();
+                                        }
+                                    } catch { /* 派生失败静默：面板状态不变，可重试 */ }
+                                },
                             },
                         },
                         exam: plugin.settings.modules.exam ? {
