@@ -158,7 +158,10 @@
         "prefsHint": "Applies to this review panel only; global settings restored on leave; order overrides apply from the next queue load",
         "prefsReset": "Reset all",
         "prefsFour": "Four",
-        "prefsThree": "Three"
+        "prefsThree": "Three",
+        "liveRated": "Rating submitted, next card",
+        "liveSkipped": "Skipped, next card",
+        "liveQueued": "Review queue loaded: ${n} cards"
     },
     "manager": {
         "title": "Card Manager",

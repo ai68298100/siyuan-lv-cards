@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.113.0 2026-10-04 · AS-4 读屏播报基础版：LvLive + 复习四路接线
+
+* 新增 kit/LvLive：aria-live 读屏专用组件（polite→status / assertive→alert，视觉隐藏不扰布局）
+* review 四路播报：评分提交/跳过/队列加载 n 张（polite）、评分错误（assertive 透传 friendlyError）
+* AQ-4 复核：persist onFail→30s 限流 toast+诊断+lvLog 链路 v0.95 起已闭环，本条余验收仅剩无 unload 退出模拟（真机项）
+* i18n 536→539 键；257/257 测试；0 errors/0 warnings
 ## v0.112.0 2026-10-04 · AS-9/AS-10 可访问性：键盘模型与表单标签关联
 
 * LvTabs（AS-9）：左右/Home/End 键盘模型（WAI-ARIA Tabs 惯例）+ roving tabindex + 唯一 id 契约 lv-tab-{id}（宿主据此 aria-controls 关联面板）+ type=button；3 组键盘单测

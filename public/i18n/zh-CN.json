@@ -158,7 +158,10 @@
         "prefsHint": "仅当前复习面板生效，切页后还原全局设置；顺序类覆盖自下一批队列生效",
         "prefsReset": "还原全部",
         "prefsFour": "四档",
-        "prefsThree": "三档"
+        "prefsThree": "三档",
+        "liveRated": "已提交评分，下一张",
+        "liveSkipped": "已跳过，下一张",
+        "liveQueued": "复习队列已加载 ${n} 张"
     },
     "manager": {
         "title": "闪卡管理器",

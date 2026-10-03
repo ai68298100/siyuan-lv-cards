@@ -15,6 +15,7 @@
     import { mergeSessionPrefs, pruneSessionPrefs } from "@/core/session-prefs";
     import { invalidateDueCache } from "@/api/due-shared";
     import LvKbd from "./kit/LvKbd.svelte";
+    import LvLive from "./kit/LvLive.svelte";
     import LvChip from "./kit/LvChip.svelte";
     import LvError from "./kit/LvError.svelte";
     import { friendlyError } from "@/api/errors";
@@ -153,6 +154,13 @@
     let audioCtx: AudioContext | null = null;
     // 快捷键帮助覆盖层（AB 组）
     let helpOpen = $state(false);
+    // AS-4：读屏播报（评分/跳过/加载/完成 → polite；错误 → assertive）
+    let liveMsg = $state("");
+    let liveTone = $state<"polite" | "assertive">("polite");
+    function announce(msg: string, tone: "polite" | "assertive" = "polite") {
+        liveMsg = msg;
+        liveTone = tone;
+    }
     let showReschedule = $state(false);
     /** BX-3 本场偏好：覆盖全局设置（仅当前复习面板生命周期内有效，切页后还原） */
     let sessionOverride: Partial<ReviewSettings> = $state({});
@@ -339,6 +347,9 @@
                 cards = shuffle(cards);
             }
             queue = cards;
+            if (queue.length > 0) {
+                announce(t.review.liveQueued.replace("${n}", String(queue.length)), "polite");
+            }
             if (queue.length === 0) {
                 current = null;
                 const finished = !sessionDone; // 只在首次进入完成态时广播
@@ -624,10 +635,12 @@
             }
             // AQ-2：先更新计数再落盘——重载恢复的进度与界面一致，不丢刚评的一张
             persistSession();
+            announce(t.review.liveRated, "polite");
             await next();
         } catch (e: any) {
             // 评分失败保留现场（AJ11）：当前卡/答案态/队列不动，只提示错误
             errorMsg = friendlyError(e, t);
+            announce(errorMsg, "assertive");
         } finally {
             submitting = false;
         }
@@ -649,6 +662,7 @@
             sessionSkipped = [...sessionSkipped, current.cardID];
             // AQ-2：skip 也落盘——故障注入重载后跳过的卡不重复出现
             persistSession();
+            announce(t.review.liveSkipped, "polite");
             await next();
         } catch (e: any) {
             errorMsg = friendlyError(e, t);
@@ -928,6 +942,8 @@
     ontouchend={onTouchEnd}
     tabindex="-1"
 >
+    <!-- AS-4：读屏播报区域（视觉隐藏） -->
+    <LvLive message={liveMsg} tone={liveTone} />
     {#if loading}
         <div class="lv-center">{t.dashboard.loading}</div>
     {:else if errorMsg}
