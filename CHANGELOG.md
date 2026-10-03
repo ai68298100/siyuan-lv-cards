@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.134.1 2026-10-04 · BJ-4 标注标签国际化修复
+
+* 修复：BJ-4 错误原因标注 chips 标签此前硬编码中文（英文用户看到中文标签），改为 i18n errReasons 段引用
+* 335/335 测试；0 errors/0 warnings
+
 ## v0.134.0 2026-10-04 · BK-1↔BJ-2 集成：知识对象事实优先作提示内容
 
 * review ctx 新增 getKOBySource（按来源块查知识对象 fact+capability）
