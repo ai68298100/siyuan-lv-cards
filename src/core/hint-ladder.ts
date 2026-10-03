@@ -76,3 +76,32 @@ export function hintStats(log: HintLogEntry[]): { totalHints: number; cardsWithH
     }
     return { totalHints: log.length, cardsWithHints: cards.size, deepest };
 }
+
+/**
+ * BJ-2 内容推导（v0.133.0）：从卡面纯文本自动推导 HintLevelsInput。
+ * 无需预标注——任何卡都有可用的分级提示。
+ * 策略：
+ * - full = 完整文本
+ * - explanation = 第一句完整句（含句号/问号/感叹号的句子）
+ * - keyword = 第一句中首个粗体/高亮标记内的词，或前 20% 的关键词区域
+ * - context = 来源描述（调用方可选附加）
+ * - recall-target 不推导（依赖卡片题型语义，纯文本无法推断）
+ */
+export function deriveHintLevels(plainText: string): HintLevelsInput {
+    const text = plainText.trim();
+    if (!text) return { full: "" };
+
+    // explanation：第一句完整句（含终止标点或全部文本）
+    const sentenceMatch = text.match(/^[^。？！.?!]*[。？！.?!]/);
+    const explanation = sentenceMatch ? sentenceMatch[0].trim() : text;
+
+    // keyword：优先取粗体/高亮标记内容，否则取第一句的前 30%
+    const boldMatch = text.match(/<(?:strong|b|mark|em)>(.+?)<\/(?:strong|b|mark|em)>/);
+    const keyword = boldMatch ? boldMatch[1].trim() : explanation.slice(0, Math.max(1, Math.ceil(explanation.length * 0.3)));
+
+    return {
+        keyword,
+        explanation,
+        full: text,
+    };
+}

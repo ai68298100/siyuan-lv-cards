@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.133.0 2026-10-04 · BJ-2 提示内容推导：从卡面文本自动生成分级提示
+
+* 新增 deriveHintLevels 纯函数：从卡面纯文本自动推导 HintLevelsInput（无需预标注）
+* 推导策略：explanation=第一句完整句、keyword=粗体/高亮标记内容或前 30%、full=全部文本
+* review.svelte advanceHint 改用推导结果（此前硬编码前 30 字符）
+* 6 组推导单测；测试 335→341；0 errors/0 warnings
 ## v0.132.0 2026-10-04 · BJ-4 仪表盘错误原因分布
 
 * dashboard ctx 新增 getErrorReasonStats（errorReasonStats 全量累计，>0 过滤）

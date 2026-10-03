@@ -14,7 +14,7 @@
     import { todayKey } from "@/core/exam";
     import { mergeSessionPrefs, pruneSessionPrefs } from "@/core/session-prefs";
     import { invalidateDueCache } from "@/api/due-shared";
-    import { nextHint, logHint, type HintLevel, type HintLevelsInput } from "@/core/hint-ladder";
+    import { nextHint, logHint, deriveHintLevels, type HintLevel, type HintLevelsInput } from "@/core/hint-ladder";
     import LvKbd from "./kit/LvKbd.svelte";
     import LvLive from "./kit/LvLive.svelte";
     import LvChip from "./kit/LvChip.svelte";
@@ -704,19 +704,16 @@
         await next();
     }
 
-    /** BJ-2：推进分级提示（不自动提交评分；纯展示+日志） */
+    /** BJ-2：推进分级提示（不自动提交评分；纯展示+日志；v0.133.0 内容推导） */
     function advanceHint() {
         if (!current || showAnswer) return;
         const text = (cardHtml || "").replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
         if (!text) return;
-        const input: HintLevelsInput = {
-            keyword: text.slice(0, Math.min(30, text.length)),
-            full: text,
-        };
+        const input = deriveHintLevels(text);
         const result = nextHint(input, hintLevel);
         if (result) {
             hintLevel = result.level;
-            hintText = result.text;
+            hintText = result.text ?? "";
             hintLog = [...hintLog, logHint(current.cardID, result.level)];
         }
     }
