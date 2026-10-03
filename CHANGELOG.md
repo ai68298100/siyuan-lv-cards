@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.138.0 2026-10-04 · BI-8 done 屏建议集成 + BJ-2 提示内容推导接入
+
+* done 屏新增建议消息（buildSummary 推导：目标达成 🎉 / 有进度 💪 / 空态无消息）
+* BJ-2 advanceHint 接入 deriveHintLevels（v0.133.0 纯函数，替代此前硬编码截取）
+* i18n +1 键（doneProgress，603 对齐）；354/354 测试；0 errors/0 warnings
 ## v0.137.0 2026-10-04 · BJ-4 日期清理 + BI-8 会话收工摘要（纯模块）
 
 * error-reasons.ts normalizeErrorTags 新增 30 天保留清理（超期旧标注自动清理防无限增长）+ 2 组清理测试

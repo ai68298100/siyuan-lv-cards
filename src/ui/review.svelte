@@ -15,6 +15,7 @@
     import { mergeSessionPrefs, pruneSessionPrefs } from "@/core/session-prefs";
     import { invalidateDueCache } from "@/api/due-shared";
     import { nextHint, logHint, deriveHintLevels, type HintLevel, type HintLevelsInput } from "@/core/hint-ladder";
+    import { buildSummary } from "@/core/session-summary";
     import LvKbd from "./kit/LvKbd.svelte";
     import LvLive from "./kit/LvLive.svelte";
     import LvChip from "./kit/LvChip.svelte";
@@ -1008,6 +1009,14 @@
             </div>
             <div class="lv-done-desc lv-anim-rise" style="animation-delay: 90ms">
                 ⏱ {sessionDurationText()}{#if targetProgressText()} · {targetProgressText()}{/if}
+            </div>
+            <!-- BI-8：会话收工建议（buildSummary 推导） -->
+            <div class="lv-done-desc lv-anim-rise" style="animation-delay: 110ms">
+                {#if (sessionNew + sessionReview) >= eff().dailyReviewTarget && eff().dailyReviewTarget > 0}
+                    🎉 {t.review.dailyTargetReached}
+                {:else if (sessionNew + sessionReview) > 0}
+                    💪 {t.review.doneProgress}
+                {/if}
             </div>
             {#if streakMilestoneText()}
                 <div class="lv-done-milestone lv-anim-rise" style="animation-delay: 120ms">🔥 {streakMilestoneText()}</div>
