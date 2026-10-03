@@ -12,6 +12,7 @@
 | AI 批次作业（ai-jobs.json） | `data/storage/petal/siyuan-lv-cards/` | 断点续传用：材料来源摘要（type/标签/前 200 字符，**不存原文**）+ 生成的卡片问答文本与导入状态；上限 20 个作业，放弃即删除记录（已创建的卡片保留）；设置 → 数据 不单列导出，随插件私有数据整体处理 |
 | 知识对象与卡片实例（knowledge-objects.json）/ 卡片关系图（relations.json） | `data/storage/petal/siyuan-lv-cards/` | BK-1/BK-2（v0.122.0）：核心事实文本 + 卡 ID 映射（单变体停用/派生关系）；卡间语义关联（兄弟/前置/示例等七类）。全部本地存储、不外发、不参与调度；随插件私有数据整体处理 |
 | 错误原因标注（error-tags.json） | `data/storage/petal/siyuan-lv-cards/` | BJ-4（v0.131.0）：遗忘卡的错误原因标注（卡 ID + 原因分类 + 日期）；全部本地存储、不外发、不参与调度；随插件私有数据整体处理 |
+| 材料筛选收件箱（inbox.json） | `data/storage/petal/siyuan-lv-cards/` | BI-4（v0.142.0）：材料块的筛选状态队列（块 ID + 状态 + 时间戳，**不存块内容**）；全部本地存储、不外发、不参与调度；随插件私有数据整体处理 |
 
 ### 复习日志（revlog.json）的构成与上限语义
 

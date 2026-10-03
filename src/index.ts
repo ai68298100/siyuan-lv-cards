@@ -30,6 +30,7 @@ import { deriveInstance, emptyKnowledgeObjects, findBySource, normalizeKnowledge
 import { capabilityShare } from "./core/capability-types";
 import { addRelation, detachCard, emptyCardRelations, normalizeCardRelations, relationsOf, removeRelation, type CardRelationsData, type RelationType } from "./core/card-relations";
 import { emptyErrorTags, errorReasonStats, normalizeErrorTags, tagError, type ErrorTagsData, type ErrorReason } from "./core/error-reasons";
+import { emptyInbox, normalizeInbox, type InboxData } from "./core/inbox";
 import { appendBlock, createDocWithMd, getNotebooks, getBlockDOM, getBlockDocMap, getDocTitles, exportMdContent, sqlQuery, kernelVersion } from "./api/siyuan";
 import { aiChat, estimateTokens, parseCards, isAICanceled } from "./api/ai";
 import { normalizeSuspendToday, rollDateIfNeeded, isSuspended, suspend, type SuspendTodayData } from "./core/suspend-today";
@@ -73,6 +74,7 @@ const AI_JOBS_DATA = "ai-jobs.json";
 const KNOWLEDGE_OBJECTS_DATA = "knowledge-objects.json";
 const CARD_RELATIONS_DATA = "relations.json";
 const ERROR_TAGS_DATA = "error-tags.json";
+const INBOX_DATA = "inbox.json";
 
 export default class LvCardsPlugin extends Plugin {
 
@@ -95,6 +97,8 @@ export default class LvCardsPlugin extends Plugin {
     private cardRelations: CardRelationsData = emptyCardRelations();
     /** BJ-4：错误原因标注（遗忘卡可选标注） */
     private errorTags: ErrorTagsData = emptyErrorTags();
+    /** BI-4：材料筛选收件箱（材料块 → 制卡管线的暂存队列） */
+    private inbox: InboxData = emptyInbox();
     /** 统一持久化队列（AQ-4）：同 key 串行 + 有限重试 + 失败可观测 */
     /** AT-6：启动/首交互/评分性能指标 */
     private perf = createPerf();
@@ -163,7 +167,7 @@ export default class LvCardsPlugin extends Plugin {
 </symbol>`);
 
         // AQ-1：批量加载以 keys 数组驱动并按位置配对，杜绝「6 项加载只解构 5 项」的错位回归
-        const STORE_KEYS = [SETTINGS_DATA, REVLOG_DATA, SUSPEND_TODAY_DATA, EXAM_PLANS_DATA, AI_BATCHES_DATA, SESSION_STATE_DATA, AI_JOBS_DATA, KNOWLEDGE_OBJECTS_DATA, CARD_RELATIONS_DATA, ERROR_TAGS_DATA] as const;
+        const STORE_KEYS = [SETTINGS_DATA, REVLOG_DATA, SUSPEND_TODAY_DATA, EXAM_PLANS_DATA, AI_BATCHES_DATA, SESSION_STATE_DATA, AI_JOBS_DATA, KNOWLEDGE_OBJECTS_DATA, CARD_RELATIONS_DATA, ERROR_TAGS_DATA, INBOX_DATA] as const;
         const loaded = zipLoaded(STORE_KEYS, await Promise.all(STORE_KEYS.map(key => this.loadData(key))));
         this.settings = normalizeSettings(loaded[SETTINGS_DATA]);
         this.perf.setCold(!this.settings.onboarded); // AT-6：首轮未完成引导=冷启动
@@ -175,6 +179,7 @@ export default class LvCardsPlugin extends Plugin {
         this.knowledgeObjects = normalizeKnowledgeObjects(loaded[KNOWLEDGE_OBJECTS_DATA]);
         this.cardRelations = normalizeCardRelations(loaded[CARD_RELATIONS_DATA]);
         this.errorTags = normalizeErrorTags(loaded[ERROR_TAGS_DATA]);
+        this.inbox = normalizeInbox(loaded[INBOX_DATA]);
         // AI 批次走 TypedStore 入口（322）：结构清洗 + 兜底，非法条目剔除（526）；复用批量加载结果不再二次读盘
         this.aiBatches = await loadStore(this, {
             key: AI_BATCHES_DATA,
@@ -1101,6 +1106,7 @@ export default class LvCardsPlugin extends Plugin {
         push("knowledge-objects.json", `${this.knowledgeObjects.objects.length} objects (BK-1)`);
         push("relations.json", `${this.cardRelations.relations.length} relations (BK-2)`);
         push("error-tags.json", `${this.errorTags.tags.length} tags (BJ-4)`);
+        push("inbox.json", `${this.inbox.items.length} items (BI-4)`);
         return rows;
     }
 
@@ -1810,6 +1816,11 @@ export default class LvCardsPlugin extends Plugin {
         if (tagError(this.errorTags, cardID, reason, localDate(Date.now()))) {
             this.persist.save(ERROR_TAGS_DATA, this.errorTags).catch(() => { /* onFail 已记录 */ });
         }
+    }
+
+    /** BI-4：材料收件箱落盘入口（未来筛选 UI 修改后调用；persist 队列承担重试与失败记录） */
+    saveInbox() {
+        return this.persist.save(INBOX_DATA, this.inbox).catch(() => { /* onFail 已记录 */ });
     }
 
     private openTabOf(type: string, data?: Record<string, unknown>) {

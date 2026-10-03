@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.142.0 2026-10-04 · BI-4 材料筛选收件箱（纯模块 + 存储接线）
+
+* 新增 core/inbox.ts：材料块筛选状态机（inbox → staged → selected / dismissed），批量确认可撤销（undoSelection 打回 staged）
+* addInboxItem 按 blockID 去重；normalizeInbox 白名单清洗（非法状态回 inbox、重复块去重）
+* 存储接线：inbox.json 并入 STORE_KEYS 批量加载（zipLoaded 位置配对）+ saveInbox 落盘入口 + storageStats 行 + PRIVACY 披露（只存块 ID 不存内容）
+* +8 组收件箱测试；测试 356→364；主包 gzip 94KB（≤95KB 内）
 ## v0.141.0 2026-10-04 · G3-call 嵌套数组解析修复 + AI 管线端到端验证
 
 * G3-call 真实模型发现：glm-4-flash 返回嵌套数组——parseCards 无法解析（得 0 卡）
