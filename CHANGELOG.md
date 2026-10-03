@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.134.0 2026-10-04 · BK-1↔BJ-2 集成：知识对象事实优先作提示内容
+
+* review ctx 新增 getKOBySource（按来源块查知识对象 fact+capability）
+* advanceHint 改为 KO 优先：有知识对象时 recall-target/keyword=KO fact（精准），无知识对象时 deriveHintLevels 文本推导兜底
+* BK-1（知识对象）与 BJ-2（提示阶梯）形成数据闭环：快速制卡→自动注册→复习时提示内容更精准
+* 341/341 测试；0 errors/0 warnings
 ## v0.133.0 2026-10-04 · BJ-2 提示内容推导：从卡面文本自动生成分级提示
 
 * 新增 deriveHintLevels 纯函数：从卡面纯文本自动推导 HintLevelsInput（无需预标注）

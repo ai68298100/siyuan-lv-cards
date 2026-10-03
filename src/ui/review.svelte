@@ -68,6 +68,8 @@
         appendRevlog: (entry: { cardID: string; deckID: string; blockID: string; rating: number; source: "plugin" }) => void;
         /** BJ-4：遗忘卡错误原因标注（旁路增强） */
         tagErrorReason?: (cardID: string, reason: string) => void;
+        /** BK-1↔BJ-2：按来源块查知识对象（提示内容优先来源） */
+        getKOBySource?: (blockID: string) => { fact: string; capability: string | null } | null;
         getRevlog: () => RevlogData;
         isSuspendedToday: (cardID: string) => boolean;
         suspendToday: (cardID: string) => void;
@@ -705,11 +707,14 @@
     }
 
     /** BJ-2：推进分级提示（不自动提交评分；纯展示+日志；v0.133.0 内容推导） */
+    /** BJ-2：推进分级提示（BK-1 KO 优先 + 文本推导兜底；不自动提交评分） */
     function advanceHint() {
         if (!current || showAnswer) return;
-        const text = (cardHtml || "").replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
-        if (!text) return;
-        const input = deriveHintLevels(text);
+        const ko = ctx.getKOBySource?.(current.blockID);
+        const input: HintLevelsInput = ko
+            ? { "recall-target": `回忆：${ko.fact}`, keyword: ko.fact, full: (cardHtml || "").replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim() }
+            : deriveHintLevels((cardHtml || "").replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim());
+        if (!input.full) return;
         const result = nextHint(input, hintLevel);
         if (result) {
             hintLevel = result.level;

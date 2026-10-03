@@ -463,6 +463,12 @@ export default class LvCardsPlugin extends Plugin {
                         tagErrorReason: (cardID: string, reason: string) => {
                             plugin.tagErrorReason(cardID, reason as ErrorReason);
                         },
+                        getKOBySource: (blockID: string) => {
+                            const obj = findBySource(plugin.knowledgeObjects, blockID);
+                            if (!obj) return null;
+                            const cap = obj.instances.find(i => !i.disabled && i.capability)?.capability ?? null;
+                            return { fact: obj.fact, capability: cap };
+                        },
                         getRevlog: () => plugin.revlog,
                         isSuspendedToday: (cardID: string) => isSuspended(plugin.suspendToday, cardID),
                         suspendToday: (cardID: string) => {
