@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.129.0 2026-10-04 · BJ-4 错误原因分类（纯模块）
+
+* 新增 core/error-reasons.ts：七类错误原因（记忆空白/概念混淆/条件遗漏/步骤错误/题面不清/来源过时/注意力中断）+ tagError 同卡同日覆盖（可改选）+ errorReasonStats 分类计数（日期过滤）+ errorTagCoverage 遗忘卡标注覆盖率
+* 设计约束：标注为评分后可选旁路动作（不阻塞评分主流程）；跨日独立记录
+* 7 组单测；测试 328→335；0 errors/0 warnings
+
 ## v0.128.0 2026-10-04 · BJ-2 分级提示阶梯（纯模块）
 
 * 新增 core/hint-ladder.ts：五级阶梯（recall-target→keyword→context→explanation→full）+ 稀疏阶梯（缺失级别自动跳过，full 兜底=即翻面）+ 循环回首 + nextHint 下一级推进 + HintLogEntry 追加日志 + hintStats（提示次数/去重卡数/最深级别）
