@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.126.0 2026-10-04 · BK-1 UI 收官：ko-panel 修订模式 + 快速制卡自动注册
+
+* ko-panel 新增修订模式：「修订事实」→ 编辑框（实例清单保持可见，受影响实例一目了然）→ 保存回调携带新事实；未传 onrevise 不显示按钮（宿主可选）
+* 快速制卡自动注册知识对象：创建成功后 fact=问题文本登记对象（来源=新建块）+ 查 riff 卡 ID 派生问答实例（旁路增强：失败不影响制卡主流程）；onCreate 签名扩展 q/a
+* i18n +4 键（588 对齐）；修订模式 2 组单测；测试 318→320；0 errors/0 warnings；主包 gzip 90.75KB（≤95KB 预算内）
+
 ## v0.125.0 2026-10-04 · AT-12/14 定案：正线切单文件构建 + 预算修订
 
 * **正线构建切单文件**（vite.config.ts output.inlineDynamicImports）：require shim 源码铁证（common.js `xe=ut=>ut==='siyuan'?ge():window.require?.(ut)`——相对路径基准丢失为结构性缺陷，多插件间歇实证），多 chunk 形态废弃；vite.config.inline.mjs 与 .tmp 部署脚本清理（正线即单文件）
