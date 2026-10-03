@@ -115,6 +115,7 @@
         "tip5": "One knowledge point per card; smaller cards succeed more often.",
         "showAnswer": "Show Answer",
         "revealHint": "Space to flip",
+        "hintBtn": "Hint",
         "againBtn": "Again",
         "know": "Know",
         "vague": "Vague",

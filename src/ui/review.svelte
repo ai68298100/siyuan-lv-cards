@@ -14,6 +14,7 @@
     import { todayKey } from "@/core/exam";
     import { mergeSessionPrefs, pruneSessionPrefs } from "@/core/session-prefs";
     import { invalidateDueCache } from "@/api/due-shared";
+    import { nextHint, logHint, type HintLevel, type HintLevelsInput } from "@/core/hint-ladder";
     import LvKbd from "./kit/LvKbd.svelte";
     import LvLive from "./kit/LvLive.svelte";
     import LvChip from "./kit/LvChip.svelte";
@@ -93,6 +94,10 @@
     let reviewedIDs: string[] = $state([]);
     let current: QueueCard | null = $state(null);
     let showAnswer = $state(false);
+    // BJ-2：分级提示（不自动提交评分；纯展示+日志）
+    let hintLevel: HintLevel | null = $state(null);
+    let hintText = $state("");
+    let hintLog: ReturnType<typeof logHint>[] = $state([]);
     let cardHtml = $state("");
     // 复习范围（M3·FR1）：all | deck:<id> | notebook:<id>
     // 初值语义：范围仅经命令/考试入口传入一次，运行时由用户切换
@@ -678,7 +683,27 @@
         await next();
     }
 
+    /** BJ-2：推进分级提示（不自动提交评分；纯展示+日志） */
+    function advanceHint() {
+        if (!current || showAnswer) return;
+        const text = (cardHtml || "").replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
+        if (!text) return;
+        const input: HintLevelsInput = {
+            keyword: text.slice(0, Math.min(30, text.length)),
+            full: text,
+        };
+        const result = nextHint(input, hintLevel);
+        if (result) {
+            hintLevel = result.level;
+            hintText = result.text;
+            hintLog = [...hintLog, logHint(current.cardID, result.level)];
+        }
+    }
+
     async function next() {
+        // BJ-2：翻卡/切卡时重置提示
+        hintLevel = null;
+        hintText = "";
         // 记录上一张供回看（AJ2：只存数据，不自动打开浮层）
         if (current) {
             lastAnswered = { html: cardHtml, card: current };
@@ -1100,8 +1125,17 @@
                         <button class="b3-button b3-button--small lv-choice-btn" onclick={startChoice}>🎲 {t.review.choiceMake}</button>
                     {/if}
                 {/if}
+                <!-- BJ-2：分级提示显示区（不自动提交评分） -->
+                {#if hintText}
+                    <div class="lv-hint-text">{hintText}</div>
+                {/if}
                 <!-- AQ-2：显示答案按钮补 onclick——此前覆盖层按钮无处理器且容器点击跳过 button，鼠标点击翻面失效 -->
-                <button class="b3-button b3-button--text lv-reveal" onclick={() => (showAnswer = true)}>{t.review.showAnswer}</button>
+                <div class="fn__flex" style="gap: var(--lv-sp-2); justify-content: center; align-items: center;">
+                    {#if !showAnswer}
+                        <button class="b3-button b3-button--small" onclick={advanceHint}>💡 {t.review.hintBtn}</button>
+                    {/if}
+                    <button class="b3-button b3-button--text lv-reveal" onclick={() => (showAnswer = true)}>{t.review.showAnswer}</button>
+                </div>
                 <span class="lv-reveal-hint" aria-hidden="true">⎵ {t.review.revealHint}</span>
             {/if}
             {#if typingGrade}
@@ -1373,6 +1407,16 @@
                 &:hover { opacity: 1; background: var(--lv-primary-softer); }
             }
 
+            .lv-hint-text {
+                padding: var(--lv-sp-2) var(--lv-sp-3);
+                border-left: 3px solid var(--b3-theme-primary);
+                background: var(--b3-theme-surface);
+                border-radius: var(--b3-border-radius);
+                margin: var(--lv-sp-2) auto;
+                max-width: inherit;
+                font-size: 0.9em;
+                color: var(--b3-theme-on-surface);
+            }
             .lv-reveal-hint {
                 position: absolute;
                 right: var(--lv-sp-3);

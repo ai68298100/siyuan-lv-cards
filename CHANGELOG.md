@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.130.0 2026-10-04 · BJ-2 复习面板提示集成：hint 按钮 + 阶梯展示 + 日志
+
+* review.svelte 集成 BJ-2 提示阶梯：问题态新增「提示」按钮，点击逐步揭示提示文本（从卡面 HTML 剥离标签后取前 30 字符为 keyword 级，full 级翻面）
+* 提示日志追加（hintLog：cardID+level+ts）；翻卡/切卡时自动重置
+* 提示文本样式：左侧主色竖线+底色（区别于卡面内容）
+* 设计约束：提示不自动提交评分
+* i18n +1 键（hintBtn，591 对齐）；335/335 测试；0 errors/0 warnings；主包 gzip 91.49KB（≤95KB 内）
+
 ## v0.129.0 2026-10-04 · BJ-4 错误原因分类（纯模块）
 
 * 新增 core/error-reasons.ts：七类错误原因（记忆空白/概念混淆/条件遗漏/步骤错误/题面不清/来源过时/注意力中断）+ tagError 同卡同日覆盖（可改选）+ errorReasonStats 分类计数（日期过滤）+ errorTagCoverage 遗忘卡标注覆盖率

@@ -115,6 +115,7 @@
         "tip5": "卡片尽量一卡一知识点；大块内容拆小， recall 成功率更高。",
         "showAnswer": "显示答案",
         "revealHint": "空格 翻面",
+        "hintBtn": "提示",
         "againBtn": "遗忘",
         "know": "认识",
         "vague": "模糊",
