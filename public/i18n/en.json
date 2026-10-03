@@ -161,7 +161,14 @@
         "prefsThree": "Three",
         "liveRated": "Rating submitted, next card",
         "liveSkipped": "Skipped, next card",
-        "liveQueued": "Review queue loaded: ${n} cards"
+        "liveQueued": "Review queue loaded: ${n} cards",
+        "tplMaterialScan": "Teaching value scan",
+        "tplGoalClarify": "Goal clarification",
+        "tplCardTypeRoute": "Card-type routing",
+        "tplAtomicSplit": "Atomic fact split",
+        "tplClozeLeakCheck": "Cloze leak check",
+        "tplDistractorCause": "Distractors with causes",
+        "tplLeechRewrite": "Leech rewrite"
     },
     "manager": {
         "title": "Card Manager",

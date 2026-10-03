@@ -161,7 +161,14 @@
         "prefsThree": "三档",
         "liveRated": "已提交评分，下一张",
         "liveSkipped": "已跳过，下一张",
-        "liveQueued": "复习队列已加载 ${n} 张"
+        "liveQueued": "复习队列已加载 ${n} 张",
+        "tplMaterialScan": "教学价值扫描",
+        "tplGoalClarify": "学习目标澄清",
+        "tplCardTypeRoute": "卡型路由",
+        "tplAtomicSplit": "原子事实拆解",
+        "tplClozeLeakCheck": "题面反泄漏审查",
+        "tplDistractorCause": "带错因干扰项",
+        "tplLeechRewrite": "烂卡改写"
     },
     "manager": {
         "title": "闪卡管理器",

@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.116.0 2026-10-04 · BU-5/BV 提示词模板注册表
+
+* 新增 core/prompt-templates.ts：10 模板注册表（generic/exam/language 三预设迁移 + BV 家族 7 新模板：教学价值扫描/目标澄清/卡型路由/原子拆解/反泄漏/干扰项/烂卡改写）
+* renderTemplate 占位符渲染（未提供变量保留原样可预检）+ missingInputs 上下文完整性预检（BU-6 预算器对接口径）+ output 形态声明（BU-12 schema 对接口径）
+* i18n nameKeys 7 键（539→546）；6 组单测；测试 274→280；0 errors/0 warnings
+
 ## v0.115.0 2026-10-04 · BU-20 黄金样本评测集（离线子集）：九类卡型契约
 
 * 新增 tests/golden-samples.spec.ts：问答/挖空/语言/表格/代码/公式/长材料/冲突来源/脏输出九类脱敏 fixture，钉死 parseCards+lintAICards 输出契约（未来换模型/提示词的回归基线）
