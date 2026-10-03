@@ -1,6 +1,12 @@
 # Changelog
 
-## v0.135.1 2026-10-04 · BJ-2 提示快捷键 h 键
+## v0.137.0 2026-10-04 · BJ-4 日期清理 + BI-8 会话收工摘要（纯模块）
+
+* error-reasons.ts normalizeErrorTags 新增 30 天保留清理（超期旧标注自动清理防无限增长）+ 2 组清理测试
+* 新增 core/session-summary.ts（BI-8）：buildSummary 构建会话收工摘要（统计+进度 pct+suggestionKey 建议推导）+ 4 组单测
+* 测试 348→354；0 errors/0 warnings
+
+## v0.136.0 2026-10-04 · 测试覆盖补强：BJ-4 normalizeErrorTags + AS-4 LvLive
 
 * 复习面板问题态新增 h 键快捷推进分级提示
 * 帮助覆盖层新增 h 键说明

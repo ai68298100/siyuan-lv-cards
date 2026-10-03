@@ -42,10 +42,13 @@ export function emptyErrorTags(): ErrorTagsData {
     return { version: 1, tags: [] };
 }
 
-/** 整库清洗：坏条目剔除（缺 cardID/非法 reason/缺 date） */
-export function normalizeErrorTags(raw: unknown): ErrorTagsData {
+/** 整库清洗：坏条目剔除（缺 cardID/非法 reason/缺 date）+ 超过保留期的旧标注清理（BJ-4 防无限增长） */
+const RETENTION_DAYS = 30;
+
+export function normalizeErrorTags(raw: unknown, now: number = Date.now()): ErrorTagsData {
     const arr = (raw as any)?.tags;
     if (!Array.isArray(arr)) return emptyErrorTags();
+    const cutoff = now - RETENTION_DAYS * 86400000;
     const tags: ErrorTag[] = [];
     for (const r of arr) {
         if (!r || typeof r !== "object") continue;
@@ -53,6 +56,8 @@ export function normalizeErrorTags(raw: unknown): ErrorTagsData {
         const reason = normalizeErrorReason(r.reason);
         const date = typeof r.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(r.date) ? r.date : "";
         if (!cardID || !reason || !date) continue;
+        const ts = new Date(date + "T00:00:00").getTime();
+        if (Number.isFinite(ts) && ts < cutoff) continue;
         tags.push({ cardID, reason, date });
     }
     return { version: 1, tags };
