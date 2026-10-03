@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.143.0 2026-10-04 · BI-2 目的驱动会话入口（纯模块）
+
+* 新增 core/session-purpose.ts：六目的档案（探索/构建/复习/练习/应用/维护）× 结束条件 × 评分口径（review/maintain=formal 计入正式统计，其余 informal 不占每日目标；调度仍由内核 riff 独占 ADR-3）
+* purposeProgress：进度计算（remaining 型=到期清空即完成；targetOverride 覆盖默认目标；无量化目标转 BI-8 endReason 收工）
+* i18n +12 键（zh/en purpose 对象 6×2，602→614 对齐）
+* +8 组目的测试；测试 364→372；主包 gzip 94KB（≤95KB 内）
 ## v0.142.0 2026-10-04 · BI-4 材料筛选收件箱（纯模块 + 存储接线）
 
 * 新增 core/inbox.ts：材料块筛选状态机（inbox → staged → selected / dismissed），批量确认可撤销（undoSelection 打回 staged）
