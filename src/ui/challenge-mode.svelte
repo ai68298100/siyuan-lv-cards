@@ -1,6 +1,7 @@
 <script lang="ts">
     import { onDestroy } from "svelte";
-    import { getRiffDueCards, type RiffDueCard } from "@/api/riff";
+    import { type RiffDueCard } from "@/api/riff";
+    import { dueCache } from "@/api/due-shared";
     import { getBlockDOM } from "@/api/siyuan";
 
     let { i18n, onExit }: { i18n: any; onExit: () => void } = $props();
@@ -49,7 +50,7 @@
         remaining = DURATION;
         known = 0; unknown = 0; idx = 0;
         try {
-            const data = await getRiffDueCards("");
+            const data = await dueCache.get("");
             const due: RiffDueCard[] = data?.cards ?? [];
             const slice = due.slice(0, 30);
             const loaded: { blockID: string; dom: string }[] = [];

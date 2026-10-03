@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.109.0 2026-10-03 · AT-4 due 请求扇出收敛：generation + 短 TTL 共享缓存
+
+* 新增 src/libs/due-cache.ts 纯模块（createDueCache）：同 scope 并发请求合并为一次（in-flight 去重）、TTL 内复用、invalidate 提升 generation 使旧代条目立即失效、失败不缓存（下次读取即重试）、LRU 有界防泄漏（6 组单测覆盖全部语义）
+* 新增 src/api/due-shared.ts 进程级单例：badge 心跳、每日提醒、总览刷新、挑战模式、配对游戏五路 due 读取统一共享（同一时刻多次读取只打一次内核）；复习会话 loadQueue 带本场 reviewedIDs 保持直连
+* 失效钩子全覆盖：appendRevlog（插件/原生评分漏斗，AT-11 语义）、cards-created、skip、快速改期、addRiffCards 包装（index.ts 全部建卡路径经此）、管理器删卡/重置
+* 测试 224→230；0 errors/0 warnings；governance OK
+
 ## v0.108.0 2026-10-03 · AT-3 V2 请求超时层与启动探测隔离
 
 * 新增 src/libs/timeout.ts 可取消超时层（withTimeout + TimeoutError）：与任意 Promise 组合的有界等待，任一方先落定即清计时器不泄漏，迟到一方的 settle 静默忽略（6 组单测：快/慢/断三态 + 计时器清除）

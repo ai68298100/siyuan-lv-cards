@@ -2,6 +2,7 @@
     import { onMount } from "svelte";
     import { openTab, showMessage } from "siyuan";
     import { getRiffCards, removeRiffCards, resetRiffCards, type SearchBlock } from "@/api/riff";
+    import { invalidateDueCache } from "@/api/due-shared";
     import { confirmDialog } from "@/libs/dialog";
     import CardDetail from "./card-detail.svelte";
     import LvPage from "./kit/LvPage.svelte";
@@ -165,6 +166,7 @@
             confirm: async () => {
                 // 🧪 deckID 传空的跨集删除语义待 docs/18 实测
                 await removeRiffCards("", selected);
+                invalidateDueCache(); // AT-4：删卡改变到期数
                 showMessage(t.manager.batchDone.replace("${n}", String(selected.length)), 2000, "info");
                 await load();
             },
@@ -179,6 +181,7 @@
             confirm: async () => {
                 // 🧪 type="0" + blockIDs 的块级重置语义待 docs/18 实测
                 await resetRiffCards("0", "", "", selected);
+                invalidateDueCache(); // AT-4：重置调度数据改变到期数
                 showMessage(t.manager.batchResetDone.replace("${n}", String(selected.length)), 2000, "info");
                 await load();
             },

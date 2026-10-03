@@ -1,6 +1,7 @@
 <script lang="ts">
     import { onMount } from "svelte";
-    import { getRiffDecks, getRiffDueCards, type RiffDeck } from "@/api/riff";
+    import { getRiffDecks, type RiffDeck } from "@/api/riff";
+    import { dueCache } from "@/api/due-shared";
     import { getFlashcardStatistics, summarizeStatistics, type MigrationStatus } from "@/api/flashcardV2";
     import { calcStreak, lastNDays, localDate, studySecondsOn, coverageStats, deckCoverage, computeRetention, computeRetentionCurve, reviewStatsFor, weekCompare, calcMilestones, calcXp, type RevlogData, type RetentionResult, type CurvePoint, type WeekDelta, type Milestones, type XpResult, type CoverageStats, type DeckCoverage } from "@/core/revlog";
     import { openTab } from "siyuan";
@@ -212,7 +213,7 @@
         try {
             const [deckList, due] = await Promise.all([
                 getRiffDecks(),
-                getRiffDueCards(""),
+                dueCache.get(""), // AT-4：与 badge/挑战/配对等并发读取共享缓存，评分后经 invalidate 拉新
             ]);
             if (seq !== refreshSeq) {
                 return; // 旧响应：不改统计与到期数

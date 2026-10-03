@@ -21,7 +21,9 @@ import {
     type RevlogData, type RevlogEntry,
 } from "./core/revlog";
 import { detectFlashcardV2, type MigrationStatus } from "./api/flashcardV2";
-import { addRiffCards, createRiffDeck, getDueCount, getRiffCardsByBlockIDs, getRiffDecks, getRiffDueCards, removeRiffCards } from "./api/riff";
+import { createRiffDeck, getRiffCardsByBlockIDs, getRiffDecks, getRiffDueCards, removeRiffCards } from "./api/riff";
+// AT-4：addRiffCards 取经 due-shared 的包装版（建卡成功即失效共享 due 缓存），badge/提醒走共享缓存
+import { addRiffCards, cachedDueCount, invalidateDueCache } from "./api/due-shared";
 import { appendBlock, createDocWithMd, getNotebooks, getBlockDOM, getBlockDocMap, getDocTitles, exportMdContent, sqlQuery, kernelVersion } from "./api/siyuan";
 import { aiChat, estimateTokens, parseCards, isAICanceled } from "./api/ai";
 import { normalizeSuspendToday, rollDateIfNeeded, isSuspended, suspend, type SuspendTodayData } from "./core/suspend-today";
@@ -643,7 +645,7 @@ export default class LvCardsPlugin extends Plugin {
         if (!Number.isFinite(h) || nowMin < h * 60 + (m || 0)) {
             return;
         }
-        getDueCount().then(count => {
+        cachedDueCount().then(count => {
             if (count <= 0) {
                 this.reminderShownFor = today;
                 return;
@@ -691,7 +693,7 @@ export default class LvCardsPlugin extends Plugin {
         }
         // 请求序号（536）：慢响应不覆盖新数据
         const seq = ++this.badgeSeq;
-        getDueCount().then(count => {
+        cachedDueCount().then(count => {
             if (seq !== this.badgeSeq) {
                 return;
             }
@@ -889,6 +891,7 @@ export default class LvCardsPlugin extends Plugin {
             }
             // 🧪 deckID 传空的跨集删除语义待 docs/18 实测确认
             await removeRiffCards("", ids);
+            invalidateDueCache(); // AT-4：删卡改变到期数
             showMessage(this.i18n.deckRemoved.replace("${n}", String(ids.length)), 2000, "info");
         } catch (e: any) {
             showMessage(e?.message ?? String(e), 3000, "error");
@@ -1491,6 +1494,8 @@ export default class LvCardsPlugin extends Plugin {
             }
         }
         // docs/14 §8：cards-created 事件从「预留」转正（ADR-7 落地后有了确定 payload）
+        // AT-4：新卡即时到期，共享 due 缓存同步失效
+        invalidateDueCache();
         try {
             (this.eventBus as any).emit("lv-cards:cards-created", {
                 plugin: "lv-cards", v: 1,
@@ -1609,6 +1614,8 @@ export default class LvCardsPlugin extends Plugin {
         appendRevlog(this.revlog, { ts: entry.ts ?? Date.now(), ...entry } as RevlogEntry);
         const streakAfter = calcStreak(this.revlog);
         this.scheduleRevlogSave();
+        // AT-4：评分事实先失效共享 due 缓存（插件/原生两路都经此漏斗），badge/总览下一次读取即拉新
+        invalidateDueCache();
         this.refreshDueBadge();
         // M8·FR1：目标跨越庆祝；M11·FR1：生态事件广播
         const target = this.settings.dailyReviewTarget;

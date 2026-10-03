@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { getRiffDueCards } from "@/api/riff";
+    import { dueCache } from "@/api/due-shared";
     import { getBlockDOM } from "@/api/siyuan";
 
     /** 配对挑战（M4·FR4）：到期挖空卡限时配对——左列题面（挖空）× 右列答案（mark 文本），
@@ -45,7 +45,7 @@
     async function load() {
         phase = "loading";
         try {
-            const due = await getRiffDueCards("");
+            const due = await dueCache.get("");
             const candidates = (due.cards ?? []).slice(0, 12);
             const found: Pair[] = [];
             for (const c of candidates) {

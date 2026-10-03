@@ -13,6 +13,7 @@
     import { parseOcclusion, type OcclusionData } from "@/core/occlusion";
     import { todayKey } from "@/core/exam";
     import { mergeSessionPrefs, pruneSessionPrefs } from "@/core/session-prefs";
+    import { invalidateDueCache } from "@/api/due-shared";
     import LvKbd from "./kit/LvKbd.svelte";
     import LvChip from "./kit/LvChip.svelte";
     import LvError from "./kit/LvError.svelte";
@@ -642,6 +643,7 @@
             // 重现卡不计内核跳过（同评分类：调度不变）
             if (!current.lvRequeue) {
                 await skipReviewRiffCard(current.deckID, current.cardID);
+                invalidateDueCache(); // AT-4：skip 移出今日到期，共享缓存失效（badge/总览下次读取拉新）
             }
             sessionSkip += 1;
             sessionSkipped = [...sessionSkipped, current.cardID];
@@ -715,6 +717,7 @@
             String(d.getHours()).padStart(2, "0") + String(d.getMinutes()).padStart(2, "0") + String(d.getSeconds()).padStart(2, "0");
         try {
             await batchSetRiffCardsDueTime([{ id: current.cardID, due }]);
+            invalidateDueCache(); // AT-4：改期改变到期时间，共享缓存失效
             showMessage(t.review.rescheduled.replace("${n}", String(rescheduleDays)), 2000, "info");
             showReschedule = false;
             await next();
