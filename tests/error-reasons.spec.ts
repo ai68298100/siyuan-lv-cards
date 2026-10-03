@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
     emptyErrorTags, errorReasonStats, errorTagCoverage,
-    normalizeErrorReason, tagError, ERROR_REASONS,
+    normalizeErrorReason, normalizeErrorTags, tagError, ERROR_REASONS,
 } from "../src/core/error-reasons";
 
 // BJ-4 错误原因分类：标注可改选 / 统计按分类 / 覆盖率
@@ -59,5 +59,34 @@ describe("error-reasons（BJ-4）", () => {
 
     it("emptyErrorTags 回空", () => {
         expect(emptyErrorTags()).toEqual({ version: 1, tags: [] });
+    });
+});
+
+describe("normalizeErrorTags（BJ-4 白名单清洗）", () => {
+    it("合法条目保留", () => {
+        const r = normalizeErrorTags({ tags: [{ cardID: "c1", reason: "memory-blank", date: "2026-10-04" }] });
+        expect(r.tags).toHaveLength(1);
+        expect(r.tags[0]).toEqual({ cardID: "c1", reason: "memory-blank", date: "2026-10-04" });
+    });
+
+    it("坏条目剔除：缺 cardID / 非法 reason / 缺 date / 非对象", () => {
+        const r = normalizeErrorTags({
+            tags: [
+                { reason: "memory-blank", date: "2026-10-04" },  // 缺 cardID
+                { cardID: "c2", reason: "bogus", date: "2026-10-04" },  // 非法 reason
+                { cardID: "c3", reason: "step-error" },           // 缺 date
+                { cardID: "c4", reason: "step-error", date: "bad" },  // 坏 date
+                "not an object",
+                { cardID: "c5", reason: "memory-blank", date: "2026-10-04" },  // 合法
+            ],
+        });
+        expect(r.tags).toHaveLength(1);
+        expect(r.tags[0].cardID).toBe("c5");
+    });
+
+    it("非数组输入回空", () => {
+        expect(normalizeErrorTags(null).tags).toHaveLength(0);
+        expect(normalizeErrorTags("x").tags).toHaveLength(0);
+        expect(normalizeErrorTags({}).tags).toHaveLength(0);
     });
 });
