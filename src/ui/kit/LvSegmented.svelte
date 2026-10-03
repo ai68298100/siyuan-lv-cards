@@ -1,14 +1,29 @@
 <script lang="ts">
     /** 分段选择器（Kit）：互斥短选项组，替代两个以上 radio/switch 的场景 */
-    let { options, value, onchange = () => {}, disabled = false }: {
+    let { options, value, onchange = () => {}, disabled = false, ariaLabel = "" }: {
         options: { value: string; label: string; title?: string }[];
         value: string;
         onchange?: (v: string) => void;
         disabled?: boolean;
+        /** AS-10：无可见标签时为读屏提供组名 */
+        ariaLabel?: string;
     } = $props();
+
+    // AS-9 键盘模型（radio 惯例）：左右箭头在选择项间移动并选中
+    function onKeydown(e: KeyboardEvent) {
+        const idx = options.findIndex(o => o.value === value);
+        if (idx < 0) return;
+        let next: number | null = null;
+        if (e.key === "ArrowRight" || e.key === "ArrowDown") next = (idx + 1) % options.length;
+        else if (e.key === "ArrowLeft" || e.key === "ArrowUp") next = (idx - 1 + options.length) % options.length;
+        if (next === null) return;
+        e.preventDefault();
+        onchange(options[next].value);
+        (e.currentTarget as HTMLElement).querySelectorAll("[role=radio]")[next]?.scrollIntoView({ block: "nearest" });
+    }
 </script>
 
-<div class="lv-seg" class:lv-seg--disabled={disabled} role="radiogroup">
+<div class="lv-seg" class:lv-seg--disabled={disabled} role="radiogroup" tabindex="-1" aria-label={ariaLabel || undefined} onkeydown={onKeydown}>
     {#each options as o (o.value)}
         <button
             type="button"

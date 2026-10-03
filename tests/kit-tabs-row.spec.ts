@@ -37,6 +37,35 @@ describe("LvTabs", () => {
         await fireEvent.click(container.querySelectorAll("[role=tab]")[0]);
         expect(onchange).toHaveBeenCalledWith("overview");
     });
+
+    it("AS-9：页签有唯一 id（lv-tab-{id}）与 roving tabindex", () => {
+        const { container } = render(LvTabs, { tabs, active: "manage", onchange });
+        const els = [...container.querySelectorAll("[role=tab]")];
+        expect(els.map(e => e.id)).toEqual(["lv-tab-overview", "lv-tab-manage", "lv-tab-exam"]);
+        expect(els.map(e => e.getAttribute("tabindex"))).toEqual(["-1", "0", "-1"]);
+    });
+
+    it("AS-9：ArrowRight 移动并激活下一页签，Home/End 跳转首尾", async () => {
+        const onchange = vi.fn();
+        const { container } = render(LvTabs, { tabs, active: "manage", onchange });
+        const list = container.querySelector("[role=tablist]")!;
+        // 注意：组件从 props 读 active（测试中不变），每次按键均从 manage 起算
+        await fireEvent.keyDown(list, { key: "ArrowRight" });
+        expect(onchange).toHaveBeenLastCalledWith("exam");
+        await fireEvent.keyDown(list, { key: "Home" });
+        expect(onchange).toHaveBeenLastCalledWith("overview");
+        await fireEvent.keyDown(list, { key: "End" });
+        expect(onchange).toHaveBeenLastCalledWith("exam");
+        await fireEvent.keyDown(list, { key: "ArrowLeft" });
+        expect(onchange).toHaveBeenLastCalledWith("overview");
+    });
+
+    it("AS-9：非导航键不触发切换", async () => {
+        const onchange = vi.fn();
+        const { container } = render(LvTabs, { tabs, active: "overview", onchange });
+        await fireEvent.keyDown(container.querySelector("[role=tablist]")!, { key: "a" });
+        expect(onchange).not.toHaveBeenCalled();
+    });
 });
 
 describe("LvRow", () => {

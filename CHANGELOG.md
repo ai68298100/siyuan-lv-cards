@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.112.0 2026-10-04 · AS-9/AS-10 可访问性：键盘模型与表单标签关联
+
+* LvTabs（AS-9）：左右/Home/End 键盘模型（WAI-ARIA Tabs 惯例）+ roving tabindex + 唯一 id 契约 lv-tab-{id}（宿主据此 aria-controls 关联面板）+ type=button；3 组键盘单测
+* LvSegmented（AS-9/10）：radiogroup ariaLabel + 左右/上下箭头切换
+* LvRow（AS-10）：控件 label 包裹隐式关联（点击标签聚焦控件，display:flex 保持布局）
+* LvSwitch/LvInput/LvSelect（AS-10）：ariaLabel 透传（无可见标签场景必配）
+* 测试 254→257；0 errors/0 warnings
 ## v0.111.1 2026-10-04 · AR-8 错误态优先级矩阵落地
 
 * dashboard：首次加载失败不再同时出现「空库→引导」误导与全 0 统计卡——错误+重试独占；有旧数据时横幅叠加旧值可见

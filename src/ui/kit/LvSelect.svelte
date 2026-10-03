@@ -1,12 +1,14 @@
 <script lang="ts">
     /** 下拉选择（Kit）：b3-select 标准封装（336） */
-    let { value = $bindable(""), options, onchange, disabled = false, width = "" }: {
+    let { value = $bindable(""), options, onchange, disabled = false, width = "", ariaLabel = "" }: {
         value?: string;
         options: { value: string; label: string }[];
         onchange?: (v: string) => void;
         disabled?: boolean;
         /** 任意 CSS 宽度（如 "200px"），空=自适应 */
         width?: string;
+        /** AS-10：读屏标签 */
+        ariaLabel?: string;
     } = $props();
 </script>
 
@@ -14,7 +16,8 @@
     class="b3-select"
     style={width ? `width:${width}` : ""}
     {disabled}
-    value={value}
+    {value}
+    aria-label={ariaLabel || undefined}
     onchange={(e) => onchange?.((e.target as HTMLSelectElement).value)}
 >
     {#each options as o (o.value)}
