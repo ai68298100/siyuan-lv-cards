@@ -271,6 +271,33 @@
     "revise": "修订",
     "wrapUp": "收工"
   },
+  "stateWhy": {
+    "source": "材料仍在来源处，尚未进入加工流程",
+    "candidate": "材料已入选，等待审核确认",
+    "reviewed": "内容已审核通过，可以产出卡片",
+    "stocked": "卡片已入库，等待进入正式复习",
+    "inReview": "卡片正在正式复习调度中",
+    "applied": "该内容已在输出/练习中使用过",
+    "needsRevision": "内容或卡片有问题，需修订后才能继续",
+    "paused": "已主动暂停，不参与到期计算",
+    "stale": "来源内容已变化，需要重新核对",
+    "archived": "已归档，退出活跃生命周期",
+    "notReviewedYet": "还没有产出卡片——先制卡才能复习",
+    "notStockedYet": "已审核但尚未产出卡片",
+    "notInReviewYet": "卡片已入库，但还没有进入正式复习",
+    "blockedByRevision": "存在未完成的修订，复习被暂缓",
+    "repairResume": "恢复复习",
+    "repairUnarchive": "解除归档"
+  },
+  "recovery": {
+    "resume": "继续原场",
+    "summary": "只看摘要",
+    "narrow": "缩小范围",
+    "end": "结束会话",
+    "disabledStale": "现场已跨天失效",
+    "disabledEmpty": "没有可继续的队列",
+    "disabledNoProgress": "本现场没有进度可展示"
+  },
   "manager": {
     "title": "闪卡管理器",
     "total": "卡片总数",

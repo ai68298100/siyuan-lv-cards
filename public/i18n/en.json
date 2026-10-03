@@ -271,6 +271,33 @@
     "revise": "Revise",
     "wrapUp": "Wrap up"
   },
+  "stateWhy": {
+    "source": "Material still at its source, not yet in the pipeline",
+    "candidate": "Material selected, awaiting review",
+    "reviewed": "Content reviewed and approved, ready for card making",
+    "stocked": "Cards created, waiting to enter formal review",
+    "inReview": "Cards are in formal review scheduling",
+    "applied": "This content has been used in output/practice",
+    "needsRevision": "Content or cards have issues; revise to continue",
+    "paused": "Paused manually; excluded from due calculation",
+    "stale": "Source content changed; re-check needed",
+    "archived": "Archived; out of the active lifecycle",
+    "notReviewedYet": "No cards made yet — make cards first",
+    "notStockedYet": "Reviewed but no cards created yet",
+    "notInReviewYet": "Cards created but not in formal review yet",
+    "blockedByRevision": "Unfinished revision; review deferred",
+    "repairResume": "Resume review",
+    "repairUnarchive": "Unarchive"
+  },
+  "recovery": {
+    "resume": "Resume session",
+    "summary": "Summary only",
+    "narrow": "Narrow scope",
+    "end": "End session",
+    "disabledStale": "Snapshot expired (different day)",
+    "disabledEmpty": "No queue left to continue",
+    "disabledNoProgress": "No progress to show in this session"
+  },
   "manager": {
     "title": "Card Manager",
     "total": "Total",

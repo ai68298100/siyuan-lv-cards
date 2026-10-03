@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.145.0 2026-10-04 · BI-7 状态转移解释 + BI-9 中断恢复分支（纯模块）
+
+* 新增 core/state-explain.ts：十态「为什么+直达修复」映射（stateWhy i18n 键+repair 动作）+ whyNotReviewable 内容侧不可复习原因专项（调度侧属内核 riff ADR-3）
+* 新增 core/session-recovery.ts：中断恢复四分支（继续原场/只看摘要/缩小范围/结束）可用性推导——跨天失效/零进度/队列空三种禁用语义，结束永远可选，不自动重复评分/写卡
+* i18n +46 键（stateWhy 16×2 + recovery 7×2，628→674 对齐）
+* +7 组测试（386→393）；主包 gzip 94KB（≤95KB 内）
 ## v0.144.0 2026-10-04 · BI-5 内容状态机 + BI-6 下一动作建议（纯模块）
 
 * 新增 core/content-lifecycle.ts：十态内容生命周期（source→candidate→reviewed→stocked→inReview→applied / needsRevision / paused / stale / archived），合法转移表 + 转移必带原因与时间 + normalize 白名单清洗（非法轨迹逐条剔除，末态取最后合法轨迹）+ lifecycleStats 分组统计；学习侧调度仍由内核 riff 独占（ADR-3），双状态机分开记录
