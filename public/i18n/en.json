@@ -262,6 +262,15 @@
       "end": "Process the maintenance list"
     }
   },
+  "nextAction": {
+    "openSource": "Back to source",
+    "explain": "Explain this",
+    "makeCards": "Make cards",
+    "practice": "Practice",
+    "formalReview": "Formal review",
+    "revise": "Revise",
+    "wrapUp": "Wrap up"
+  },
   "manager": {
     "title": "Card Manager",
     "total": "Total",

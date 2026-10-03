@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.144.0 2026-10-04 · BI-5 内容状态机 + BI-6 下一动作建议（纯模块）
+
+* 新增 core/content-lifecycle.ts：十态内容生命周期（source→candidate→reviewed→stocked→inReview→applied / needsRevision / paused / stale / archived），合法转移表 + 转移必带原因与时间 + normalize 白名单清洗（非法轨迹逐条剔除，末态取最后合法轨迹）+ lifecycleStats 分组统计；学习侧调度仍由内核 riff 独占（ADR-3），双状态机分开记录
+* 新增 core/next-action.ts：按内容状态推导有序建议（回来源/解释/制卡/练习/正式复习/修订/收工），7 动作全覆盖无死动作，建议可跳过不自动执行
+* i18n +14 键（nextAction 7×2，614→628 对齐）
+* +14 组测试（372→386）；主包 gzip 94KB（≤95KB 内）
 ## v0.143.0 2026-10-04 · BI-2 目的驱动会话入口（纯模块）
 
 * 新增 core/session-purpose.ts：六目的档案（探索/构建/复习/练习/应用/维护）× 结束条件 × 评分口径（review/maintain=formal 计入正式统计，其余 informal 不占每日目标；调度仍由内核 riff 独占 ADR-3）

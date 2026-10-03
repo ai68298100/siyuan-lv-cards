@@ -262,6 +262,15 @@
       "end": "处理完修订清单"
     }
   },
+  "nextAction": {
+    "openSource": "回来源",
+    "explain": "解释这段",
+    "makeCards": "制成卡片",
+    "practice": "练习巩固",
+    "formalReview": "正式复习",
+    "revise": "修订",
+    "wrapUp": "收工"
+  },
   "manager": {
     "title": "闪卡管理器",
     "total": "卡片总数",
