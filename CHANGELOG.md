@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.119.0 2026-10-04 · 数据模型主线开工：BH-4 卡型目录 + BJ-1 能力类型分类法
+
+* 新增 core/card-catalog.ts（BH-4）：14 卡型声明式目录——阶段（shipped 七项/planned 七项）×调度映射（native 正式调度 vs practice 练习模式）×降级路线（degradationRoute 防环解析，audio→dictation→typing 两级示范）；5 组单测（id 唯一/降级目标存在/无环/shipped 集合/调度口径）
+* 新增 core/capability-types.ts（BJ-1）：八类能力常量 + 严格归一（未知归 unspecified 不猜测）+ 分组计数/占比排序（分母透明）；4 组单测
+* 与 card-types.ts 动态判分注册表分工：目录=能力/阶段/降级声明，判分实现仍走 registerCardType（ADR-3）
+* 测试 287→296；0 errors/0 warnings
 ## v0.118.0 2026-10-04 · 文档三件套收官：模块所有权与事实源（AX-1/BH-3/BH-13 勾选）
 
 * 新增 docs/37-模块所有权与事实源.md：§1 模块所有权表（13 功能域 × 事实源/读写入口/事件/诊断面）+ §2 事实源映射七类归属（调度内核唯一 ADR-3 铁律）+ §3 双写与失效钩子顺序契约 + §4 待办治理现状 + §5 已知边界
