@@ -12,6 +12,7 @@
     import { gradeTyping, type Rating1to4 } from "@/core/card-types";
     import { parseOcclusion, type OcclusionData } from "@/core/occlusion";
     import { todayKey } from "@/core/exam";
+    import { mergeSessionPrefs, pruneSessionPrefs } from "@/core/session-prefs";
     import LvKbd from "./kit/LvKbd.svelte";
     import LvChip from "./kit/LvChip.svelte";
     import LvError from "./kit/LvError.svelte";
@@ -152,6 +153,20 @@
     // 快捷键帮助覆盖层（AB 组）
     let helpOpen = $state(false);
     let showReschedule = $state(false);
+    /** BX-3 本场偏好：覆盖全局设置（仅当前复习面板生命周期内有效，切页后还原） */
+    let sessionOverride: Partial<ReviewSettings> = $state({});
+    let prefsOpen = $state(false);
+    /** 统一设置读取：本场覆盖优先，否则走全局设置 */
+    function eff(): ReviewSettings {
+        return mergeSessionPrefs(ctx.settings() as unknown as Record<string, unknown>, sessionOverride) as unknown as ReviewSettings;
+    }
+    const hasOverrides = $derived(Object.keys(sessionOverride).length > 0);
+    /** BX-3：设置本场覆盖项（与全局同值时自动摘除，保持覆盖面最小；超时相关变更即时重启计时器） */
+    function setOverride(key: keyof ReviewSettings, value: unknown) {
+        const next = pruneSessionPrefs(ctx.settings() as unknown as Record<string, unknown>, { ...sessionOverride, [key]: value }) as Partial<ReviewSettings>;
+        sessionOverride = next;
+        if (key === "timeoutMode" || key === "timeoutSeconds") restartTimeout();
+    }
     let rescheduleDays = $state(1);
     // 图片遮挡（M4·FR4 riff 先行）：数据来自块属性 lv-occlusion，坐标相对图片包围盒
     let cardEl: HTMLDivElement | null = $state(null);
@@ -309,17 +324,17 @@
             if (scopeKey === "new" || scopeKey === "old") {
                 cards = cards.filter(c => (scopeKey === "new") === (c.state === 0));
             }
-            const bl = ctx.settings().batchLimit;
+            const bl = eff().batchLimit;
             if (bl > 0) {
                 cards = cards.slice(0, bl);
             }
             if (cramActive) {
                 // 考前 cram：遗忘多的卡优先（M7·FR4）
                 cards = [...cards].sort((a, b) => b.lapses - a.lapses);
-            } else if (ctx.settings().reverseOrder) {
+            } else if (eff().reverseOrder) {
                 // 倒序模式（431）：内核到期顺序反转，最新到期优先
                 cards = [...cards].reverse();
-            } else if (ctx.settings().randomOrder) {
+            } else if (eff().randomOrder) {
                 cards = shuffle(cards);
             }
             queue = cards;
@@ -364,7 +379,7 @@
         }
         restartTimeout();
         // 听写模式：问题态自动朗读答案（M4·FR6，需打字模式开启）
-        if (ctx.settings().typingEnabled && ctx.settings().dictationEnabled && expectedText) {
+        if (eff().typingEnabled && eff().dictationEnabled && expectedText) {
             speakText(expectedText);
         }
     }
@@ -384,7 +399,7 @@
 
     /** TTS 朗读答案（C9 朗读部分，Web Speech，防御式） */
     function speakAnswer() {
-        if (!ctx.settings().ttsEnabled || !("speechSynthesis" in window)) {
+        if (!eff().ttsEnabled || !("speechSynthesis" in window)) {
             return;
         }
         try {
@@ -392,8 +407,8 @@
             if (!text) return;
             const u = new SpeechSynthesisUtterance(text);
             u.lang = /[\u4e00-\u9fa5]/.test(text) ? "zh-CN" : "en-US";
-            u.rate = ctx.settings().ttsRate || 1;
-            const voiceName = ctx.settings().ttsVoice;
+            u.rate = eff().ttsRate || 1;
+            const voiceName = eff().ttsVoice;
             if (voiceName) {
                 const voice = speechSynthesis.getVoices().find(v => v.name === voiceName);
                 if (voice) u.voice = voice;
@@ -405,12 +420,12 @@
 
     /** 评分音效（Web Audio 合成，M 组 P2）：chime 清音 / wood 木鱼 / bell 铃；受 sfxEnabled 开关（250） */
     function playSfx(rating: Rating) {
-        if (!ctx.settings().sfxEnabled) {
+        if (!eff().sfxEnabled) {
             return;
         }
         if (!audioCtx) audioCtx = new AudioContext();
         try {
-            const style = ctx.settings().sfxStyle || "chime";
+            const style = eff().sfxStyle || "chime";
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
             osc.connect(gain); gain.connect(audioCtx.destination);
@@ -445,7 +460,7 @@
         if (!current || typingGrade || !typingInput.trim() || !expectedText) {
             return;
         }
-        const s = ctx.settings();
+        const s = eff();
         const g = gradeTyping(expectedText, typingInput, s.typingStrict);
         typingGrade = { chars: g.chars, suggested: g.suggested };
         showAnswer = true;
@@ -455,7 +470,7 @@
 
     function restartTimeout() {
         stopTimeout();
-        const s = ctx.settings();
+        const s = eff();
         if (s.timeoutMode === "off" || !current) {
             timeoutLeft = 0;
             return;
@@ -511,7 +526,7 @@
 
     /** 完成页今日目标进度（544）：本次会话有效评分 vs 每日复习目标 */
     function targetProgressText(): string {
-        const target = ctx.settings().dailyReviewTarget;
+        const target = eff().dailyReviewTarget;
         const done = sessionNew + sessionReview;
         if (target <= 0) {
             return "";
@@ -527,7 +542,7 @@
 
     /** 每日一语（375）：按日期轮换的学习科学小贴士 */
     function dailyTip(): string {
-        if (!ctx.settings().dailyTipEnabled) {
+        if (!eff().dailyTipEnabled) {
             return "";
         }
         const tips = [t.review.tip1, t.review.tip2, t.review.tip3, t.review.tip4, t.review.tip5];
@@ -591,14 +606,14 @@
             playSfx(rating);
             await reviewRiffCard(current.deckID, current.cardID, rating, reviewedIDs);
             // AQ-13：作答耗时按设置封顶（后台停留/离席不制造超长样本），原生事件无此字段保持 N/A
-            const cap = Math.max(5, ctx.settings().answerTimeCapSec || 60);
+            const cap = Math.max(5, eff().answerTimeCapSec || 60);
             const dur = cardShownAt > 0 ? Math.min(cap, Math.max(0, Math.round((Date.now() - cardShownAt) / 1000))) : undefined;
             ctx.appendRevlog({ cardID: current.cardID, deckID: current.deckID, blockID: current.blockID, rating, source: "plugin", ...(dur !== undefined ? { dur } : {}) });
             reviewedIDs = [...reviewedIDs, current.cardID];
             if (rating === 1) {
                 sessionForget += 1;
                 // 忘记卡本批重现（M3）：评 1 的卡在批尾再出现一次，会话内强化，不动内核调度
-                if (ctx.settings().requeueAgain) {
+                if (eff().requeueAgain) {
                     queue = [...queue, { ...current, lvRequeue: 1 }];
                 }
             } else if (wasNew) {
@@ -812,7 +827,7 @@
             return;
         }
         if (!showAnswer) { return; }
-        if (ctx.settings().ratingStyle === "three") {
+        if (eff().ratingStyle === "three") {
             if (e.key === "1") { rate(1); }
             if (e.key === "2") { rate(2); }
             if (e.key === "3") { rate(3); }
@@ -876,7 +891,7 @@
         getNotebooks().then(n => (notebooks = n)).catch(() => { /* 旁路 */ });
         // AT-10：设置保存后超时参数立即生效；评分风格/顺序等下一卡自然生效
         const offSettings = ctx.onSettingsChanged?.(() => {
-            const s = ctx.settings();
+            const s = eff();
             if (current && !showAnswer && (s.timeoutMode !== lastTimeoutMode || s.timeoutSeconds !== lastTimeoutSeconds)) {
                 restartTimeout();
             }
@@ -965,20 +980,21 @@
             </div>
             {#if cramActive}<span class="b3-chip b3-chip--error">{t.exam.cramOn}</span>{/if}
             {#if current.lvRequeue}<span class="b3-chip b3-chip--warning" title={t.review.requeueTip}>{t.review.requeueChip}</span>{/if}
-            {#if ctx.settings().timeoutMode !== "off" && !showAnswer}
+            {#if eff().timeoutMode !== "off" && !showAnswer}
                 <span class="lv-timeout" class:lv-timeout-low={timeoutLeft <= 10}>⏱ {timeoutText()}</span>
             {/if}
             <span class="lv-tags">
-                {#if !(ctx.settings().hideMetaUntilAnswer && !showAnswer)}
+                {#if !(eff().hideMetaUntilAnswer && !showAnswer)}
                     {#if current.state === 0}<span class="b3-chip b3-chip--primary">{t.review.tagNew}</span>{/if}
                     <span class="b3-chip">{t.review.reps} {current.reps} · {t.review.lapses} {current.lapses}</span>
                 {/if}
             </span>
-            {#if current.deckID && !(ctx.settings().hideMetaUntilAnswer && !showAnswer)}
+            {#if current.deckID && !(eff().hideMetaUntilAnswer && !showAnswer)}
                 <span class="ft__smaller ft__on-surface" style="opacity:.7">{current.deckID}</span>
             {/if}
             <div class="fn__flex-1"></div>
             <button class="b3-button b3-button--small" title={t.review.ctxToggle} aria-label={t.review.ctxToggle} class:lv-btn-primary={ctxOpen} onclick={toggleContext}>≡</button>
+            <button class="b3-button b3-button--small" title={t.review.prefsTitle} aria-label={t.review.prefsTitle} class:lv-btn-primary={prefsOpen || hasOverrides} onclick={() => (prefsOpen = !prefsOpen)}>{hasOverrides ? "⚙●" : "⚙"}</button>
             <button class="b3-button b3-button--small" title={t.review.refreshCard} aria-label={t.review.refreshCard} onclick={refreshCard}>⟳</button>
             <button class="b3-button b3-button--small" title={t.review.helpTitle} aria-label={t.review.helpTitle} onclick={() => (helpOpen = true)}>?</button>
             <button class="b3-button b3-button--small" title={t.review.undoTitle} aria-label={t.review.undoTitle} onclick={undoHistory}>↶</button>
@@ -987,8 +1003,8 @@
             <button class="b3-button b3-button--small" title={t.review.suspendToday} aria-label={t.review.suspendToday} onclick={suspendToday}>✕</button>
             <button class="b3-button b3-button--small" onclick={skip}>{t.review.skip}</button>
         </div>
-        <div class="lv-card b3-typography" class:lv-anim-glow={showAnswer} bind:this={cardEl} style={`max-width:${ctx.settings().cardMaxWidth}px; width:100%; margin:0 auto;`}>
-            <div class="lv-card-content" class:lv-masked={!showAnswer} style={`font-size:${ctx.settings().cardFontScale || 1}em`}>{@html cardHtml}</div>
+        <div class="lv-card b3-typography" class:lv-anim-glow={showAnswer} bind:this={cardEl} style={`max-width:${eff().cardMaxWidth}px; width:100%; margin:0 auto;`}>
+            <div class="lv-card-content" class:lv-masked={!showAnswer} style={`font-size:${eff().cardFontScale || 1}em`}>{@html cardHtml}</div>
             {#if occl && occlBox}
                 <!-- 遮罩 overlay：问题态实心（点击逐框显隐），答案态半透明全显 -->
                 <svg
@@ -1023,7 +1039,7 @@
                         <button class="b3-button b3-button--text" onclick={reschedule}>{window.siyuan.languages.confirm}</button>
                     </div>
                 {/if}
-                {#if ctx.settings().typingEnabled}
+                {#if eff().typingEnabled}
                     <div class="lv-typing">
                         <input
                             class="b3-text-field fn__block"
@@ -1038,7 +1054,7 @@
                             placeholder={t.review.typingPlaceholder}
                         />
                     </div>
-                {:else if ctx.settings().choiceEnabled}
+                {:else if eff().choiceEnabled}
                     {#if choices}
                         <div class="lv-choices">
                             {#each choices.options as opt, i (i)}
@@ -1081,7 +1097,7 @@
                         {/each}
                     </span>
                 </div>
-            {:else if showAnswer && ctx.settings().ttsEnabled}
+            {:else if showAnswer && eff().ttsEnabled}
                 <div class="lv-tts-row">
                     <button class="b3-button b3-button--small" title={t.review.speak} onclick={speakAnswer}>🔊 {t.review.speak}</button>
                 </div>
@@ -1104,10 +1120,43 @@
                 {/if}
             </div>
         {/if}
-        <div class="lv-actions" class:lv-actions-compact={ctx.settings().ratingDensity === "compact"}>
+        {#if prefsOpen}
+            <!-- svelte-ignore a11y_no_static_element_interactions -->
+            <div class="lv-prefs">
+                <div class="lv-prefs-head">
+                    <span>{t.review.prefsTitle}</span>
+                    <span class="ft__smaller ft__on-surface">{t.review.prefsHint}</span>
+                </div>
+                <div class="lv-prefs-row">
+                    <span>{t.settings.ratingStyle}</span>
+                    <div class="fn__flex-1"></div>
+                    <button class="b3-button b3-button--small" class:lv-btn-primary={eff().ratingStyle === "four"} onclick={() => setOverride("ratingStyle", "four")}>{t.review.prefsFour}</button>
+                    <button class="b3-button b3-button--small" class:lv-btn-primary={eff().ratingStyle === "three"} onclick={() => setOverride("ratingStyle", "three")}>{t.review.prefsThree}</button>
+                </div>
+                <div class="lv-prefs-row">
+                    <span>{t.settings.reverseOrder}</span>
+                    <div class="fn__flex-1"></div>
+                    <input type="checkbox" class="b3-switch" checked={eff().reverseOrder} onchange={(e: Event) => setOverride("reverseOrder", (e.target as HTMLInputElement).checked)} />
+                </div>
+                <div class="lv-prefs-row">
+                    <span>{t.settings.timeoutMode}</span>
+                    <div class="fn__flex-1"></div>
+                    <select class="b3-select b3-select--small" value={eff().timeoutMode} onchange={(e: Event) => setOverride("timeoutMode", (e.target as HTMLSelectElement).value)}>
+                        <option value="off">{t.settings.timeoutOff}</option>
+                        <option value="reveal">{t.settings.timeoutReveal}</option>
+                        <option value="forget">{t.settings.timeoutForget}</option>
+                    </select>
+                </div>
+                <div class="lv-prefs-row">
+                    <div class="fn__flex-1"></div>
+                    <button class="b3-button b3-button--small" disabled={!hasOverrides} onclick={() => (sessionOverride = {})}>{t.review.prefsReset}</button>
+                </div>
+            </div>
+        {/if}
+        <div class="lv-actions" class:lv-actions-compact={eff().ratingDensity === "compact"}>
             {#if !showAnswer}
                 <button class="b3-button b3-button--text lv-btn-wide" onclick={() => (showAnswer = true)}>{t.review.showAnswer}</button>
-            {:else if ctx.settings().ratingStyle === "three"}
+            {:else if eff().ratingStyle === "three"}
                 <button class="b3-button lv-btn-rate lv-b1" onclick={() => rate(1)}><span class="lv-rate-label"><LvKbd k="1" />{t.review.unknown}</span><small>{dueText("1")}</small></button>
                 <button class="b3-button lv-btn-rate lv-b2" onclick={() => rate(2)}><span class="lv-rate-label"><LvKbd k="2" />{t.review.vague}</span><small>{dueText("2")}</small></button>
                 <button class="b3-button lv-btn-rate lv-b3" onclick={() => rate(3)}><span class="lv-rate-label"><LvKbd k="3" />{t.review.know}</span><small>{dueText("3")}</small></button>
@@ -1344,6 +1393,29 @@
                 border-left: 2px solid var(--b3-theme-primary);
                 background: var(--lv-primary-softer);
                 border-radius: var(--lv-r-s);
+            }
+        }
+
+        /* BX-3 本场偏好弹层：与源上下文面板同层的内联面板 */
+        .lv-prefs {
+            max-width: var(--lv-card-max, 880px);
+            width: 100%;
+            margin: 0 auto var(--lv-sp-2);
+            padding: var(--lv-sp-3);
+            border: 1px solid var(--lv-border);
+            border-radius: var(--lv-r-m);
+            background: color-mix(in srgb, var(--b3-theme-on-background) 4%, transparent);
+            font-size: 13px;
+            .lv-prefs-head {
+                display: flex; align-items: baseline; gap: var(--lv-sp-2);
+                margin-bottom: var(--lv-sp-2);
+                & > span:first-child { font-weight: 500; }
+            }
+            .lv-prefs-row {
+                display: flex; align-items: center; gap: var(--lv-sp-2);
+                padding: var(--lv-sp-1) 0;
+                & > span:first-child { color: var(--b3-theme-on-surface); }
+                .b3-select { min-width: 9em; }
             }
         }
 

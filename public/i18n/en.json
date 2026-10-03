@@ -153,7 +153,12 @@
         "ctxNone": "No adjacent blocks found in the document",
         "rescheduleIn": "Reschedule in",
         "rescheduleDays": "days",
-        "rescheduled": "Rescheduled to ${n} days later"
+        "rescheduled": "Rescheduled to ${n} days later",
+        "prefsTitle": "Session preferences",
+        "prefsHint": "Applies to this review panel only; global settings restored on leave",
+        "prefsReset": "Reset all",
+        "prefsFour": "Four",
+        "prefsThree": "Three"
     },
     "manager": {
         "title": "Card Manager",

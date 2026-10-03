@@ -153,7 +153,12 @@
         "ctxNone": "未找到同文档相邻块",
         "rescheduleIn": "改期至",
         "rescheduleDays": "天后",
-        "rescheduled": "已改期至 ${n} 天后"
+        "rescheduled": "已改期至 ${n} 天后",
+        "prefsTitle": "本场偏好",
+        "prefsHint": "仅当前复习面板生效，切页后还原全局设置",
+        "prefsReset": "还原全部",
+        "prefsFour": "四档",
+        "prefsThree": "三档"
     },
     "manager": {
         "title": "闪卡管理器",
