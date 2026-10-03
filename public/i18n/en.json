@@ -155,7 +155,7 @@
         "rescheduleDays": "days",
         "rescheduled": "Rescheduled to ${n} days later",
         "prefsTitle": "Session preferences",
-        "prefsHint": "Applies to this review panel only; global settings restored on leave",
+        "prefsHint": "Applies to this review panel only; global settings restored on leave; order overrides apply from the next queue load",
         "prefsReset": "Reset all",
         "prefsFour": "Four",
         "prefsThree": "Three"

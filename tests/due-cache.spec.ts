@@ -94,4 +94,32 @@ describe("due-cache（AT-4 generation + 短 TTL 共享缓存）", () => {
         expect(calls.sort()).toEqual(["", "deck:x"].sort());
         expect(g).not.toBe(deck);
     });
+
+    it("invalidate 期间在途请求：跨代不合并、旧结果不落缓存（v0.110.1 巡检修复）", async () => {
+        // 受控 fetcher：两次调用分别用手动放行的 deferred
+        const gates: Array<(v: number) => void> = [];
+        let calls = 0;
+        let clock = 0;
+        const cache = createDueCache<number>({
+            fetcher: () => new Promise<number>(resolve => {
+                calls++;
+                gates.push(resolve);
+            }),
+            ttlMs: 60_000,
+            now: () => clock,
+        });
+        const first = cache.get("a");          // 旧代在途
+        cache.invalidate();                     // 评分事实发生
+        const second = cache.get("a");          // 不得合并到旧代 → 必须重拉
+        expect(calls).toBe(2);
+        gates[0](99);                           // 旧代结果落定：作废，不得缓存
+        await expect(first).resolves.toBe(99);  // 旧调用方仍拿到自己的结果
+        gates[1](7);
+        await expect(second).resolves.toBe(7);
+        // 新代结果已缓存：第三次读取命中，不再打 fetcher
+        const s = cache.stats();
+        await expect(cache.get("a")).resolves.toBe(7);
+        expect(cache.stats().hits).toBe(s.hits + 1);
+        expect(calls).toBe(2);
+    });
 });

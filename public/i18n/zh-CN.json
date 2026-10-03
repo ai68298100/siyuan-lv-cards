@@ -155,7 +155,7 @@
         "rescheduleDays": "天后",
         "rescheduled": "已改期至 ${n} 天后",
         "prefsTitle": "本场偏好",
-        "prefsHint": "仅当前复习面板生效，切页后还原全局设置",
+        "prefsHint": "仅当前复习面板生效，切页后还原全局设置；顺序类覆盖自下一批队列生效",
         "prefsReset": "还原全部",
         "prefsFour": "四档",
         "prefsThree": "三档"

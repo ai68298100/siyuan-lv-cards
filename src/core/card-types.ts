@@ -36,8 +36,10 @@ function normalize(s: string, strict: boolean): string {
     if (strict) {
         return s;
     }
-    // NFKC 折叠全角→半角（全角输入不再被整段剥离），再去掉空白与其余标点/符号
-    const folded = s.normalize("NFKC").toLowerCase();
+    // NFKC 折叠全角→半角（全角输入不再被整段剥离）+ 排版减号折叠为 ASCII 减号
+    // （U+2212 无兼容分解、属 \p{S} 而不在 LENIENT_KEEP——不折叠则 "−1" 失去符号变 "1"，兜底巡检 v0.110.1），
+    // 再去掉空白与其余标点/符号
+    const folded = s.normalize("NFKC").replace(/\u2212/g, "-").toLowerCase();
     // 欧式小数逗号 → 小数点（仅数字间），使 "3,14" 与 "3.14" 匹配
     const decimal = folded.replace(/(\d),(\d)/g, "$1.$2");
     let out = "";

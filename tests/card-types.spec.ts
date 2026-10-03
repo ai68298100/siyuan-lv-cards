@@ -85,3 +85,18 @@ describe("宽松判分欧式小数点归一化（BX-1 离线子集）", () => {
         expect(gradeTyping("3.14", "3,14", true).suggested).toBe(2);
     });
 });
+
+describe("排版减号折叠（BX-1 兜底巡检 v0.110.1）", () => {
+    it("−1（U+2212）与 -1 匹配（排版减号不再被剥离）", () => {
+        expect(gradeTyping("-1", "−1", false).suggested).toBe(3);
+    });
+
+    it("−1 与 1 仍不等价（符号保真不因折叠失效）", () => {
+        expect(gradeTyping("−1", "1", false).suggested).toBe(1);
+    });
+
+    it("全角减号/加号经 NFKC 折叠后保留", () => {
+        expect(gradeTyping("-5", "－5", false).suggested).toBe(3);
+        expect(gradeTyping("+5", "＋5", false).suggested).toBe(3);
+    });
+});

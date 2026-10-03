@@ -29,7 +29,9 @@ export function createDueCache<T>(opts: {
     const now = opts.now ?? (() => Date.now());
     let gen = 0;
     const entries = new Map<string, Entry<T>>();
-    const inFlight = new Map<string, Promise<T>>();
+    // 在途请求带代际标记（兜底巡检 v0.110.1）：invalidate 后新读取不合并到旧代请求，
+    // 旧代结果落定时也不得按当前代写入缓存（否则「评分后即拉新」被在途旧值击穿）
+    const inFlight = new Map<string, { p: Promise<T>; gen: number }>();
     const stats: DueCacheStats = { entries: 0, hits: 0, misses: 0, coalesced: 0, invalidations: 0 };
 
     function touch(key: string) {
@@ -62,23 +64,31 @@ export function createDueCache<T>(opts: {
             entries.delete(key); // 过期或旧代：丢弃
         }
         const pending = inFlight.get(key);
-        if (pending) {
+        if (pending && pending.gen === gen) {
             stats.coalesced++;
-            return pending;
+            return pending.p;
         }
         stats.misses++;
+        const myGen = gen;
         const p = opts.fetcher(key)
             .then(value => {
-                inFlight.delete(key);
-                entries.set(key, { value, filledAt: now(), gen });
-                evictIfNeeded();
+                if (inFlight.get(key)?.p === p) {
+                    inFlight.delete(key); // 只清自己的槽位（期间可能有新一代请求已注册）
+                }
+                if (myGen === gen) {
+                    // 代际仍匹配才落缓存：fetch 途中发生过 invalidate 则结果作废
+                    entries.set(key, { value, filledAt: now(), gen });
+                    evictIfNeeded();
+                }
                 return value;
             })
             .catch(err => {
-                inFlight.delete(key); // 失败不缓存：下次读取即重试
+                if (inFlight.get(key)?.p === p) {
+                    inFlight.delete(key); // 失败不缓存：下次读取即重试
+                }
                 throw err;
             });
-        inFlight.set(key, p);
+        inFlight.set(key, { p, gen: myGen });
         return p;
     }
 
