@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.125.0 2026-10-04 · AT-12/14 定案：正线切单文件构建 + 预算修订
+
+* **正线构建切单文件**（vite.config.ts output.inlineDynamicImports）：require shim 源码铁证（common.js `xe=ut=>ut==='siyuan'?ge():window.require?.(ut)`——相对路径基准丢失为结构性缺陷，多插件间歇实证），多 chunk 形态废弃；vite.config.inline.mjs 与 .tmp 部署脚本清理（正线即单文件）
+* AT-14 验收修订：32KB 旧预算基于多 chunk 假设作废；新预算 **主包 gzip ≤95KB** 纳入 check-governance 门禁 ⑨（dist 存在即强制，当前 90.4KB）；瘦身手段转长期观察
+* Hub 懒加载代码保留（单文件下 import() 内联为同步解析，无害且为上游 shim 修复后恢复懒加载留路）；真机复验：闪卡中心完整渲染（里程碑/True Retention/周期对比全部出数）
+* 测试 318/318；0 errors/0 warnings
 ## v0.124.0 2026-10-04 · BK-1 制卡派生 UI：知识对象面板 + 详情抽屉嵌入
 
 * 新增 ko-panel.svelte（props 注入可测）：核心事实展示 + 实例清单（停用开关翻转/移除）+ 派生下拉（自动排除已有卡型；deriving 禁用态）；5 组组件单测

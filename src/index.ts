@@ -34,8 +34,8 @@ import { normalizeSuspendToday, rollDateIfNeeded, isSuspended, suspend, type Sus
 import { parseRevlogCsv } from "./core/revlog-csv";
 import { normalizeSessionState, type SessionState } from "./core/session-state";
 import { normalizeExamPlans, daysLeft, examReportStats, type ExamPlan, type ExamPlansData } from "./core/exam";
-import Hub from "./ui/hub.svelte";
 // 重组件对话框懒加载（AN 体积评审）：打开时才拉取对应 chunk
+// AT-14：Hub（闪卡中心）同样懒加载——静态引用会把 Manager/Dashboard/CardDetail/KoPanel 全链拉进主包
 const lazyComp = (loader: () => Promise<{ default: any }>) => {
     let cached: any = null;
     return async () => {
@@ -47,6 +47,8 @@ const lazyComp = (loader: () => Promise<{ default: any }>) => {
 };
 // 复习面板同样走懒加载（体积评审：主包重回预算；tab 首开一次性 chunk 加载）
 const loadReview = lazyComp(() => import("./ui/review.svelte"));
+// AT-14：Hub（闪卡中心）懒加载——静态引用会把 Manager/Dashboard/CardDetail/KoPanel 全链拉进主包
+const loadHub = lazyComp(() => import("./ui/hub.svelte"));
 const loadAIWizard = lazyComp(() => import("./ui/ai-wizard.svelte"));
 const loadOcclusionEditor = lazyComp(() => import("./ui/occlusion-editor.svelte"));
 const loadOnboarding = lazyComp(() => import("./ui/onboarding.svelte"));
@@ -209,7 +211,12 @@ export default class LvCardsPlugin extends Plugin {
             init() {
                 const div = document.createElement("div");
                 div.style.height = "100%";
-                const app = mount(Hub, {
+                // AT-14：Hub 懒加载挂载——加载完成前销毁 Tab 则放弃挂载（防悬挂实例）
+                let mountedApp: ReturnType<typeof mount> | null = null;
+                let hubDisposed = false;
+                void loadHub().then((HubC) => {
+                    if (hubDisposed) return;
+                    mountedApp = mount(HubC, {
                     target: div,
                     props: {
                         i18n: plugin.i18n,
@@ -378,8 +385,15 @@ export default class LvCardsPlugin extends Plugin {
                         } : null,
                     },
                 });
+                });
                 this.element.appendChild(div);
-                this.destroy = () => unmount(app); // AJ7：Tab 销毁时卸载实例
+                // AJ7 + AT-14：销毁回调兼容「尚未加载完成」窗口（先标记放弃，挂载后再卸载）
+                this.destroy = () => {
+                    hubDisposed = true;
+                    if (mountedApp) {
+                        unmount(mountedApp);
+                    }
+                };
             },
         });
 

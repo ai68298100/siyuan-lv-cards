@@ -5,7 +5,8 @@
 // ④ docs/17「总计」统计行与 docs/31 summary 一致
 // ⑤ 每条 entry 恰有一个主归属（primaryPackage 非空且在 packages 中存在）
 // 用法：node scripts/check-governance.mjs（CI 门禁用，不一致退出码 1）
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
+import { gzipSync } from "node:zlib";
 
 const failures = [];
 const md = readFileSync("docs/17-待办清单.md", "utf8");
@@ -99,6 +100,15 @@ if (!md.includes(`当前基线：v${pkg.version} `)) {
     failures.push(`docs/17 当前基线未提及 package.json 版本 v${pkg.version}`);
 }
 
+// ⑨ 主包体积预算（AT-14：单文件构建下预算修订为 ≤95KB gzip；dist 不存在时跳过——check 阶段先于 build）
+const MAIN_GZIP_BUDGET = 95 * 1024;
+if (existsSync("dist/index.js")) {
+    const gz = gzipSync(readFileSync("dist/index.js"));
+    if (gz.length > MAIN_GZIP_BUDGET) {
+        failures.push(`主包 gzip ${Math.round(gz.length / 1024)}KB 超预算 95KB（AT-14 单文件约束下的体积上限）`);
+    }
+}
+
 if (failures.length > 0) {
     console.error("治理一致性校验失败：");
     for (const f of failures) {
@@ -106,4 +116,4 @@ if (failures.length > 0) {
     }
     process.exit(1);
 }
-console.log(`governance OK: ${actualTotal} entries, ${actualDone} done, ${idx.packages.length} packages, docs/17 ↔ docs/31 一致`);
+console.log(`governance OK: ${actualTotal} entries, ${actualDone} done, ${idx.packages.length} packages, docs/17 ↔ docs/31 一致${existsSync("dist/index.js") ? `, main gzip ${Math.round(gzipSync(readFileSync("dist/index.js")).length / 1024)}KB` : ""}`);

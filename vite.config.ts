@@ -127,6 +127,11 @@ export default defineConfig(buildTarget === "kernel" ? {
             external: ["siyuan", "process"],
 
             output: {
+                // AT-12（v0.125.0）：单文件内联——3.8.6 插件 require shim 将相对 chunk require
+                // 原样透传 Electron Node require（以应用包为基准解析），多分包构建必然加载失败
+                // （本插件/官方 install-package/siyuan-home/siyuan-exam 多插件实证，docs/34 E2E-1 发现 1）。
+                // 代价：主包体积上升（懒加载失效），以可靠性优先；体积预算与回降手段见 AT-14。
+                inlineDynamicImports: true,
                 entryFileNames: "[name].js",
                 assetFileNames: (assetInfo) => assetInfo.name ?? "asset",
             },
