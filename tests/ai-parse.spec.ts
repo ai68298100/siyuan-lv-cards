@@ -64,3 +64,21 @@ describe("estimateTokens", () => {
         expect(estimateTokens("一二三四五六七八")).toBe(2);
     });
 });
+
+describe("G3-call 嵌套数组修复（v0.141.0）", () => {
+    it("嵌套数组 [[card],[card]] 展平后正常解析", () => {
+        const raw = '[{"q":"Q1","a":"A1"},[{"q":"Q2","a":"A2"}],[{"q":"Q3","a":"A3"}]]';
+        const cards = parseCards(raw);
+        expect(cards).toHaveLength(3);
+        expect(cards[0].q).toBe("Q1");
+        expect(cards[2].q).toBe("Q3");
+    });
+
+    it("嵌套数组 + 围栏 + 数量上限组合", () => {
+        const inner = Array.from({ length: 60 }, (_, i) => ({ q: `Q${i}`, a: `A${i}` }));
+        const nested = inner.map(c => [c]);
+        const raw = "```json\n" + JSON.stringify(nested) + "\n```";
+        const cards = parseCards(raw);
+        expect(cards).toHaveLength(50); // PARSE_LIMITS.maxCards
+    });
+});

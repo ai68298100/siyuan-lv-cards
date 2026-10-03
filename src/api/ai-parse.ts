@@ -41,7 +41,9 @@ export function parseCards(raw: string): ParsedCard[] {
     if (!Array.isArray(arr)) {
         throw new Error("not an array");
     }
-    return arr
+    // G3-call 发现（v0.141.0）：部分模型返回嵌套数组 [[card],[card]]——展平后再解析
+    const flat = arr.flatMap((item: any) => (Array.isArray(item) ? item : [item]));
+    return flat
         .map((c: any) => {
             const d = Number(c?.d);
             return {
