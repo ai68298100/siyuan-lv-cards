@@ -11,3 +11,7 @@ dist
 build
 tmp
 .mimosa
+
+# e2e 内联构建产物（真机验收专用，不入库）
+dist-inline/
+.tmp-*
