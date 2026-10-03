@@ -26,6 +26,8 @@ import { createRiffDeck, getRiffCardsByBlockIDs, getRiffDecks, removeRiffCards }
 import { addRiffCards, cachedDueCount, dueCache, invalidateDueCache } from "./api/due-shared";
 import { createPerf } from "./libs/perf";
 import { cardsCreatedEvent, gatewayChangedEvent, LV_EVENTS, reviewedEvent, sessionFinishedEvent, settingsChangedEvent, streakChangedEvent } from "./libs/events";
+import { emptyKnowledgeObjects, normalizeKnowledgeObjects, type KnowledgeObjectsData } from "./core/knowledge-objects";
+import { emptyCardRelations, normalizeCardRelations, type CardRelationsData } from "./core/card-relations";
 import { appendBlock, createDocWithMd, getNotebooks, getBlockDOM, getBlockDocMap, getDocTitles, exportMdContent, sqlQuery, kernelVersion } from "./api/siyuan";
 import { aiChat, estimateTokens, parseCards, isAICanceled } from "./api/ai";
 import { normalizeSuspendToday, rollDateIfNeeded, isSuspended, suspend, type SuspendTodayData } from "./core/suspend-today";
@@ -64,6 +66,8 @@ const EXAM_PLANS_DATA = "exam-plans.json";
 const AI_BATCHES_DATA = "ai-batches.json";
 const SESSION_STATE_DATA = "session-state.json";
 const AI_JOBS_DATA = "ai-jobs.json";
+const KNOWLEDGE_OBJECTS_DATA = "knowledge-objects.json";
+const CARD_RELATIONS_DATA = "relations.json";
 
 export default class LvCardsPlugin extends Plugin {
 
@@ -80,6 +84,10 @@ export default class LvCardsPlugin extends Plugin {
     private aiBatches: AIBatchesData = { version: 1, batches: [] };
     /** AI 批次作业（ADR-7 第 2 步）：断点续传的状态载体 */
     private aiJobs: AIJobsData = emptyAIJobs();
+    /** BK-1：知识对象与卡实例（派生关系/单变体停用） */
+    private knowledgeObjects: KnowledgeObjectsData = emptyKnowledgeObjects();
+    /** BK-2：卡片关系图（纯元数据，不产生第二调度器） */
+    private cardRelations: CardRelationsData = emptyCardRelations();
     /** 统一持久化队列（AQ-4）：同 key 串行 + 有限重试 + 失败可观测 */
     /** AT-6：启动/首交互/评分性能指标 */
     private perf = createPerf();
@@ -147,7 +155,7 @@ export default class LvCardsPlugin extends Plugin {
 </symbol>`);
 
         // AQ-1：批量加载以 keys 数组驱动并按位置配对，杜绝「6 项加载只解构 5 项」的错位回归
-        const STORE_KEYS = [SETTINGS_DATA, REVLOG_DATA, SUSPEND_TODAY_DATA, EXAM_PLANS_DATA, AI_BATCHES_DATA, SESSION_STATE_DATA, AI_JOBS_DATA] as const;
+        const STORE_KEYS = [SETTINGS_DATA, REVLOG_DATA, SUSPEND_TODAY_DATA, EXAM_PLANS_DATA, AI_BATCHES_DATA, SESSION_STATE_DATA, AI_JOBS_DATA, KNOWLEDGE_OBJECTS_DATA, CARD_RELATIONS_DATA] as const;
         const loaded = zipLoaded(STORE_KEYS, await Promise.all(STORE_KEYS.map(key => this.loadData(key))));
         this.settings = normalizeSettings(loaded[SETTINGS_DATA]);
         this.perf.setCold(!this.settings.onboarded); // AT-6：首轮未完成引导=冷启动
@@ -155,6 +163,9 @@ export default class LvCardsPlugin extends Plugin {
         this.suspendToday = normalizeSuspendToday(loaded[SUSPEND_TODAY_DATA]);
         this.examPlans = normalizeExamPlans(loaded[EXAM_PLANS_DATA]);
         this.sessionState = normalizeSessionState(loaded[SESSION_STATE_DATA], localDate(Date.now()));
+        // BK-1/BK-2：知识对象与关系图并入同批加载（normalize 白名单清洗）
+        this.knowledgeObjects = normalizeKnowledgeObjects(loaded[KNOWLEDGE_OBJECTS_DATA]);
+        this.cardRelations = normalizeCardRelations(loaded[CARD_RELATIONS_DATA]);
         // AI 批次走 TypedStore 入口（322）：结构清洗 + 兜底，非法条目剔除（526）；复用批量加载结果不再二次读盘
         this.aiBatches = await loadStore(this, {
             key: AI_BATCHES_DATA,
@@ -980,6 +991,8 @@ export default class LvCardsPlugin extends Plugin {
         push("exam-plans.json", `${this.examPlans.plans.length} plans`);
         push("ai-batches.json", `${this.aiBatches.batches.length} batches`);
         push("ai-jobs.json", `${this.aiJobs.jobs.length} jobs (ADR-7)`);
+        push("knowledge-objects.json", `${this.knowledgeObjects.objects.length} objects (BK-1)`);
+        push("relations.json", `${this.cardRelations.relations.length} relations (BK-2)`);
         return rows;
     }
 
@@ -1657,6 +1670,15 @@ export default class LvCardsPlugin extends Plugin {
         }
         // AQ-4：重试与失败记录统一由 persist 队列承担，成功回调解构 trackSave
         this.persist.save(REVLOG_DATA, this.revlog).catch(() => { /* onFail 已记录，等下次修改触发 */ });
+    }
+
+    /** BK-1/BK-2：知识对象/关系图的落盘入口（未来 UI 修改后调用；persist 队列承担重试与失败记录） */
+    saveKnowledgeObjects() {
+        return this.persist.save(KNOWLEDGE_OBJECTS_DATA, this.knowledgeObjects).catch(() => { /* onFail 已记录 */ });
+    }
+
+    saveCardRelations() {
+        return this.persist.save(CARD_RELATIONS_DATA, this.cardRelations).catch(() => { /* onFail 已记录 */ });
     }
 
     private openTabOf(type: string, data?: Record<string, unknown>) {

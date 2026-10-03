@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.122.0 2026-10-04 · BK-1/BK-2 存储接线：知识对象与关系图入列插件私有数据
+
+* knowledge-objects.json / relations.json 并入 STORE_KEYS 批量加载（AQ-1 同模式）+ normalize 白名单清洗 + persist 保存方法（saveKnowledgeObjects/saveCardRelations，重试与失败记录由队列承担）
+* 存储体检新增两行（BK-1/BK-2 计数）；docs/PRIVACY.md 披露两文件（治理门禁 ⑦ 拦截后补齐，机制有效）
+* BK-1/BK-2 的 docs/17 注记更新：存储接线完成，余验收=制卡/修订 UI 与关系查看 UI
+* 309/309 测试；0 errors/0 warnings；governance OK
+
 ## v0.121.0 2026-10-04 · BK-2 卡片关系图（纯模块）
 
 * 新增 core/card-relations.ts：七类关系（兄弟/前置/示例/反例/来源/应用/替代）——normalize 清洗（自环/坏边/重复剔除）、addRelation 去重建边、removeRelation 删边、relationsOf 双向视图、detachCard 内核卡删除端点清理

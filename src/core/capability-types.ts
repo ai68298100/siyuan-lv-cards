@@ -29,7 +29,8 @@ export interface CapabilityTagged {
 
 /** 按能力类型分组计数（未标注/非法归入 "unspecified" 桶，不丢弃——统计不撒谎） */
 export function capabilityStats(cards: CapabilityTagged[]): Record<CapabilityType | "unspecified", number> {
-    const out: Record<CapabilityType | "unspecified", number> = { unspecified: 0 };
+    const out = Object.fromEntries(CAPABILITY_TYPES.map(c => [c, 0])) as Record<CapabilityType | "unspecified", number>;
+    out.unspecified = 0;
     for (const c of cards) {
         const cap = normalizeCapability(c.capability);
         if (cap) {

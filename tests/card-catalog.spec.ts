@@ -58,7 +58,7 @@ describe("capability-types（BJ-1）", () => {
         expect(normalizeCapability(42)).toBeNull();
     });
 
-    it("分组统计：未标注/非法归 unspecified，不丢弃", () => {
+    it("分组统计：未标注/非法归 unspecified，不丢弃；全键稳定输出（消费方形状可靠）", () => {
         const stats = capabilityStats([
             { capability: "fact" },
             { capability: "fact" },
@@ -66,7 +66,11 @@ describe("capability-types（BJ-1）", () => {
             { capability: "bogus" },
             {},
         ]);
-        expect(stats).toEqual({ fact: 2, distinction: 1, unspecified: 2 });
+        expect(stats).toEqual({
+            fact: 2, distinction: 1, unspecified: 2,
+            definition: 0, procedure: 0, generation: 0,
+            "lang-comprehension": 0, "lang-production": 0, application: 0,
+        });
     });
 
     it("占比排序：降序且分母含 unspecified（口径透明）", () => {
