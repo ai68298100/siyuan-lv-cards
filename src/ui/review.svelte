@@ -1267,7 +1267,11 @@
         <div class="lv-err-tags">
             <span class="ft__smaller ft__on-surface">{t.review.errTagPrompt}</span>
             {#each ERROR_REASON_IDS as rid (rid)}
-                <button class="b3-button b3-button--small lv-err-tag" onclick={() => { ctx.tagErrorReason?.(errTagCardID, rid); errTagged = true; }}>
+                <button class="b3-button b3-button--small lv-err-tag" onclick={() => {
+                    ctx.tagErrorReason?.(errTagCardID, rid);
+                    errTagged = true;
+                    announce(`${t.review.errTagDone}: ${t.errReasons[rid] ?? rid}`, "polite");
+                }}>
                     {t.errReasons[rid] ?? rid}
                 </button>
             {/each}
