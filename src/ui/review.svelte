@@ -882,6 +882,12 @@
             if (!showAnswer) { showAnswer = true; } else { rate(3); }
             return;
         }
+        // BJ-2：h 键推进分级提示（仅问题态）
+        if (e.key === "h" && !showAnswer && current) {
+            e.preventDefault();
+            advanceHint();
+            return;
+        }
         if (e.key === "[") {
             if (lastAnswered) { togglePeek(); }
             return;
@@ -1270,6 +1276,7 @@
                     { k: "[", d: t.review.helpPeek },
                     { k: "f", d: t.review.helpReschedule },
                     { k: "e", d: t.review.helpEdit },
+                    { k: "h", d: t.review.helpHint },
                 ] as row (row.k)}
                     <div class="lv-help-row"><span class="lv-kbd2">{row.k}</span><span class="fn__flex-1">{row.d}</span></div>
                 {/each}
