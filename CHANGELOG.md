@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.114.0 2026-10-04 · AX-2 事件契约版本化 + AQ-16 解析上限
+
+* 勾选 AX-2（P1）：新增 libs/events.ts 事件契约单一事实源——LV_EVENTS 事件名常量（6 事件）+ builders（plugin/v=1/ts 毫秒统一填充，payload 只增不改约定）+ 幂等键构造注释；index.ts 全部 emit/on 迁移（裸字符串清零，含此前遗漏的 gateway-changed）；4 组契约单测
+* AQ-16 补解析上限（PARSE_LIMITS）：单次 50 卡封顶、q≤500/a≤2000 字符超限丢弃；+2 组单测
+* 测试 257→263；0 errors/0 warnings；governance OK（930 条，189 done）
 ## v0.113.0 2026-10-04 · AS-4 读屏播报基础版：LvLive + 复习四路接线
 
 * 新增 kit/LvLive：aria-live 读屏专用组件（polite→status / assertive→alert，视觉隐藏不扰布局）

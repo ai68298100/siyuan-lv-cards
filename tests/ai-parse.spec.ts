@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseCards, estimateTokens } from "../src/api/ai-parse";
+import { parseCards, estimateTokens, PARSE_LIMITS } from "../src/api/ai-parse";
 
 describe("parseCards（AI 输出宽松解析）", () => {
     it("裸 JSON 数组直读", () => {
@@ -36,6 +36,23 @@ describe("parseCards（AI 输出宽松解析）", () => {
 
     it("截断噪声中的数组片段可提取（宽容口径边界）", () => {
         expect(parseCards('prefix [{"q":"k","a":"v"}] suffix')).toEqual([{ q: "k", a: "v" }]);
+    });
+});
+
+describe("AQ-16 余量：解析上限（v0.114.0）", () => {
+    it("数量封顶：超过 maxCards 丢弃多余（保留前 N）", () => {
+        const many = Array.from({ length: PARSE_LIMITS.maxCards + 10 }, (_, i) => ({ q: `问题${i}`, a: `答案${i}` }));
+        const out = parseCards(JSON.stringify(many));
+        expect(out).toHaveLength(PARSE_LIMITS.maxCards);
+        expect(out[0].q).toBe("问题0");
+    });
+
+    it("超长卡丢弃：q/a 超过字符上限不产出（其余正常保留）", () => {
+        const ok = { q: "短问题", a: "短答案" };
+        const longQ = { q: "长".repeat(PARSE_LIMITS.maxQLen + 1), a: "ok" };
+        const longA = { q: "ok", a: "长".repeat(PARSE_LIMITS.maxALen + 1) };
+        const out = parseCards(JSON.stringify([longQ, longA, ok]));
+        expect(out).toEqual([ok]);
     });
 });
 

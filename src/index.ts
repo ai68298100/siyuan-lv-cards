@@ -25,6 +25,7 @@ import { createRiffDeck, getRiffCardsByBlockIDs, getRiffDecks, removeRiffCards }
 // AT-4：addRiffCards 取经 due-shared 的包装版（建卡成功即失效共享 due 缓存），badge/提醒走共享缓存
 import { addRiffCards, cachedDueCount, dueCache, invalidateDueCache } from "./api/due-shared";
 import { createPerf } from "./libs/perf";
+import { cardsCreatedEvent, gatewayChangedEvent, LV_EVENTS, reviewedEvent, sessionFinishedEvent, settingsChangedEvent, streakChangedEvent } from "./libs/events";
 import { appendBlock, createDocWithMd, getNotebooks, getBlockDOM, getBlockDocMap, getDocTitles, exportMdContent, sqlQuery, kernelVersion } from "./api/siyuan";
 import { aiChat, estimateTokens, parseCards, isAICanceled } from "./api/ai";
 import { normalizeSuspendToday, rollDateIfNeeded, isSuspended, suspend, type SuspendTodayData } from "./core/suspend-today";
@@ -121,7 +122,7 @@ export default class LvCardsPlugin extends Plugin {
         // AT-10：设置变更广播——复习面板据此重启超时计时（立即生效），其余项下一卡自然生效
         done.then(() => {
             try {
-                (this.eventBus as any).emit("lv-cards:settings-changed", { plugin: "lv-cards", v: 1 });
+                (this.eventBus as any).emit(LV_EVENTS.settingsChanged, settingsChangedEvent());
             } catch { /* 事件旁路 */ }
         }).catch(() => { /* onFail 已记录 */ });
         return done;
@@ -232,14 +233,14 @@ export default class LvCardsPlugin extends Plugin {
                             getXpEnabled: () => plugin.settings.xpEnabled,
                             onSessionFinished: (cb: () => void) => {
                                 const handler = () => cb();
-                                (plugin.eventBus as any).on("lv-cards:session-finished", handler);
-                                return () => (plugin.eventBus as any).off("lv-cards:session-finished", handler);
+                                (plugin.eventBus as any).on(LV_EVENTS.sessionFinished, handler);
+                                return () => (plugin.eventBus as any).off(LV_EVENTS.sessionFinished, handler);
                             },
                             // AT-11：原生/插件两路评分都经 appendRevlog 广播 reviewed，总览据此失效缓存
                             onReviewed: (cb: () => void) => {
                                 const handler = () => cb();
-                                (plugin.eventBus as any).on("lv-cards:reviewed", handler);
-                                return () => (plugin.eventBus as any).off("lv-cards:reviewed", handler);
+                                (plugin.eventBus as any).on(LV_EVENTS.reviewed, handler);
+                                return () => (plugin.eventBus as any).off(LV_EVENTS.reviewed, handler);
                             },
                             // AQ-12 文档维度：块归属查内核（分块 IN），聚合后按 seen 降序；失败返回 null 由 UI 隐藏
                             getDocCoverage: async () => {
@@ -388,7 +389,7 @@ export default class LvCardsPlugin extends Plugin {
                         },
                         emitSessionFinished: (summary: { new: number; review: number; forget: number; skip: number }) => {
                             try {
-                                (plugin.eventBus as any).emit("lv-cards:session-finished", { plugin: "lv-cards", v: 1, summary });
+                                (plugin.eventBus as any).emit(LV_EVENTS.sessionFinished, sessionFinishedEvent(summary));
                             } catch { /* 事件旁路 */ }
                             // 会话结束即刷角标（549），不等 60s 心跳
                             plugin.refreshDueBadge();
@@ -396,8 +397,8 @@ export default class LvCardsPlugin extends Plugin {
                         // AT-10：设置保存广播 → 复习面板超时参数立即生效
                         onSettingsChanged: (cb: () => void) => {
                             const handler = () => cb();
-                            (plugin.eventBus as any).on("lv-cards:settings-changed", handler);
-                            return () => (plugin.eventBus as any).off("lv-cards:settings-changed", handler);
+                            (plugin.eventBus as any).on(LV_EVENTS.settingsChanged, handler);
+                            return () => (plugin.eventBus as any).off(LV_EVENTS.settingsChanged, handler);
                         },
                         getContextBlocks: async (blockID: string) => {
                             const safe = blockID.replace(/'/g, "''");
@@ -1506,10 +1507,9 @@ export default class LvCardsPlugin extends Plugin {
         // AT-4：新卡即时到期，共享 due 缓存同步失效
         invalidateDueCache();
         try {
-            (this.eventBus as any).emit("lv-cards:cards-created", {
-                plugin: "lv-cards", v: 1,
+            (this.eventBus as any).emit(LV_EVENTS.cardsCreated, cardsCreatedEvent({
                 deckID, count: blockIDs.length, blockIDs,
-            });
+            }));
         } catch { /* 事件旁路 */ }
         showMessage(this.i18n.deckAdded.replace("${n}", String(blockIDs.length)), 2000, "info");
     }
@@ -1633,13 +1633,12 @@ export default class LvCardsPlugin extends Plugin {
             showMessage(this.i18n.dailyTargetReached, 3000, "info");
         }
         try {
-            (this.eventBus as any).emit("lv-cards:reviewed", {
-                plugin: "lv-cards", v: 1,
+            (this.eventBus as any).emit(LV_EVENTS.reviewed, reviewedEvent({
                 cardID: entry.cardID, deckID: entry.deckID, blockID: entry.blockID,
                 rating: entry.rating, source: entry.source,
-            });
+            }));
             if (streakAfter !== streakBefore) {
-                (this.eventBus as any).emit("lv-cards:streak-changed", { plugin: "lv-cards", v: 1, streak: streakAfter });
+                (this.eventBus as any).emit(LV_EVENTS.streakChanged, streakChangedEvent(streakAfter));
             }
         } catch { /* 事件旁路 */ }
     }
@@ -1749,7 +1748,7 @@ export default class LvCardsPlugin extends Plugin {
                         this.saveSettingsSoon();
                         // gateway-changed（M11 事件契约）：网关状态变化广播
                         try {
-                            (this.eventBus as any).emit("lv-cards:gateway-changed", { plugin: "lv-cards", v: 1, state });
+                            (this.eventBus as any).emit(LV_EVENTS.gatewayChanged, gatewayChangedEvent(state));
                         } catch { /* 事件旁路 */ }
                         return state;
                     },
