@@ -377,6 +377,7 @@
         "adviceCapacityUnknown": "范围容量未知（未填总卡量），仅展示本地已观察 ${observed} 次",
         "advicePreview": "建议仅供参考，不改内核调度",
         "newPlan": "新建考试计划",
+        "loadFailed": "考试数据加载失败（卡组/笔记本列表不可用），请重试",
         "emptyHint": "还没有考试计划。创建一个，让每天该学多少一目了然。",
         "untitled": "未命名计划",
         "cramOn": "考前 cram",

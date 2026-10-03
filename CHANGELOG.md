@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.111.1 2026-10-04 · AR-8 错误态优先级矩阵落地
+
+* dashboard：首次加载失败不再同时出现「空库→引导」误导与全 0 统计卡——错误+重试独占；有旧数据时横幅叠加旧值可见
+* exam-page：卡组/笔记本列表双路加载失败时错误横幅可重试（单路失败降级为可用子集），不再静默空下拉
+* review/manager 核查已合规（else-if 链保证错误优先于空态）；i18n +1 键（exam.loadFailed）
+* 已知抖动：大库性能基准测试在多负载并行下偶发超时（重跑即过），后续如复发改串行或加自适应预算
+
 ## v0.111.0 2026-10-04 · AT-6 性能指标：启动/首交互/评分埋点 + P50/P95 诊断
 
 * 新增 src/libs/perf.ts 纯模块：markStart（onload 首行）/markLayoutReady（onLayoutReady）/评分采样（复用 AQ-13 dur 漏斗，appendRevlog 单点接入）/p50-p95 线性插值/50 样本环形上限/diagLines 诊断段（persist/due cache 段同位，含冷热启动标记，onboarded 判定）

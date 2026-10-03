@@ -9,6 +9,7 @@
     import type { RevlogData } from "@/core/revlog";
     import LvChip from "./kit/LvChip.svelte";
     import LvEmpty from "./kit/LvEmpty.svelte";
+    import LvError from "./kit/LvError.svelte";
     import LvRow from "./kit/LvRow.svelte";
 
     let { i18n, plans, onSavePlan, onDeletePlan, onReviewScope, onReport, onWriteReport, getRevlog, getDailyCap }: {
@@ -32,14 +33,24 @@
     let decks: RiffDeck[] = $state([]);
     let notebooks: Notebook[] = $state([]);
     let editing = $state<ExamPlan | null>(null);
+    /** AR-8：范围下拉数据源加载失败可重试（两路全败才算失败；单路失败降级为可用子集） */
+    let loadError = $state(false);
 
-    onMount(async () => {
+    async function load() {
+        let ok = 0;
         try {
             decks = await getRiffDecks();
-        } catch { /* 旁路 */ }
+            ok++;
+        } catch { /* AR-8：单路失败不阻断另一路 */ }
         try {
             notebooks = await getNotebooks();
-        } catch { /* 旁路 */ }
+            ok++;
+        } catch { /* 同上 */ }
+        loadError = ok === 0;
+    }
+
+    onMount(() => {
+        void load();
     });
 
     function newPlan(): ExamPlan {
@@ -114,6 +125,10 @@
 </script>
 
 <div class="lv-exam">
+    {#if loadError}
+        <!-- AR-8：数据源全败时错误+重试优先，不用空计划列表误导 -->
+        <LvError message={t.exam.loadFailed} onretry={load} retryLabel={t.dashboard.refresh} />
+    {/if}
     <div class="fn__flex" style="justify-content: flex-end; margin-bottom: var(--lv-sp-3)">
         <button class="b3-button b3-button--text lv-btn-primary" onclick={() => (editing = newPlan())}>
             + {t.exam.newPlan}

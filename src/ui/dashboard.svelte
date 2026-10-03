@@ -345,10 +345,13 @@
             </button>
         {/if}
 
-        {#if totalCards === 0}
+        <!-- AR-8 错误态优先级：首次加载失败（无任何成功数据）时只显示错误+重试，
+             不同时展示「空库→引导」误导与全 0 统计；有旧数据时横幅叠加旧值可见（标注上次刷新） -->
+        {#if totalCards === 0 && !errorMsg}
             <LvEmpty text={t.dashboard.onboardingHint} actionLabel={t.dashboard.onboardingStart} onaction={ctx.openOnboarding} />
         {/if}
 
+        {#if totalCards > 0 || !errorMsg}
         <div class="fn__flex fn__flex-wrap lv-cards">
             <div class="fn__flex-1" style="min-width: 140px; display: flex;">
                 <div style="flex: 1">
@@ -395,6 +398,7 @@
                 </div>
             </div>
         </div>
+        {/if}
 
         <!-- AQ-12：本地证据口径的覆盖视图——覆盖率≠掌握率，分母=内核卡组规模合计，窗口=插件启用起 -->
         {#if coverage && coverage.coverage !== null}

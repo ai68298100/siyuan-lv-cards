@@ -377,6 +377,7 @@
         "adviceCapacityUnknown": "Scope size unknown (total not set); ${observed} local reviews observed",
         "advicePreview": "advice only — kernel scheduling untouched",
         "newPlan": "New exam plan",
+        "loadFailed": "Failed to load exam data (deck/notebook lists unavailable). Please retry",
         "emptyHint": "No exam plans yet. Create one to see daily pacing at a glance.",
         "untitled": "Untitled plan",
         "cramOn": "Pre-exam cram",
