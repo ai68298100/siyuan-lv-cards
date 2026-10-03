@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.120.0 2026-10-04 · BK-1 知识对象与卡实例分离（纯模块）
+
+* 新增 core/knowledge-objects.ts：KnowledgeObject（核心事实 + N 题型卡实例）模型——实例挂内核 riff cardID（卡片身份归内核），对象用 ko- 私有 id；存储设计小节在模块头（knowledge-objects.json，persist 队列同口径）
+* 操作集：normalize 白名单清洗（坏对象剔除/同 id 去重/fact 500 截断）、deriveInstance 幂等派生、affectedInstances 含停用全列（核心事实修订的影响面）、toggleInstance 单变体独立停用、removeInstance 内核删除同步
+* 7 组单测；测试 296→303；0 errors/0 warnings；存储接线与制卡/修订 UI 归后续批
 ## v0.119.0 2026-10-04 · 数据模型主线开工：BH-4 卡型目录 + BJ-1 能力类型分类法
 
 * 新增 core/card-catalog.ts（BH-4）：14 卡型声明式目录——阶段（shipped 七项/planned 七项）×调度映射（native 正式调度 vs practice 练习模式）×降级路线（degradationRoute 防环解析，audio→dictation→typing 两级示范）；5 组单测（id 唯一/降级目标存在/无环/shipped 集合/调度口径）
