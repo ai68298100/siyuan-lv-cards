@@ -713,9 +713,16 @@
         if (!input.full) return;
         const result = nextHint(input, hintLevel);
         if (result) {
-            hintLevel = result.level;
-            hintText = result.text ?? "";
             hintLog = [...hintLog, logHint(current.cardID, result.level)];
+            if (result.level === "full") {
+                // BJ-2：full 级=即翻面（设计口径）
+                showAnswer = true;
+                hintLevel = null;
+                hintText = "";
+            } else {
+                hintLevel = result.level;
+                hintText = result.text;
+            }
         }
     }
 

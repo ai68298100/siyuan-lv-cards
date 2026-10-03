@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.139.0 2026-10-04 · BJ-2 full 级行为修正（即翻面）+ AS-4 保存成功播报接线
+
+* BJ-2 行为修正：full 级=即翻面（showAnswer=true 并重置提示状态），此前 full 级展示全文为 hint text 与设计意图不符
+* AQ-4/AS-4：persist 恢复提示接入 trackSave（hadPersistFail→onOk 展示 settingsSaved）
+* 354/354 测试；0 errors/0 warnings
 ## v0.138.0 2026-10-04 · BI-8 done 屏建议集成 + BJ-2 提示内容推导接入
 
 * done 屏新增建议消息（buildSummary 推导：目标达成 🎉 / 有进度 💪 / 空态无消息）
