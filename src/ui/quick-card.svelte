@@ -5,7 +5,7 @@
     let { i18n, onCreate, onClose }: {
         i18n: any;
         /** markdown（问题 + ==答案== 挖空式单块）与目标卡组 */
-        onCreate: (markdown: string, deckID: string, deckName: string) => Promise<void>;
+        onCreate: (markdown: string, deckID: string, deckName: string, q?: string, a?: string) => Promise<void>;
         onClose: () => void;
     } = $props();
     const t = $derived(i18n);
@@ -47,7 +47,7 @@
                 errorMsg = t.quickCardNeedDeck;
                 return;
             }
-            await onCreate(`${q.trim()} ==${a.trim()}==`, deckID, deckName);
+            await onCreate(`${q.trim()} ==${a.trim()}==`, deckID, deckName, q.trim(), a.trim());
             onClose();
         } catch (e: any) {
             errorMsg = e?.message ?? String(e);

@@ -15,6 +15,10 @@ const t = {
         derive: "派生实例",
         deriving: "派生中…",
         deriveLabel: "派生卡型",
+        revise: "修订事实",
+        reviseLabel: "核心事实（修订）",
+        saveRevise: "保存修订",
+        cancelRevise: "取消",
     },
 };
 
@@ -81,5 +85,40 @@ describe("ko-panel（BK-1 UI）", () => {
             fact: "F", instances: [], deriving: true, t, ontoggle: vi.fn(), onremove: vi.fn(), onderive: vi.fn(),
         });
         expect((getByText("派生中…") as HTMLButtonElement).disabled).toBe(true);
+    });
+});
+
+describe("ko-panel 修订模式（BK-1 验收）", () => {
+    afterEach(cleanup);
+
+    it("修订模式：编辑→保存回调携带新事实；空值/同值不触发", async () => {
+        const onrevise = vi.fn();
+        const { container, getByText, getByLabelText } = render(KoPanel, {
+            fact: "旧事实", instances: [], t, ontoggle: vi.fn(), onremove: vi.fn(), onderive: vi.fn(), onrevise,
+        });
+        await fireEvent.click(getByText("修订事实"));
+        const box = getByLabelText("核心事实（修订）") as HTMLTextAreaElement;
+        expect(box.value).toBe("旧事实");
+        await fireEvent.input(box, { target: { value: "新事实" } });
+        await fireEvent.click(getByText("保存修订"));
+        expect(onrevise).toHaveBeenCalledWith("新事实");
+    });
+
+    it("修订取消不触发回调；未传 onrevise 不显示修订按钮", async () => {
+        const onrevise = vi.fn();
+        const first = render(KoPanel, {
+            fact: "旧事实", instances: [], t, ontoggle: vi.fn(), onremove: vi.fn(), onderive: vi.fn(), onrevise,
+        });
+        await fireEvent.click(first.getByText("修订事实"));
+        await fireEvent.click(first.getByText("取消"));
+        expect(first.queryByText("保存修订")).toBeNull();
+        expect(onrevise).not.toHaveBeenCalled();
+        first.unmount();
+        // 未传 onrevise：无修订按钮（宿主可选能力）
+        const second = render(KoPanel, {
+            fact: "F", instances: [], t, ontoggle: vi.fn(), onremove: vi.fn(), onderive: vi.fn(),
+        });
+        expect(second.queryByText("修订事实")).toBeNull();
+        second.unmount();
     });
 });

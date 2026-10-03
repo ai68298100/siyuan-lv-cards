@@ -1210,7 +1210,7 @@ export default class LvCardsPlugin extends Plugin {
             width: "min(520px, 94vw)",
             props: {
                 i18n: this.i18n,
-                onCreate: async (markdown: string, deckID: string) => {
+                onCreate: async (markdown: string, deckID: string, _deckName: string, q?: string, a?: string) => {
                     const nb = await this.targetNotebook();
                     if (!nb) {
                         throw new Error(this.i18n.onboardingNoNotebook);
@@ -1225,6 +1225,22 @@ export default class LvCardsPlugin extends Plugin {
                         throw new Error(this.i18n.quickCardFail);
                     }
                     await addRiffCards(deckID, ids.slice(0, 1));
+                    // BK-1：快速制卡自动注册知识对象（fact=问题文本，来源=新建块）并派生问答实例
+                    if (q) {
+                        try {
+                            const obj = registerObject(this.knowledgeObjects, q, ids[0]);
+                            const { blocks } = await getRiffCardsByBlockIDs([ids[0]]);
+                            const cardID = blocks?.[0]?.id;
+                            if (cardID) {
+                                deriveInstance(obj, {
+                                    cardID,
+                                    cardType: "cloze",
+                                    capability: a && q.includes(a) ? "fact" : "definition",
+                                });
+                            }
+                            await this.saveKnowledgeObjects();
+                        } catch { /* 知识对象注册为旁路增强：失败不影响制卡主流程 */ }
+                    }
                     showMessage(this.i18n.quickCardDone, 2000, "info");
                 },
                 onClose: () => { /* svelteDialog 自理销毁 */ },
