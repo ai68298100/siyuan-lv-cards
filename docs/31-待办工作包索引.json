@@ -390,8 +390,8 @@
    "conditionalPrerequisites": [],
    "summary": {
     "total": 16,
-    "done": 3,
-    "pending": 13
+    "done": 6,
+    "pending": 10
    },
    "blocks": [
     "WP-gateway-contract",
@@ -9254,8 +9254,8 @@
   },
   {
    "id": "AX-1",
-   "status": "open",
-   "checkbox": " ",
+   "status": "done",
+   "checkbox": "x",
    "priority": "P1",
    "group": "AX",
    "groupName": "第二轮：模块所有权、数据生命周期与契约治理（仅扩充规划）",
@@ -11127,8 +11127,8 @@
   },
   {
    "id": "BH-3",
-   "status": "open",
-   "checkbox": " ",
+   "status": "done",
+   "checkbox": "x",
    "priority": "P1",
    "group": "BH",
    "groupName": "全功能战略、能力矩阵与分阶段治理（仅扩充规划）",
@@ -11266,8 +11266,8 @@
   },
   {
    "id": "BH-13",
-   "status": "open",
-   "checkbox": " ",
+   "status": "done",
+   "checkbox": "x",
    "priority": "P1",
    "group": "BH",
    "groupName": "全功能战略、能力矩阵与分阶段治理（仅扩充规划）",
@@ -15142,10 +15142,10 @@
  "summary": {
   "packages": 38,
   "total": 930,
-  "done": 189,
-  "open": 738,
+  "done": 192,
+  "open": 735,
   "special": 3,
-  "pending": 741
+  "pending": 738
  },
  "experienceDocument": "docs/32-产品体验优化与页面蓝图.md",
  "experienceRefinements": [

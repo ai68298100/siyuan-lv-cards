@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.118.0 2026-10-04 · 文档三件套收官：模块所有权与事实源（AX-1/BH-3/BH-13 勾选）
+
+* 新增 docs/37-模块所有权与事实源.md：§1 模块所有权表（13 功能域 × 事实源/读写入口/事件/诊断面）+ §2 事实源映射七类归属（调度内核唯一 ADR-3 铁律）+ §3 双写与失效钩子顺序契约 + §4 待办治理现状 + §5 已知边界
+* 勾选 AX-1/BH-3/BH-13（三个 P1）：「不存在两个模块同时拥有正式 due/评分」验收达成
+* docs/README 索引补 37 号；governance OK（930 条，192 done）
 ## v0.117.0 2026-10-04 · BU-12 输出 schema 注册表
 
 * 新增 core/ai-schemas.ts：8 输出形态 schema（cards-json/scan/clarify/route/split/leak/distractor/rewrite，与 prompt-templates output 对接口径）
