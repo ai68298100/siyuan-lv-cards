@@ -739,6 +739,9 @@
         // BJ-2：翻卡/切卡时重置提示
         hintLevel = null;
         hintText = "";
+        // BJ-4：同步重置错误标注显示
+        showErrTags = false;
+        errTagged = false;
         // 记录上一张供回看（AJ2：只存数据，不自动打开浮层）
         if (current) {
             lastAnswered = { html: cardHtml, card: current };
@@ -1287,6 +1290,7 @@
                     {t.errReasons[rid] ?? rid}
                 </button>
             {/each}
+            <button class="b3-button b3-button--small" onclick={() => (showErrTags = false)} aria-label={t.review.skip}>✕</button>
         </div>
     {/if}
 
