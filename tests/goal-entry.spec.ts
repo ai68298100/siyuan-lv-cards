@@ -1,0 +1,107 @@
+import { describe, expect, it } from "vitest";
+import {
+    daysUntilDeadline, emptyGoals, isGoalActive, normalizeGoals, suggestedMinutes,
+    type LearningGoal,
+} from "../src/core/learning-goal";
+import {
+    emptyEntryContexts, findContext, isContextFresh, normalizeEntryContexts,
+    removeContext, upsertContext, type EntryContext,
+} from "../src/core/entry-context";
+
+// BI-1 目标模型：只记录目标不强迫建卡
+describe("learning-goal（BI-1）", () => {
+    it("normalizeGoals：最小目标可存（无材料无截止不强迫建卡）", () => {
+        const g = normalizeGoals({ goals: [{ id: "g1", purpose: "explore" }] }).goals[0];
+        expect(g.purpose).toBe("explore");
+        expect(g.deadline).toBeNull();
+        expect(g.materialBlockIDs).toEqual([]);
+        expect(g.minutesPerDay).toBe(0);
+    });
+
+    it("normalizeGoals：白名单清洗 + 材料去重 + 非法目的回 review", () => {
+        const d = normalizeGoals({
+            goals: [
+                { id: "g1", purpose: "bogus", deadline: "2026-11-01", materialBlockIDs: ["b1", "b1", "", 42, "b2"], minutesPerDay: 25.9, level: "novice" },
+                { purpose: "review" },               // 缺 id 剔除
+                { id: "g1", purpose: "build" },      // 重复 id 剔除
+            ],
+        });
+        expect(d.goals).toHaveLength(1);
+        const g = d.goals[0];
+        expect(g.purpose).toBe("review");       // 非法目的兜底
+        expect(g.materialBlockIDs).toEqual(["b1", "b2"]);
+        expect(g.minutesPerDay).toBe(25);        // 向下取整
+        expect(g.level).toBe("novice");
+    });
+
+    it("daysUntilDeadline：同日 0 / 未来正 / 已过负 / 无截止 null", () => {
+        const mk = (deadline: string | null): LearningGoal => ({
+            id: "g", purpose: "review", deadline, materialBlockIDs: [], minutesPerDay: 0, level: "beginner", createdAt: 0, updatedAt: 0,
+        });
+        expect(daysUntilDeadline(mk("2026-10-10"), "2026-10-10")).toBe(0);
+        expect(daysUntilDeadline(mk("2026-10-15"), "2026-10-10")).toBe(5);
+        expect(daysUntilDeadline(mk("2026-10-01"), "2026-10-10")).toBe(-9);
+        expect(daysUntilDeadline(mk(null), "2026-10-10")).toBeNull();
+    });
+
+    it("isGoalActive：无截止活跃；截止当天活跃；过后不活跃", () => {
+        const mk = (deadline: string | null): LearningGoal => ({
+            id: "g", purpose: "review", deadline, materialBlockIDs: [], minutesPerDay: 0, level: "beginner", createdAt: 0, updatedAt: 0,
+        });
+        expect(isGoalActive(mk(null), "2026-10-10")).toBe(true);
+        expect(isGoalActive(mk("2026-10-10"), "2026-10-10")).toBe(true);
+        expect(isGoalActive(mk("2026-10-09"), "2026-10-10")).toBe(false);
+    });
+
+    it("suggestedMinutes：复习/维护基础更低，水平越高越长，5 分钟取整", () => {
+        expect(suggestedMinutes("review", "novice")).toBe(15);
+        expect(suggestedMinutes("build", "novice")).toBe(25);
+        expect(suggestedMinutes("build", "advanced")).toBe(50);
+        expect(suggestedMinutes("explore", "beginner")).toBe(30);
+    });
+});
+
+// BI-3 入口上下文：来源/范围/目标/返回点保留，取消重开不丢
+describe("entry-context（BI-3）", () => {
+    const ctx: EntryContext = {
+        entryKind: "block", sourceID: "b1", scopeKey: "deck::x", goalID: "g1", returnPoint: "lv-cards-dashboard", createdAt: 1000,
+    };
+
+    it("upsert+find：同 kind+source 刷新保留最新", () => {
+        let d = upsertContext(emptyEntryContexts(), ctx);
+        const updated = { ...ctx, scopeKey: "deck::y", createdAt: 2000 };
+        d = upsertContext(d, updated);
+        expect(d.contexts).toHaveLength(1);
+        expect(findContext(d, "block", "b1")!.scopeKey).toBe("deck::y");
+    });
+
+    it("normalize：往返无损（取消/重开不丢上下文）", () => {
+        const d = upsertContext(emptyEntryContexts(), ctx);
+        const round = normalizeEntryContexts(JSON.parse(JSON.stringify(d)));
+        expect(round).toEqual(d);
+    });
+
+    it("normalize：无 sourceID 剔除；同键去重保后", () => {
+        const r = normalizeEntryContexts({
+            contexts: [
+                { entryKind: "block", sourceID: "", createdAt: 1 },
+                { entryKind: "doc", sourceID: "d1", scopeKey: "a", createdAt: 1 },
+                { entryKind: "doc", sourceID: "d1", scopeKey: "b", createdAt: 2 },
+            ],
+        });
+        expect(r.contexts).toHaveLength(1);
+        expect(r.contexts[0].scopeKey).toBe("b");
+    });
+
+    it("removeContext：完成/放弃清除", () => {
+        let d = upsertContext(emptyEntryContexts(), ctx);
+        expect(removeContext(d, "block", "b1")).toBe(true);
+        expect(removeContext(d, "block", "b1")).toBe(false);
+        expect(findContext(d, "block", "b1")).toBeNull();
+    });
+
+    it("isContextFresh：默认 7 天有效期", () => {
+        expect(isContextFresh(ctx, 1000 + 6 * 86400000)).toBe(true);
+        expect(isContextFresh(ctx, 1000 + 8 * 86400000)).toBe(false);
+    });
+});

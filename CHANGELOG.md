@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.146.0 2026-10-04 · BI-1 目标模型 + BI-3 入口上下文（纯模块，BI 系列地基收官）
+
+* 新增 core/learning-goal.ts：目标模型（目的/截止/材料/每日可用分钟/水平自评）——可只记录目标不强迫建卡（验收口径）；normalize 白名单清洗 + daysUntilDeadline/isGoalActive + suggestedMinutes 目的×水平推荐
+* 新增 core/entry-context.ts：入口上下文（六入口类型×来源/范围/目标/返回点）——upsert 刷新/find 恢复/remove 清除 + JSON 往返无损（取消/重开不丢上下文）+ 7 天新鲜度
+* BI 系列纯模块地基至此收官：BI-1/2/3/4/5/6/7/8/9 全部有可测核心，UI 接线按批次跟进
+* +10 组测试（393→403）；主包 gzip 94KB（≤95KB 内）
 ## v0.145.0 2026-10-04 · BI-7 状态转移解释 + BI-9 中断恢复分支（纯模块）
 
 * 新增 core/state-explain.ts：十态「为什么+直达修复」映射（stateWhy i18n 键+repair 动作）+ whyNotReviewable 内容侧不可复习原因专项（调度侧属内核 riff ADR-3）
