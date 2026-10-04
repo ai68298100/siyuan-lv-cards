@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 import { getTemplate, missingInputs, PROMPT_TEMPLATES, renderTemplate } from "../src/core/prompt-templates";
 
 // BU-5/BV 模板注册表：id 唯一、占位符渲染、输入完整性预检（注册表演进防漂移）
@@ -42,5 +43,17 @@ describe("prompt-templates 注册表契约（BU-5/BV）", () => {
 
     it("未知 id 返回 undefined（调用方回退 generic）", () => {
         expect(getTemplate("no-such-template")).toBeUndefined();
+    });
+
+    it("nameKey 必须在 zh-CN 与 en i18n 中都可解析（v0.163.0 防回归：10 模板标签曾整体缺失）", () => {
+        const read = (p: string): Record<string, unknown> =>
+            JSON.parse(readFileSync(new URL(p, import.meta.url), "utf8"));
+        const zh = read("../public/i18n/zh-CN.json");
+        const en = read("../public/i18n/en.json");
+        expect(PROMPT_TEMPLATES.length).toBeGreaterThanOrEqual(10);
+        for (const t of PROMPT_TEMPLATES) {
+            expect(typeof zh[t.nameKey]).toBe("string");
+            expect(typeof en[t.nameKey]).toBe("string");
+        }
     });
 });

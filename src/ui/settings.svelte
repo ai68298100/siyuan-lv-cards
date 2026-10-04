@@ -13,6 +13,7 @@
     import LvSwitch from "./kit/LvSwitch.svelte";
     import LvSelect from "./kit/LvSelect.svelte";
     import LvInput from "./kit/LvInput.svelte";
+    import { PROMPT_TEMPLATES } from "@/core/prompt-templates";
 
     export interface SettingsCtx {
         i18n: any;
@@ -470,10 +471,22 @@
             {/if}
             <LvRow label={t.settings.aiPromptTemplate} hint={t.settings.aiPromptTemplateHint}>
                 {#snippet children()}
+                    <!-- BU-5 收口（v0.163.0）：预置模板单一事实源=注册表（10 模板），不再散落 i18n 字符串 -->
                     <div class="fn__flex fn__flex-wrap" style="gap: 6px; margin-bottom: 6px">
-                        <button class="b3-button b3-button--small" onclick={() => (draft.aiPromptTemplate = t.settings.aiPromptGeneric)}>{t.settings.aiPromptGenericLabel}</button>
-                        <button class="b3-button b3-button--small" onclick={() => (draft.aiPromptTemplate = t.settings.aiPromptExam)}>{t.settings.aiPromptExamLabel}</button>
-                        <button class="b3-button b3-button--small" onclick={() => (draft.aiPromptTemplate = t.settings.aiPromptLanguage)}>{t.settings.aiPromptLanguageLabel}</button>
+                        <select
+                            class="b3-select b3-button--small"
+                            aria-label={t.settings.aiPromptTemplate}
+                            onchange={(e: Event) => {
+                                const id = (e.target as HTMLSelectElement).value;
+                                const tpl = PROMPT_TEMPLATES.find(x => x.id === id);
+                                if (tpl) { draft.aiPromptTemplate = tpl.systemPrompt; }
+                            }}
+                        >
+                            <option value="">{t.settings.aiPromptPick}</option>
+                            {#each PROMPT_TEMPLATES as tpl (tpl.id)}
+                                <option value={tpl.id}>{(t as any)[tpl.nameKey] ?? tpl.nameKey}</option>
+                            {/each}
+                        </select>
                         <button class="b3-button b3-button--small" onclick={() => (draft.aiPromptTemplate = "")}>{t.settings.aiPromptReset}</button>
                     </div>
                     <textarea class="b3-text-field fn__size-200" rows="4" style="width: 100%; resize: vertical" bind:value={draft.aiPromptTemplate}></textarea>

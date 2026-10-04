@@ -473,7 +473,8 @@
         "personaImportBad": "不是有效的小驴画像文件",
         "ttsVoiceDefaultPlaceholder": "",
         "dailyTipEnabled": "每日一语（学习科学小贴士）",
-        "dailyTipHint": "完成页展示一条学习科学小贴士，可关"
+        "dailyTipHint": "完成页展示一条学习科学小贴士，可关",
+        "aiPromptPick": "选择预置模板…"
     },
     "hubTabOverview": "总览",
     "hubTabError": "该子页出现错误，已隔离在边界内",
@@ -876,5 +877,15 @@
         "hint": "保存前先看差异；取消即保留原卡",
         "saveFail": "保存失败，请重试",
         "loadFail": "内容加载失败，无法编辑"
-    }
+    },
+    "aiPromptGenericLabel": "通用制卡",
+    "aiPromptExamLabel": "考试冲刺",
+    "aiPromptLanguageLabel": "语言学习",
+    "tplMaterialScan": "材料教学价值扫描",
+    "tplGoalClarify": "学习目标澄清",
+    "tplCardTypeRoute": "知识到卡型路由",
+    "tplAtomicSplit": "原子事实拆解",
+    "tplClozeLeakCheck": "挖空反泄漏审查",
+    "tplDistractorCause": "带错因干扰项",
+    "tplLeechRewrite": "烂卡改写"
 }

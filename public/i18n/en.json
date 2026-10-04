@@ -473,7 +473,8 @@
         "personaImportBad": "Not a valid Lv Cards persona file",
         "ttsVoiceDefaultPlaceholder": "",
         "dailyTipEnabled": "Daily learning tip",
-        "dailyTipHint": "Show a learning-science tip on the session-done screen; can be turned off"
+        "dailyTipHint": "Show a learning-science tip on the session-done screen; can be turned off",
+        "aiPromptPick": "Pick a preset template…"
     },
     "hubTabOverview": "Overview",
     "hubTabError": "This tab hit an error (contained by the boundary)",
@@ -876,5 +877,15 @@
         "hint": "Review the diff before saving; cancel keeps the original card",
         "saveFail": "Save failed, try again",
         "loadFail": "Failed to load content for editing"
-    }
+    },
+    "aiPromptGenericLabel": "Generic cards",
+    "aiPromptExamLabel": "Exam sprint",
+    "aiPromptLanguageLabel": "Language points",
+    "tplMaterialScan": "Material value scan",
+    "tplGoalClarify": "Goal clarification",
+    "tplCardTypeRoute": "Card-type routing",
+    "tplAtomicSplit": "Atomic fact split",
+    "tplClozeLeakCheck": "Cloze leak check",
+    "tplDistractorCause": "Distractors with causes",
+    "tplLeechRewrite": "Leech rewrite"
 }
