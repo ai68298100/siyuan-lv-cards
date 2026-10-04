@@ -483,7 +483,18 @@
         "ttsVoiceDefaultPlaceholder": "",
         "dailyTipEnabled": "Daily learning tip",
         "dailyTipHint": "Show a learning-science tip on the session-done screen; can be turned off",
-        "aiPromptPick": "Pick a preset template…"
+        "aiPromptPick": "Pick a preset template…",
+        "aiKillTitle": "Emergency stop (AI kill switch)",
+        "aiKillHint": "When stopped, AI requests are blocked before they start and pending jobs are cleaned up. Existing cards and review are fully unaffected. Event log contains no material content.",
+        "aiKillStop": "Stop current config",
+        "aiKillResume": "Resume current config",
+        "aiKillRevoke": "Revoke AI consent",
+        "aiKillGrant": "Re-grant consent",
+        "aiKillRevokedChip": "Consent revoked",
+        "aiKillStoppedChip": "Current config stopped",
+        "aiKillLast": "Last event: ",
+        "aiKillNone": "none",
+        "aiKillApplied": "Applied"
     },
     "hubTabOverview": "Overview",
     "hubTabError": "This tab hit an error (contained by the boundary)",
@@ -958,5 +969,7 @@
             "sensitive-source": "Hand-copy the cards, or clear the sensitive mark if it was a mistake.",
             "cost-exceeded": "Adjust the budget in Settings and retry; manual card-making is unaffected."
         }
-    }
+    },
+    "consentRevoked": "AI consent has been revoked: all AI requests are blocked.",
+    "targetDisabled": "The current AI configuration is under emergency stop."
 }

@@ -22,6 +22,14 @@
         close: () => void;
         exportRevlog: () => void;
         clearRevlog: () => void;
+        /** BU-31：紧急停用/撤销同意（可选——旧宿主不传则不显示该行） */
+        killswitch?: {
+            snapshot: () => any;
+            stopCurrent: () => any;
+            resumeAll: () => any;
+            revoke: () => any;
+            grant: () => any;
+        };
         redetectV2: () => Promise<string>;
         getV2Status: () => string;
         getSuspendedCount: () => number;
@@ -38,6 +46,21 @@
 
     let { ctx }: { ctx: SettingsCtx } = $props();
     const t = $derived(ctx.i18n);
+
+    // BU-31：紧急停用/撤销同意（设置页本地镜像，操作后回读快照）
+    // svelte-ignore state_referenced_locally -- 初值快照刻意的：操作经 applyKill 回读替换
+    let ks = $state<any>(ctx.killswitch?.snapshot?.() ?? null);
+    function applyKill(action: "stopCurrent" | "resumeAll" | "revoke" | "grant") {
+        if (!ctx.killswitch) return;
+        ks = ctx.killswitch[action]();
+        showMessage(t.settings.aiKillApplied, 2000, "info");
+    }
+    const providerDisabled = $derived(ks?.disabledTargets?.some((x: string) => x.startsWith("provider:")) ?? false);
+    function lastEventText(): string {
+        const ev = ks?.events?.[ks.events.length - 1];
+        if (!ev) return t.settings.aiKillNone;
+        return `${ev.kind} · ${new Date(ev.at).toLocaleString()}`;
+    }
 
     // 初值语义：draft 是打开设置时的快照，保存前不随源变化
     // svelte-ignore state_referenced_locally
@@ -492,6 +515,30 @@
                     <textarea class="b3-text-field fn__size-200" rows="4" style="width: 100%; resize: vertical" bind:value={draft.aiPromptTemplate}></textarea>
                 {/snippet}
             </LvRow>
+            {#if ctx.killswitch}
+                <!-- BU-31：紧急停用/撤销同意（停用即清理待发队列；卡片与正式复习不受影响） -->
+                <LvRow label={t.settings.aiKillTitle} hint={t.settings.aiKillHint}>
+                    {#snippet children()}
+                        <div class="fn__flex fn__flex-wrap" style="gap: 6px; align-items: center">
+                            {#if ks.revoked}
+                                <button class="b3-button b3-button--small" onclick={() => applyKill("grant")}>{t.settings.aiKillGrant}</button>
+                                <LvChip tone="error">{t.settings.aiKillRevokedChip}</LvChip>
+                            {:else}
+                                <button class="b3-button b3-button--small" onclick={() => applyKill("revoke")}>{t.settings.aiKillRevoke}</button>
+                            {/if}
+                            {#if providerDisabled}
+                                <button class="b3-button b3-button--small" onclick={() => applyKill("resumeAll")}>{t.settings.aiKillResume}</button>
+                                <LvChip tone="warn">{t.settings.aiKillStoppedChip}</LvChip>
+                            {:else}
+                                <button class="b3-button b3-button--small" onclick={() => applyKill("stopCurrent")}>{t.settings.aiKillStop}</button>
+                            {/if}
+                        </div>
+                        <div class="ft__smaller ft__on-surface" style="margin-top: 4px">
+                            {t.settings.aiKillLast}{lastEventText()}
+                        </div>
+                    {/snippet}
+                </LvRow>
+            {/if}
         {/if}
     </LvSection>
 

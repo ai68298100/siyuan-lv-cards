@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.173.0 2026-10-05 · BU-31 AI 故障与安全事件处置（紧急停用 + 撤销同意）
+
+* 新增 core/ai-kill-switch.ts 纯模块：目标粒度紧急停用（provider:/model:/task:/template: 非明文键）+ 撤销同意总闸 + 批次隔离 + 安全事件流（最近 50 条，幂等操作不重复记事件，scope 截断 120 字不含材料内容）+ normalize 白名单清洗；+6 组单测（491→497）
+* 存储：ai-killswitch.json 入 STORE_KEYS 批量加载 + 落盘 + storageStats 行 + PRIVACY 披露（governance 存储披露核对拦截一次后补齐——机制有效）
+* generate 前置检查追加总闸/目标粒度阻断（consent-revoked / target-disabled 两种错误文案）；设置页 AI 段新增「紧急停用」行：停用/恢复当前配置、撤销/重新授予同意——**停用与撤销均同步清理待发队列**（活动态 ai-jobs → canceled，验收「清理待发」）；卡片与正式复习零影响
+* 验收留痕：停用后无后台请求 ✓（前置检查组装前阻断）；「恢复旧版本」（设置快照回滚）登记为余项
+* i18n +13 键（settings.aiKill* + aiKill.* 错误文案，zh/en 对齐）；主包 72.97KB（≤75KB，余量 2KB——下一批 UI 前评估 dialogs chunk）
+
 ## v0.172.0 2026-10-05 · BU-33 AI eligibility 前置检查（组装前阻断 + 替代路径）
 
 * 新增 core/ai-eligibility.ts 纯模块：五类前置检查（材料非空/AI 配置/网络在线/来源敏感/成本预算）按固定优先级阻断，每条阻断强制配对「手工/本地替代路径」键——验收「不把环境失败归因成模型质量」；事实未提供的检查项不判而非失败（渐进接入：敏感=BL-5 预留、成本=BU-24/25 账本预留）；+5 组单测（486→491）

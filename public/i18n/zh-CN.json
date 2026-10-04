@@ -483,7 +483,18 @@
         "ttsVoiceDefaultPlaceholder": "",
         "dailyTipEnabled": "每日一语（学习科学小贴士）",
         "dailyTipHint": "完成页展示一条学习科学小贴士，可关",
-        "aiPromptPick": "选择预置模板…"
+        "aiPromptPick": "选择预置模板…",
+        "aiKillTitle": "紧急停用（AI 安全阀）",
+        "aiKillHint": "停用后 AI 请求在发起前被阻断并清理待发队列；已有卡片与正式复习完全不受影响。事件记录不含材料内容。",
+        "aiKillStop": "紧急停用当前配置",
+        "aiKillResume": "恢复当前配置",
+        "aiKillRevoke": "撤销 AI 使用同意",
+        "aiKillGrant": "重新授予同意",
+        "aiKillRevokedChip": "已撤销同意",
+        "aiKillStoppedChip": "当前配置已停用",
+        "aiKillLast": "最近事件：",
+        "aiKillNone": "暂无",
+        "aiKillApplied": "已生效"
     },
     "hubTabOverview": "总览",
     "hubTabError": "该子页出现错误，已隔离在边界内",
@@ -958,5 +969,7 @@
             "sensitive-source": "请手工摘录制卡，或确认误标后解除来源的敏感标记。",
             "cost-exceeded": "可在设置中调整预算后重试；期间可用手工建卡。"
         }
-    }
+    },
+    "consentRevoked": "AI 使用同意已撤销：一切 AI 请求被阻断。",
+    "targetDisabled": "当前 AI 配置处于紧急停用状态。"
 }

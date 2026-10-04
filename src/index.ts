@@ -44,6 +44,7 @@ import { aiChat, estimateTokens, parseCards, isAICanceled } from "./api/ai";
 import { normalizeSuspendToday, rollDateIfNeeded, isSuspended, suspend, unsuspend, type SuspendTodayData } from "./core/suspend-today";
 import { assembleGeneratePrompt } from "./core/ai-pipeline";
 import { checkEligibility } from "./core/ai-eligibility";
+import { disableTarget, emptyKillSwitch, enableTarget, grantConsent, killSwitchBlock, normalizeKillSwitch, revokeConsent, type AIKillSwitchData } from "./core/ai-kill-switch";
 import { parseRevlogCsv } from "./core/revlog-csv";
 import { normalizeSessionState, type SessionState } from "./core/session-state";
 import { normalizeExamPlans, daysLeft, examReportStats, type ExamPlan, type ExamPlansData } from "./core/exam";
@@ -105,6 +106,7 @@ const INBOX_DATA = "inbox.json";
 const LEARNING_GOALS_DATA = "learning-goals.json";
 const ENTRY_CONTEXTS_DATA = "entry-contexts.json";
 const CONTENT_LIFECYCLES_DATA = "content-lifecycles.json";
+const AI_KILL_SWITCH_DATA = "ai-killswitch.json";
 
 export default class LvCardsPlugin extends Plugin {
 
@@ -117,6 +119,8 @@ export default class LvCardsPlugin extends Plugin {
     private badgeTimer: ReturnType<typeof setInterval> | null = null;
     private settingsSaveTimer: ReturnType<typeof setTimeout> | null = null;
     private suspendToday: SuspendTodayData = { date: "", cardIDs: [] };
+    /** BU-31：AI 紧急停用/撤销同意状态（ai-killswitch.json） */
+    private killSwitch: AIKillSwitchData = emptyKillSwitch();
     private examPlans: ExamPlansData = { version: 1, plans: [] };
     private aiBatches: AIBatchesData = { version: 1, batches: [] };
     /** AI 批次作业（ADR-7 第 2 步）：断点续传的状态载体 */
@@ -203,12 +207,13 @@ export default class LvCardsPlugin extends Plugin {
 </symbol>`);
 
         // AQ-1：批量加载以 keys 数组驱动并按位置配对，杜绝「6 项加载只解构 5 项」的错位回归
-        const STORE_KEYS = [SETTINGS_DATA, REVLOG_DATA, SUSPEND_TODAY_DATA, EXAM_PLANS_DATA, AI_BATCHES_DATA, SESSION_STATE_DATA, AI_JOBS_DATA, KNOWLEDGE_OBJECTS_DATA, CARD_RELATIONS_DATA, ERROR_TAGS_DATA, INBOX_DATA, LEARNING_GOALS_DATA, ENTRY_CONTEXTS_DATA, CONTENT_LIFECYCLES_DATA] as const;
+        const STORE_KEYS = [SETTINGS_DATA, REVLOG_DATA, SUSPEND_TODAY_DATA, EXAM_PLANS_DATA, AI_BATCHES_DATA, SESSION_STATE_DATA, AI_JOBS_DATA, KNOWLEDGE_OBJECTS_DATA, CARD_RELATIONS_DATA, ERROR_TAGS_DATA, INBOX_DATA, LEARNING_GOALS_DATA, ENTRY_CONTEXTS_DATA, CONTENT_LIFECYCLES_DATA, AI_KILL_SWITCH_DATA] as const;
         const loaded = zipLoaded(STORE_KEYS, await Promise.all(STORE_KEYS.map(key => this.loadData(key))));
         this.settings = normalizeSettings(loaded[SETTINGS_DATA]);
         this.perf.setCold(!this.settings.onboarded); // AT-6：首轮未完成引导=冷启动
         this.revlog = normalizeRevlog(loaded[REVLOG_DATA]); // AQ-3：清洗非法条目并由明细重建 days
         this.suspendToday = normalizeSuspendToday(loaded[SUSPEND_TODAY_DATA]);
+        this.killSwitch = normalizeKillSwitch(loaded[AI_KILL_SWITCH_DATA]);
         this.examPlans = normalizeExamPlans(loaded[EXAM_PLANS_DATA]);
         this.sessionState = normalizeSessionState(loaded[SESSION_STATE_DATA], localDate(Date.now()));
         // BK-1/BK-2：知识对象与关系图并入同批加载（normalize 白名单清洗）
@@ -1344,6 +1349,7 @@ export default class LvCardsPlugin extends Plugin {
         push("learning-goals.json", `${this.learningGoals.goals.length} goals (BI-1)`);
         push("entry-contexts.json", `${this.entryContexts.contexts.length} contexts (BI-3)`);
         push("content-lifecycles.json", `${this.contentLifecycles.lifecycles.length} lifecycles (BI-5)`);
+        push("ai-killswitch.json", `${this.killSwitch.disabledTargets.length} targets / ${this.killSwitch.quarantinedJobs.length} quarantined (BU-31)`);
         return rows;
     }
 
@@ -1788,6 +1794,12 @@ export default class LvCardsPlugin extends Plugin {
                         const b = elig.block!;
                         throw new Error(`${e[b.reason]} ${e.alt[b.reason]}`);
                     }
+                    // BU-31（v0.173.0）：紧急停用/撤销同意前置（总闸优先；provider/model/task 目标粒度）
+                    const killReason = killSwitchBlock(this.killSwitch, [...this.aiProviderTargets(), "task:cards-generate"]);
+                    if (killReason) {
+                        const e = (this.i18n as any).aiKill;
+                        throw new Error(killReason === "consent-revoked" ? e.consentRevoked : e.targetDisabled);
+                    }
                     // BU-35（v0.171.0）：提示组装收编流水线单一入口（模板解析/围栏/隔离条款/预算/审计）
                     const assembled = assembleGeneratePrompt({
                         task: "cards-generate",
@@ -2178,6 +2190,31 @@ export default class LvCardsPlugin extends Plugin {
         return this.persist.save(CONTENT_LIFECYCLES_DATA, this.contentLifecycles).catch(() => { /* onFail 已记录 */ });
     }
 
+    /** BU-31：紧急停用状态落盘 */
+    saveKillSwitch() {
+        return this.persist.save(AI_KILL_SWITCH_DATA, this.killSwitch).catch(() => { /* onFail 已记录 */ });
+    }
+
+    /** BU-31：当前 provider/model 目标键（紧急停用粒度） */
+    private aiProviderTargets(): string[] {
+        const targets = [`provider:${this.settings.aiMode}:${this.settings.aiMode === "custom" ? this.settings.aiEndpoint : "siyuan"}`];
+        if (this.settings.aiModel) targets.push(`model:${this.settings.aiModel}`);
+        return targets;
+    }
+
+    /** BU-31：清理待发队列（活动态作业 → canceled；验收「清理待发队列」） */
+    private cancelPendingAiJobs(): number {
+        let n = 0;
+        for (const job of this.aiJobs.jobs) {
+            if (["drafting", "generating", "reviewing", "committing"].includes(job.status)) {
+                transitionJob(job, { type: "CANCEL" });
+                n++;
+            }
+        }
+        if (n > 0) this.persist.save(AI_JOBS_DATA, this.aiJobs).catch(() => { /* onFail 已记录 */ });
+        return n;
+    }
+
     /** BI-1：目标 upsert（空 id 自动生成）；返回更新后快照 */
     saveLearningGoal(goal: LearningGoal): LearningGoalsData {
         const g: LearningGoal = { ...goal, updatedAt: Date.now() };
@@ -2291,6 +2328,32 @@ export default class LvCardsPlugin extends Plugin {
                     },
                     exportRevlog: () => this.exportRevlog(),
                     clearRevlog: () => this.clearRevlog(),
+                    // BU-31：紧急停用/撤销同意（停用即清理待发队列；事件记录不含敏感内容）
+                    killswitch: {
+                        snapshot: () => this.killSwitch,
+                        stopCurrent: () => {
+                            for (const t of this.aiProviderTargets()) disableTarget(this.killSwitch, t, Date.now());
+                            this.cancelPendingAiJobs();
+                            this.saveKillSwitch();
+                            return this.killSwitch;
+                        },
+                        resumeAll: () => {
+                            for (const t of this.aiProviderTargets()) enableTarget(this.killSwitch, t, Date.now());
+                            this.saveKillSwitch();
+                            return this.killSwitch;
+                        },
+                        revoke: () => {
+                            revokeConsent(this.killSwitch, Date.now());
+                            this.cancelPendingAiJobs();
+                            this.saveKillSwitch();
+                            return this.killSwitch;
+                        },
+                        grant: () => {
+                            grantConsent(this.killSwitch, Date.now());
+                            this.saveKillSwitch();
+                            return this.killSwitch;
+                        },
+                    },
                     redetectV2: async () => {
                         this.flashcardV2 = await detectFlashcardV2();
                         const state = this.flashcardV2 ? this.flashcardV2.state : "N/A (<3.9.0)";
