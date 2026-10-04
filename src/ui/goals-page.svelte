@@ -5,7 +5,7 @@
     import LvPage from "./kit/LvPage.svelte";
     import LvEmpty from "./kit/LvEmpty.svelte";
     import LvChip from "./kit/LvChip.svelte";
-    import { GOAL_PRIORITIES, LEVELS, daysUntilDeadline, isGoalActive, sortGoalsByPriority, suggestedMinutes, type GoalPriority, type LearningGoal, type LearningGoalsData, type LearnerLevel } from "@/core/learning-goal";
+    import { GOAL_PRIORITIES, LEVELS, currentCriteria, daysUntilDeadline, isGoalActive, setCriteria, sortGoalsByPriority, suggestedMinutes, type GoalPriority, type LearningGoal, type LearningGoalsData, type LearnerLevel } from "@/core/learning-goal";
     import { SESSION_PURPOSES } from "@/core/session-purpose";
     import { narrateGoalProgress, stageLabelKey } from "@/core/goal-narrative";
 
@@ -30,6 +30,8 @@
     let editing = $state(false);
     let form = $state<LearningGoal>(blankGoal());
     let live = $state("");
+    // BI-16：完成定义（表单草稿；保存时经 setCriteria 追加历史，旧定义保留）
+    let criteriaDraft = $state("");
 
     function blankGoal(): LearningGoal {
         return { id: "", purpose: "review", deadline: null, materialBlockIDs: [], minutesPerDay: 0, level: "beginner", createdAt: 0, updatedAt: 0 };
@@ -39,6 +41,7 @@
     const sorted = $derived(sortGoalsByPriority(snapshot.goals));
 
     function startAdd() {
+        criteriaDraft = "";
         form = blankGoal();
         form.minutesPerDay = suggestedMinutes(form.purpose, form.level);
         editing = true;
@@ -50,6 +53,7 @@
     }
 
     function save() {
+        if (criteriaDraft.trim()) setCriteria(form, criteriaDraft);
         snapshot = goals.save({ ...form, createdAt: form.createdAt || Date.now() });
         editing = false;
         announce(t.saved);
@@ -139,6 +143,11 @@
                 <input class="b3-text-field" type="number" min="5" step="5" bind:value={form.minutesPerDay} />
             </label>
             <label class="lv-field">
+                <span>{t.criteriaLabel}</span>
+                <input class="b3-text-field" type="text" maxlength="100" bind:value={criteriaDraft}
+                    placeholder={t.criteriaPlaceholder} />
+            </label>
+            <label class="lv-field">
                 <span>{t.level}</span>
                 <select class="b3-select" bind:value={form.level} onchange={onPurposeChange}>
                     {#each LEVELS as l (l)}
@@ -174,6 +183,12 @@
                             <!-- BI-15：阶段计数叙事（描述进展，非掌握百分比） -->
                             <div class="lv-goal-meta ft__smaller ft__on-surface" style="opacity:.8">
                                 🧭 {narrativeText(g)}
+                            </div>
+                        {/if}
+                        {#if currentCriteria(g)}
+                            <!-- BI-16：现行完成定义（修改即追加历史，旧定义保留） -->
+                            <div class="lv-goal-meta ft__smaller ft__on-surface" style="opacity:.8">
+                                🎯 {currentCriteria(g)}
                             </div>
                         {/if}
                     </div>

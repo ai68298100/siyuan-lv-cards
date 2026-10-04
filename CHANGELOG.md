@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.175.0 2026-10-05 · BI-16 用户自定义完成定义（标准可修改，历史保留）
+
+* learning-goal 增 criteriaHistory（GoalCriteria{text,since} 追加式历史，最新在末尾；白名单清洗：空文本剔除/截 100 字/上限 20 条）+ setCriteria（同文无操作/空文本忽略，不可变追加）+ currentCriteria；+2 组单测（498→500）
+* 目标表单新增「完成标准」输入（占位示例：读完第一章/能讲解给他人/能做对例题）；目标行显示 🎯 现行定义——修改即追加历史，旧定义按验收保留当时版本
+* i18n +2 键（goals.criteria*，zh/en 对齐）；hub chunk 49.37KB / 主包 42.00KB（≤55KB 内）
+
 ## v0.174.0 2026-10-05 · AT-17 延伸：dialogs chunk 切分（主包 72.97→41.89KB）
 
 * libs/dialog 增挂载器注入点（setDialogMounter）：svelteDialog 经注入的 mounter 挂载 chunk 编译的组件——组件与挂载同 svelte 实例，杜绝双份内部状态 split-brain；未安装时回退 shell svelte（dev 进程内组件）；组件销毁统一出口兼容句柄/实例两种形态

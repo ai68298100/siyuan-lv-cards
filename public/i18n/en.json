@@ -798,7 +798,9 @@
             "primary": "Primary",
             "keep": "Keep",
             "pause": "Paused"
-        }
+        },
+        "criteriaLabel": "Done criteria",
+        "criteriaPlaceholder": "e.g. finish chapter 1 / can explain it / solve the exercises"
     },
     "lc": {
         "title": "Content lifecycle",

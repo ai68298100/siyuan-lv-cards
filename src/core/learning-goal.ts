@@ -23,8 +23,49 @@ export interface LearningGoal {
     level: LearnerLevel;
     /** BI-11：目标优先级（主目标/维持/暂缓）；缺省=维持。排序只影响入口与建议展示，不改调度 */
     priority?: GoalPriority;
+    /** BI-16：完成定义历史（旧定义保留——验收「历史记录保留当时定义」）；最新在末尾 */
+    criteriaHistory?: GoalCriteria[];
     createdAt: number;
     updatedAt: number;
+}
+
+/** BI-16：用户自定义完成定义（「读完/能解释/能做题/能完成任务」等，自拟文本） */
+export interface GoalCriteria {
+    text: string;
+    since: number;
+}
+
+const CRITERIA_TEXT_MAX = 100;
+const CRITERIA_HISTORY_CAP = 20;
+
+function asCriteriaHistory(raw: unknown): GoalCriteria[] | undefined {
+    if (!Array.isArray(raw)) return undefined;
+    const out: GoalCriteria[] = [];
+    for (const c of raw) {
+        const text = typeof (c as any)?.text === "string" ? (c as any).text.trim().slice(0, CRITERIA_TEXT_MAX) : "";
+        if (!text) continue;
+        const since = Number((c as any)?.since);
+        out.push({ text, since: Number.isFinite(since) && since > 0 ? since : Date.now() });
+        if (out.length >= CRITERIA_HISTORY_CAP) break;
+    }
+    return out.length > 0 ? out : undefined;
+}
+
+/** BI-16：更新完成定义——与现行定义相同则无操作；不同则追加历史（旧定义保留）；空文本忽略 */
+export function setCriteria(goal: LearningGoal, text: string, now: number = Date.now()): boolean {
+    const clean = (text ?? "").trim().slice(0, CRITERIA_TEXT_MAX);
+    if (!clean) return false;
+    const history = goal.criteriaHistory ?? [];
+    const latest = history[history.length - 1];
+    if (latest?.text === clean) return false;
+    goal.criteriaHistory = [...history, { text: clean, since: now }].slice(-CRITERIA_HISTORY_CAP);
+    return true;
+}
+
+/** BI-16：现行完成定义（无记录返回空串） */
+export function currentCriteria(goal: LearningGoal): string {
+    const h = goal.criteriaHistory;
+    return h && h.length > 0 ? h[h.length - 1].text : "";
 }
 
 /** BI-11：目标优先级白名单（多目标取舍：主目标优先展示入口与建议） */
@@ -83,6 +124,7 @@ export function normalizeGoals(raw: unknown): LearningGoalsData {
             minutesPerDay: Number.isFinite(Number(g.minutesPerDay)) && Number(g.minutesPerDay) > 0 ? Math.floor(Number(g.minutesPerDay)) : 0,
             level: asLevel(g.level),
             priority: asPriority(g.priority),
+            criteriaHistory: asCriteriaHistory(g.criteriaHistory),
             createdAt,
             updatedAt: Number.isFinite(Number(g.updatedAt)) ? Number(g.updatedAt) : createdAt,
         });

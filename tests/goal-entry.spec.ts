@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-    daysUntilDeadline, emptyGoals, isGoalActive, normalizeGoals, sortGoalsByPriority, suggestedMinutes,
+    currentCriteria, daysUntilDeadline, emptyGoals, isGoalActive, normalizeGoals, setCriteria, sortGoalsByPriority, suggestedMinutes,
     type LearningGoal,
 } from "../src/core/learning-goal";
 import {
@@ -78,6 +78,40 @@ describe("learning-goal BI-11：多目标取舍", () => {
         expect(out.map(x => x.id)).toEqual(["p1", "k2", "k1", "z", "p2"]);
         // 纯展示序：输入数组不受影响（验收：不暗中改 due/调度）
         expect(input.map(x => x.id)).toEqual(["k1", "p1", "z", "p2", "k2"]);
+    });
+});
+
+// BI-16 自定义完成定义：标准可修改，历史保留当时定义
+describe("learning-goal BI-16：完成定义", () => {
+    const mk = (): LearningGoal => normalizeGoals({ goals: [{ id: "a", purpose: "review", minutesPerDay: 0, level: "beginner" }] }).goals[0];
+
+    it("setCriteria：追加历史保留旧定义；同文无操作；空文本忽略", () => {
+        const goal = mk();
+        expect(setCriteria(goal, "能给别人讲解双膜结构", 1000)).toBe(true);
+        expect(setCriteria(goal, "能给别人讲解双膜结构", 2000)).toBe(false); // 同文无操作
+        expect(setCriteria(goal, "读完第一章并做对例题", 3000)).toBe(true);
+        expect(goal.criteriaHistory).toEqual([
+            { text: "能给别人讲解双膜结构", since: 1000 },
+            { text: "读完第一章并做对例题", since: 3000 },
+        ]);
+        expect(currentCriteria(goal)).toBe("读完第一章并做对例题");
+        expect(setCriteria(goal, "   ", 4000)).toBe(false); // 空文本忽略
+        expect(currentCriteria(goal)).toBe("读完第一章并做对例题");
+    });
+
+    it("normalize 白名单：空文本条目剔除、超长截 100、非法 since 兜底、空历史回缺省", () => {
+        const d = normalizeGoals({
+            goals: [{
+                id: "a", purpose: "review", minutesPerDay: 0, level: "beginner",
+                criteriaHistory: [{ text: "  读完教材  ", since: 500 }, { text: "", since: 600 }, { text: "x".repeat(150), since: 700 }],
+            }],
+        });
+        const h = d.goals[0].criteriaHistory!;
+        expect(h).toHaveLength(2);
+        expect(h[0]).toEqual({ text: "读完教材", since: 500 });
+        expect(h[1].text).toHaveLength(100);
+        expect(normalizeGoals({ goals: [{ id: "b", purpose: "review", criteriaHistory: [] }] }).goals[0].criteriaHistory).toBeUndefined();
+        expect(currentCriteria(mk())).toBe("");
     });
 });
 
