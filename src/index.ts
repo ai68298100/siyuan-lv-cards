@@ -42,7 +42,7 @@ import { ensureLifecycle, emptyLifecycles, lifecycleStats, normalizeLifecycles, 
 import { appendBlock, createDocWithMd, getNotebooks, getBlockDOM, getBlockDocMap, getDocTitles, exportMdContent, sqlQuery, kernelVersion, updateBlock } from "./api/siyuan";
 import { aiChat, estimateTokens, parseCards, isAICanceled } from "./api/ai";
 import { normalizeSuspendToday, rollDateIfNeeded, isSuspended, suspend, unsuspend, type SuspendTodayData } from "./core/suspend-today";
-import { INJECTION_GUARD_DEFAULT, wrapUntrusted } from "./core/prompt-injection";
+import { assembleGeneratePrompt } from "./core/ai-pipeline";
 import { parseRevlogCsv } from "./core/revlog-csv";
 import { normalizeSessionState, type SessionState } from "./core/session-state";
 import { normalizeExamPlans, daysLeft, examReportStats, type ExamPlan, type ExamPlansData } from "./core/exam";
@@ -1775,21 +1775,23 @@ export default class LvCardsPlugin extends Plugin {
                 // AQ-14：signal 随调用传入——向导关闭/换源/重生取消后，晚到响应不写回、不触发 fallback
                 // ADR-7 第 3 步：生成阶段入账作业生命周期（drafting→generating→reviewing / failed/canceled）
                 generate: async (source: string, cfg: { count: number; language: string; type: "qa" | "cloze" }, opts?: { signal?: AbortSignal }) => {
-                    // Prompt 模板库（294）：用户自定义模板优先，占位符同内置
-                    const tpl = this.settings.aiPromptTemplate.trim();
-                    // BU-7（v0.170.0）：提示注入隔离——system 追加数据隔离条款，材料以不可信数据围栏包裹
-                    const guard = (this.i18n as any).aiInjectionGuard || INJECTION_GUARD_DEFAULT;
-                    const system = (
-                        tpl
-                            ? tpl.replace("${count}", String(cfg.count)).replace("${language}", cfg.language).replace("${type}", cfg.type)
-                            : this.i18n.aiSystemPrompt
-                    ) + "\n" + guard;
-                    const user = this.i18n.aiUserPrompt
-                        .replace("${source}", wrapUntrusted((this.i18n as any).aiUntrustedLabel || "来源材料", source))
-                        .replace("${count}", String(cfg.count))
-                        .replace("${language}", cfg.language)
-                        .replace("${type}", cfg.type === "cloze" ? this.i18n.aiTypeClozeHint : this.i18n.aiTypeQaHint);
-                    if (estimateTokens(source) > 24000) {
+                    // BU-35（v0.171.0）：提示组装收编流水线单一入口（模板解析/围栏/隔离条款/预算/审计）
+                    const assembled = assembleGeneratePrompt({
+                        task: "cards-generate",
+                        customTemplate: this.settings.aiPromptTemplate,
+                        defaultSystem: this.i18n.aiSystemPrompt,
+                        userTemplate: this.i18n.aiUserPrompt,
+                        source,
+                        cfg,
+                        typeClozeHint: this.i18n.aiTypeClozeHint,
+                        typeQaHint: this.i18n.aiTypeQaHint,
+                        guardClause: (this.i18n as any).aiInjectionGuard,
+                        untrustedLabel: (this.i18n as any).aiUntrustedLabel,
+                    });
+                    const { system, user } = assembled;
+                    // AuditSink（lvLog）：仅非敏感字段（task/模板来源/token 数/写入目标）
+                    lvLog("info", `[ai-pipeline] ${JSON.stringify(assembled.audit)}`);
+                    if (assembled.needsBatching) {
                         throw new Error(this.i18n.aiTooLong);
                     }
                     const jobId = `job-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;

@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.171.0 2026-10-05 · BU-35 AI 调用流水线骨架（生成链收编单一入口）
+
+* 新增 core/ai-pipeline.ts：TaskRegistry（cards-generate：默认模板/schema 契约/固定写入目标/24000 token 保守窗口）+ assembleGeneratePrompt 组装器——模板解析（BU-5 自定义/默认双路径，行为逐字节保持）→ 不可信围栏（BU-7）→ 隔离条款 → BU-6 预算报告 → 审计字段（task/模板来源/token 数/截断层/needsBatching/writeTarget，不含材料明文）；+6 组单测（480→486）
+* openAIWizard generate 切换至流水线入口：手工拼装（模板串替换+围栏+条款）退役；超长语义不变（needsBatching=原 24000 阈值，照旧抛 aiTooLong）；AuditSink 接 lvLog（仅非敏感字段）
+* 流水线七段映射留痕：ProviderRouter=aiChat 配置（mode/fallback 既有）、SchemaValidator=parseCards+PARSE_LIMITS、EvidenceStore=ai-jobs excerpt、ContextPack/PromptRegistry=本模块、AuditSink=lvLog——UI/Agent/批处理扩展任务必须经 TASK_REGISTRY 登记（写入目标边界）
+* 主包 70.72→71.55KB（context-budget 随接线转正，≤75KB 内）
+
 ## v0.170.0 2026-10-05 · BU-7 提示注入隔离（数据围栏 + 离线攻击 fixture）
 
 * 新增 core/prompt-injection.ts：不可信数据围栏（wrapUntrusted，label 净化防标签逃逸）+ 系统侧数据隔离条款（声明三不动：无工具调用/不外发/产物只写制卡向导）+ 10 组中英注入模式扫描器（忽略指令/角色翻转/伪造 system 标签/套取提示词/数据外发/工具调用/权限提升）
