@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-    canTransition, createLifecycle, lifecycleStats, normalizeLifecycle,
-    transition, type ContentLifecycle,
+    canTransition, createLifecycle, ensureLifecycle, lifecycleStats, normalizeLifecycle,
+    normalizeLifecycles, transition, type ContentLifecycle,
 } from "../src/core/content-lifecycle";
 
 // BI-5 内容状态机：合法转移/原因时间记录/清洗/统计
@@ -78,6 +78,29 @@ describe("content-lifecycle（BI-5）", () => {
         expect(normalizeLifecycle({ history: [] })).toBeNull();
         const lc = normalizeLifecycle({ blockID: "b2" });
         expect(lc!.state).toBe("source");
+    });
+
+    it("normalizeLifecycles：去重/剔除/空兜底（v0.148.0 集合层）", () => {
+        const d = normalizeLifecycles({
+            lifecycles: [
+                { blockID: "a", history: [{ from: "source", to: "candidate", reason: "入选", at: 100 }] },
+                { blockID: "a" },   // 重复 blockID 去重
+                { history: [] },    // 缺 blockID 剔除
+                "junk",
+            ],
+        });
+        expect(d.version).toBe(1);
+        expect(d.lifecycles).toHaveLength(1);
+        expect(d.lifecycles[0].state).toBe("candidate");
+        expect(normalizeLifecycles(null).lifecycles).toHaveLength(0);
+    });
+
+    it("ensureLifecycle：同 blockID 幂等开档（v0.148.0 集合层）", () => {
+        const d = { version: 1 as const, lifecycles: [] };
+        const a = ensureLifecycle(d, "b1", 1000);
+        const b = ensureLifecycle(d, "b1", 2000);
+        expect(a).toBe(b);
+        expect(d.lifecycles).toHaveLength(1);
     });
 
     it("lifecycleStats：按状态分组计数", () => {

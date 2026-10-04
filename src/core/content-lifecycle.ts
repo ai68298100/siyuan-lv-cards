@@ -102,3 +102,36 @@ export function lifecycleStats(lcs: ContentLifecycle[]): Record<ContentState, nu
     for (const lc of lcs) out[lc.state]++;
     return out;
 }
+
+/** 存储集合层：{version, lifecycles}（同 blockID 去重保先，非法条目剔除） */
+export interface ContentLifecyclesData {
+    version: 1;
+    lifecycles: ContentLifecycle[];
+}
+
+export function emptyLifecycles(): ContentLifecyclesData {
+    return { version: 1, lifecycles: [] };
+}
+
+export function normalizeLifecycles(raw: unknown): ContentLifecyclesData {
+    const arr = (raw as any)?.lifecycles;
+    if (!Array.isArray(arr)) return emptyLifecycles();
+    const seen = new Set<string>();
+    const lifecycles: ContentLifecycle[] = [];
+    for (const r of arr) {
+        const lc = normalizeLifecycle(r);
+        if (!lc || seen.has(lc.blockID)) continue;
+        seen.add(lc.blockID);
+        lifecycles.push(lc);
+    }
+    return { version: 1, lifecycles };
+}
+
+/** 开档或取现档（同 blockID 幂等） */
+export function ensureLifecycle(data: ContentLifecyclesData, blockID: string, now: number = Date.now()): ContentLifecycle {
+    const found = data.lifecycles.find(lc => lc.blockID === blockID);
+    if (found) return found;
+    const lc = createLifecycle(blockID, now);
+    data.lifecycles.push(lc);
+    return lc;
+}

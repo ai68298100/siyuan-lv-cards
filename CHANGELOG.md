@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.148.0 2026-10-04 · BI 系列存储接线收官（learning-goals/entry-contexts/content-lifecycles）
+
+* learning-goals.json / entry-contexts.json / content-lifecycles.json 并入 STORE_KEYS 批量加载 + 三个 saveX 落盘入口 + storageStats 行 + PRIVACY 披露
+* content-lifecycle.ts 补集合层：normalizeLifecycles（去重/剔除/空兜底）+ ensureLifecycle（同 blockID 幂等开档）+ transitionContentState 校验落盘一体入口
+* +2 组集合层测试（411→413）；主包 gzip 94.74KB（≤95KB 内，余量收紧需盯）
 ## v0.147.0 2026-10-04 · BX-9 字段级 diff 预览与逐项采用（纯模块）
 
 * 新增 core/field-diff.ts：三字段（问面/答案/解释）差异检测 + LCS 行内高亮片段（same/add/del 合并，400 字符预算护栏超限整段替换）+ applySelections 逐字段采用 + 全拒绝等价取消（结果深等于原卡，拒绝即保留不静默替换）

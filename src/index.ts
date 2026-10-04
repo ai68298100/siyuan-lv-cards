@@ -31,6 +31,9 @@ import { capabilityShare } from "./core/capability-types";
 import { addRelation, detachCard, emptyCardRelations, normalizeCardRelations, relationsOf, removeRelation, type CardRelationsData, type RelationType } from "./core/card-relations";
 import { emptyErrorTags, errorReasonStats, normalizeErrorTags, tagError, type ErrorTagsData, type ErrorReason } from "./core/error-reasons";
 import { emptyInbox, normalizeInbox, type InboxData } from "./core/inbox";
+import { emptyGoals, normalizeGoals, type LearningGoalsData } from "./core/learning-goal";
+import { emptyEntryContexts, normalizeEntryContexts, type EntryContextData } from "./core/entry-context";
+import { ensureLifecycle, emptyLifecycles, normalizeLifecycles, transition, type ContentLifecyclesData, type ContentState } from "./core/content-lifecycle";
 import { appendBlock, createDocWithMd, getNotebooks, getBlockDOM, getBlockDocMap, getDocTitles, exportMdContent, sqlQuery, kernelVersion } from "./api/siyuan";
 import { aiChat, estimateTokens, parseCards, isAICanceled } from "./api/ai";
 import { normalizeSuspendToday, rollDateIfNeeded, isSuspended, suspend, type SuspendTodayData } from "./core/suspend-today";
@@ -75,6 +78,9 @@ const KNOWLEDGE_OBJECTS_DATA = "knowledge-objects.json";
 const CARD_RELATIONS_DATA = "relations.json";
 const ERROR_TAGS_DATA = "error-tags.json";
 const INBOX_DATA = "inbox.json";
+const LEARNING_GOALS_DATA = "learning-goals.json";
+const ENTRY_CONTEXTS_DATA = "entry-contexts.json";
+const CONTENT_LIFECYCLES_DATA = "content-lifecycles.json";
 
 export default class LvCardsPlugin extends Plugin {
 
@@ -99,6 +105,12 @@ export default class LvCardsPlugin extends Plugin {
     private errorTags: ErrorTagsData = emptyErrorTags();
     /** BI-4：材料筛选收件箱（材料块 → 制卡管线的暂存队列） */
     private inbox: InboxData = emptyInbox();
+    /** BI-1：学习目标（向导只记录目标，不强迫建卡） */
+    private learningGoals: LearningGoalsData = emptyGoals();
+    /** BI-3：入口上下文（来源/范围/目标/返回点，取消重开不丢） */
+    private entryContexts: EntryContextData = emptyEntryContexts();
+    /** BI-5：内容生命周期（十态轨迹，转移带原因与时间） */
+    private contentLifecycles: ContentLifecyclesData = emptyLifecycles();
     /** 统一持久化队列（AQ-4）：同 key 串行 + 有限重试 + 失败可观测 */
     /** AT-6：启动/首交互/评分性能指标 */
     private perf = createPerf();
@@ -167,7 +179,7 @@ export default class LvCardsPlugin extends Plugin {
 </symbol>`);
 
         // AQ-1：批量加载以 keys 数组驱动并按位置配对，杜绝「6 项加载只解构 5 项」的错位回归
-        const STORE_KEYS = [SETTINGS_DATA, REVLOG_DATA, SUSPEND_TODAY_DATA, EXAM_PLANS_DATA, AI_BATCHES_DATA, SESSION_STATE_DATA, AI_JOBS_DATA, KNOWLEDGE_OBJECTS_DATA, CARD_RELATIONS_DATA, ERROR_TAGS_DATA, INBOX_DATA] as const;
+        const STORE_KEYS = [SETTINGS_DATA, REVLOG_DATA, SUSPEND_TODAY_DATA, EXAM_PLANS_DATA, AI_BATCHES_DATA, SESSION_STATE_DATA, AI_JOBS_DATA, KNOWLEDGE_OBJECTS_DATA, CARD_RELATIONS_DATA, ERROR_TAGS_DATA, INBOX_DATA, LEARNING_GOALS_DATA, ENTRY_CONTEXTS_DATA, CONTENT_LIFECYCLES_DATA] as const;
         const loaded = zipLoaded(STORE_KEYS, await Promise.all(STORE_KEYS.map(key => this.loadData(key))));
         this.settings = normalizeSettings(loaded[SETTINGS_DATA]);
         this.perf.setCold(!this.settings.onboarded); // AT-6：首轮未完成引导=冷启动
@@ -180,6 +192,9 @@ export default class LvCardsPlugin extends Plugin {
         this.cardRelations = normalizeCardRelations(loaded[CARD_RELATIONS_DATA]);
         this.errorTags = normalizeErrorTags(loaded[ERROR_TAGS_DATA]);
         this.inbox = normalizeInbox(loaded[INBOX_DATA]);
+        this.learningGoals = normalizeGoals(loaded[LEARNING_GOALS_DATA]);
+        this.entryContexts = normalizeEntryContexts(loaded[ENTRY_CONTEXTS_DATA]);
+        this.contentLifecycles = normalizeLifecycles(loaded[CONTENT_LIFECYCLES_DATA]);
         // AI 批次走 TypedStore 入口（322）：结构清洗 + 兜底，非法条目剔除（526）；复用批量加载结果不再二次读盘
         this.aiBatches = await loadStore(this, {
             key: AI_BATCHES_DATA,
@@ -1107,6 +1122,9 @@ export default class LvCardsPlugin extends Plugin {
         push("relations.json", `${this.cardRelations.relations.length} relations (BK-2)`);
         push("error-tags.json", `${this.errorTags.tags.length} tags (BJ-4)`);
         push("inbox.json", `${this.inbox.items.length} items (BI-4)`);
+        push("learning-goals.json", `${this.learningGoals.goals.length} goals (BI-1)`);
+        push("entry-contexts.json", `${this.entryContexts.contexts.length} contexts (BI-3)`);
+        push("content-lifecycles.json", `${this.contentLifecycles.lifecycles.length} lifecycles (BI-5)`);
         return rows;
     }
 
@@ -1821,6 +1839,27 @@ export default class LvCardsPlugin extends Plugin {
     /** BI-4：材料收件箱落盘入口（未来筛选 UI 修改后调用；persist 队列承担重试与失败记录） */
     saveInbox() {
         return this.persist.save(INBOX_DATA, this.inbox).catch(() => { /* onFail 已记录 */ });
+    }
+
+    /** BI-1/BI-3/BI-5：学习旅程三存储的落盘入口（未来 UI 修改后调用；persist 队列承担重试与失败记录） */
+    saveLearningGoals() {
+        return this.persist.save(LEARNING_GOALS_DATA, this.learningGoals).catch(() => { /* onFail 已记录 */ });
+    }
+
+    saveEntryContexts() {
+        return this.persist.save(ENTRY_CONTEXTS_DATA, this.entryContexts).catch(() => { /* onFail 已记录 */ });
+    }
+
+    saveContentLifecycles() {
+        return this.persist.save(CONTENT_LIFECYCLES_DATA, this.contentLifecycles).catch(() => { /* onFail 已记录 */ });
+    }
+
+    /** BI-5：内容状态转移入口（校验+落盘一体；非法转移返回 false 不写盘） */
+    transitionContentState(blockID: string, to: ContentState, reason: string): boolean {
+        const lc = ensureLifecycle(this.contentLifecycles, blockID);
+        if (!transition(lc, to, reason, Date.now())) return false;
+        this.saveContentLifecycles();
+        return true;
     }
 
     private openTabOf(type: string, data?: Record<string, unknown>) {
