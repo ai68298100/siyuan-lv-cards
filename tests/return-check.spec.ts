@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { returnCheck, rebuildImpactPreview, BACKLOG_DUE_WARN, GAP_DAYS_WARN } from "../src/core/return-check";
+import { returnCheck, rebuildImpactPreview, isLongReturn, BACKLOG_DUE_WARN, GAP_DAYS_WARN } from "../src/core/return-check";
 import type { ReturnCheckFacts } from "../src/core/return-check";
 
 // BI-10 长期返场检查（纯逻辑）：四查只读 + 重建影响只读预览
@@ -78,6 +78,15 @@ describe("returnCheck 四查", () => {
         expect(device.ok).toBe(true);
         expect(device.level).toBe("info");
         expect(device.whyKey).toBe("returnCheck.device.restore");
+    });
+});
+
+describe("isLongReturn（横幅触发判定）", () => {
+    it("大积压或长间隔触发；阈值恰好在内不触发；无历史不触发", () => {
+        expect(isLongReturn({ dueCount: BACKLOG_DUE_WARN + 1, daysSinceLastStudy: 1 })).toBe(true);
+        expect(isLongReturn({ dueCount: 5, daysSinceLastStudy: GAP_DAYS_WARN + 1 })).toBe(true);
+        expect(isLongReturn({ dueCount: BACKLOG_DUE_WARN, daysSinceLastStudy: GAP_DAYS_WARN })).toBe(false);
+        expect(isLongReturn({ dueCount: 5, daysSinceLastStudy: null })).toBe(false);
     });
 });
 

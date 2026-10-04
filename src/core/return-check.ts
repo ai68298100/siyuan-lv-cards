@@ -40,6 +40,12 @@ export const BACKLOG_DUE_WARN = 100;
 /** 长间隔阈值：超过该天数未学习视为长间隔返场 */
 export const GAP_DAYS_WARN = 7;
 
+/** 长期返场触发判定（阈值单一事实源）：长间隔或大积压才弹出检查横幅，日常返场不打扰 */
+export function isLongReturn(f: Pick<ReturnCheckFacts, "dueCount" | "daysSinceLastStudy">): boolean {
+    return f.dueCount > BACKLOG_DUE_WARN
+        || (f.daysSinceLastStudy !== null && f.daysSinceLastStudy > GAP_DAYS_WARN);
+}
+
 /** 四查（只读）：每查给出 ok/level 与 i18n 解释键；无异常时 allOk=true */
 export function returnCheck(f: ReturnCheckFacts): { items: ReturnCheckItem[]; allOk: boolean } {
     const items: ReturnCheckItem[] = [];

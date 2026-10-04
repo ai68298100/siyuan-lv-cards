@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.160.0 2026-10-05 · BI-10 长期返场检查横幅（只读预览）
+
+* 复习页签新增返场检查横幅：触发=长间隔（>7 天）或大积压（>100 到期，isLongReturn 阈值单一事实源 +1 组单测 439→440）；四查结果以 chips 呈现（warn 项高亮），「知道了」关闭（仅本次会话，可重复触发）
+* 事实聚合入 ReviewCtx（getReturnCheckFacts，只读）：活跃目标数与最近截止（BI-1）、stale/needsRevision 计数（BI-5）、到期数（dueCache）、距上次学习天数（revlog）、时钟回拨检测；聚合失败静默不弹横幅
+* 只读语义：不写内核、不改调度、不自动重建——重建影响预览（rebuildImpactPreview 契约）归 BI-28 可撤销批次承接；i18n +17 键（returnCheck 段）
+* 体积：主包 67.49KB / review chunk 31.89KB（横幅在 review chunk），≤75KB 预算内
+
 ## v0.159.0 2026-10-05 · BI-8 收工原因（done 屏收集 + 恢复横幅随行）
 
 * session-state 增 endReason 白名单字段（目标完成/时间到/精力不足/疑问待解决/手动结束，normalize 清洗 + withEndReason 不可变写入，+3 组单测 436→439）

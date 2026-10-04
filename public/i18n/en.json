@@ -828,5 +828,34 @@
         "energy": "Low energy",
         "question": "Open question",
         "manual": "Manual end"
+    },
+    "returnCheck": {
+        "bannerTitle": "Long-return check",
+        "dismiss": "Got it",
+        "goal": {
+            "ok": "Goals on track",
+            "none": "No active goal yet — set a direction first",
+            "dueSoon": "Goal deadline approaching"
+        },
+        "material": {
+            "ok": "No stale materials",
+            "stale": "Stale/needs-revision materials pending — health issues are not forgetting"
+        },
+        "backlog": {
+            "ok": "Backlog normal",
+            "gap": "Long absence: narrow scope or high-priority only",
+            "backlog": "Large backlog: narrow scope recommended; overdue is never auto-cleared"
+        },
+        "device": {
+            "ok": "Device state normal",
+            "skew": "System clock earlier than latest record — due estimates may skew",
+            "restore": "Cross-device restore detected: conflicts keep both sides"
+        },
+        "rebuild": {
+            "session": "Discards: today session scene",
+            "due": "Preserves: kernel due/revlog",
+            "goals": "Preserves: goal archive",
+            "lifecycle": "Preserves: content lifecycle trail"
+        }
     }
 }

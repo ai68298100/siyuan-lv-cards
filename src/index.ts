@@ -36,9 +36,9 @@ import { capabilityShare } from "./core/capability-types";
 import { addRelation, detachCard, emptyCardRelations, normalizeCardRelations, relationsOf, removeRelation, type CardRelationsData, type RelationType } from "./core/card-relations";
 import { emptyErrorTags, errorReasonStats, normalizeErrorTags, tagError, type ErrorTagsData, type ErrorReason } from "./core/error-reasons";
 import { addInboxItem, bulkSetStatus, emptyInbox, normalizeInbox, removeInboxItem, undoSelection, type InboxData, type InboxStatus } from "./core/inbox";
-import { emptyGoals, normalizeGoals, type LearningGoalsData, type LearningGoal } from "./core/learning-goal";
+import { emptyGoals, normalizeGoals, daysUntilDeadline, isGoalActive, type LearningGoalsData, type LearningGoal } from "./core/learning-goal";
 import { emptyEntryContexts, isContextFresh, normalizeEntryContexts, removeContext, upsertContext, type EntryContextData, type EntryKind } from "./core/entry-context";
-import { ensureLifecycle, emptyLifecycles, normalizeLifecycles, transition, type ContentLifecyclesData, type ContentState } from "./core/content-lifecycle";
+import { ensureLifecycle, emptyLifecycles, lifecycleStats, normalizeLifecycles, transition, type ContentLifecyclesData, type ContentState } from "./core/content-lifecycle";
 import { appendBlock, createDocWithMd, getNotebooks, getBlockDOM, getBlockDocMap, getDocTitles, exportMdContent, sqlQuery, kernelVersion } from "./api/siyuan";
 import { aiChat, estimateTokens, parseCards, isAICanceled } from "./api/ai";
 import { normalizeSuspendToday, rollDateIfNeeded, isSuspended, suspend, type SuspendTodayData } from "./core/suspend-today";
@@ -633,6 +633,30 @@ export default class LvCardsPlugin extends Plugin {
                             const handler = () => cb();
                             (plugin.eventBus as any).on(LV_EVENTS.settingsChanged, handler);
                             return () => (plugin.eventBus as any).off(LV_EVENTS.settingsChanged, handler);
+                        },
+                        // BI-10：长期返场检查事实聚合（只读；不写内核不自动重建，重建归 BI-28）
+                        getReturnCheckFacts: async () => {
+                            const today = localDate(Date.now());
+                            const active = plugin.learningGoals.goals.filter(g => isGoalActive(g, today));
+                            const deadlines = active
+                                .map(g => daysUntilDeadline(g, today))
+                                .filter((n): n is number => n !== null);
+                            const stats = lifecycleStats(plugin.contentLifecycles.lifecycles);
+                            let dueCount = 0;
+                            try {
+                                dueCount = (await dueCache.get("")).cards?.length ?? 0;
+                            } catch { /* 断核按 0：仅影响横幅触发 */ }
+                            const lastTs = plugin.revlog.entries.reduce((m, e) => Math.max(m, e.ts ?? 0), 0);
+                            return {
+                                activeGoals: active.length,
+                                nearestDeadlineDays: deadlines.length ? Math.min(...deadlines) : null,
+                                staleCount: stats.stale ?? 0,
+                                needsRevisionCount: stats.needsRevision ?? 0,
+                                dueCount,
+                                daysSinceLastStudy: lastTs > 0 ? Math.floor((Date.now() - lastTs) / 86400000) : null,
+                                clockSkewSuspect: lastTs > Date.now(),
+                                crossDeviceRestore: false,
+                            };
                         },
                         getContextBlocks: async (blockID: string) => {
                             const safe = blockID.replace(/'/g, "''");

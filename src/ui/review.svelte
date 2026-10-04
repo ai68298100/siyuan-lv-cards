@@ -14,6 +14,7 @@
     import { todayKey } from "@/core/exam";
     import { mergeSessionPrefs, pruneSessionPrefs } from "@/core/session-prefs";
     import { END_REASONS, withEndReason, type EndReason } from "@/core/session-state";
+    import { isLongReturn, returnCheck, type ReturnCheckFacts } from "@/core/return-check";
     import { recoveryOptions, type RecoveryOption, type RecoverySnapshot } from "@/core/session-recovery";
     import { SESSION_PURPOSES, PURPOSE_PROFILES, type SessionPurpose } from "@/core/session-purpose";
     import { invalidateDueCache } from "@/api/due-shared";
@@ -86,6 +87,8 @@
         onSettingsChanged?: (cb: () => void) => () => void;
         /** 源上下文预览（M3）：来源块前后各 2 块（只读，不含自身） */
         getContextBlocks: (blockID: string) => Promise<{ id: string; html: string }[]>;
+        /** BI-10：长期返场检查事实聚合（只读；缺省=不显示检查横幅） */
+        getReturnCheckFacts?: () => Promise<ReturnCheckFacts | null>;
         /** BI-3：入口条返回（returnPoint = "doc:<id>" / "hub:<页签>"）；缺省=不显示返回按钮 */
         returnToEntry?: (returnPoint: string) => void;
         /** BI-3：显式清除入口记录（取消/重开不丢——只有用户点 × 才删） */
@@ -158,6 +161,20 @@
             ctx.saveSessionState(next);
             endPicked = r;
         }
+    }
+    // BI-10：长期返场检查横幅（只读预览；触发=长间隔或大积压；仅本次会话内可关闭）
+    let returnItems = $state<{ key: string; level: string; text: string }[] | null>(null);
+    let returnDismissed = $state(false);
+    function tvPath(path: string): string {
+        const v = path.split(".").reduce<any>((o, k) => o?.[k], t);
+        return typeof v === "string" ? v : path;
+    }
+    function loadReturnCheck() {
+        if (!ctx.getReturnCheckFacts) return;
+        ctx.getReturnCheckFacts().then(f => {
+            if (!f || returnDismissed || !isLongReturn(f)) return;
+            returnItems = returnCheck(f).items.map(i => ({ key: i.key, level: i.level, text: tvPath(i.whyKey) }));
+        }).catch(() => { /* 事实聚合失败=不弹横幅，不影响复习 */ });
     }
     // BI-2：本次会话目的（默认复习到期；informal 目的完成屏不庆祝每日目标）
     let purpose = $state<SessionPurpose>("review");
@@ -1046,6 +1063,7 @@
             recovery = recoveryOptions(recoverySnap);
         }
         loadQueue();
+        loadReturnCheck(); // BI-10：长期返场检查（只读，触发=长间隔或大积压）
         // 范围选择器数据源（失败静默：仅影响下拉项，不影响默认全部复习）
         getRiffDecks().then(d => (decks = d)).catch(() => { /* 旁路 */ });
         getNotebooks().then(n => (notebooks = n)).catch(() => { /* 旁路 */ });
@@ -1104,6 +1122,16 @@
                     onclick={() => recoveryAct(opt.branch)}
                 >{t.recovery[opt.branch]}</button>
             {/each}
+        </div>
+    {/if}
+    {#if returnItems && !returnDismissed}
+        <!-- BI-10：长期返场检查（只读预览；不写内核，重建归 BI-28 可撤销批次） -->
+        <div class="lv-return" role="status" aria-live="polite">
+            <span class="lv-return-title">{t.returnCheck.bannerTitle}</span>
+            {#each returnItems as it (it.key)}
+                <span class="b3-chip" class:b3-chip--warning={it.level === "warn"}>{it.text}</span>
+            {/each}
+            <button class="b3-button b3-button--text b3-button--small" onclick={() => (returnDismissed = true)}>{t.returnCheck.dismiss}</button>
         </div>
     {/if}
     {#if loading}
@@ -1495,6 +1523,24 @@
             border: 1px solid var(--lv-primary-border);
             border-radius: var(--lv-r-m);
             font-size: 13px;
+        }
+        /* BI-10：长期返场检查横幅（warn 项多时换行；只读预览） */
+        .lv-return {
+            display: flex;
+            align-items: center;
+            gap: var(--lv-sp-2);
+            flex-wrap: wrap;
+            margin: 0 var(--lv-sp-5) var(--lv-sp-2);
+            padding: var(--lv-sp-2) var(--lv-sp-3);
+            background: color-mix(in srgb, var(--b3-theme-warning) 8%, transparent);
+            border: 1px solid color-mix(in srgb, var(--b3-theme-warning) 35%, transparent);
+            border-radius: var(--lv-r-m);
+            font-size: 13px;
+        }
+        .lv-return-title {
+            color: var(--b3-theme-on-surface);
+            margin-right: var(--lv-sp-1);
+            font-weight: 600;
         }
         .lv-recover-title {
             color: var(--b3-theme-on-surface);
