@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.170.0 2026-10-05 · BU-7 提示注入隔离（数据围栏 + 离线攻击 fixture）
+
+* 新增 core/prompt-injection.ts：不可信数据围栏（wrapUntrusted，label 净化防标签逃逸）+ 系统侧数据隔离条款（声明三不动：无工具调用/不外发/产物只写制卡向导）+ 10 组中英注入模式扫描器（忽略指令/角色翻转/伪造 system 标签/套取提示词/数据外发/工具调用/权限提升）
+* 向导 generate 接线：system 追加隔离条款（i18n 可覆盖）、材料以 <untrusted_data> 围栏包裹后进 user 提示——「来源笔记里的指令」被隔离为纯数据
+* 离线攻击 fixture：10 条攻击全命中 + 正常学习材料零误报（含「Ignore 语法」这类形近教材文案），+7 组单测（473→480）
+* 分层防御口径：本插件 AI 无工具调用、无自主外发、写入目标固定（攻击面天然受限）；扫描器为诊断留证手段而非判决
+* i18n +2 键（aiInjectionGuard/aiUntrustedLabel，zh/en 对齐）；主包 70.72KB（≤75KB 内）
+
 ## v0.169.0 2026-10-05 · BU-6 上下文预算器（纯模块，零打包增量）
 
 * 新增 core/context-budget.ts：五层固定序拼接（system→instruction→preference→material→tool，与输入顺序无关）+ 优先级预算分配（材料证据层 priority 1 最后才裁）+ 从头截断保留来源位置（尾部可见标记，禁止静默）+ 材料独木超预算时 needsBatching/suggestBatches 分批建议（≥2）；+6 组单测（467→473）

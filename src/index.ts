@@ -42,6 +42,7 @@ import { ensureLifecycle, emptyLifecycles, lifecycleStats, normalizeLifecycles, 
 import { appendBlock, createDocWithMd, getNotebooks, getBlockDOM, getBlockDocMap, getDocTitles, exportMdContent, sqlQuery, kernelVersion, updateBlock } from "./api/siyuan";
 import { aiChat, estimateTokens, parseCards, isAICanceled } from "./api/ai";
 import { normalizeSuspendToday, rollDateIfNeeded, isSuspended, suspend, unsuspend, type SuspendTodayData } from "./core/suspend-today";
+import { INJECTION_GUARD_DEFAULT, wrapUntrusted } from "./core/prompt-injection";
 import { parseRevlogCsv } from "./core/revlog-csv";
 import { normalizeSessionState, type SessionState } from "./core/session-state";
 import { normalizeExamPlans, daysLeft, examReportStats, type ExamPlan, type ExamPlansData } from "./core/exam";
@@ -1776,11 +1777,15 @@ export default class LvCardsPlugin extends Plugin {
                 generate: async (source: string, cfg: { count: number; language: string; type: "qa" | "cloze" }, opts?: { signal?: AbortSignal }) => {
                     // Prompt 模板库（294）：用户自定义模板优先，占位符同内置
                     const tpl = this.settings.aiPromptTemplate.trim();
-                    const system = tpl
-                        ? tpl.replace("${count}", String(cfg.count)).replace("${language}", cfg.language).replace("${type}", cfg.type)
-                        : this.i18n.aiSystemPrompt;
+                    // BU-7（v0.170.0）：提示注入隔离——system 追加数据隔离条款，材料以不可信数据围栏包裹
+                    const guard = (this.i18n as any).aiInjectionGuard || INJECTION_GUARD_DEFAULT;
+                    const system = (
+                        tpl
+                            ? tpl.replace("${count}", String(cfg.count)).replace("${language}", cfg.language).replace("${type}", cfg.type)
+                            : this.i18n.aiSystemPrompt
+                    ) + "\n" + guard;
                     const user = this.i18n.aiUserPrompt
-                        .replace("${source}", source)
+                        .replace("${source}", wrapUntrusted((this.i18n as any).aiUntrustedLabel || "来源材料", source))
                         .replace("${count}", String(cfg.count))
                         .replace("${language}", cfg.language)
                         .replace("${type}", cfg.type === "cloze" ? this.i18n.aiTypeClozeHint : this.i18n.aiTypeQaHint);
