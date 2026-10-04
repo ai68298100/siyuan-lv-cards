@@ -449,6 +449,15 @@ export default class LvCardsPlugin extends Plugin {
                             },
                             makeCards: (blockIDs: string[]) => plugin.makeCardsFromInbox(blockIDs),
                             titles: (ids: string[]) => getDocTitles(ids),
+                            openSource: async (blockID: string) => {
+                                // 回来源（BI-6）：块归属文档锚点打开；查不到 root 时退化按块 ID 打开
+                                try {
+                                    const rows = await sqlQuery(`SELECT root_id FROM blocks WHERE id='${blockID.replace(/'/g, "''")}'`);
+                                    openTab({ app: plugin.app, doc: { id: rows[0]?.root_id ? String(rows[0].root_id) : blockID } });
+                                } catch {
+                                    openTab({ app: plugin.app, doc: { id: blockID } });
+                                }
+                            },
                         } : null,
                     },
                 });

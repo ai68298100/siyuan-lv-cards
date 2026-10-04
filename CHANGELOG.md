@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.150.1 2026-10-04 · 收件箱 UI 对齐设计品质线（真机走查修复）
+
+* 真机走查发现：筛选 chips 显示 undefined (0)——labelKey 用了平铺键查找而 i18n 为嵌套对象；改 t[...] 并全部经 t 派生
+* 品质线对齐 manager 页（可超不低于）：LvPage 页头（四状态计数摘要）+ LvSegmented 筛选/全选/刷新入 actions + 毛玻璃批量条（LvChip 计数 + 按上下文出按钮 + 取消选择）+ 行级 LvSkeleton 标题加载（失败回退短 ID）+ LvEmpty 空态 + LvLive 读屏播报（AS-4）+ 行 hover 升起/侧条样式 + 320px 换行
+* 破坏性操作接 confirmDialog（彻底删除需确认）；批量结果 showMessage + aria-live 双通道
+* 新增行内「打开来源」（BI-6 openSource）：SQL 查 root_id 锚点打开，失败退化块 ID
+* ctx 新增 openSource；i18n +9 键（726→744 对齐）
 ## v0.150.0 2026-10-04 · BI-4 收件箱→制卡管线闭环
 
 * 收件箱「已选中」页新增「送去制卡」：拉取选中块文（分批 SQL，引号转义）拼接为向导材料，一键开 AI 制卡向导
