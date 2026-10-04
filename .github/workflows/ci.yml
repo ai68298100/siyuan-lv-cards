@@ -26,5 +26,7 @@ jobs:
         run: pnpm test
       - name: Build (app + kernel)
         run: pnpm build
-      - name: Gzip budget gate (index.js <= 32KB)
-        run: node -e "const{readFileSync}=require('node:fs');const{gzipSync}=require('node:zlib');const g=gzipSync(readFileSync('dist/index.js')).length;console.log('index.js gzip:',(g/1024).toFixed(2)+'KB');if(g>32*1024){console.error('over 32KB budget');process.exit(1)}"
+      # AT-14 主包体积门禁单一事实源：预算值在 check-governance.mjs 内维护
+      # （v0.125.0 修订 ≤95KB、v0.149.0 ≤98KB）；build 后 dist 已在，⑨ 真正生效
+      - name: Gzip budget gate (governance check ⑨, post-build)
+        run: node scripts/check-governance.mjs

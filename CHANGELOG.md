@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.149.1 2026-10-04 · CI 体积门禁修复（陈旧 32KB 硬编码）
+
+* 发现：main 分支 CI 自 v0.125.0 预算首次修订后持续失败——ci.yml 内独立硬编码 32KB gzip 门禁未随预算修订更新（本地 governance 已两次修订，CI 侧漏改）
+* 修复：ci.yml build 后置步骤改为复用 check-governance.mjs（⑨ 门禁单一事实源，build 后 dist 已在真正生效）
+* v0.149.0 tag 发版未受影响（release workflow 无该门禁）
 ## v0.149.0 2026-10-04 · BI-4 收件箱筛选 UI + 块菜单收集入口
 
 * 新增 ui/inbox-page.svelte（Hub 内新「收件箱」页签，懒加载 chunk）：四状态分段筛选（待筛选/暂存/已选中/已淘汰）+ 多选批量操作（暂存/选中/淘汰/退回/撤销选中/恢复/彻底删除）+ 块标题异步解析（content 首行，失败回退短 ID）
