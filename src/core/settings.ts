@@ -30,6 +30,8 @@ export interface LvCardsSettings {
     dictationEnabled: boolean;
     /** 选择题练习模式：问题态可将本卡转为四选一（干扰项取自同队列） */
     choiceEnabled: boolean;
+    /** 混合题型轮换（v0.179.0）：按本场张数在翻面/打字/选择间轮换出题形态（展示层，不动调度） */
+    mixedRotation: boolean;
     /** 忘记卡本批重现：评 1 的卡在批尾再出现一次（会话内强化，不动内核调度） */
     requeueAgain: boolean;
     /** XP/等级激励（M8·FR3，默认关）：由本地复习日志推导 */
@@ -131,6 +133,7 @@ export function defaultSettings(): LvCardsSettings {
         typingStrict: true,
         dictationEnabled: false,
         choiceEnabled: false,
+        mixedRotation: false,
         requeueAgain: true,
         xpEnabled: false,
         markerEnabled: true,
@@ -201,7 +204,7 @@ const ENUM_FIELDS: [keyof LvCardsSettings, readonly string[], string][] = [
     ["aiMode", ["siyuan", "custom"], "siyuan"],
 ];
 const BOOL_FIELDS: (keyof LvCardsSettings)[] = [
-    "randomOrder", "typingEnabled", "typingStrict", "dictationEnabled", "choiceEnabled", "requeueAgain",
+    "randomOrder", "typingEnabled", "typingStrict", "dictationEnabled", "choiceEnabled", "mixedRotation", "requeueAgain",
     "xpEnabled", "markerEnabled", "hideMetaUntilAnswer", "reverseOrder", "ttsEnabled", "reminderEnabled",
     "sfxEnabled", "examEnabled", "dailyTipEnabled", "onboarded",
 ];

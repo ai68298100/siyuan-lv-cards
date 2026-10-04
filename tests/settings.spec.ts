@@ -117,6 +117,7 @@ describe("settings 运行时字段校验（AQ-22）", () => {
         const s = normalizeSettings({
             randomOrder: "yes",
             onboarded: 1,
+            mixedRotation: "on", // v0.179.0：非布尔回 false
             aiKey: { leak: true },
             ankiClientUrl: 0,
             reminderTime: "25:99",
@@ -125,6 +126,8 @@ describe("settings 运行时字段校验（AQ-22）", () => {
         });
         expect(s.randomOrder).toBe(false);
         expect(s.onboarded).toBe(false);
+        expect(s.mixedRotation).toBe(false);
+        expect(normalizeSettings({ mixedRotation: true }).mixedRotation).toBe(true);
         expect(s.aiKey).toBe("");
         expect(s.ankiClientUrl).toBe("http://127.0.0.1:8765");
         expect(s.reminderTime).toBe("20:00");

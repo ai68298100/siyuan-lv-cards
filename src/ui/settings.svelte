@@ -405,6 +405,9 @@
         <LvRow label={t.settings.choiceEnabled}>
             <LvSwitch bind:checked={draft.choiceEnabled} />
         </LvRow>
+        <LvRow label={t.settings.mixedRotationLabel} hint={t.settings.mixedRotationHint}>
+            <LvSwitch bind:checked={draft.mixedRotation} />
+        </LvRow>
     </LvSection>
 
     <LvSection title={t.settings.studyVoice}>

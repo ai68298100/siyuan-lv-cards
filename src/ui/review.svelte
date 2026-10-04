@@ -16,6 +16,7 @@
     import { END_REASONS, withEndReason, type EndReason } from "@/core/session-state";
     import { isLongReturn, returnCheck, type ReturnCheckFacts } from "@/core/return-check";
     import { avgSecPerCard, budgetLeftSec, BUDGET_PRESETS, clampBudgetMinutes, estimateCompletable, estimateLeftover, isBudgetExpired } from "@/core/session-budget";
+    import { nominateVariant } from "@/core/question-rotation";
     import { loadReliefChoices, type LoadChoice } from "@/core/load-relief";
     import { recoveryOptions, type RecoveryOption, type RecoverySnapshot } from "@/core/session-recovery";
     import { SESSION_PURPOSES, PURPOSE_PROFILES, type SessionPurpose } from "@/core/session-purpose";
@@ -37,6 +38,8 @@
         typingEnabled: boolean;
         typingStrict: boolean;
         choiceEnabled: boolean;
+        /** 混合题型轮换（v0.179.0）：按本场张数在翻面/打字/选择间轮换（展示层，不动调度） */
+        mixedRotation: boolean;
         ttsEnabled: boolean;
         ttsRate: number;
         ttsVoice: string;
@@ -115,6 +118,19 @@
     let reviewedIDs: string[] = $state([]);
     let current: QueueCard | null = $state(null);
     let showAnswer = $state(false);
+    // 混合题型轮换（v0.179.0）：混合开时按本场张数提名本题形态；关时保持既有静态设置
+    const answerVariant = $derived.by(() => {
+        if (eff().mixedRotation) {
+            return nominateVariant(reviewedIDs.length, { typing: eff().typingEnabled, choice: eff().choiceEnabled });
+        }
+        return eff().typingEnabled ? "typing" : eff().choiceEnabled ? "choice" : "flip";
+    });
+    // 轮换提名 choice 时自动本地采样干扰项（无网络；等同手动 🎲）
+    $effect(() => {
+        if (answerVariant === "choice" && current && !choices && !choiceLoading) {
+            void startChoice();
+        }
+    });
     // BJ-2：分级提示（不自动提交评分；纯展示+日志）
     let hintLevel: HintLevel | null = $state(null);
     let hintText = $state("");
@@ -1353,7 +1369,7 @@
                         <button class="b3-button b3-button--text" onclick={reschedule}>{window.siyuan.languages.confirm}</button>
                     </div>
                 {/if}
-                {#if eff().typingEnabled}
+                {#if answerVariant === "typing"}
                     <div class="lv-typing">
                         <input
                             class="b3-text-field fn__block"
@@ -1368,7 +1384,7 @@
                             placeholder={t.review.typingPlaceholder}
                         />
                     </div>
-                {:else if eff().choiceEnabled}
+                {:else if answerVariant === "choice"}
                     {#if choices}
                         <div class="lv-choices">
                             {#each choices.options as opt, i (i)}
@@ -1463,6 +1479,12 @@
                     <span>{t.settings.reverseOrder}</span>
                     <div class="fn__flex-1"></div>
                     <input type="checkbox" class="b3-switch" checked={eff().reverseOrder} onchange={(e: Event) => setOverride("reverseOrder", (e.target as HTMLInputElement).checked)} />
+                </div>
+                <!-- 混合题型轮换（v0.179.0）：本场按张数轮换翻面/打字/选择（展示层） -->
+                <div class="lv-prefs-row">
+                    <span>{t.settings.mixedRotationLabel}</span>
+                    <div class="fn__flex-1"></div>
+                    <input type="checkbox" class="b3-switch" checked={eff().mixedRotation === true} onchange={(e: Event) => setOverride("mixedRotation", (e.target as HTMLInputElement).checked)} />
                 </div>
                 <div class="lv-prefs-row">
                     <span>{t.settings.timeoutMode}</span>

@@ -666,6 +666,7 @@ export default class LvCardsPlugin extends Plugin {
                             randomOrder: plugin.settings.randomOrder,
                             cardMaxWidth: plugin.settings.cardMaxWidth,
                             choiceEnabled: plugin.settings.choiceEnabled,
+                            mixedRotation: plugin.settings.mixedRotation,
                             ttsEnabled: plugin.settings.ttsEnabled,
                             ttsRate: plugin.settings.ttsRate,
                             ttsVoice: plugin.settings.ttsVoice,

@@ -498,7 +498,9 @@
         "uiModeLabel": "界面模式",
         "uiModeSimple": "简单",
         "uiModeAdvanced": "熟练",
-        "uiModeHint": "简单模式隐藏考试、维护与批量高级操作；切换不删除任何配置，全部功能仍可从命令面板与设置访问。"
+        "uiModeHint": "简单模式隐藏考试、维护与批量高级操作；切换不删除任何配置，全部功能仍可从命令面板与设置访问。",
+        "mixedRotationLabel": "混合题型轮换",
+        "mixedRotationHint": "开题形态按本场张数在翻面/打字/选择间轮换（仅轮换已启用的题型；展示层轮换，不影响调度与统计）"
     },
     "hubTabOverview": "总览",
     "hubTabError": "该子页出现错误，已隔离在边界内",

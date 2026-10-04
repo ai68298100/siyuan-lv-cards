@@ -498,7 +498,9 @@
         "uiModeLabel": "UI mode",
         "uiModeSimple": "Simple",
         "uiModeAdvanced": "Advanced",
-        "uiModeHint": "Simple mode hides exam, maintenance and batch operations; switching never deletes configuration — everything stays reachable via the command palette and settings."
+        "uiModeHint": "Simple mode hides exam, maintenance and batch operations; switching never deletes configuration — everything stays reachable via the command palette and settings.",
+        "mixedRotationLabel": "Mixed question rotation",
+        "mixedRotationHint": "Rotate the answering form (flip/typing/choice) across cards in a session — only among enabled types; display-layer only, scheduling and stats untouched"
     },
     "hubTabOverview": "Overview",
     "hubTabError": "This tab hit an error (contained by the boundary)",
