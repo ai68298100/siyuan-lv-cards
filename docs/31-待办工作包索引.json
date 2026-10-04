@@ -15175,7 +15175,7 @@
       "priority": "P2",
       "group": "AT",
       "groupName": "Petal 生命周期与性能卫生（第五轮定向，仅扩充规划）",
-      "title": "**e2e 多实例基建**：真机实测 CLI 启动 `SiYuan.exe --workspace D:小飞驴的SIYUAN` 被现有 Electron 单实例锁吞掉（参数不转发，回落上次工作区）；可靠路径=主菜单 Workspaces 列表切换（已验证可并行多窗口各占内核端口）。验收：scripts/e2e-launch.ps1 处理单实例场景（检测已运行则走 UI 菜单或提示），并登记内核认证限流行为（连续失败触发 Too many failed authentication attempts，e2e 脚本不得暴力重试 token）。 owner=`WP-e2e`。",
+      "title": "**e2e 多实例基建**：真机实测 CLI 启动 `SiYuan.exe --workspace D:小飞驴的SIYUAN` 被现有 Electron 单实例锁吞掉（参数不转发，回落上次工作区）；可靠路径=主菜单 Workspaces 列表切换（已验证可并行多窗口各占内核端口）。验收：scripts/e2e-launch.ps1 处理单实例场景（检测已运行则走 UI 菜单或提示），并登记内核认证限流行为（连续失败触发 Too many failed authentication attempts，e2e 脚本不得暴力重试 token）。 owner=`WP-e2e`。（v0.150.1 后交付：scripts/e2e-isolated.mjs 隔离无头 e2e 已落地并 10/10 实测通过——临时工作区+独立端口+自动部署/启用+riff 全回环断言+自动拆卸，与现有实例并行实证互不影响；本条余 UI 实例自动化部分）",
       "backlogLine": 786,
       "primaryPackage": "WP-performance",
       "linksTo": [],
