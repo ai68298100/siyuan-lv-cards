@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.147.0 2026-10-04 · BX-9 字段级 diff 预览与逐项采用（纯模块）
+
+* 新增 core/field-diff.ts：三字段（问面/答案/解释）差异检测 + LCS 行内高亮片段（same/add/del 合并，400 字符预算护栏超限整段替换）+ applySelections 逐字段采用 + 全拒绝等价取消（结果深等于原卡，拒绝即保留不静默替换）
+* 纯前端 diff 流转：不产生正式评分、不外发（验收硬性要求）；AI 改写意图/生成归 BX-2 走 G3-call
+* +8 组测试（403→411）；主包 gzip 94KB（≤95KB 内）
 ## v0.146.0 2026-10-04 · BI-1 目标模型 + BI-3 入口上下文（纯模块，BI 系列地基收官）
 
 * 新增 core/learning-goal.ts：目标模型（目的/截止/材料/每日可用分钟/水平自评）——可只记录目标不强迫建卡（验收口径）；normalize 白名单清洗 + daysUntilDeadline/isGoalActive + suggestedMinutes 目的×水平推荐
