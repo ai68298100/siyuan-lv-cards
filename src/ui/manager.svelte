@@ -41,8 +41,8 @@
             snapshot: (blockID: string) => import("@/core/content-lifecycle").ContentLifecycle | null;
             open: (blockID: string) => void;
             transition: (blockID: string, to: import("@/core/content-lifecycle").ContentState, reason: string) => boolean;
-            /** cram=false 正式复习 / true 练习（突击）模式 */
-            openReview: (cram: boolean) => void;
+            /** cram=false 正式复习 / true 练习（突击）模式；blockID 传入时记 BI-3 卡片入口 */
+            openReview: (cram: boolean, blockID?: string) => void;
             makeCards: (blockID: string, content: string) => void;
         };
     }
@@ -369,9 +369,9 @@
                 } else if (action === "makeCards") {
                     ctx.lc!.makeCards(b.id, b.content ?? "");
                 } else if (action === "formalReview") {
-                    ctx.lc!.openReview(false);
+                    ctx.lc!.openReview(false, b.id);
                 } else if (action === "practice") {
-                    ctx.lc!.openReview(true);
+                    ctx.lc!.openReview(true, b.id);
                 } else if (action === "wrapUp") {
                     detail = null;
                 }

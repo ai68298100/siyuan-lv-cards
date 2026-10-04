@@ -85,14 +85,23 @@
         onSettingsChanged?: (cb: () => void) => () => void;
         /** 源上下文预览（M3）：来源块前后各 2 块（只读，不含自身） */
         getContextBlocks: (blockID: string) => Promise<{ id: string; html: string }[]>;
+        /** BI-3：入口条返回（returnPoint = "doc:<id>" / "hub:<页签>"）；缺省=不显示返回按钮 */
+        returnToEntry?: (returnPoint: string) => void;
+        /** BI-3：显式清除入口记录（取消/重开不丢——只有用户点 × 才删） */
+        dismissEntry?: (entryKind: string, sourceID: string) => void;
     }
 
-    let { ctx, initialScope = "all", initialCram = false }: {
+    let { ctx, initialScope = "all", initialCram = false, initialEntry = null }: {
         ctx: ReviewCtx;
         initialScope?: string;
         initialCram?: boolean;
+        /** BI-3：本次会话入口上下文（宿主记录并传入；重开恢复用） */
+        initialEntry?: { entryKind: string; sourceID: string; scopeKey: string; returnPoint: string; createdAt: number } | null;
     } = $props();
     const t = $derived(ctx.i18n);
+    // BI-3：入口条状态（× 清除后本面板不再显示；记录本身归宿主管）
+    // svelte-ignore state_referenced_locally
+    let entryCtx = $state(initialEntry);
 
     /** 会话内重现标记：lvRequeue>0 表示本卡由「忘记卡本批重现」追加 */
     type QueueCard = RiffDueCard & { lvRequeue?: number };
@@ -1148,6 +1157,18 @@
             <span class="lv-chip2" class:lv-chip2--primary={PURPOSE_PROFILES[purpose].grading === "formal"} title={PURPOSE_PROFILES[purpose].grading === "formal" ? t.review.purposeFormal : t.review.purposeInformal}>
                 {t.purpose[purpose].end}
             </span>
+            {#if entryCtx}
+                <!-- BI-3：入口上下文条（来源保留；取消/重开不丢，仅 × 显式清除） -->
+                <span class="lv-entry" title={t.entry.title}>
+                    <span class="lv-entry-from ft__smaller">{t.entry.title}·{t.entry.kind[entryCtx.entryKind] || entryCtx.entryKind}</span>
+                    {#if ctx.returnToEntry && entryCtx.returnPoint}
+                        <button class="b3-button b3-button--text b3-button--small" onclick={() => ctx.returnToEntry!(entryCtx!.returnPoint)}>{t.entry.return}</button>
+                    {/if}
+                    {#if ctx.dismissEntry}
+                        <button class="b3-button b3-button--text b3-button--small" aria-label={t.entry.dismiss} title={t.entry.dismiss} onclick={() => { ctx.dismissEntry!(entryCtx!.entryKind, entryCtx!.sourceID); entryCtx = null; }}>×</button>
+                    {/if}
+                </span>
+            {/if}
             <span class="lv-progress">{reviewedIDs.length + 1} / {reviewedIDs.length + queue.length}</span>
             <div class="lv-progress-bar">
                 <div class="lv-progress-fill" style={`width:${reviewedIDs.length / Math.max(1, reviewedIDs.length + queue.length) * 100}%`}></div>
@@ -1477,6 +1498,13 @@
         .lv-head {
             display: flex; align-items: center; gap: var(--lv-sp-2);
             .lv-scope { max-width: 200px; font-size: 12px; padding: 4px 8px; }
+            /* BI-3：入口上下文条（窄屏换行不挤压进度） */
+            .lv-entry {
+                display: inline-flex; align-items: center; gap: 2px;
+                padding: 1px 4px;
+                border-left: 2px solid var(--b3-theme-primary);
+                .lv-entry-from { color: var(--b3-theme-on-surface); white-space: nowrap; }
+            }
             .lv-progress {
                 font-size: 12px; color: var(--b3-theme-on-surface);
                 background: var(--lv-primary-softer);

@@ -18,7 +18,7 @@
         onSavePlan: (plan: ExamPlan) => void;
         onDeletePlan: (id: string) => void;
         /** 带范围/cram 打开复习 */
-        onReviewScope: (scopeKind: ExamScopeKind, scopeId: string, cram: boolean) => void;
+        onReviewScope: (scopeKind: ExamScopeKind, scopeId: string, cram: boolean, planId?: string) => void;
         /** 生成考后复盘报告（复制到剪贴板） */
         onReport: (plan: ExamPlan) => void;
         /** 写入复盘文档 */
@@ -158,7 +158,7 @@
                     {/if}
                     <div class="fn__flex-1"></div>
                     {#if plan.enabled}
-                        <button class="b3-button b3-button--text" onclick={() => onReviewScope(plan.scopeKind, plan.scopeId, cram)}>
+                        <button class="b3-button b3-button--text" onclick={() => onReviewScope(plan.scopeKind, plan.scopeId, cram, plan.id)}>
                             {t.exam.startToday}
                         </button>
                     {:else}

@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.156.0 2026-10-05 · BI-3 入口上下文接线（复习会话入口条）
+
+* 三个真实入口记录上下文：面包屑「复习本文档」（doc，返回点=该文档）、考试计划「今日开始」（report，来源=计划 ID，返回点=Hub 考试页签）、manager 内容状态面板「正式复习/练习」（card，返回点=Hub 管理页签）——upsert 落盘 entry-contexts.json，取消/重开不丢
+* 复习面板头部入口条：入口类型 i18n 展示（不裸露内部枚举）+「返回」直达返回点（doc:/hub: 两协议）+「×」显式清除（唯一删除路径；7 天 TTL 由 normalize/isContextFresh 兜底）
+* 重开恢复：复习页签无 entry 数据时按当前范围回退取最新未过期记录，上下文条自动重现
+* 体积压线：主包 gzip 101.93KB（≤102KB 预算，余量 0.07KB——下一 UI 批次前须启动 AT-17 chunk 加载器）
+
 ## v0.155.0 2026-10-05 · BI-5/6/7 内容状态面板（manager 卡片详情接线）
 
 * 新增 ui/lifecycle-panel.svelte（卡片详情嵌入，BI-5/6/7 三模块首个 UI 消费方）：状态 chip + 「为什么」解释与直达修复（BI-7 explainState，resume/unarchive 修复=生命周期转移）+ 下一动作建议 chips（BI-6 nextActions，可跳过不自动执行；宿主映射到真实入口：回来源/解释/修订→打开原文档，制卡→AI 向导（成功自动记 candidate→reviewed→stocked 合法链），正式复习→复习页签，练习→突击模式，收工→关详情）+ 状态流转按钮（BI-5 合法目标集，转移必带预设原因）+ 轨迹倒序清单

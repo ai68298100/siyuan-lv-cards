@@ -806,5 +806,18 @@
             "archived": "归档退出活跃周期",
             "resume": "恢复复习"
         }
+    },
+    "entry": {
+        "title": "入口",
+        "return": "返回",
+        "dismiss": "清除入口记录",
+        "kind": {
+            "block": "块",
+            "doc": "本文档",
+            "card": "卡片",
+            "quiz": "题目",
+            "notification": "通知",
+            "report": "试卷报告"
+        }
     }
 }

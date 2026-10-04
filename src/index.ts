@@ -32,7 +32,7 @@ import { addRelation, detachCard, emptyCardRelations, normalizeCardRelations, re
 import { emptyErrorTags, errorReasonStats, normalizeErrorTags, tagError, type ErrorTagsData, type ErrorReason } from "./core/error-reasons";
 import { addInboxItem, bulkSetStatus, emptyInbox, normalizeInbox, removeInboxItem, undoSelection, type InboxData, type InboxStatus } from "./core/inbox";
 import { emptyGoals, normalizeGoals, type LearningGoalsData, type LearningGoal } from "./core/learning-goal";
-import { emptyEntryContexts, normalizeEntryContexts, type EntryContextData } from "./core/entry-context";
+import { emptyEntryContexts, isContextFresh, normalizeEntryContexts, removeContext, upsertContext, type EntryContextData, type EntryKind } from "./core/entry-context";
 import { ensureLifecycle, emptyLifecycles, normalizeLifecycles, transition, type ContentLifecyclesData, type ContentState } from "./core/content-lifecycle";
 import { appendBlock, createDocWithMd, getNotebooks, getBlockDOM, getBlockDocMap, getDocTitles, exportMdContent, sqlQuery, kernelVersion } from "./api/siyuan";
 import { aiChat, estimateTokens, parseCards, isAICanceled } from "./api/ai";
@@ -421,7 +421,10 @@ export default class LvCardsPlugin extends Plugin {
                                 },
                                 transition: (blockID: string, to: ContentState, reason: string) =>
                                     plugin.transitionContentState(blockID, to, reason),
-                                openReview: (cram: boolean) => plugin.openReviewScope("all", "", cram),
+                                // BI-3：卡片详情建议动作入口（来源=卡片块，返回点=Hub 管理页签）
+                                openReview: (cram: boolean, blockID = "") => plugin.openReviewWithEntry("all", cram, blockID
+                                    ? { entryKind: "card", sourceID: blockID, returnPoint: "hub:manage" }
+                                    : undefined),
                                 makeCards: (blockID: string, content: string) => {
                                     void plugin.openAIWizard(content, () => {
                                         // 与收件箱制卡同链：candidate→reviewed→stocked（非法转移自动跳过）
@@ -439,8 +442,8 @@ export default class LvCardsPlugin extends Plugin {
                             onDeletePlan: (id: string) => plugin.deleteExamPlan(id),
                             onReport: (plan: ExamPlan) => plugin.generateExamReport(plan),
                             onWriteReport: (plan: ExamPlan) => plugin.writeExamReportDoc(plan),
-                            onReviewScope: (kind: "all" | "deck" | "notebook", scopeId: string, cram: boolean) =>
-                                plugin.openReviewScope(kind, scopeId, cram),
+                            onReviewScope: (kind: "all" | "deck" | "notebook", scopeId: string, cram: boolean, planId = "") =>
+                                plugin.openReviewScope(kind, scopeId, cram, planId),
                             // AQ-8：动态建议只读输入（本地日志 + 每日上限）
                             getRevlog: () => plugin.revlog,
                             getDailyCap: () => plugin.settings.dailyReviewTarget,
@@ -523,6 +526,17 @@ export default class LvCardsPlugin extends Plugin {
                         props: {
                         initialScope: (this.data?.scope as string) ?? plugin.settings.lastReviewScope,
                         initialCram: this.data?.cram === true,
+                        // BI-3：本次入口上下文（tab data 优先；重开无 entry 时回退同范围最新未过期记录）
+                        initialEntry: ((): { entryKind: EntryKind; sourceID: string; scopeKey: string; returnPoint: string; createdAt: number } | null => {
+                            const direct = this.data?.entry as { entryKind: EntryKind; sourceID: string; returnPoint: string } | undefined;
+                            if (direct?.sourceID) {
+                                return { ...direct, scopeKey: (this.data?.scope as string) ?? "", createdAt: Date.now() };
+                            }
+                            const scope = (this.data?.scope as string) ?? plugin.settings.lastReviewScope ?? "";
+                            const fresh = plugin.entryContexts.contexts
+                                .filter(c => c.scopeKey === scope && isContextFresh(c, Date.now()));
+                            return fresh.length ? { ...fresh[fresh.length - 1] } : null;
+                        })(),
                         ctx: {
                         i18n: plugin.i18n,
                         app: plugin.app,
@@ -569,6 +583,13 @@ export default class LvCardsPlugin extends Plugin {
                             plugin.persist.save(SUSPEND_TODAY_DATA, plugin.suspendToday).catch(() => { /* onFail 已记录 */ });
                         },
                         openDashboard: () => plugin.openTabOf(TAB_DASHBOARD),
+                        // BI-3：入口条返回/清除（取消/重开不丢——仅显式清除才删记录）
+                        returnToEntry: (returnPoint: string) => plugin.returnToEntryPoint(returnPoint),
+                        dismissEntry: (entryKind: EntryKind, sourceID: string) => {
+                            if (removeContext(plugin.entryContexts, entryKind, sourceID)) {
+                                plugin.saveEntryContexts();
+                            }
+                        },
                         onScopePersist: (key: string) => {
                             plugin.settings.lastReviewScope = key;
                             plugin.persist.save(SETTINGS_DATA, plugin.settings).catch(() => { /* onFail 已记录 */ });
@@ -736,7 +757,8 @@ export default class LvCardsPlugin extends Plugin {
                 callback: (_event: any, protyle: any) => {
                     const rootID: string = protyle?.block?.rootID ?? "";
                     if (rootID) {
-                        this.openTabOf(TAB_REVIEW, { scope: `doc:${rootID}` });
+                        // BI-3：文档入口（来源=文档，返回点=该文档）
+                        this.openReviewWithEntry(`doc:${rootID}`, false, { entryKind: "doc", sourceID: rootID, returnPoint: `doc:${rootID}` });
                     }
                 },
             });
@@ -1592,9 +1614,37 @@ export default class LvCardsPlugin extends Plugin {
         return this.examPlans;
     }
 
-    private openReviewScope(scopeKind: "all" | "deck" | "notebook", scopeId: string, cram: boolean) {
+    private openReviewScope(scopeKind: "all" | "deck" | "notebook", scopeId: string, cram: boolean, entrySourceID = "") {
         const scope = scopeKind === "all" ? "all" : scopeKind + ":" + scopeId;
-        this.openTabOf(TAB_REVIEW, { scope, cram });
+        // BI-3：考试报告入口（来源=试卷计划，返回点=Hub 考试页签）
+        this.openReviewWithEntry(scope, cram, entrySourceID
+            ? { entryKind: "report", sourceID: entrySourceID, returnPoint: "hub:exam" }
+            : undefined);
+    }
+
+    /** BI-3：记录入口上下文并带 entry 打开复习页签（取消/重开不丢——落盘 + 7 天 TTL） */
+    private openReviewWithEntry(scope: string, cram: boolean, entry?: { entryKind: EntryKind; sourceID: string; returnPoint: string }) {
+        if (entry && entry.sourceID) {
+            upsertContext(this.entryContexts, {
+                entryKind: entry.entryKind,
+                sourceID: entry.sourceID,
+                scopeKey: scope,
+                goalID: "",
+                returnPoint: entry.returnPoint,
+                createdAt: Date.now(),
+            });
+            this.saveEntryContexts();
+        }
+        this.openTabOf(TAB_REVIEW, { scope, cram, entry });
+    }
+
+    /** BI-3：入口返回点导航（doc:<文档ID> / hub:<Hub 页签>） */
+    private returnToEntryPoint(returnPoint: string) {
+        if (returnPoint.startsWith("doc:")) {
+            openTab({ app: this.app, doc: { id: returnPoint.slice(4) } });
+        } else if (returnPoint.startsWith("hub:")) {
+            this.openTabOf(TAB_DASHBOARD, { tab: returnPoint.slice(4) });
+        }
     }
 
     /** AI 制卡向导（M2·FR6-10）：生成回调 + 批次记录落库；initialSource 用于 leech 改写预填 */

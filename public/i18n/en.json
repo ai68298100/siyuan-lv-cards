@@ -806,5 +806,18 @@
             "archived": "Archived from active cycle",
             "resume": "Review resumed"
         }
+    },
+    "entry": {
+        "title": "Entry",
+        "return": "Back",
+        "dismiss": "Clear entry record",
+        "kind": {
+            "block": "Block",
+            "doc": "This doc",
+            "card": "Card",
+            "quiz": "Quiz",
+            "notification": "Notification",
+            "report": "Exam report"
+        }
     }
 }
