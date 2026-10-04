@@ -13,6 +13,8 @@
     import { parseOcclusion, type OcclusionData } from "@/core/occlusion";
     import { todayKey } from "@/core/exam";
     import { mergeSessionPrefs, pruneSessionPrefs } from "@/core/session-prefs";
+    import { recoveryOptions, type RecoveryOption, type RecoverySnapshot } from "@/core/session-recovery";
+    import { SESSION_PURPOSES, PURPOSE_PROFILES, type SessionPurpose } from "@/core/session-purpose";
     import { invalidateDueCache } from "@/api/due-shared";
     import { nextHint, logHint, deriveHintLevels, availableLevels, type HintLevel, type HintLevelsInput } from "@/core/hint-ladder";
     import LvKbd from "./kit/LvKbd.svelte";
@@ -133,6 +135,12 @@
     let cardShownAt = 0;
     let sessionSkipped: string[] = []; // 本场跳过排除集（AJ9：跳过的卡不再被下一批拉回）
     let lastAnswered: { html: string; card: RiffDueCard } | null = null; // 回看数据源（AJ2：不再自动打开）
+    // BI-9：中断恢复分支（快照存在时给出四选一；不自动重复评分/写卡）
+    let recovery = $state<RecoveryOption[] | null>(null);
+    let recoverySnap: RecoverySnapshot | null = null;
+    // BI-2：本次会话目的（默认复习到期；informal 目的完成屏不庆祝每日目标）
+    let purpose = $state<SessionPurpose>("review");
+    let scopeEl: HTMLSelectElement | null = null;
 
     // 撤销历史栈（M3·FR7，ZY 技法：快照恢复 + 内核重评时按官方缓存恢复原状态）
     interface HistorySnapshot {
@@ -364,6 +372,11 @@
                 cards = shuffle(cards);
             }
             queue = cards;
+            // BI-9：首刷后回填队列剩余数，恢复分支可用性随之刷新（继续原场/缩小范围是否可选）
+            if (recovery && recoverySnap) {
+                recoverySnap.queueRemaining = queue.length;
+                recovery = recoveryOptions(recoverySnap);
+            }
             if (queue.length > 0) {
                 announce(t.review.liveQueued.replace("${n}", String(queue.length)), "polite");
             }
@@ -621,6 +634,7 @@
         if (!current || (!showAnswer && !force) || submitting) {
             return;
         }
+        recovery = null; // BI-9：已开始评分=隐式选择继续原场
         submitting = true;
         pushHistory();
         // 会话强化重现卡（M3）：仅本地翻牌推进，不重复评内核、不计 revlog（调度不变）
@@ -673,6 +687,7 @@
         if (!current || submitting) {
             return;
         }
+        recovery = null; // BI-9：同评分——有动作即隐式续场
         submitting = true;
         pushHistory();
         try {
@@ -938,6 +953,33 @@
         }
     }
 
+    // BI-9：恢复分支动作——resume 保场续用；summary 复用完成屏只读展示；narrow 直达范围选择；end 清现场重开
+    function recoveryAct(branch: string) {
+        recovery = null;
+        recoverySnap = null;
+        if (branch === "resume") {
+            return; // 计数已恢复，队列照常
+        }
+        if (branch === "summary") {
+            sessionDone = true; // 只看摘要：完成屏展示已恢复计数，不评分不写卡
+            return;
+        }
+        if (branch === "narrow") {
+            scopeEl?.focus();
+            showMessage(t.review.recoveryNarrowTip, 2500, "info");
+            return;
+        }
+        // end：清空现场重新开始
+        ctx.clearSessionState();
+        reviewedIDs = [];
+        sessionSkipped = [];
+        sessionNew = 0;
+        sessionReview = 0;
+        sessionForget = 0;
+        sessionSkip = 0;
+        loadQueue();
+    }
+
     function onTouchEnd(e: TouchEvent) {
         const el = e.target as HTMLElement;
         if (el.closest("input,textarea,select,button,a,[contenteditable]")) return;
@@ -970,6 +1012,15 @@
             sessionReview = ss.counters.review;
             sessionForget = ss.counters.forget;
             sessionSkip = ss.counters.skip;
+            // BI-9：有现场→给出恢复分支（跨天/零进度/队列空的禁用语义由纯模块判定）
+            recoverySnap = {
+                date: ss.date,
+                today: todayKey(),
+                reviewedCount: ss.counters.new + ss.counters.review,
+                skippedCount: ss.counters.skip,
+                queueRemaining: -1, // 队列未拉取：首刷后回填
+            };
+            recovery = recoveryOptions(recoverySnap);
         }
         loadQueue();
         // 范围选择器数据源（失败静默：仅影响下拉项，不影响默认全部复习）
@@ -1013,6 +1064,21 @@
 >
     <!-- AS-4：读屏播报区域（视觉隐藏） -->
     <LvLive message={liveMsg} tone={liveTone} />
+    <!-- BI-9：中断恢复分支（四选一，用户拍板；disabled 项带原因） -->
+    {#if recovery}
+        <div class="lv-recover" role="group" aria-label={t.review.recoveryTitle}>
+            <span class="lv-recover-title">{t.review.recoveryTitle}</span>
+            {#each recovery as opt (opt.branch)}
+                <button
+                    class="b3-button b3-button--small"
+                    class:b3-button--outline={opt.branch !== "resume"}
+                    disabled={!opt.enabled}
+                    title={opt.enabled ? "" : (t.recovery[opt.disabledWhyKey?.replace("recovery.", "")] ?? opt.disabledWhyKey ?? "")}
+                    onclick={() => recoveryAct(opt.branch)}
+                >{t.recovery[opt.branch]}</button>
+            {/each}
+        </div>
+    {/if}
     {#if loading}
         <div class="lv-center">{t.dashboard.loading}</div>
     {:else if errorMsg}
@@ -1031,7 +1097,10 @@
             </div>
             <!-- BI-8：会话收工建议（buildSummary 推导） -->
             <div class="lv-done-desc lv-anim-rise" style="animation-delay: 110ms">
-                {#if (sessionNew + sessionReview) >= eff().dailyReviewTarget && eff().dailyReviewTarget > 0}
+                <!-- BI-2：评分口径随目的——formal 庆祝每日目标，informal 只给鼓励不占目标 -->
+                {#if PURPOSE_PROFILES[purpose].grading === "informal"}
+                    💪 {t.purpose[purpose].end} · {t.review.purposeInformal}
+                {:else if (sessionNew + sessionReview) >= eff().dailyReviewTarget && eff().dailyReviewTarget > 0}
                     🎉 {t.review.dailyTargetReached}
                 {:else if (sessionNew + sessionReview) > 0}
                     💪 {t.review.doneProgress}
@@ -1051,7 +1120,7 @@
         </div>
     {:else}
         <div class="lv-head">
-            <select class="b3-select lv-scope" bind:value={scopeKey} onchange={() => { ctx.onScopePersist(scopeKey); loadQueue(); }} title={t.review.scopeTitle}>
+            <select class="b3-select lv-scope" bind:this={scopeEl} bind:value={scopeKey} onchange={() => { ctx.onScopePersist(scopeKey); recovery = null; loadQueue(); }} title={t.review.scopeTitle}>
                 <option value="all">{t.review.scopeAll}</option>
                 <option value="new">{t.review.scopeNew}</option>
                 <option value="old">{t.review.scopeOld}</option>
@@ -1070,6 +1139,15 @@
                     </optgroup>
                 {/if}
             </select>
+            <!-- BI-2：本次会话目的（结束条件随目的显示；informal 不计入每日目标） -->
+            <select class="b3-select lv-scope" bind:value={purpose} title={t.review.purposeTitle}>
+                {#each SESSION_PURPOSES as p (p)}
+                    <option value={p}>{t.purpose[p].name}</option>
+                {/each}
+            </select>
+            <span class="lv-chip2" class:lv-chip2--primary={PURPOSE_PROFILES[purpose].grading === "formal"} title={PURPOSE_PROFILES[purpose].grading === "formal" ? t.review.purposeFormal : t.review.purposeInformal}>
+                {t.purpose[purpose].end}
+            </span>
             <span class="lv-progress">{reviewedIDs.length + 1} / {reviewedIDs.length + queue.length}</span>
             <div class="lv-progress-bar">
                 <div class="lv-progress-fill" style={`width:${reviewedIDs.length / Math.max(1, reviewedIDs.length + queue.length) * 100}%`}></div>
@@ -1356,6 +1434,24 @@
         .lv-error-wrap { width: min(560px, 92vw); }
 
         .lv-done-title { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; margin: var(--lv-sp-3) 0 var(--lv-sp-1); }
+
+        /* BI-9：恢复分支横幅 */
+        .lv-recover {
+            display: flex;
+            align-items: center;
+            gap: var(--lv-sp-2);
+            flex-wrap: wrap;
+            margin: 0 var(--lv-sp-5) var(--lv-sp-2);
+            padding: var(--lv-sp-2) var(--lv-sp-3);
+            background: var(--lv-primary-softer);
+            border: 1px solid var(--lv-primary-border);
+            border-radius: var(--lv-r-m);
+            font-size: 13px;
+        }
+        .lv-recover-title {
+            color: var(--b3-theme-on-surface);
+            margin-right: var(--lv-sp-1);
+        }
         .lv-done-desc { color: var(--b3-theme-on-surface); font-variant-numeric: tabular-nums; }
         .lv-done-milestone { color: var(--b3-theme-warning); font-weight: 600; }
         .lv-done-tip {

@@ -236,7 +236,12 @@
     "tplAtomicSplit": "原子事实拆解",
     "tplClozeLeakCheck": "题面反泄漏审查",
     "tplDistractorCause": "带错因干扰项",
-    "tplLeechRewrite": "烂卡改写"
+    "tplLeechRewrite": "烂卡改写",
+    "recoveryTitle": "上次会话现场",
+    "recoveryNarrowTip": "已定位到范围选择器，选一个小些的范围继续",
+    "purposeTitle": "本次目的",
+    "purposeFormal": "正式评分（计入每日目标）",
+    "purposeInformal": "练习性质（不计入每日目标）"
   },
   "purpose": {
     "explore": {

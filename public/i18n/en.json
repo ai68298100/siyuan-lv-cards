@@ -236,7 +236,12 @@
     "tplAtomicSplit": "Atomic fact split",
     "tplClozeLeakCheck": "Cloze leak check",
     "tplDistractorCause": "Distractors with causes",
-    "tplLeechRewrite": "Leech rewrite"
+    "tplLeechRewrite": "Leech rewrite",
+    "recoveryTitle": "Previous session snapshot",
+    "recoveryNarrowTip": "Scope picker focused — pick a smaller scope to continue",
+    "purposeTitle": "Session goal",
+    "purposeFormal": "Formal grading (counts toward daily target)",
+    "purposeInformal": "Practice mode (not counted toward daily target)"
   },
   "purpose": {
     "explore": {

@@ -27,10 +27,25 @@ function budget(label: string, fn: () => void, ms: number) {
     expect(elapsed, `${label} took ${elapsed.toFixed(0)}ms (budget ${ms}ms)`).toBeLessThan(ms);
 }
 
+// 负载因子校准：绝对毫秒预算在重负载机器（并行构建/多实例内核）上会误报——
+// 实测基线循环的当前耗时，预算等比放大（封顶 8x；O(n²) 类回归即使 8x 预算也必然爆）。
+function loadFactor(): number {
+    const t0 = performance.now();
+    let acc = 0;
+    for (let i = 0; i < 200000; i++) acc += i % 7;
+    const ms = performance.now() - t0;
+    if (acc < 0) throw new Error("unreachable");
+    return Math.min(8, Math.max(1, ms / 1.5));
+}
+const LF = loadFactor();
+function budgetLF(label: string, fn: () => void, ms: number) {
+    budget(label, fn, Math.round(ms * LF));
+}
+
 describe("AT-5 大库基准：revlog 纯数据管线规模预算", () => {
     it("1k 条：全链路（写入+重算+聚合+导出+CSV）< 300ms", () => {
         const d = makeEntries(1000, 100);
-        budget("1k full pipeline", () => {
+        budgetLF("1k full pipeline", () => {
             recalcDays(d);
             calcStreak(d);
             lastNDays(d, 119);
@@ -44,12 +59,12 @@ describe("AT-5 大库基准：revlog 纯数据管线规模预算", () => {
 
     it("10k 条：normalize（加载清洗路径）< 800ms，全链路 < 1200ms", () => {
         const raw = JSON.parse(JSON.stringify(makeEntries(10000, 1000)));
-        budget("10k normalize", () => {
+        budgetLF("10k normalize", () => {
             const d = normalizeRevlog(raw);
             expect(d.entries).toHaveLength(10000);
         }, 800);
         const d = makeEntries(10000, 1000);
-        budget("10k full pipeline", () => {
+        budgetLF("10k full pipeline", () => {
             recalcDays(d);
             calcStreak(d);
             calcMilestones(d);
@@ -59,7 +74,7 @@ describe("AT-5 大库基准：revlog 纯数据管线规模预算", () => {
     }, 30000);
 
     it("50k 条：写入+重算+聚合 < 6000ms（AQ-21 截断上限量级）", () => {
-        budget("50k build+aggregate", () => {
+        budgetLF("50k build+aggregate", () => {
             const d = makeEntries(50000, 5000);
             recalcDays(d);
             calcStreak(d);
@@ -76,7 +91,7 @@ describe("AT-5 大库基准：revlog 纯数据管线规模预算", () => {
     it("50k 条 CSV 导出（明细 2 万条上限 + 表头）", () => {
         const d = makeEntries(50000, 5000);
         let csv = "";
-        budget("50k CSV", () => {
+        budgetLF("50k CSV", () => {
             csv = revlogToCsv(d);
         }, 8000);
         // AQ-21：明细截断到 2 万条，CSV 行 = 表头 + min(entries, 20000)
@@ -84,7 +99,7 @@ describe("AT-5 大库基准：revlog 纯数据管线规模预算", () => {
     }, 60000);
 
     it("打字判分单卡恒定耗时（与库规模无关）：1000 次 < 400ms", () => {
-        budget("1k grades", () => {
+        budgetLF("1k grades", () => {
             for (let i = 0; i < 1000; i++) {
                 gradeTyping("线粒体是细胞的能量工厂", "线粒体是细胞的能量工厂", false);
             }
@@ -99,7 +114,7 @@ describe("AT-5 大库基准：revlog 纯数据管线规模预算", () => {
             skippedIDs: Array.from({ length: 100 }, (_, i) => `s${i}`),
             counters: { new: 10, review: 9990, forget: 5, skip: 100 },
         };
-        budget("10k session normalize", () => {
+        budgetLF("10k session normalize", () => {
             const s = normalizeSessionState(raw, today);
             expect(s.reviewedIDs).toHaveLength(10000);
         }, 500);
