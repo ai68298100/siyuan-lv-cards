@@ -26,7 +26,7 @@ import {
     type RevlogData, type RevlogEntry,
 } from "./core/revlog";
 import { detectFlashcardV2, type MigrationStatus } from "./api/flashcardV2";
-import { createRiffDeck, getRiffCardsByBlockIDs, getRiffDecks, removeRiffCards } from "./api/riff";
+import { createRiffDeck, getRiffCards, getRiffCardsByBlockIDs, getRiffDecks, removeRiffCards } from "./api/riff";
 // AT-4：addRiffCards 取经 due-shared 的包装版（建卡成功即失效共享 due 缓存），badge/提醒走共享缓存
 import { addRiffCards, cachedDueCount, dueCache, invalidateDueCache } from "./api/due-shared";
 import { createPerf } from "./libs/perf";
@@ -539,6 +539,47 @@ export default class LvCardsPlugin extends Plugin {
                                 if (blockIDs.length === 0) return {};
                                 const ids = new Set(blockIDs);
                                 return lifecycleStats(plugin.contentLifecycles.lifecycles.filter(lc => ids.has(lc.blockID)));
+                            },
+                        },
+                        // BI-25：维护债务通道（只读扫描 + 今日暂缓可逆 + 回来源；不改变 due 语义）
+                        maintenance: {
+                            scan: async () => {
+                                const out: { blockID: string; md: string; state?: string; rootID?: string }[] = [];
+                                try {
+                                    // 分页拉卡（上限 500），markdown/root 批量取（IN 分块 50）
+                                    const ids: string[] = [];
+                                    for (let page = 1; page <= 5 && ids.length < 500; page++) {
+                                        const r = await getRiffCards("", page, 100);
+                                        for (const b of r.blocks ?? []) { if (b?.id) ids.push(String(b.id)); }
+                                        if ((r.blocks?.length ?? 0) < 100) break;
+                                    }
+                                    const info = new Map<string, { md: string; root: string }>();
+                                    for (let i = 0; i < ids.length; i += 50) {
+                                        const chunk = ids.slice(i, i + 50);
+                                        const rows = await sqlQuery(`SELECT id, markdown, root_id FROM blocks WHERE id IN (${chunk.map(id => `'${id.replace(/'/g, "''")}'`).join(",")})`);
+                                        for (const r of rows) info.set(String(r.id), { md: String(r.markdown ?? ""), root: String(r.root_id ?? "") });
+                                    }
+                                    const states = new Map(plugin.contentLifecycles.lifecycles.map(l => [l.blockID, l.state]));
+                                    for (const id of ids) {
+                                        const meta = info.get(id);
+                                        out.push({ blockID: id, md: meta?.md ?? "", rootID: meta?.root ?? "", state: states.get(id) });
+                                    }
+                                } catch { /* 扫描失败返回已收集部分，页面可重试 */ }
+                                return out;
+                            },
+                            suspendToday: (blockIDs: string[]) => {
+                                for (const id of blockIDs) suspend(plugin.suspendToday, id);
+                                plugin.persist.save(SUSPEND_TODAY_DATA, plugin.suspendToday).catch(() => { /* onFail 已记录 */ });
+                            },
+                            isSuspendedToday: (blockID: string) => isSuspended(plugin.suspendToday, blockID),
+                            openSource: async (blockID: string) => {
+                                // 与收件箱 openSource 同口径：块归属文档锚点打开，查不到 root 退化块 ID
+                                try {
+                                    const rows = await sqlQuery(`SELECT root_id FROM blocks WHERE id='${blockID.replace(/'/g, "''")}'`);
+                                    openTab({ app: plugin.app, doc: { id: rows[0]?.root_id ? String(rows[0].root_id) : blockID } });
+                                } catch {
+                                    openTab({ app: plugin.app, doc: { id: blockID } });
+                                }
                             },
                         },
                     });

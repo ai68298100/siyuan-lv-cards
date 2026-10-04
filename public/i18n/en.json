@@ -916,5 +916,25 @@
         "applied": "Applied",
         "maintain": "To maintain",
         "narrativeNone": "No progress recorded yet — pick materials and start triaging to see stage progress here"
+    },
+    "hubTabMaintenance": "Maintain",
+    "maintenance": {
+        "title": "Maintenance debts",
+        "scan": "Scan",
+        "scanning": "Scanning…",
+        "scanned": "Scan complete",
+        "none": "No debt cards found — well kept",
+        "impactNote": "Read-only diagnosis: scanning never changes scheduling. \"Pause today\" = skip for today (reversible, back tomorrow); due times and history fully untouched.",
+        "kinds": {
+            "duplicate": "Duplicates",
+            "leak": "Face leaks",
+            "tooLong": "Too long",
+            "needsReview": "Needs review"
+        },
+        "open": "Open source",
+        "suspendTodayBtn": "Pause today",
+        "suspendedToday": "Paused",
+        "suspendGroup": "Pause group",
+        "suspendedGroup": "Paused ${n} cards (skip today, back tomorrow)"
     }
 }

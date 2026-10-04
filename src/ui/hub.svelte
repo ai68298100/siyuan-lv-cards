@@ -9,7 +9,7 @@
     import type { LearningGoal, LearningGoalsData } from "@/core/learning-goal";
 
     let {
-        i18n, dashboardBase, managerCtx, exam, inbox, goals, initialTab = "overview", onTabChange,
+        i18n, dashboardBase, managerCtx, exam, inbox, goals, maintenance, initialTab = "overview", onTabChange,
     }: {
         i18n: any;
         /** 总览页上下文（不含 openManager，由 Hub 内部切换页签实现） */
@@ -45,6 +45,13 @@
             save: (goal: LearningGoal) => LearningGoalsData;
             remove: (id: string) => LearningGoalsData;
         };
+        /** BI-25 维护债务通道（只读扫描 + 今日暂缓可逆 + 回来源） */
+        maintenance: {
+            scan: () => Promise<{ blockID: string; md: string; state?: string; rootID?: string }[]>;
+            suspendToday: (blockIDs: string[]) => void;
+            isSuspendedToday: (blockID: string) => boolean;
+            openSource: (blockID: string) => Promise<void>;
+        };
         initialTab?: string;
         onTabChange?: (id: string) => void;
     } = $props();
@@ -55,12 +62,13 @@
         { id: "overview", label: i18n.hubTabOverview },
         { id: "manage", label: i18n.hubTabManage },
         { id: "goals", label: i18n.hubTabGoals },
+        { id: "maintenance", label: i18n.hubTabMaintenance },
         ...(inbox ? [{ id: "inbox", label: i18n.hubTabInbox }] : []),
         ...(exam ? [{ id: "exam", label: i18n.hubTabExam }] : []),
     ];
     // svelte-ignore state_referenced_locally
     let active = $state(
-        initialTab === "manage" || initialTab === "goals" || (initialTab === "exam" && exam) || (initialTab === "inbox" && inbox) ? initialTab : "overview"
+        initialTab === "manage" || initialTab === "goals" || initialTab === "maintenance" || (initialTab === "exam" && exam) || (initialTab === "inbox" && inbox) ? initialTab : "overview"
     );
 
     // svelte-ignore state_referenced_locally
@@ -124,6 +132,24 @@
     // svelte-ignore state_referenced_locally
     if (active === "goals") { ensureGoals(); }
 
+    // BI-25 维护子页懒加载（同考试页模式：首次切到才拉 chunk）
+    let MaintComp = $state<any>(null);
+    let maintError = $state("");
+    async function ensureMaint() {
+        if (MaintComp) { return; }
+        maintError = "";
+        try {
+            MaintComp = (await import("./maintenance-page.svelte")).default;
+        } catch (e: any) {
+            maintError = e?.message ?? String(e);
+        }
+    }
+    $effect(() => {
+        if (active === "maintenance") { ensureMaint(); }
+    });
+    // svelte-ignore state_referenced_locally
+    if (active === "maintenance") { ensureMaint(); }
+
     function switchTab(id: string) {
         active = id;
         onTabChange?.(id);
@@ -155,6 +181,14 @@
                         <GoalsComp i18n={i18n} {goals} />
                     {:else if goalsError}
                         <div style="padding: var(--lv-sp-5); color: var(--b3-theme-error); font-size: 13px">{goalsError}</div>
+                    {:else}
+                        <div style="padding: var(--lv-sp-5); color: var(--b3-theme-on-surface); font-size: 13px">{i18n.dashboard.loading}</div>
+                    {/if}
+                {:else if active === "maintenance"}
+                    {#if MaintComp}
+                        <MaintComp i18n={i18n} maintenance={maintenance} />
+                    {:else if maintError}
+                        <div style="padding: var(--lv-sp-5); color: var(--b3-theme-error); font-size: 13px">{maintError}</div>
                     {:else}
                         <div style="padding: var(--lv-sp-5); color: var(--b3-theme-on-surface); font-size: 13px">{i18n.dashboard.loading}</div>
                     {/if}

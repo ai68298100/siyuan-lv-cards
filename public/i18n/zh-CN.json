@@ -916,5 +916,25 @@
         "applied": "已应用",
         "maintain": "待维护",
         "narrativeNone": "尚无进展记录——圈选材料并开始筛选后这里会出现阶段进展"
+    },
+    "hubTabMaintenance": "维护",
+    "maintenance": {
+        "title": "维护债务",
+        "scan": "扫描",
+        "scanning": "扫描中…",
+        "scanned": "扫描完成",
+        "none": "未发现债务卡——保持得很好",
+        "impactNote": "只读诊断：扫描不改变任何调度。「暂缓今日」=今日不学（可逆，明天恢复），到期与历史完全不变。",
+        "kinds": {
+            "duplicate": "重复卡",
+            "leak": "题面泄漏",
+            "tooLong": "过长卡",
+            "needsReview": "待审核"
+        },
+        "open": "打开来源",
+        "suspendTodayBtn": "暂缓今日",
+        "suspendedToday": "已暂缓",
+        "suspendGroup": "本组暂缓",
+        "suspendedGroup": "已暂缓 ${n} 张（今日不学，明天恢复）"
     }
 }
