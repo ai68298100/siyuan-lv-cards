@@ -5,12 +5,23 @@
     import LvDrawer from "./kit/LvDrawer.svelte";
     import RelationsPanel from "./relations-panel.svelte";
     import KoPanel from "./ko-panel.svelte";
+    import LifecyclePanel from "./lifecycle-panel.svelte";
+    import type { LcSnapshot } from "./lifecycle-panel.svelte";
+    import type { ContentState } from "@/core/content-lifecycle";
+    import type { NextAction } from "@/core/next-action";
 
-    let { block, t, onOpenDoc, onClose, relationsCtx, koCtx }: {
+    let { block, t, onOpenDoc, onClose, relationsCtx, koCtx, lcCtx }: {
         block: SearchBlock;
         t: any;
         onOpenDoc: () => void;
         onClose: () => void;
+        /** BI-5/6/7：内容状态面板数据与操作（宿主注入；缺省=不显示内容状态区） */
+        lcCtx?: {
+            snapshot: LcSnapshot | null;
+            onopen: () => void;
+            ontransition: (to: ContentState, reason: string) => boolean;
+            onaction: (action: NextAction) => void;
+        };
         /** BK-2：关系面板数据与持久化回调（宿主注入；缺省=不显示关系区） */
         relationsCtx?: {
             relations: { relation: { from: string; to: string; type: string; createdAt: number }; direction: "outgoing" | "incoming" }[];
@@ -56,6 +67,15 @@
         <div>{t.manager.detailBlockId}: {block.id}</div>
         {#if block.hPath}<div>{block.hPath}</div>{/if}
     </div>
+    {#if lcCtx}
+        <LifecyclePanel
+            t={t}
+            snapshot={lcCtx.snapshot}
+            onopen={lcCtx.onopen}
+            ontransition={lcCtx.ontransition}
+            onaction={lcCtx.onaction}
+        />
+    {/if}
     {#if koCtx}
         {#if koCtx.snapshot.registered}
             <KoPanel

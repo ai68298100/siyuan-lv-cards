@@ -36,6 +36,15 @@
             remove: (blockID: string, cardID: string) => void;
             derive: (blockID: string, cardType: string) => Promise<void>;
         };
+        /** BI-5/6/7：内容状态生命周期（可选——旧宿主不传则详情不显示内容状态区） */
+        lc?: {
+            snapshot: (blockID: string) => import("@/core/content-lifecycle").ContentLifecycle | null;
+            open: (blockID: string) => void;
+            transition: (blockID: string, to: import("@/core/content-lifecycle").ContentState, reason: string) => boolean;
+            /** cram=false 正式复习 / true 练习（突击）模式 */
+            openReview: (cram: boolean) => void;
+            makeCards: (blockID: string, content: string) => void;
+        };
     }
 
     let { ctx }: { ctx: ManagerCtx } = $props();
@@ -71,6 +80,7 @@
     let detailRelations: { relation: { from: string; to: string; type: string; createdAt: number }; direction: "outgoing" | "incoming" }[] = $state([]);
     let detailKo: { registered: boolean; fact: string; instances: { cardID: string; cardType: string; capability: string | null; disabled: boolean }[] } | null = $state(null);
     let koDeriving = $state(false);
+    let detailLc: import("@/core/content-lifecycle").ContentLifecycle | null = $state(null);
 
     let filteredBlocks = $derived(
         (() => {
@@ -212,6 +222,8 @@
         // BK-2：详情打开时载入该块的关系视图（本地镜像，增删后经 ctx 刷新）
         detailRelations = ctx.relationsOfBlock?.(b.id) ?? [];
         detailKo = ctx.ko ? ctx.ko.snapshot(b.id) : null;
+        // BI-5：详情打开时载入内容状态快照（null=未开档）
+        detailLc = ctx.lc ? ctx.lc.snapshot(b.id) : null;
     }
 
     function openDoc(block: SearchBlock) {
@@ -336,6 +348,35 @@
         {t}
         onOpenDoc={() => openDoc(detail!)}
         onClose={() => (detail = null)}
+        lcCtx={ctx.lc ? {
+            snapshot: detailLc,
+            onopen: () => {
+                ctx.lc!.open(detail!.id);
+                detailLc = ctx.lc!.snapshot(detail!.id);
+            },
+            ontransition: (to, reason) => {
+                const ok = ctx.lc!.transition(detail!.id, to, reason);
+                detailLc = ctx.lc!.snapshot(detail!.id);
+                return ok;
+            },
+            // BI-6：建议动作 → 经理页真实入口（建议可跳过，点击才执行；无隐式写入）
+            onaction: (action) => {
+                const b = detail;
+                if (!b) return;
+                if (action === "openSource" || action === "explain" || action === "revise") {
+                    // 经理页无独立解释/修订入口，统一回落原文（阅读理解与修订都在编辑器完成）
+                    openDoc(b);
+                } else if (action === "makeCards") {
+                    ctx.lc!.makeCards(b.id, b.content ?? "");
+                } else if (action === "formalReview") {
+                    ctx.lc!.openReview(false);
+                } else if (action === "practice") {
+                    ctx.lc!.openReview(true);
+                } else if (action === "wrapUp") {
+                    detail = null;
+                }
+            },
+        } : undefined}
         relationsCtx={ctx.relationsOfBlock ? {
             relations: detailRelations,
             onadd: (f, to, ty) => {

@@ -408,6 +408,30 @@ export default class LvCardsPlugin extends Plugin {
                                     } catch { /* 派生失败静默：面板状态不变，可重试 */ }
                                 },
                             },
+                            // BI-5/6/7：内容状态生命周期（快照/开档/转移）+ 建议动作真实入口
+                            lc: {
+                                snapshot: (blockID: string) => {
+                                    const found = plugin.contentLifecycles.lifecycles.find(l => l.blockID === blockID);
+                                    return found ? { state: found.state, history: found.history.map(h => ({ ...h })) } : null;
+                                },
+                                open: (blockID: string) => {
+                                    // 显式开档（source 起）；浏览不隐式建档
+                                    ensureLifecycle(plugin.contentLifecycles, blockID);
+                                    plugin.saveContentLifecycles();
+                                },
+                                transition: (blockID: string, to: ContentState, reason: string) =>
+                                    plugin.transitionContentState(blockID, to, reason),
+                                openReview: (cram: boolean) => plugin.openReviewScope("all", "", cram),
+                                makeCards: (blockID: string, content: string) => {
+                                    void plugin.openAIWizard(content, () => {
+                                        // 与收件箱制卡同链：candidate→reviewed→stocked（非法转移自动跳过）
+                                        const reason = (plugin.i18n as any).lc.reason;
+                                        plugin.transitionContentState(blockID, "candidate", reason.candidate);
+                                        plugin.transitionContentState(blockID, "reviewed", reason.reviewed);
+                                        plugin.transitionContentState(blockID, "stocked", reason.stocked);
+                                    });
+                                },
+                            },
                         },
                         exam: plugin.settings.modules.exam ? {
                             plans: plugin.examPlans,
