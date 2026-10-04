@@ -771,6 +771,12 @@
             "beginner": "入门",
             "intermediate": "进阶",
             "advanced": "熟练"
+        },
+        "priorityTitle": "切换优先级（主目标→维持→暂缓）",
+        "priority": {
+            "primary": "主目标",
+            "keep": "维持",
+            "pause": "暂缓"
         }
     },
     "lc": {

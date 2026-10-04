@@ -771,6 +771,12 @@
             "beginner": "Beginner",
             "intermediate": "Intermediate",
             "advanced": "Advanced"
+        },
+        "priorityTitle": "Cycle priority (primary → keep → pause)",
+        "priority": {
+            "primary": "Primary",
+            "keep": "Keep",
+            "pause": "Paused"
         }
     },
     "lc": {

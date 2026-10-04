@@ -5,7 +5,7 @@
     import LvPage from "./kit/LvPage.svelte";
     import LvEmpty from "./kit/LvEmpty.svelte";
     import LvChip from "./kit/LvChip.svelte";
-    import { LEVELS, daysUntilDeadline, isGoalActive, suggestedMinutes, type LearningGoal, type LearningGoalsData, type LearnerLevel } from "@/core/learning-goal";
+    import { GOAL_PRIORITIES, LEVELS, daysUntilDeadline, isGoalActive, sortGoalsByPriority, suggestedMinutes, type GoalPriority, type LearningGoal, type LearningGoalsData, type LearnerLevel } from "@/core/learning-goal";
     import { SESSION_PURPOSES } from "@/core/session-purpose";
 
     let {
@@ -32,7 +32,8 @@
         return { id: "", purpose: "review", deadline: null, materialBlockIDs: [], minutesPerDay: 0, level: "beginner", createdAt: 0, updatedAt: 0 };
     }
 
-    const sorted = $derived([...snapshot.goals].sort((a, b) => a.createdAt - b.createdAt));
+    // BI-11：优先级分层排序（主目标→维持→暂缓）；纯展示序，不改 due 不写内核
+    const sorted = $derived(sortGoalsByPriority(snapshot.goals));
 
     function startAdd() {
         form = blankGoal();
@@ -83,6 +84,19 @@
 
     function announce(msg: string) {
         live = msg;
+    }
+
+    // BI-11：切换优先级（主目标→维持→暂缓循环）；排序只影响展示与建议入口
+    function cyclePriority(g: LearningGoal) {
+        const order = GOAL_PRIORITIES;
+        const cur = order.indexOf(g.priority ?? "keep");
+        const next = order[(cur + 1) % order.length];
+        snapshot = goals.save({ ...g, priority: next as GoalPriority, updatedAt: Date.now() });
+        announce((t.priority as Record<string, string>)[next]);
+    }
+
+    function priorityText(g: LearningGoal): string {
+        return (t.priority as Record<string, string>)[g.priority ?? "keep"] ?? "";
     }
 </script>
 
@@ -144,6 +158,7 @@
                             {deadlineText(g)} · {g.minutesPerDay > 0 ? t.minutesPerDay.replace("${n}", String(g.minutesPerDay)) : t.minutesUnset} · {levelText(g.level)}
                         </div>
                     </div>
+                    <button class="b3-button b3-button--small" title={t.priorityTitle} onclick={() => cyclePriority(g)}>{priorityText(g)}</button>
                     <button class="b3-button b3-button--small" title={t.delete} onclick={() => remove(g.id)}>🗑</button>
                 </div>
             {/each}

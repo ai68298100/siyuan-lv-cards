@@ -21,8 +21,29 @@ export interface LearningGoal {
     minutesPerDay: number;
     /** 当前水平自评 */
     level: LearnerLevel;
+    /** BI-11：目标优先级（主目标/维持/暂缓）；缺省=维持。排序只影响入口与建议展示，不改调度 */
+    priority?: GoalPriority;
     createdAt: number;
     updatedAt: number;
+}
+
+/** BI-11：目标优先级白名单（多目标取舍：主目标优先展示入口与建议） */
+export const GOAL_PRIORITIES = ["primary", "keep", "pause"] as const;
+export type GoalPriority = (typeof GOAL_PRIORITIES)[number];
+const PRIORITY_TIER: Record<GoalPriority, number> = { primary: 0, keep: 1, pause: 2 };
+
+function asPriority(v: unknown): GoalPriority | undefined {
+    return typeof v === "string" && (GOAL_PRIORITIES as readonly string[]).includes(v) ? (v as GoalPriority) : undefined;
+}
+
+/** BI-11：按优先级分层排序（primary → keep → pause；同层保持 createdAt 升序稳定）。
+ * 纯展示序：不改 due、不写内核、不改变任何调度语义（验收硬性要求）。 */
+export function sortGoalsByPriority(goals: LearningGoal[]): LearningGoal[] {
+    return [...goals].sort((a, b) => {
+        const ta = PRIORITY_TIER[a.priority ?? "keep"];
+        const tb = PRIORITY_TIER[b.priority ?? "keep"];
+        return ta !== tb ? ta - tb : a.createdAt - b.createdAt;
+    });
 }
 
 export interface LearningGoalsData {
@@ -61,6 +82,7 @@ export function normalizeGoals(raw: unknown): LearningGoalsData {
             materialBlockIDs: materials,
             minutesPerDay: Number.isFinite(Number(g.minutesPerDay)) && Number(g.minutesPerDay) > 0 ? Math.floor(Number(g.minutesPerDay)) : 0,
             level: asLevel(g.level),
+            priority: asPriority(g.priority),
             createdAt,
             updatedAt: Number.isFinite(Number(g.updatedAt)) ? Number(g.updatedAt) : createdAt,
         });

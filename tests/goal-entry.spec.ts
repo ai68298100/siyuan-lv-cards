@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-    daysUntilDeadline, emptyGoals, isGoalActive, normalizeGoals, suggestedMinutes,
+    daysUntilDeadline, emptyGoals, isGoalActive, normalizeGoals, sortGoalsByPriority, suggestedMinutes,
     type LearningGoal,
 } from "../src/core/learning-goal";
 import {
@@ -58,6 +58,26 @@ describe("learning-goal（BI-1）", () => {
         expect(suggestedMinutes("build", "novice")).toBe(25);
         expect(suggestedMinutes("build", "advanced")).toBe(50);
         expect(suggestedMinutes("explore", "beginner")).toBe(30);
+    });
+});
+
+// BI-11 多目标取舍：优先级分层排序，纯展示序不改调度
+describe("learning-goal BI-11：多目标取舍", () => {
+    const g = (id: string, priority?: string, createdAt = 0): LearningGoal =>
+        normalizeGoals({ goals: [{ id, purpose: "review", minutesPerDay: 0, level: "beginner", priority, createdAt }] }).goals[0];
+
+    it("normalize 白名单清洗：非法优先级回缺省（维持）", () => {
+        expect(g("a", "primary").priority).toBe("primary");
+        expect(g("b", "hack").priority).toBeUndefined();
+        expect(g("c").priority).toBeUndefined();
+    });
+
+    it("分层排序 primary→keep→pause；同层 createdAt 升序稳定；不改原数组", () => {
+        const input = [g("k1", "keep", 1), g("p1", "primary", 2), g("z", undefined, 3), g("p2", "pause", 4), g("k2", "keep", 0)];
+        const out = sortGoalsByPriority(input);
+        expect(out.map(x => x.id)).toEqual(["p1", "k2", "k1", "z", "p2"]);
+        // 纯展示序：输入数组不受影响（验收：不暗中改 due/调度）
+        expect(input.map(x => x.id)).toEqual(["k1", "p1", "z", "p2", "k2"]);
     });
 });
 
