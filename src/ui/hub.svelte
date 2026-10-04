@@ -9,7 +9,7 @@
     import type { LearningGoal, LearningGoalsData } from "@/core/learning-goal";
 
     let {
-        i18n, dashboardBase, managerCtx, exam, inbox, goals, maintenance, initialTab = "overview", onTabChange,
+        i18n, dashboardBase, managerCtx, exam, inbox, goals, maintenance, uiMode = "advanced", initialTab = "overview", onTabChange,
     }: {
         i18n: any;
         /** 总览页上下文（不含 openManager，由 Hub 内部切换页签实现） */
@@ -53,6 +53,8 @@
             isSuspendedToday: (blockID: string) => boolean;
             openSource: (blockID: string) => Promise<void>;
         };
+        /** BI-14：界面模式（simple=隐藏考试/维护高级入口；纯显示控制） */
+        uiMode?: "simple" | "advanced";
         initialTab?: string;
         onTabChange?: (id: string) => void;
     } = $props();
@@ -63,13 +65,13 @@
         { id: "overview", label: i18n.hubTabOverview },
         { id: "manage", label: i18n.hubTabManage },
         { id: "goals", label: i18n.hubTabGoals },
-        { id: "maintenance", label: i18n.hubTabMaintenance },
         ...(inbox ? [{ id: "inbox", label: i18n.hubTabInbox }] : []),
-        ...(exam ? [{ id: "exam", label: i18n.hubTabExam }] : []),
+        ...(exam && uiMode !== "simple" ? [{ id: "exam", label: i18n.hubTabExam }] : []),
+        ...(uiMode !== "simple" ? [{ id: "maintenance", label: i18n.hubTabMaintenance }] : []),
     ];
     // svelte-ignore state_referenced_locally
     let active = $state(
-        initialTab === "manage" || initialTab === "goals" || initialTab === "maintenance" || (initialTab === "exam" && exam) || (initialTab === "inbox" && inbox) ? initialTab : "overview"
+        initialTab === "manage" || initialTab === "goals" || (initialTab === "maintenance" && uiMode !== "simple") || (initialTab === "exam" && exam && uiMode !== "simple") || (initialTab === "inbox" && inbox) ? initialTab : "overview"
     );
 
     // svelte-ignore state_referenced_locally

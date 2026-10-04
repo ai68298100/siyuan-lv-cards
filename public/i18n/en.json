@@ -494,7 +494,11 @@
         "aiKillStoppedChip": "Current config stopped",
         "aiKillLast": "Last event: ",
         "aiKillNone": "none",
-        "aiKillApplied": "Applied"
+        "aiKillApplied": "Applied",
+        "uiModeLabel": "UI mode",
+        "uiModeSimple": "Simple",
+        "uiModeAdvanced": "Advanced",
+        "uiModeHint": "Simple mode hides exam, maintenance and batch operations; switching never deletes configuration — everything stays reachable via the command palette and settings."
     },
     "hubTabOverview": "Overview",
     "hubTabError": "This tab hit an error (contained by the boundary)",

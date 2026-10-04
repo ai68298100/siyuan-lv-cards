@@ -13,6 +13,8 @@
 
     export interface ManagerCtx {
         i18n: any;
+        /** BI-14：界面模式（simple=隐藏高级批量操作；显示性控制，不删配置） */
+        uiMode?: "simple" | "advanced";
         app: any;
         savedFilters: () => { name: string; filter: string }[];
         saveFilter: (name: string, filter: string) => void;
@@ -291,9 +293,11 @@
             <option value="review">{t.manager.statusReview}</option>
             <option value="due">{t.manager.statusDue}</option>
         </select>
-        <button class="b3-button b3-button--small" class:lv-btn-primary={leechOnly} onclick={() => (leechOnly = !leechOnly)}>
-            {t.manager.leechFilter}
-        </button>
+        {#if ctx.uiMode !== "simple"}
+            <button class="b3-button b3-button--small" class:lv-btn-primary={leechOnly} onclick={() => (leechOnly = !leechOnly)}>
+                {t.manager.leechFilter}
+            </button>
+        {/if}
         <button class="b3-button b3-button--outline" disabled={page <= 1} onclick={() => goto(page - 1)}>{t.manager.prev}</button>
         <span class="lv-pager">{page} / {pageCount}</span>
         <button class="b3-button b3-button--outline" disabled={page >= pageCount} onclick={() => goto(page + 1)}>{t.manager.next}</button>
@@ -304,8 +308,10 @@
         <div class="lv-glass lv-batchbar">
             <LvChip tone="primary">{t.manager.batchSelected.replace("${n}", String(selected.length))}</LvChip>
             <div class="fn__flex-1"></div>
-            <button class="b3-button b3-button--outline" onclick={exportSelected}>{t.manager.exportCsv}</button>
-            <button class="b3-button b3-button--outline" onclick={batchReset}>{t.manager.batchReset}</button>
+            {#if ctx.uiMode !== "simple"}
+                <button class="b3-button b3-button--outline" onclick={exportSelected}>{t.manager.exportCsv}</button>
+                <button class="b3-button b3-button--outline" onclick={batchReset}>{t.manager.batchReset}</button>
+            {/if}
             <button class="b3-button b3-button--outline" onclick={batchRemove}>{t.manager.batchRemove}</button>
             <button class="b3-button b3-button--small" onclick={() => (selected = [])}>{t.manager.batchCancel}</button>
         </div>

@@ -301,6 +301,18 @@
     </LvSection>
 
     <LvSection title={t.settings.modules}>
+        <!-- BI-14：界面模式（simple=隐藏考试/维护等高级入口；纯显示控制，不删配置） -->
+        <LvRow label={t.settings.uiModeLabel} hint={t.settings.uiModeHint}>
+            {#snippet children()}
+                <LvSelect
+                    bind:value={draft.uiMode}
+                    options={[
+                        { value: "simple", label: t.settings.uiModeSimple },
+                        { value: "advanced", label: t.settings.uiModeAdvanced },
+                    ]}
+                />
+            {/snippet}
+        </LvRow>
         {#each MODULE_DEFS as m (m.id)}
             <LvRow label={t.modules[m.nameKey]} hint={m.locked ? t.settings.lockedModule : t.modules[m.descKey]}>
                 {#snippet children()}

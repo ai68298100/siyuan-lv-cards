@@ -494,7 +494,11 @@
         "aiKillStoppedChip": "当前配置已停用",
         "aiKillLast": "最近事件：",
         "aiKillNone": "暂无",
-        "aiKillApplied": "已生效"
+        "aiKillApplied": "已生效",
+        "uiModeLabel": "界面模式",
+        "uiModeSimple": "简单",
+        "uiModeAdvanced": "熟练",
+        "uiModeHint": "简单模式隐藏考试、维护与批量高级操作；切换不删除任何配置，全部功能仍可从命令面板与设置访问。"
     },
     "hubTabOverview": "总览",
     "hubTabError": "该子页出现错误，已隔离在边界内",

@@ -297,6 +297,8 @@ export default class LvCardsPlugin extends Plugin {
                     handle = mnt(div, {
                         i18n: plugin.i18n,
                         initialTab: (this.data?.tab as string) ?? plugin.settings.lastHubTab,
+                        // BI-14：界面模式（挂载时定格；设置修改后重开页签生效）
+                        uiMode: plugin.settings.uiMode,
                         onTabChange: (id: string) => {
                             plugin.settings.lastHubTab = id;
                             plugin.saveSettingsSoon();
@@ -370,6 +372,7 @@ export default class LvCardsPlugin extends Plugin {
                         managerCtx: {
                             i18n: plugin.i18n,
                             app: plugin.app,
+                            uiMode: plugin.settings.uiMode,
                             savedFilters: () => plugin.settings.savedFilters,
                             saveFilter: (name: string, filter: string) => {
                                 plugin.settings.savedFilters = [

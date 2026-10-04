@@ -99,6 +99,7 @@ describe("settings 运行时字段校验（AQ-22）", () => {
             ratingDensity: null,
             sfxStyle: "gong",
             aiMode: "openai",
+            uiMode: "basic", // 非法枚举
             heatmapWeeks: 30,
         });
         expect(s.ratingStyle).toBe("four");
@@ -106,6 +107,8 @@ describe("settings 运行时字段校验（AQ-22）", () => {
         expect(s.ratingDensity).toBe("cozy");
         expect(s.sfxStyle).toBe("chime");
         expect(s.aiMode).toBe("siyuan");
+        expect(s.uiMode).toBe("advanced"); // BI-14：非法枚举回缺省（熟练）
+        expect(normalizeSettings({ uiMode: "simple" }).uiMode).toBe("simple");
         expect(s.heatmapWeeks).toBe(17);
         expect(normalizeSettings({ heatmapWeeks: 52 }).heatmapWeeks).toBe(52);
     });

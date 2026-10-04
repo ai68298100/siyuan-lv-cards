@@ -80,6 +80,8 @@ export interface LvCardsSettings {
     examDate: string;
     /** 已存筛选（管理器命名收藏，M6） */
     savedFilters: { name: string; filter: string }[];
+    /** BI-14：界面模式（简单=隐藏高级入口；切换不删除配置，高级功能仍可经命令面板/设置访问） */
+    uiMode: "simple" | "advanced";
     /** AI 配置（M2·FR7）：siyuan=思源内置 AI；custom=OpenAI 兼容端点 */
     aiMode: "siyuan" | "custom";
     aiEndpoint: string;
@@ -154,6 +156,7 @@ export function defaultSettings(): LvCardsSettings {
         examEnabled: false,
         examDate: "",
         savedFilters: [],
+        uiMode: "advanced",
         aiMode: "siyuan",
         aiEndpoint: "",
         aiKey: "",
@@ -194,6 +197,7 @@ const ENUM_FIELDS: [keyof LvCardsSettings, readonly string[], string][] = [
     ["timeoutMode", ["off", "reveal", "forget"], "off"],
     ["ratingDensity", ["cozy", "compact"], "cozy"],
     ["sfxStyle", ["chime", "wood", "bell"], "chime"],
+    ["uiMode", ["simple", "advanced"], "advanced"],
     ["aiMode", ["siyuan", "custom"], "siyuan"],
 ];
 const BOOL_FIELDS: (keyof LvCardsSettings)[] = [
