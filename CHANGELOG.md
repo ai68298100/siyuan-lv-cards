@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.150.0 2026-10-04 · BI-4 收件箱→制卡管线闭环
+
+* 收件箱「已选中」页新增「送去制卡」：拉取选中块文（分批 SQL，引号转义）拼接为向导材料，一键开 AI 制卡向导
+* 制卡成功回调：自动清收件箱（removeInboxItem）+ 记内容生命周期合法链（source→candidate→reviewed→stocked，向导逐张 keep/reject 即审核）；失败不影响制卡结果
+* openAIWizard 扩展可选 onCreated 回调（既有调用方不受影响）；收件箱页新增「刷新」按钮（对话框关闭后手动同步快照）
+* i18n +8 键（sendToCards/refresh/refreshedNotice/emptySource ×2，710→726 对齐）；主包 gzip 96.64KB（≤98KB 内）
 ## v0.149.1 2026-10-04 · CI 体积门禁修复（陈旧 32KB 硬编码）
 
 * 发现：main 分支 CI 自 v0.125.0 预算首次修订后持续失败——ci.yml 内独立硬编码 32KB gzip 门禁未随预算修订更新（本地 governance 已两次修订，CI 侧漏改）

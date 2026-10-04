@@ -16,6 +16,7 @@
             undoSelection: (blockIDs: string[]) => InboxData;
             remove: (blockIDs: string[]) => InboxData;
             add: (blockIDs: string[]) => number;
+            makeCards: (blockIDs: string[]) => Promise<void>;
             titles: (ids: string[]) => Promise<Map<string, string>>;
         };
     } = $props();
@@ -32,6 +33,7 @@
     let checked = $state<string[]>([]);
     let titles = $state<Map<string, string>>(new Map());
     let notice = $state("");
+    let making = $state(false);
 
     const visible = $derived(
         snapshot.items
@@ -91,6 +93,23 @@
         flash(i18n.inbox.removedNotice);
         checked = [];
     }
+
+    // 送去制卡：向导成功回调里清收件箱；对话框关闭后手动刷新快照
+    async function sendToCards() {
+        if (checked.length === 0 || making) { return; }
+        making = true;
+        try {
+            await inbox.makeCards(checked);
+            checked = [];
+        } catch { /* 向导内部已提示错误 */ }
+        making = false;
+    }
+
+    function refresh() {
+        snapshot = inbox.get();
+        checked = [];
+        flash(i18n.inbox.refreshedNotice);
+    }
 </script>
 
 <div class="lv-inbox-page">
@@ -120,6 +139,7 @@
                 <button class="b3-button b3-button--small" disabled={!checked.length} onclick={() => applyStatus("dismissed")}>{i18n.inbox.dismiss}</button>
                 <button class="b3-button b3-button--small" disabled={!checked.length} onclick={() => applyStatus("inbox")}>{i18n.inbox.back}</button>
             {:else if filter === "selected"}
+                <button class="b3-button b3-button--small" disabled={!checked.length || making} onclick={sendToCards}>{i18n.inbox.sendToCards}</button>
                 <button class="b3-button b3-button--small" disabled={!checked.length} onclick={undo}>{i18n.inbox.undoSelection}</button>
             {:else}
                 <button class="b3-button b3-button--small" disabled={!checked.length} onclick={() => applyStatus("inbox")}>{i18n.inbox.restore}</button>
@@ -128,6 +148,8 @@
             {#if notice}
                 <span class="lv-inbox-notice">{notice}</span>
             {/if}
+            <span style="flex: 1"></span>
+            <button class="b3-button b3-button--text" onclick={refresh}>{i18n.inbox.refresh}</button>
         </div>
         <div class="lv-inbox-list">
             {#each visible as item (item.blockID)}

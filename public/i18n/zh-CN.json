@@ -722,7 +722,11 @@
     "empty": "收件箱为空——从块菜单「加入材料收件箱」收集材料",
     "undoneNotice": "已打回暂存",
     "removedNotice": "已彻底删除",
-    "filterGroupLabel": "收件箱状态筛选"
+    "filterGroupLabel": "收件箱状态筛选",
+    "sendToCards": "送去制卡",
+    "refresh": "刷新",
+    "refreshedNotice": "已刷新",
+    "emptySource": "选中材料内容为空，无法制卡"
   },
   "menuAddToInbox": "加入材料收件箱",
   "inboxAlready": "材料已在收件箱",

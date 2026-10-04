@@ -33,6 +33,7 @@
             undoSelection: (blockIDs: string[]) => InboxData;
             remove: (blockIDs: string[]) => InboxData;
             add: (blockIDs: string[]) => number;
+            makeCards: (blockIDs: string[]) => Promise<void>;
             titles: (ids: string[]) => Promise<Map<string, string>>;
         } | null;
         initialTab?: string;

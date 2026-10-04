@@ -722,7 +722,11 @@
     "empty": "Inbox is empty — collect material via block menu \"Add to inbox\"",
     "undoneNotice": "Moved back to staged",
     "removedNotice": "Deleted",
-    "filterGroupLabel": "Inbox status filter"
+    "filterGroupLabel": "Inbox status filter",
+    "sendToCards": "Make cards",
+    "refresh": "Refresh",
+    "refreshedNotice": "Refreshed",
+    "emptySource": "Selected material is empty; cannot make cards"
   },
   "menuAddToInbox": "Add to material inbox",
   "inboxAlready": "Already in inbox",

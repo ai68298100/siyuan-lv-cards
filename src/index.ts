@@ -447,6 +447,7 @@ export default class LvCardsPlugin extends Plugin {
                                 if (added > 0) plugin.saveInbox();
                                 return added;
                             },
+                            makeCards: (blockIDs: string[]) => plugin.makeCardsFromInbox(blockIDs),
                             titles: (ids: string[]) => getDocTitles(ids),
                         } : null,
                     },
@@ -1554,7 +1555,7 @@ export default class LvCardsPlugin extends Plugin {
     }
 
     /** AI 制卡向导（M2·FR6-10）：生成回调 + 批次记录落库；initialSource 用于 leech 改写预填 */
-    private async openAIWizard(initialSource = "") {
+    private async openAIWizard(initialSource = "", onCreated?: () => void) {
         const AIWizard = await loadAIWizard();
         svelteDialog({
             title: this.i18n.aiWizardTitle,
@@ -1642,8 +1643,16 @@ export default class LvCardsPlugin extends Plugin {
                         throw e;
                     }
                 },
-                onCreate: (cards: { q: string; a: string; origIndex: number }[], deckID: string, deckName: string, jobId: string) =>
-                    this.createAICards(cards, deckID, deckName, jobId),
+                onCreate: async (cards: { q: string; a: string; origIndex: number }[], deckID: string, deckName: string, jobId: string) => {
+                    const r = await this.createAICards(cards, deckID, deckName, jobId);
+                    // BI-4：收件箱制卡成功回调（清收件箱 + 记内容生命周期，失败不影响制卡结果）
+                    if (onCreated) {
+                        try {
+                            onCreated();
+                        } catch { /* 清理旁路 */ }
+                    }
+                    return r;
+                },
                 // ADR-7 恢复入口：上次导入中断的续传/放弃
                 getUnfinishedJob: () => this.getUnfinishedAIJob(),
                 onResumeAIJob: (id: string) => this.resumeAIJobCommit(id),
@@ -1890,6 +1899,27 @@ export default class LvCardsPlugin extends Plugin {
             this.saveInbox();
         }
         return added;
+    }
+
+    /** BI-4：收件箱选中材料 → AI 制卡向导（拉块文为材料；成功后清收件箱 + 记生命周期 stocked 链） */
+    private async makeCardsFromInbox(blockIDs: string[]) {
+        const rows = await sqlQuery(`SELECT id, content FROM blocks WHERE id IN (${blockIDs.map(id => `'${id.replace(/'/g, "''")}'`).join(",")})`);
+        const byID = new Map(rows.map(r => [String(r.id), String(r.content ?? "")]));
+        const parts = blockIDs.map(id => (byID.get(id) ?? "").trim()).filter(Boolean);
+        if (parts.length === 0) {
+            showMessage(this.i18n.inboxEmptySource, 2500, "error");
+            return;
+        }
+        await this.openAIWizard(parts.join("\n\n"), () => {
+            for (const id of blockIDs) {
+                removeInboxItem(this.inbox, id);
+                // 生命周期走合法链 source→candidate→reviewed→stocked（向导逐张 keep/reject 即审核）
+                this.transitionContentState(id, "candidate", "收件箱入选");
+                this.transitionContentState(id, "reviewed", "向导逐张确认");
+                this.transitionContentState(id, "stocked", "制卡入库");
+            }
+            this.saveInbox();
+        });
     }
 
     /** BI-1/BI-3/BI-5：学习旅程三存储的落盘入口（未来 UI 修改后调用；persist 队列承担重试与失败记录） */
