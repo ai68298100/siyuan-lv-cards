@@ -973,5 +973,7 @@
         }
     },
     "consentRevoked": "AI consent has been revoked: all AI requests are blocked.",
-    "targetDisabled": "The current AI configuration is under emergency stop."
+    "targetDisabled": "The current AI configuration is under emergency stop.",
+    "tplAnswerRubric": "Answer rubric",
+    "tplListTableBidi": "List/table/bidirectional"
 }

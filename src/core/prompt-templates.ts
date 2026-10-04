@@ -131,6 +131,28 @@ export const PROMPT_TEMPLATES: PromptTemplate[] = [
         inputs: ["material"],
         output: "cards-json",
     },
+    {
+        // BV-8 答案 rubric 与等价表达
+        id: "answer-rubric",
+        category: "authoring",
+        nameKey: "tplAnswerRubric",
+        systemPrompt:
+            "你是答案评分要点设计助手。给定问答卡的答案与来源材料，输出 JSON 数组：每项 {\"mustHave\":[\"必答要点\"],\"acceptable\":[\"可接受等价表达/别名\"],\"reject\":[\"常见错误表述及为何拒绝\"],\"hintLadder\":[\"提示梯度，由弱到强\"]}。" +
+            "必答要点必须能在来源中找到依据；评分要点仅供学习参考，不能映射为正式评分。只输出 JSON。",
+        inputs: ["material"],
+        output: "cards-json",
+    },
+    {
+        // BV-9 列表/表格/双向卡专用
+        id: "list-table-bidi",
+        category: "authoring",
+        nameKey: "tplListTableBidi",
+        systemPrompt:
+            "你是列表/表格/双向卡设计助手。给定材料，输出 JSON 数组：每项 {\"fact\":\"知识点\",\"variant\":\"list|table|reverse\",\"ordered\":true|false,\"colMap\":{\"列名\":\"角色\"},\"reverseValid\":true|false,\"boundary\":\"集合边界说明\",\"evidence\":\"来源原句\"}。" +
+            "必须声明是否有序、列映射、逆向是否成立与集合边界；不把所有关系强制双向化，每个变体附带来源原句。只输出 JSON。",
+        inputs: ["material", "count"],
+        output: "cards-json",
+    },
 ];
 
 /** 按 id 取模板（未知 id 返回 undefined，调用方回退 generic） */

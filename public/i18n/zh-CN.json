@@ -973,5 +973,7 @@
         }
     },
     "consentRevoked": "AI 使用同意已撤销：一切 AI 请求被阻断。",
-    "targetDisabled": "当前 AI 配置处于紧急停用状态。"
+    "targetDisabled": "当前 AI 配置处于紧急停用状态。",
+    "tplAnswerRubric": "答案评分要点（rubric）",
+    "tplListTableBidi": "列表/表格/双向卡"
 }

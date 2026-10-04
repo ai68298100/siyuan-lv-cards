@@ -18,8 +18,8 @@ describe("prompt-templates 注册表契约（BU-5/BV）", () => {
         expect(getTemplate("language")?.category).toBe("language");
     });
 
-    it("BV 家族七件套在册", () => {
-        for (const id of ["material-scan", "goal-clarify", "card-type-route", "atomic-split", "cloze-leak-check", "distractor-with-cause"]) {
+    it("BV 家族在册（七件套 + BV-8/9 扩容）", () => {
+        for (const id of ["material-scan", "goal-clarify", "card-type-route", "atomic-split", "cloze-leak-check", "distractor-with-cause", "answer-rubric", "list-table-bidi"]) {
             expect(getTemplate(id), `missing ${id}`).toBeDefined();
         }
         expect(getTemplate("leech-rewrite")).toBeDefined();
