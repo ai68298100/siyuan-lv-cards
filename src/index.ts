@@ -30,7 +30,7 @@ import { deriveInstance, emptyKnowledgeObjects, findBySource, normalizeKnowledge
 import { capabilityShare } from "./core/capability-types";
 import { addRelation, detachCard, emptyCardRelations, normalizeCardRelations, relationsOf, removeRelation, type CardRelationsData, type RelationType } from "./core/card-relations";
 import { emptyErrorTags, errorReasonStats, normalizeErrorTags, tagError, type ErrorTagsData, type ErrorReason } from "./core/error-reasons";
-import { emptyInbox, normalizeInbox, type InboxData } from "./core/inbox";
+import { addInboxItem, bulkSetStatus, emptyInbox, normalizeInbox, removeInboxItem, undoSelection, type InboxData, type InboxStatus } from "./core/inbox";
 import { emptyGoals, normalizeGoals, type LearningGoalsData } from "./core/learning-goal";
 import { emptyEntryContexts, normalizeEntryContexts, type EntryContextData } from "./core/entry-context";
 import { ensureLifecycle, emptyLifecycles, normalizeLifecycles, transition, type ContentLifecyclesData, type ContentState } from "./core/content-lifecycle";
@@ -420,6 +420,34 @@ export default class LvCardsPlugin extends Plugin {
                             // AQ-8：动态建议只读输入（本地日志 + 每日上限）
                             getRevlog: () => plugin.revlog,
                             getDailyCap: () => plugin.settings.dailyReviewTarget,
+                        } : null,
+                        // BI-4：材料筛选收件箱通道（快照进、变更出+落盘；UI 无直改存储权）
+                        inbox: plugin.settings.modules.inbox ? {
+                            get: () => plugin.inbox,
+                            setStatus: (blockIDs: string[], status: InboxStatus) => {
+                                bulkSetStatus(plugin.inbox, blockIDs, status);
+                                plugin.saveInbox();
+                                return plugin.inbox;
+                            },
+                            undoSelection: (blockIDs: string[]) => {
+                                undoSelection(plugin.inbox, blockIDs);
+                                plugin.saveInbox();
+                                return plugin.inbox;
+                            },
+                            remove: (blockIDs: string[]) => {
+                                for (const id of blockIDs) removeInboxItem(plugin.inbox, id);
+                                plugin.saveInbox();
+                                return plugin.inbox;
+                            },
+                            add: (blockIDs: string[]) => {
+                                let added = 0;
+                                for (const id of blockIDs) {
+                                    if (addInboxItem(plugin.inbox, id)) added++;
+                                }
+                                if (added > 0) plugin.saveInbox();
+                                return added;
+                            },
+                            titles: (ids: string[]) => getDocTitles(ids),
                         } : null,
                     },
                 });
@@ -906,6 +934,17 @@ export default class LvCardsPlugin extends Plugin {
                 label: this.i18n.menuAddToDeck + (blockIDs.length > 1 ? ` ×${blockIDs.length}` : ""),
                 click: () => this.openDeckPicker(blockIDs),
             });
+            // BI-4：加入材料收件箱（只读收集不产生 due；模块开关联动）
+            if (this.settings.modules.inbox) {
+                detail.menu.addItem({
+                    icon: "iconLvCards",
+                    label: this.i18n.menuAddToInbox + (blockIDs.length > 1 ? ` ×${blockIDs.length}` : ""),
+                    click: () => {
+                        const added = this.addInboxItems(blockIDs);
+                        showMessage(added > 0 ? this.i18n.inboxAdded.replace("${n}", String(added)) : this.i18n.inboxAlready, 2000, "info");
+                    },
+                });
+            }
             if (blockIDs.length === 1) {
                 // 挖空可视化（M2）：捕获编辑器当前选区（菜单弹出会抢焦点，须在构建期捕获）
                 const clozeRange = document.getSelection()?.rangeCount
@@ -1839,6 +1878,18 @@ export default class LvCardsPlugin extends Plugin {
     /** BI-4：材料收件箱落盘入口（未来筛选 UI 修改后调用；persist 队列承担重试与失败记录） */
     saveInbox() {
         return this.persist.save(INBOX_DATA, this.inbox).catch(() => { /* onFail 已记录 */ });
+    }
+
+    /** BI-4：块菜单收集入口（返回新增数；已存在的不重复计） */
+    addInboxItems(blockIDs: string[]): number {
+        let added = 0;
+        for (const id of blockIDs) {
+            if (addInboxItem(this.inbox, id)) added++;
+        }
+        if (added > 0) {
+            this.saveInbox();
+        }
+        return added;
     }
 
     /** BI-1/BI-3/BI-5：学习旅程三存储的落盘入口（未来 UI 修改后调用；persist 队列承担重试与失败记录） */

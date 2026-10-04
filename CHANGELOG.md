@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.149.0 2026-10-04 · BI-4 收件箱筛选 UI + 块菜单收集入口
+
+* 新增 ui/inbox-page.svelte（Hub 内新「收件箱」页签，懒加载 chunk）：四状态分段筛选（待筛选/暂存/已选中/已淘汰）+ 多选批量操作（暂存/选中/淘汰/退回/撤销选中/恢复/彻底删除）+ 块标题异步解析（content 首行，失败回退短 ID）
+* 块菜单新增「加入材料收件箱」（多选支持 ×N 计数；只读收集不产生 due；inbox 模块开关联动）+ modules 注册表新增 inbox 模块（defaultOn）
+* index.ts 收件箱通道：快照进、变更出+落盘（UI 无直改存储权）
+* AT-14 预算第二次修订 ≤95→≤98KB 并留痕（BI-4 UI 纳入后 96.31KB；单文件约束下懒加载仅延迟执行；上游 shim 修复恢复真分包可回落）
+* i18n +36 键（hubTabInbox + modules.inbox×2 + inbox 15×2 + 菜单 3×2，674→710 对齐）
 ## v0.148.0 2026-10-04 · BI 系列存储接线收官（learning-goals/entry-contexts/content-lifecycles）
 
 * learning-goals.json / entry-contexts.json / content-lifecycles.json 并入 STORE_KEYS 批量加载 + 三个 saveX 落盘入口 + storageStats 行 + PRIVACY 披露

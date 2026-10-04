@@ -30,6 +30,7 @@ export const MODULE_DEFS: CardModuleDef[] = [
     { id: "stats", nameKey: "stats", descKey: "stats_desc", defaultOn: true, phase: "v0.1", personas: "all" },
     { id: "manager", nameKey: "manager", descKey: "manager_desc", defaultOn: true, phase: "v0.1", personas: "all" },
     { id: "create", nameKey: "create", descKey: "create_desc", defaultOn: true, phase: "v0.9", personas: "all" },
+    { id: "inbox", nameKey: "inbox", descKey: "inbox_desc", defaultOn: true, phase: "v1.0", personas: "all" },
     { id: "exam", nameKey: "exam", descKey: "exam_desc", defaultOn: false, phase: "v1.0", personas: ["exam"] },
     { id: "cardTypes", nameKey: "cardTypes", descKey: "cardTypes_desc", defaultOn: false, phase: "v1.x", personas: ["exam", "language"] },
     { id: "gamify", nameKey: "gamify", descKey: "gamify_desc", defaultOn: false, phase: "v1.x", personas: ["exam", "language"] },

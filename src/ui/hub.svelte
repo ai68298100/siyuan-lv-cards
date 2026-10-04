@@ -5,8 +5,11 @@
     import type { DashboardCtx } from "./dashboard.svelte";
     import type { ManagerCtx } from "./manager.svelte";
     import type { ExamPlan, ExamPlansData, ExamScopeKind } from "@/core/exam";
+    import type { InboxData, InboxStatus } from "@/core/inbox";
 
-    let { i18n, dashboardBase, managerCtx, exam, initialTab = "overview", onTabChange }: {
+    let {
+        i18n, dashboardBase, managerCtx, exam, inbox, initialTab = "overview", onTabChange,
+    }: {
         i18n: any;
         /** 总览页上下文（不含 openManager，由 Hub 内部切换页签实现） */
         dashboardBase: Omit<DashboardCtx, "openManager">;
@@ -23,20 +26,30 @@
             getRevlog: () => import("@/core/revlog").RevlogData;
             getDailyCap: () => number;
         } | null;
+        /** BI-4 材料筛选收件箱通道；null = 模块关闭 */
+        inbox: {
+            get: () => InboxData;
+            setStatus: (blockIDs: string[], status: InboxStatus) => InboxData;
+            undoSelection: (blockIDs: string[]) => InboxData;
+            remove: (blockIDs: string[]) => InboxData;
+            add: (blockIDs: string[]) => number;
+            titles: (ids: string[]) => Promise<Map<string, string>>;
+        } | null;
         initialTab?: string;
         onTabChange?: (id: string) => void;
     } = $props();
 
-    // 初值语义：i18n/exam 由挂载时的插件设置决定，hub 生命周期内不变
+    // 初值语义：i18n/exam/inbox 由挂载时的插件设置决定，hub 生命周期内不变
     // svelte-ignore state_referenced_locally
     const tabs = [
         { id: "overview", label: i18n.hubTabOverview },
         { id: "manage", label: i18n.hubTabManage },
+        ...(inbox ? [{ id: "inbox", label: i18n.hubTabInbox }] : []),
         ...(exam ? [{ id: "exam", label: i18n.hubTabExam }] : []),
     ];
     // svelte-ignore state_referenced_locally
     let active = $state(
-        initialTab === "manage" || (initialTab === "exam" && exam) ? initialTab : "overview"
+        initialTab === "manage" || (initialTab === "exam" && exam) || (initialTab === "inbox" && inbox) ? initialTab : "overview"
     );
 
     // svelte-ignore state_referenced_locally
@@ -64,6 +77,24 @@
     // svelte-ignore state_referenced_locally
     if (active === "exam") { ensureExam(); }
 
+    // BI-4 收件箱子页懒加载（同考试页模式：首次切到才拉 chunk）
+    let InboxComp = $state<any>(null);
+    let inboxError = $state("");
+    async function ensureInbox() {
+        if (InboxComp || !inbox) { return; }
+        inboxError = "";
+        try {
+            InboxComp = (await import("./inbox-page.svelte")).default;
+        } catch (e: any) {
+            inboxError = e?.message ?? String(e);
+        }
+    }
+    $effect(() => {
+        if (active === "inbox") { ensureInbox(); }
+    });
+    // svelte-ignore state_referenced_locally
+    if (active === "inbox") { ensureInbox(); }
+
     function switchTab(id: string) {
         active = id;
         onTabChange?.(id);
@@ -90,6 +121,14 @@
                     <Dashboard ctx={dctx} />
                 {:else if active === "manage"}
                     <Manager ctx={managerCtx} />
+                {:else if active === "inbox" && inbox}
+                    {#if InboxComp}
+                        <InboxComp i18n={i18n} inbox={inbox} />
+                    {:else if inboxError}
+                        <div style="padding: var(--lv-sp-5); color: var(--b3-theme-error); font-size: 13px">{inboxError}</div>
+                    {:else}
+                        <div style="padding: var(--lv-sp-5); color: var(--b3-theme-on-surface); font-size: 13px">{i18n.dashboard.loading}</div>
+                    {/if}
                 {:else if exam}
                     {#if ExamComp}
                         <ExamComp

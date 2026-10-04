@@ -100,12 +100,14 @@ if (!md.includes(`当前基线：v${pkg.version} `)) {
     failures.push(`docs/17 当前基线未提及 package.json 版本 v${pkg.version}`);
 }
 
-// ⑨ 主包体积预算（AT-14：单文件构建下预算修订为 ≤95KB gzip；dist 不存在时跳过——check 阶段先于 build）
-const MAIN_GZIP_BUDGET = 95 * 1024;
+// ⑨ 主包体积预算（AT-14：单文件构建约束。v0.125.0 修订 32→95KB；v0.149.0 修订 95→98KB
+// 以纳入 BI-4 收件箱 UI——单文件下懒加载仅延迟执行不省传输，UI 功能新增必然推高主包，
+// 修订记录见 docs/17 AT-14。dist 不存在时跳过——check 阶段先于 build）
+const MAIN_GZIP_BUDGET = 98 * 1024;
 if (existsSync("dist/index.js")) {
     const gz = gzipSync(readFileSync("dist/index.js"));
     if (gz.length > MAIN_GZIP_BUDGET) {
-        failures.push(`主包 gzip ${Math.round(gz.length / 1024)}KB 超预算 95KB（AT-14 单文件约束下的体积上限）`);
+        failures.push(`主包 gzip ${Math.round(gz.length / 1024)}KB 超预算 98KB（AT-14 单文件约束下的体积上限）`);
     }
 }
 

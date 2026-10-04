@@ -39,7 +39,9 @@
     "dataHealth": "数据与健康",
     "dataHealth_desc": "复习日志导出/清空、迁移状态、多端合并诊断",
     "ecosystem": "生态联动",
-    "ecosystem_desc": "向打卡/复盘/拾遗广播 lv-cards 事件"
+    "ecosystem_desc": "向打卡/复盘/拾遗广播 lv-cards 事件",
+    "inbox": "材料收件箱",
+    "inbox_desc": "材料筛选收集与制卡暂存（只读收集不产生到期）"
   },
   "personaExam": "🎓 备考冲刺",
   "personaExam_desc": "考试倒排 + cram + 错题强化，压力最大也最需要计划",
@@ -702,5 +704,27 @@
     "closeBtn": "完成",
     "skipped": "跳过"
   },
-  "cmdChallenge": "限时挑战（3 分钟快答）"
+  "cmdChallenge": "限时挑战（3 分钟快答）",
+  "hubTabInbox": "收件箱",
+  "inbox": {
+    "tabInbox": "待筛选",
+    "tabStaged": "暂存",
+    "tabSelected": "已选中",
+    "tabDismissed": "已淘汰",
+    "stage": "暂存",
+    "select": "选中",
+    "dismiss": "淘汰",
+    "back": "退回收件箱",
+    "undoSelection": "撤销选中",
+    "restore": "恢复",
+    "remove": "彻底删除",
+    "selectAll": "全选",
+    "empty": "收件箱为空——从块菜单「加入材料收件箱」收集材料",
+    "undoneNotice": "已打回暂存",
+    "removedNotice": "已彻底删除",
+    "filterGroupLabel": "收件箱状态筛选"
+  },
+  "menuAddToInbox": "加入材料收件箱",
+  "inboxAlready": "材料已在收件箱",
+  "inboxAdded": "已收 ${n} 条材料入收件箱"
 }

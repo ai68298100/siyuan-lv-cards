@@ -39,7 +39,9 @@
     "dataHealth": "Data & Health",
     "dataHealth_desc": "Revlog export/clear, migration status, multi-device diagnostics",
     "ecosystem": "Ecosystem",
-    "ecosystem_desc": "Broadcast lv-cards events to check-in / recap / clipper plugins"
+    "ecosystem_desc": "Broadcast lv-cards events to check-in / recap / clipper plugins",
+    "inbox": "Material inbox",
+    "inbox_desc": "Screen collected material before card making (no due generated)"
   },
   "personaExam": "🎓 Exam Sprint",
   "personaExam_desc": "Exam pacing + cram + weak-card drilling",
@@ -702,5 +704,27 @@
     "closeBtn": "Done",
     "skipped": "Skipped"
   },
-  "cmdChallenge": "Timed challenge (3-min speed drill)"
+  "cmdChallenge": "Timed challenge (3-min speed drill)",
+  "hubTabInbox": "Inbox",
+  "inbox": {
+    "tabInbox": "Unscreened",
+    "tabStaged": "Staged",
+    "tabSelected": "Selected",
+    "tabDismissed": "Dismissed",
+    "stage": "Stage",
+    "select": "Select",
+    "dismiss": "Dismiss",
+    "back": "Back to inbox",
+    "undoSelection": "Undo selection",
+    "restore": "Restore",
+    "remove": "Delete forever",
+    "selectAll": "All",
+    "empty": "Inbox is empty — collect material via block menu \"Add to inbox\"",
+    "undoneNotice": "Moved back to staged",
+    "removedNotice": "Deleted",
+    "filterGroupLabel": "Inbox status filter"
+  },
+  "menuAddToInbox": "Add to material inbox",
+  "inboxAlready": "Already in inbox",
+  "inboxAdded": "Added ${n} item(s) to inbox"
 }
