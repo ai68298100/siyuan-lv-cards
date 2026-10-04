@@ -16,6 +16,7 @@
     import { END_REASONS, withEndReason, type EndReason } from "@/core/session-state";
     import { isLongReturn, returnCheck, type ReturnCheckFacts } from "@/core/return-check";
     import { avgSecPerCard, budgetLeftSec, BUDGET_PRESETS, estimateCompletable, estimateLeftover, isBudgetExpired } from "@/core/session-budget";
+    import { loadReliefChoices, type LoadChoice } from "@/core/load-relief";
     import { recoveryOptions, type RecoveryOption, type RecoverySnapshot } from "@/core/session-recovery";
     import { SESSION_PURPOSES, PURPOSE_PROFILES, type SessionPurpose } from "@/core/session-purpose";
     import { invalidateDueCache } from "@/api/due-shared";
@@ -178,6 +179,9 @@
             returnItems = returnCheck(f).items.map(i => ({ key: i.key, level: i.level, text: tvPath(i.whyKey) }));
         }).catch(() => { /* 事实聚合失败=不弹横幅，不影响复习 */ });
     }
+    // BI-13：减负选择（只读建议；点击展开对 due/历史的影响说明，可跳过）
+    const reliefChoices = loadReliefChoices();
+    let reliefOpen = $state<LoadChoice | null>(null);
     // BI-2：本次会话目的（默认复习到期；informal 目的完成屏不庆祝每日目标）
     let purpose = $state<SessionPurpose>("review");
     // svelte-ignore non_reactive_update -- scopeEl 仅作 bind:this 引用（focus 用），无需响应式
@@ -1166,6 +1170,19 @@
             {/each}
             <button class="b3-button b3-button--text b3-button--small" onclick={() => (returnDismissed = true)}>{t.returnCheck.dismiss}</button>
         </div>
+        <!-- BI-13：减负选择（点击展开对 due/历史的影响说明；纯建议可跳过） -->
+        <div class="lv-return lv-relief" role="group" aria-label={t.loadRelief.title}>
+            <span class="lv-return-title">{t.loadRelief.title}</span>
+            {#each reliefChoices as c (c.key)}
+                <button class="b3-button b3-button--small" aria-expanded={reliefOpen === c.key}
+                    onclick={() => (reliefOpen = reliefOpen === c.key ? null : c.key)}>{t.loadRelief[c.key]}</button>
+            {/each}
+        </div>
+        {#if reliefOpen}
+            <div class="lv-return lv-relief-impact" aria-live="polite">
+                <span class="ft__smaller ft__on-surface">{t.loadRelief.impact[reliefOpen]}</span>
+            </div>
+        {/if}
     {/if}
     {#if loading}
         <div class="lv-center">{t.dashboard.loading}</div>

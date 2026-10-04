@@ -894,5 +894,20 @@
     "tplAtomicSplit": "Atomic fact split",
     "tplClozeLeakCheck": "Cloze leak check",
     "tplDistractorCause": "Distractors with causes",
-    "tplLeechRewrite": "Leech rewrite"
+    "tplLeechRewrite": "Leech rewrite",
+    "loadRelief": {
+        "title": "Heavy load? Try a lighter mode (click for impact)",
+        "narrow": "Narrow scope",
+        "highPriority": "High-priority only",
+        "readOnly": "Browse only",
+        "rest": "Rest today",
+        "rebuild": "Rebuild plan",
+        "impact": {
+            "narrow": "Impact: all due cards are kept; unreviewed ones stay in the queue — no history entries, no penalty.",
+            "highPriority": "Impact: same as narrowing — only changes which cards you see first; due and history unchanged.",
+            "readOnly": "Impact: browsing never grades or writes review logs; due times and stats stay untouched.",
+            "rest": "Impact: today due cards roll to tomorrow (kernel riff scheduling) — not counted as lapses, no negative history.",
+            "rebuild": "Impact: rebuilding only discards today session scene (reviewed/skipped sets); kernel due/revlog and goal archives are all preserved — a read-only impact preview with undoable batch comes first."
+        }
+    }
 }

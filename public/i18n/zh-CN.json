@@ -894,5 +894,20 @@
     "tplAtomicSplit": "原子事实拆解",
     "tplClozeLeakCheck": "挖空反泄漏审查",
     "tplDistractorCause": "带错因干扰项",
-    "tplLeechRewrite": "烂卡改写"
+    "tplLeechRewrite": "烂卡改写",
+    "loadRelief": {
+        "title": "负荷重？可以换个打法（点击看影响）",
+        "narrow": "缩小范围",
+        "highPriority": "只做高优先级",
+        "readOnly": "只读不评分",
+        "rest": "今天休息",
+        "rebuild": "重建计划",
+        "impact": {
+            "narrow": "影响：到期卡全部保留，未复习的留在队列，不产生任何历史记录或惩罚。",
+            "highPriority": "影响：同缩小范围——只影响你先看到哪些卡；due 与历史不变，无惩罚。",
+            "readOnly": "影响：浏览卡片不评分、不写复习日志，到期时间与统计完全不变。",
+            "rest": "影响：今日到期会顺延到明天（内核 riff 调度语义），不算遗忘，历史无负面记录。",
+            "rebuild": "影响：重建仅会作废当日会话现场（已评/跳过集合）；内核到期与复习日志、目标档案全部保留——重建前会有只读影响预览与可撤销批次。"
+        }
+    }
 }
