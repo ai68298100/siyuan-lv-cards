@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.154.0 2026-10-04 · BI-1 目标向导 UI（Hub「目标」页签）
+
+* 新增 ui/goals-page.svelte（Hub 内「目标」页签，懒加载）：目标卡表单（六目的/截止日期/每日分钟/水平）+ suggestedMinutes 建议 + 目标列表（活跃/已过期 chip + 截止倒计时 + 删除确认）——只记录目标不强迫建卡
+* 插件侧 goals 通道（get/save upsert 自动生成 id/remove）+ saveLearningGoal/removeLearningGoal 落盘 learning-goals.json
+* 品质线对齐：LvPage 页头计数 + LvChip 状态 + LvEmpty 引导 + confirmDialog + aria-live 播报
+* i18n +50 键（hubTabGoals + goals 24×2，754→804 对齐）；主包 gzip 99.72KB（≤101KB，AT-17 chunk 加载器为下批前置）
 ## v0.153.0 2026-10-04 · BI-2/BI-9 复习面板接线（目的选择器 + 恢复分支）
 
 * BI-9 恢复分支：有当日现场时头部横幅四选一（继续原场/只看摘要/缩小范围/结束），跨天/零进度/队列空禁用语义由 session-recovery 纯模块判定（首刷回填队列数）；评分/跳过=隐式续场自动收横幅；结束=清现场重开，全程不自动重复评分/写卡

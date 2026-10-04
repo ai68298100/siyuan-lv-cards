@@ -31,7 +31,7 @@ import { capabilityShare } from "./core/capability-types";
 import { addRelation, detachCard, emptyCardRelations, normalizeCardRelations, relationsOf, removeRelation, type CardRelationsData, type RelationType } from "./core/card-relations";
 import { emptyErrorTags, errorReasonStats, normalizeErrorTags, tagError, type ErrorTagsData, type ErrorReason } from "./core/error-reasons";
 import { addInboxItem, bulkSetStatus, emptyInbox, normalizeInbox, removeInboxItem, undoSelection, type InboxData, type InboxStatus } from "./core/inbox";
-import { emptyGoals, normalizeGoals, type LearningGoalsData } from "./core/learning-goal";
+import { emptyGoals, normalizeGoals, type LearningGoalsData, type LearningGoal } from "./core/learning-goal";
 import { emptyEntryContexts, normalizeEntryContexts, type EntryContextData } from "./core/entry-context";
 import { ensureLifecycle, emptyLifecycles, normalizeLifecycles, transition, type ContentLifecyclesData, type ContentState } from "./core/content-lifecycle";
 import { appendBlock, createDocWithMd, getNotebooks, getBlockDOM, getBlockDocMap, getDocTitles, exportMdContent, sqlQuery, kernelVersion } from "./api/siyuan";
@@ -463,6 +463,12 @@ export default class LvCardsPlugin extends Plugin {
                                 }
                             },
                         } : null,
+                        // BI-1：学习目标通道（只记录目标不强迫建卡）
+                        goals: {
+                            get: () => plugin.learningGoals,
+                            save: (goal: LearningGoal) => plugin.saveLearningGoal(goal),
+                            remove: (id: string) => plugin.removeLearningGoal(id),
+                        },
                     },
                 });
                 });
@@ -1964,6 +1970,29 @@ export default class LvCardsPlugin extends Plugin {
 
     saveContentLifecycles() {
         return this.persist.save(CONTENT_LIFECYCLES_DATA, this.contentLifecycles).catch(() => { /* onFail 已记录 */ });
+    }
+
+    /** BI-1：目标 upsert（空 id 自动生成）；返回更新后快照 */
+    saveLearningGoal(goal: LearningGoal): LearningGoalsData {
+        const g: LearningGoal = { ...goal, updatedAt: Date.now() };
+        if (!g.id) {
+            g.id = `goal-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+        }
+        const i = this.learningGoals.goals.findIndex(x => x.id === g.id);
+        if (i >= 0) {
+            this.learningGoals.goals[i] = g;
+        } else {
+            this.learningGoals.goals.push(g);
+        }
+        this.saveLearningGoals();
+        return this.learningGoals;
+    }
+
+    /** BI-1：删除目标；返回更新后快照 */
+    removeLearningGoal(id: string): LearningGoalsData {
+        this.learningGoals.goals = this.learningGoals.goals.filter(g => g.id !== id);
+        this.saveLearningGoals();
+        return this.learningGoals;
     }
 
     /** BI-5：内容状态转移入口（校验+落盘一体；非法转移返回 false 不写盘） */

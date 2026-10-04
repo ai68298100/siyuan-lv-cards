@@ -6,9 +6,10 @@
     import type { ManagerCtx } from "./manager.svelte";
     import type { ExamPlan, ExamPlansData, ExamScopeKind } from "@/core/exam";
     import type { InboxData, InboxStatus } from "@/core/inbox";
+    import type { LearningGoal, LearningGoalsData } from "@/core/learning-goal";
 
     let {
-        i18n, dashboardBase, managerCtx, exam, inbox, initialTab = "overview", onTabChange,
+        i18n, dashboardBase, managerCtx, exam, inbox, goals, initialTab = "overview", onTabChange,
     }: {
         i18n: any;
         /** 总览页上下文（不含 openManager，由 Hub 内部切换页签实现） */
@@ -29,13 +30,21 @@
         /** BI-4 材料筛选收件箱通道；null = 模块关闭 */
         inbox: {
             get: () => InboxData;
+            subscribe: (cb: () => void) => () => void;
             setStatus: (blockIDs: string[], status: InboxStatus) => InboxData;
             undoSelection: (blockIDs: string[]) => InboxData;
             remove: (blockIDs: string[]) => InboxData;
             add: (blockIDs: string[]) => number;
             makeCards: (blockIDs: string[]) => Promise<void>;
+            openSource: (blockID: string) => Promise<void>;
             titles: (ids: string[]) => Promise<Map<string, string>>;
         } | null;
+        /** BI-1 学习目标通道（只记录目标不强迫建卡） */
+        goals: {
+            get: () => LearningGoalsData;
+            save: (goal: LearningGoal) => LearningGoalsData;
+            remove: (id: string) => LearningGoalsData;
+        };
         initialTab?: string;
         onTabChange?: (id: string) => void;
     } = $props();
@@ -45,12 +54,13 @@
     const tabs = [
         { id: "overview", label: i18n.hubTabOverview },
         { id: "manage", label: i18n.hubTabManage },
+        { id: "goals", label: i18n.hubTabGoals },
         ...(inbox ? [{ id: "inbox", label: i18n.hubTabInbox }] : []),
         ...(exam ? [{ id: "exam", label: i18n.hubTabExam }] : []),
     ];
     // svelte-ignore state_referenced_locally
     let active = $state(
-        initialTab === "manage" || (initialTab === "exam" && exam) || (initialTab === "inbox" && inbox) ? initialTab : "overview"
+        initialTab === "manage" || initialTab === "goals" || (initialTab === "exam" && exam) || (initialTab === "inbox" && inbox) ? initialTab : "overview"
     );
 
     // svelte-ignore state_referenced_locally
@@ -96,6 +106,24 @@
     // svelte-ignore state_referenced_locally
     if (active === "inbox") { ensureInbox(); }
 
+    // BI-1 目标页懒加载（同考试页模式：首次切到才拉 chunk）
+    let GoalsComp = $state<any>(null);
+    let goalsError = $state("");
+    async function ensureGoals() {
+        if (GoalsComp) { return; }
+        goalsError = "";
+        try {
+            GoalsComp = (await import("./goals-page.svelte")).default;
+        } catch (e: any) {
+            goalsError = e?.message ?? String(e);
+        }
+    }
+    $effect(() => {
+        if (active === "goals") { ensureGoals(); }
+    });
+    // svelte-ignore state_referenced_locally
+    if (active === "goals") { ensureGoals(); }
+
     function switchTab(id: string) {
         active = id;
         onTabChange?.(id);
@@ -122,6 +150,14 @@
                     <Dashboard ctx={dctx} />
                 {:else if active === "manage"}
                     <Manager ctx={managerCtx} />
+                {:else if active === "goals"}
+                    {#if GoalsComp}
+                        <GoalsComp i18n={i18n} {goals} />
+                    {:else if goalsError}
+                        <div style="padding: var(--lv-sp-5); color: var(--b3-theme-error); font-size: 13px">{goalsError}</div>
+                    {:else}
+                        <div style="padding: var(--lv-sp-5); color: var(--b3-theme-on-surface); font-size: 13px">{i18n.dashboard.loading}</div>
+                    {/if}
                 {:else if active === "inbox" && inbox}
                     {#if InboxComp}
                         <InboxComp i18n={i18n} inbox={inbox} />

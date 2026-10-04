@@ -741,5 +741,36 @@
   },
   "menuAddToInbox": "加入材料收件箱",
   "inboxAlready": "材料已在收件箱",
-  "inboxAdded": "已收 ${n} 条材料入收件箱"
+  "inboxAdded": "已收 ${n} 条材料入收件箱",
+  "hubTabGoals": "目标",
+  "goals": {
+    "title": "学习目标",
+    "add": "新建目标",
+    "purpose": "学习目的",
+    "deadline": "截止日期",
+    "minutes": "每日可用（分钟）",
+    "level": "当前水平",
+    "save": "保存目标",
+    "cancel": "取消",
+    "none": "暂无目标——记录一张目标卡即可开始（不强迫建卡）",
+    "suggested": "按目的与水平建议：每天约 ${n} 分钟",
+    "chipActive": "活跃",
+    "chipExpired": "已过期",
+    "deadlineToday": "今天截止",
+    "deadlineIn": "剩 ${n} 天",
+    "overdue": "已超期 ${n} 天",
+    "noDeadline": "无截止",
+    "minutesPerDay": "每天 ${n} 分钟",
+    "minutesUnset": "每日时长未定",
+    "delete": "删除目标",
+    "deleteConfirm": "确认删除这条学习目标？（不影响已建的卡片与复习记录）",
+    "saved": "目标已保存",
+    "deleted": "目标已删除",
+    "levels": {
+      "novice": "新手",
+      "beginner": "入门",
+      "intermediate": "进阶",
+      "advanced": "熟练"
+    }
+  }
 }

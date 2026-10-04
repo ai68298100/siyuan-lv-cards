@@ -741,5 +741,36 @@
   },
   "menuAddToInbox": "Add to material inbox",
   "inboxAlready": "Already in inbox",
-  "inboxAdded": "Added ${n} item(s) to inbox"
+  "inboxAdded": "Added ${n} item(s) to inbox",
+  "hubTabGoals": "Goals",
+  "goals": {
+    "title": "Learning goals",
+    "add": "New goal",
+    "purpose": "Purpose",
+    "deadline": "Deadline",
+    "minutes": "Daily minutes",
+    "level": "Current level",
+    "save": "Save goal",
+    "cancel": "Cancel",
+    "none": "No goals yet — record one to start (card making never forced)",
+    "suggested": "Suggested for this purpose/level: ~${n} min/day",
+    "chipActive": "Active",
+    "chipExpired": "Expired",
+    "deadlineToday": "Due today",
+    "deadlineIn": "${n} days left",
+    "overdue": "${n} days overdue",
+    "noDeadline": "No deadline",
+    "minutesPerDay": "${n} min/day",
+    "minutesUnset": "Daily time unset",
+    "delete": "Delete goal",
+    "deleteConfirm": "Delete this learning goal? Cards and review history are not affected.",
+    "saved": "Goal saved",
+    "deleted": "Goal deleted",
+    "levels": {
+      "novice": "Novice",
+      "beginner": "Beginner",
+      "intermediate": "Intermediate",
+      "advanced": "Advanced"
+    }
+  }
 }
