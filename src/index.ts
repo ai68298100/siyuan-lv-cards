@@ -424,19 +424,23 @@ export default class LvCardsPlugin extends Plugin {
                         // BI-4：材料筛选收件箱通道（快照进、变更出+落盘；UI 无直改存储权）
                         inbox: plugin.settings.modules.inbox ? {
                             get: () => plugin.inbox,
+                            subscribe: (cb: () => void) => plugin.subscribeInbox(cb),
                             setStatus: (blockIDs: string[], status: InboxStatus) => {
                                 bulkSetStatus(plugin.inbox, blockIDs, status);
                                 plugin.saveInbox();
+                                plugin.notifyInboxChanged();
                                 return plugin.inbox;
                             },
                             undoSelection: (blockIDs: string[]) => {
                                 undoSelection(plugin.inbox, blockIDs);
                                 plugin.saveInbox();
+                                plugin.notifyInboxChanged();
                                 return plugin.inbox;
                             },
                             remove: (blockIDs: string[]) => {
                                 for (const id of blockIDs) removeInboxItem(plugin.inbox, id);
                                 plugin.saveInbox();
+                                plugin.notifyInboxChanged();
                                 return plugin.inbox;
                             },
                             add: (blockIDs: string[]) => {
@@ -1898,6 +1902,22 @@ export default class LvCardsPlugin extends Plugin {
         return this.persist.save(INBOX_DATA, this.inbox).catch(() => { /* onFail 已记录 */ });
     }
 
+    /** BI-4：收件箱变更监听（BX-10：块菜单收集等外部变更通知 Hub 收件箱页自动刷新） */
+    private inboxListeners = new Set<() => void>();
+
+    subscribeInbox(cb: () => void): () => void {
+        this.inboxListeners.add(cb);
+        return () => this.inboxListeners.delete(cb);
+    }
+
+    private notifyInboxChanged() {
+        for (const cb of this.inboxListeners) {
+            try {
+                cb();
+            } catch { /* 监听器旁路 */ }
+        }
+    }
+
     /** BI-4：块菜单收集入口（返回新增数；已存在的不重复计） */
     addInboxItems(blockIDs: string[]): number {
         let added = 0;
@@ -1906,6 +1926,7 @@ export default class LvCardsPlugin extends Plugin {
         }
         if (added > 0) {
             this.saveInbox();
+            this.notifyInboxChanged();
         }
         return added;
     }
@@ -1928,6 +1949,7 @@ export default class LvCardsPlugin extends Plugin {
                 this.transitionContentState(id, "stocked", "制卡入库");
             }
             this.saveInbox();
+            this.notifyInboxChanged();
         });
     }
 

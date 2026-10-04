@@ -21,6 +21,7 @@
         i18n: any;
         inbox: {
             get: () => InboxData;
+            subscribe: (cb: () => void) => () => void;
             setStatus: (blockIDs: string[], status: InboxStatus) => InboxData;
             undoSelection: (blockIDs: string[]) => InboxData;
             remove: (blockIDs: string[]) => InboxData;
@@ -32,6 +33,14 @@
     } = $props();
 
     const t = $derived(i18n.inbox);
+
+    // BX-10：订阅收件箱变更（块菜单收集/其他入口），自动同步快照——不再依赖手动 ⟳
+    $effect(() => {
+        const unsub = inbox.subscribe(() => {
+            snapshot = inbox.get();
+        });
+        return unsub;
+    });
 
     const FILTERS: { id: InboxStatus; labelKey: string }[] = [
         { id: "inbox", labelKey: "tabInbox" },

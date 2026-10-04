@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.152.0 2026-10-04 · BX-10 收件箱事件自动刷新
+
+* 插件侧：inboxListeners 监听器组 + subscribeInbox/notifyInboxChanged——块菜单收集、通道增删改、送去制卡成功清理后全量通知
+* 收件箱页  订阅变更自动同步快照（E2E-2 登记的手动 ⟳ 兜底退役，按钮保留作手动手段）
+* badge 评估结论：不加——顶栏 badge 语义=到期数（440 心跳），混入筛选计数会稀释语义；待筛选数已在收件箱页签与页头常显
+* BX-10 代码完成待真机勾选
 ## v0.151.0 2026-10-04 · AT-15 体积决策落地（压缩器实测定案 + 预算挂钩性能实测）
 
 * 压缩器实测：terser 5.51（toplevel mangle + drop_console）98.41KB 不敌 esbuild 96.97KB——维持 esbuild，terser 移除
