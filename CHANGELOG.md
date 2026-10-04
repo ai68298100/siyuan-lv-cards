@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.155.0 2026-10-05 · BI-5/6/7 内容状态面板（manager 卡片详情接线）
+
+* 新增 ui/lifecycle-panel.svelte（卡片详情嵌入，BI-5/6/7 三模块首个 UI 消费方）：状态 chip + 「为什么」解释与直达修复（BI-7 explainState，resume/unarchive 修复=生命周期转移）+ 下一动作建议 chips（BI-6 nextActions，可跳过不自动执行；宿主映射到真实入口：回来源/解释/修订→打开原文档，制卡→AI 向导（成功自动记 candidate→reviewed→stocked 合法链），正式复习→复习页签，练习→突击模式，收工→关详情）+ 状态流转按钮（BI-5 合法目标集，转移必带预设原因）+ 轨迹倒序清单
+* 显式开档语义：详情打开仅读快照，浏览不隐式建档；「开档记录」按钮创建 source 起点并落盘
+* manager ctx 新增 lc 通道（snapshot/open/transition/openReview/makeCards）；转移经既有 transitionContentState（校验+落盘一体）
+* i18n +28 键（lc 段：state×10 + reason×11 + 面板文案×7，zh/en 对齐）；+9 组面板单测（413→422）
+* AT-14 预算第四次修订 ≤101→≤102KB：本批 +1.5KB（101.25KB 实测），与 E2E-1 性能实测（LCP 0.84-1.40s/INP 16-72ms）时量级同档；结构性回落仍归 AT-17 chunk 加载器（后续 UI 批次前置）
+
 ## v0.154.0 2026-10-04 · BI-1 目标向导 UI（Hub「目标」页签）
 
 * 新增 ui/goals-page.svelte（Hub 内「目标」页签，懒加载）：目标卡表单（六目的/截止日期/每日分钟/水平）+ suggestedMinutes 建议 + 目标列表（活跃/已过期 chip + 截止倒计时 + 删除确认）——只记录目标不强迫建卡
