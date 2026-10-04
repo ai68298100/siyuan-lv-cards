@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-    avgSecPerCard, budgetLeftSec, BUDGET_PRESETS, estimateCompletable, estimateLeftover, isBudgetExpired,
+    avgSecPerCard, budgetLeftSec, BUDGET_PRESETS, clampBudgetMinutes, estimateCompletable, estimateLeftover, isBudgetExpired,
 } from "../src/core/session-budget";
 
 // BI-12 时间预算：预算到≠失败（不自动结束）；估计口径=可完成+未完成=剩余总量
@@ -9,6 +9,16 @@ const MIN = 60000;
 describe("session-budget（BI-12）", () => {
     it("预设为 5/15/30/60 分钟", () => {
         expect([...BUDGET_PRESETS]).toEqual([5, 15, 30, 60]);
+    });
+
+    it("clampBudgetMinutes：自定义输入夹取（非法回 0=关闭，整数 5-480）", () => {
+        expect(clampBudgetMinutes(20)).toBe(20);
+        expect(clampBudgetMinutes(3)).toBe(5);        // 低于下界抬到 5
+        expect(clampBudgetMinutes(9999)).toBe(480);   // 超上界封顶
+        expect(clampBudgetMinutes(12.7)).toBe(12);    // 向下取整
+        expect(clampBudgetMinutes(0)).toBe(0);
+        expect(clampBudgetMinutes("abc")).toBe(0);
+        expect(clampBudgetMinutes(-4)).toBe(0);
     });
 
     it("avgSecPerCard：正样本均值、剔除离群/非法、空样本兜底 10s", () => {

@@ -44,3 +44,9 @@ export function suspend(data: SuspendTodayData, cardID: string): void {
         data.cardIDs.push(cardID);
     }
 }
+
+/** BI-25（v0.168.0）：撤销暂缓（批量维护的「撤销」验收）；不在册=无操作，幂等 */
+export function unsuspend(data: SuspendTodayData, cardID: string): void {
+    rollDateIfNeeded(data);
+    data.cardIDs = data.cardIDs.filter(id => id !== cardID);
+}

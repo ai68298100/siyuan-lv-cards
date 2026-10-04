@@ -41,7 +41,7 @@ import { emptyEntryContexts, isContextFresh, normalizeEntryContexts, removeConte
 import { ensureLifecycle, emptyLifecycles, lifecycleStats, normalizeLifecycles, transition, type ContentLifecyclesData, type ContentState } from "./core/content-lifecycle";
 import { appendBlock, createDocWithMd, getNotebooks, getBlockDOM, getBlockDocMap, getDocTitles, exportMdContent, sqlQuery, kernelVersion, updateBlock } from "./api/siyuan";
 import { aiChat, estimateTokens, parseCards, isAICanceled } from "./api/ai";
-import { normalizeSuspendToday, rollDateIfNeeded, isSuspended, suspend, type SuspendTodayData } from "./core/suspend-today";
+import { normalizeSuspendToday, rollDateIfNeeded, isSuspended, suspend, unsuspend, type SuspendTodayData } from "./core/suspend-today";
 import { parseRevlogCsv } from "./core/revlog-csv";
 import { normalizeSessionState, type SessionState } from "./core/session-state";
 import { normalizeExamPlans, daysLeft, examReportStats, type ExamPlan, type ExamPlansData } from "./core/exam";
@@ -569,6 +569,11 @@ export default class LvCardsPlugin extends Plugin {
                             },
                             suspendToday: (blockIDs: string[]) => {
                                 for (const id of blockIDs) suspend(plugin.suspendToday, id);
+                                plugin.persist.save(SUSPEND_TODAY_DATA, plugin.suspendToday).catch(() => { /* onFail 已记录 */ });
+                            },
+                            // BI-25 验收「撤销」：批量恢复（今日不学移除，次日语义不受影响）
+                            unsuspendToday: (blockIDs: string[]) => {
+                                for (const id of blockIDs) unsuspend(plugin.suspendToday, id);
                                 plugin.persist.save(SUSPEND_TODAY_DATA, plugin.suspendToday).catch(() => { /* onFail 已记录 */ });
                             },
                             isSuspendedToday: (blockID: string) => isSuspended(plugin.suspendToday, blockID),

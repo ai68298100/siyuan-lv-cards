@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { emptySuspendToday, normalizeSuspendToday, rollDateIfNeeded, isSuspended, suspend } from "../src/core/suspend-today";
+import { emptySuspendToday, normalizeSuspendToday, rollDateIfNeeded, isSuspended, suspend, unsuspend } from "../src/core/suspend-today";
 import { localDate } from "../src/core/revlog";
 
 const TODAY = localDate(Date.now());
@@ -30,5 +30,16 @@ describe("suspend-today（今天不学，M3·FR5）", () => {
         expect(isSuspended(d, "c3")).toBe(false);
         expect(d.cardIDs).toEqual(["c1", "c2"]);
         expect(emptySuspendToday()).toEqual({ date: TODAY, cardIDs: [] });
+    });
+
+    it("unsuspend（BI-25 撤销）：移除在册卡；不在册幂等无操作", () => {
+        const d = emptySuspendToday();
+        suspend(d, "c1");
+        suspend(d, "c2");
+        unsuspend(d, "c1");
+        expect(isSuspended(d, "c1")).toBe(false);
+        expect(isSuspended(d, "c2")).toBe(true);
+        unsuspend(d, "c1"); // 幂等：不在册无操作
+        expect(d.cardIDs).toEqual(["c2"]);
     });
 });

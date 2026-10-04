@@ -248,7 +248,9 @@
         "budgetDone": "Budget reached",
         "budgetDoneTip": "Budget reached. Wrap up any time — it is not a failure; remaining cards stay in the queue.",
         "budgetOn": "Session budget running. You can wrap up on budget any time.",
-        "budgetEst": "Remaining budget ≈ ${done} cards; ${left} would be left over"
+        "budgetEst": "Remaining budget ≈ ${done} cards; ${left} would be left over",
+        "budgetCustomLabel": "Custom budget (minutes)",
+        "budgetCustomHint": "Custom"
     },
     "purpose": {
         "explore": {
@@ -935,6 +937,10 @@
         "suspendTodayBtn": "Pause today",
         "suspendedToday": "Paused",
         "suspendGroup": "Pause group",
-        "suspendedGroup": "Paused ${n} cards (skip today, back tomorrow)"
+        "suspendedGroup": "Paused ${n} cards (skip today, back tomorrow)",
+        "resumeTodayBtn": "Resume",
+        "resumeGroup": "Resume group",
+        "resumedToday": "Resumed — due cards visible again today",
+        "resumedGroup": "Resumed ${n} cards"
     }
 }

@@ -49,6 +49,7 @@
         maintenance: {
             scan: () => Promise<{ blockID: string; md: string; state?: string; rootID?: string }[]>;
             suspendToday: (blockIDs: string[]) => void;
+            unsuspendToday: (blockIDs: string[]) => void;
             isSuspendedToday: (blockID: string) => boolean;
             openSource: (blockID: string) => Promise<void>;
         };

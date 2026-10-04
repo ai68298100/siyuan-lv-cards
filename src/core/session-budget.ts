@@ -8,6 +8,14 @@
 /** 预算预设（分钟）；0 = 未启用 */
 export const BUDGET_PRESETS = [5, 15, 30, 60] as const;
 
+/** 自定义预算输入夹取（BI-12 验收「或自定义」）：非法回 0（关闭），整数 5-480 */
+export const BUDGET_CUSTOM_MAX = 480;
+export function clampBudgetMinutes(v: unknown): number {
+    const n = Number(v);
+    if (!Number.isFinite(n) || n <= 0) return 0;
+    return Math.min(BUDGET_CUSTOM_MAX, Math.max(5, Math.floor(n)));
+}
+
 /** 平均每卡耗时（秒）：正样本均值，兜底 10s；单样本封顶 3600 防离群值拖偏估计 */
 export function avgSecPerCard(durs: number[]): number {
     const pos = durs.filter(d => Number.isFinite(d) && d > 0 && d <= 3600);

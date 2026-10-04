@@ -15,7 +15,7 @@
     import { mergeSessionPrefs, pruneSessionPrefs } from "@/core/session-prefs";
     import { END_REASONS, withEndReason, type EndReason } from "@/core/session-state";
     import { isLongReturn, returnCheck, type ReturnCheckFacts } from "@/core/return-check";
-    import { avgSecPerCard, budgetLeftSec, BUDGET_PRESETS, estimateCompletable, estimateLeftover, isBudgetExpired } from "@/core/session-budget";
+    import { avgSecPerCard, budgetLeftSec, BUDGET_PRESETS, clampBudgetMinutes, estimateCompletable, estimateLeftover, isBudgetExpired } from "@/core/session-budget";
     import { loadReliefChoices, type LoadChoice } from "@/core/load-relief";
     import { recoveryOptions, type RecoveryOption, type RecoverySnapshot } from "@/core/session-recovery";
     import { SESSION_PURPOSES, PURPOSE_PROFILES, type SessionPurpose } from "@/core/session-purpose";
@@ -1473,7 +1473,7 @@
                         <option value="forget">{t.settings.timeoutForget}</option>
                     </select>
                 </div>
-                <!-- BI-12：本场时间预算（预算到≠失败，仅提示；剩余卡保留队列） -->
+                <!-- BI-12：本场时间预算（预设或自定义；预算到≠失败，仅提示；剩余卡保留队列） -->
                 <div class="lv-prefs-row">
                     <span>{t.review.budgetLabel}</span>
                     <div class="fn__flex-1"></div>
@@ -1483,6 +1483,13 @@
                             <option value={String(m)}>{t.review.budgetMinutes.replace("${n}", String(m))}</option>
                         {/each}
                     </select>
+                    <input
+                        class="b3-text-field b3-text-field--small lv-budget-custom"
+                        type="number" min="5" max="480" step="5"
+                        aria-label={t.review.budgetCustomLabel}
+                        placeholder={t.review.budgetCustomHint}
+                        onchange={(e: Event) => setBudget(clampBudgetMinutes((e.target as HTMLInputElement).value))}
+                    />
                 </div>
                 {#if budgetEstimate}
                     <div class="lv-prefs-row">
@@ -1840,6 +1847,7 @@
                 margin-bottom: var(--lv-sp-2);
                 & > span:first-child { font-weight: 500; }
             }
+            .lv-budget-custom { width: 72px; font-size: 12px; padding: 4px 8px; }
             .lv-prefs-row {
                 display: flex; align-items: center; gap: var(--lv-sp-2);
                 padding: var(--lv-sp-1) 0;

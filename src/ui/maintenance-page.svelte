@@ -16,6 +16,7 @@
         maintenance: {
             scan: () => Promise<{ blockID: string; md: string; state?: string; rootID?: string }[]>;
             suspendToday: (blockIDs: string[]) => void;
+            unsuspendToday: (blockIDs: string[]) => void;
             isSuspendedToday: (blockID: string) => boolean;
             openSource: (blockID: string) => Promise<void>;
         };
@@ -68,6 +69,23 @@
         suspended = next;
         live = t.suspendedGroup.replace("${n}", String(ids.length));
     }
+    function resumeOne(id: string) {
+        maintenance.unsuspendToday([id]);
+        const next = new Set(suspended);
+        next.delete(id);
+        suspended = next;
+        live = t.resumedToday;
+    }
+
+    function resumeGroup(kind: DebtKind) {
+        const ids = groups[kind].map(d => d.blockID).filter(id => suspended.has(id));
+        if (ids.length === 0) return;
+        maintenance.unsuspendToday(ids);
+        const next = new Set(suspended);
+        for (const id of ids) next.delete(id);
+        suspended = next;
+        live = t.resumedGroup.replace("${n}", String(ids.length));
+    }
 
     function total(): number {
         return DEBT_KINDS.reduce((sum, k) => sum + groups[k].length, 0);
@@ -100,7 +118,11 @@
                     <div class="lv-maint-group-head">
                         <LvChip tone={kind === "needsReview" ? "warn" : "error"}>{(t.kinds as Record<string, string>)[kind]} {groups[kind].length}</LvChip>
                         <div class="fn__flex-1"></div>
-                        <button class="b3-button b3-button--small" onclick={() => suspendGroup(kind)}>{t.suspendGroup}</button>
+                        {#if groups[kind].length > 0 && groups[kind].every(d => suspended.has(d.blockID))}
+                            <button class="b3-button b3-button--small" onclick={() => resumeGroup(kind)}>{t.resumeGroup}</button>
+                        {:else}
+                            <button class="b3-button b3-button--small" onclick={() => suspendGroup(kind)}>{t.suspendGroup}</button>
+                        {/if}
                     </div>
                     {#each groups[kind] as d (d.blockID + d.kind)}
                         <div class="lv-card2 lv-maint-row">
@@ -109,6 +131,7 @@
                                 {#if d.detail}<div class="ft__smaller ft__on-surface">{d.detail}</div>{/if}
                             </div>
                             {#if suspended.has(d.blockID)}
+                                <button class="b3-button b3-button--small" onclick={() => resumeOne(d.blockID)}>{t.resumeTodayBtn}</button>
                                 <LvChip>{t.suspendedToday}</LvChip>
                             {:else}
                                 <button class="b3-button b3-button--small" onclick={() => suspendOne(d.blockID)}>{t.suspendTodayBtn}</button>

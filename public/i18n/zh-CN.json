@@ -248,7 +248,9 @@
         "budgetDone": "预算到",
         "budgetDoneTip": "预算到了。随时可以收工——这不是失败，剩余卡会保留在队列里。",
         "budgetOn": "本场预算进行中，随时可以按预算收工。",
-        "budgetEst": "剩余预算约可完成 ${done} 张，未完成 ${left} 张"
+        "budgetEst": "剩余预算约可完成 ${done} 张，未完成 ${left} 张",
+        "budgetCustomLabel": "自定义预算（分钟）",
+        "budgetCustomHint": "自定义"
     },
     "purpose": {
         "explore": {
@@ -935,6 +937,10 @@
         "suspendTodayBtn": "暂缓今日",
         "suspendedToday": "已暂缓",
         "suspendGroup": "本组暂缓",
-        "suspendedGroup": "已暂缓 ${n} 张（今日不学，明天恢复）"
+        "suspendedGroup": "已暂缓 ${n} 张（今日不学，明天恢复）",
+        "resumeTodayBtn": "恢复",
+        "resumeGroup": "本组恢复",
+        "resumedToday": "已恢复，今日到期重新可见",
+        "resumedGroup": "已恢复 ${n} 张"
     }
 }
