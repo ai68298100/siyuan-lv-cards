@@ -241,7 +241,14 @@
         "recoveryNarrowTip": "已定位到范围选择器，选一个小些的范围继续",
         "purposeTitle": "本次目的",
         "purposeFormal": "正式评分（计入每日目标）",
-        "purposeInformal": "练习性质（不计入每日目标）"
+        "purposeInformal": "练习性质（不计入每日目标）",
+        "budgetLabel": "本场预算",
+        "budgetOff": "关闭",
+        "budgetMinutes": "${n} 分钟",
+        "budgetDone": "预算到",
+        "budgetDoneTip": "预算到了。随时可以收工——这不是失败，剩余卡会保留在队列里。",
+        "budgetOn": "本场预算进行中，随时可以按预算收工。",
+        "budgetEst": "剩余预算约可完成 ${done} 张，未完成 ${left} 张"
     },
     "purpose": {
         "explore": {

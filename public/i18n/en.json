@@ -241,7 +241,14 @@
         "recoveryNarrowTip": "Scope picker focused — pick a smaller scope to continue",
         "purposeTitle": "Session goal",
         "purposeFormal": "Formal grading (counts toward daily target)",
-        "purposeInformal": "Practice mode (not counted toward daily target)"
+        "purposeInformal": "Practice mode (not counted toward daily target)",
+        "budgetLabel": "Session budget",
+        "budgetOff": "Off",
+        "budgetMinutes": "${n} min",
+        "budgetDone": "Budget reached",
+        "budgetDoneTip": "Budget reached. Wrap up any time — it is not a failure; remaining cards stay in the queue.",
+        "budgetOn": "Session budget running. You can wrap up on budget any time.",
+        "budgetEst": "Remaining budget ≈ ${done} cards; ${left} would be left over"
     },
     "purpose": {
         "explore": {

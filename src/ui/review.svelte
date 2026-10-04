@@ -15,6 +15,7 @@
     import { mergeSessionPrefs, pruneSessionPrefs } from "@/core/session-prefs";
     import { END_REASONS, withEndReason, type EndReason } from "@/core/session-state";
     import { isLongReturn, returnCheck, type ReturnCheckFacts } from "@/core/return-check";
+    import { avgSecPerCard, budgetLeftSec, BUDGET_PRESETS, estimateCompletable, estimateLeftover, isBudgetExpired } from "@/core/session-budget";
     import { recoveryOptions, type RecoveryOption, type RecoverySnapshot } from "@/core/session-recovery";
     import { SESSION_PURPOSES, PURPOSE_PROFILES, type SessionPurpose } from "@/core/session-purpose";
     import { invalidateDueCache } from "@/api/due-shared";
@@ -230,6 +231,36 @@
     /** BX-3 本场偏好：覆盖全局设置（仅当前复习面板生命周期内有效，切页后还原） */
     let sessionOverride: Partial<ReviewSettings> = $state({});
     let prefsOpen = $state(false);
+    /** BI-12 时间预算：本场维度（非全局设置，不进覆盖集）；预算到≠失败——只提示不强制收工 */
+    let budgetMin = $state(0);
+    let budgetStartedAt = $state(0);
+    let budgetAvg = $state(10); // 设定预算时按 revlog dur 采样一次
+    let budgetNow = $state(0);
+    $effect(() => {
+        if (budgetMin <= 0 || budgetStartedAt <= 0) return;
+        budgetNow = Date.now();
+        const t = setInterval(() => { budgetNow = Date.now(); }, 1000);
+        return () => clearInterval(t);
+    });
+    function setBudget(min: number) {
+        budgetMin = min;
+        budgetStartedAt = min > 0 ? Date.now() : 0;
+        budgetNow = budgetStartedAt;
+        budgetAvg = min > 0 ? avgSecPerCard(ctx.getRevlog().entries.map(e => e.dur ?? 0)) : 10;
+    }
+    const budgetLeft = $derived(budgetLeftSec(budgetStartedAt, budgetMin, budgetNow || Date.now()));
+    const budgetExpired = $derived(isBudgetExpired(budgetStartedAt, budgetMin, budgetNow || Date.now()));
+    const budgetEstimate = $derived(
+        Number.isFinite(budgetLeft) && !budgetExpired && budgetMin > 0
+            ? { done: estimateCompletable(budgetLeft, budgetAvg, queue.length), left: estimateLeftover(budgetLeft, budgetAvg, queue.length) }
+            : null
+    );
+    function budgetClockText(): string {
+        const s = budgetLeft;
+        const m = Math.floor(s / 60);
+        const r = s % 60;
+        return `${m}:${String(r).padStart(2, "0")}`;
+    }
     /** 统一设置读取：本场覆盖优先，否则走全局设置 */
     function eff(): ReviewSettings {
         return mergeSessionPrefs(ctx.settings() as unknown as Record<string, unknown>, sessionOverride) as unknown as ReviewSettings;
@@ -1152,6 +1183,12 @@
             <div class="lv-done-desc lv-anim-rise" style="animation-delay: 90ms">
                 ⏱ {sessionDurationText()}{#if targetProgressText()} · {targetProgressText()}{/if}
             </div>
+            {#if budgetExpired || budgetMin > 0}
+                <!-- BI-12：预算中性提示（到点收工不算失败；未完成项真实保留） -->
+                <div class="lv-done-desc lv-anim-rise" style="animation-delay: 100ms">
+                    ⏳ {budgetExpired ? t.review.budgetDoneTip : t.review.budgetOn}
+                </div>
+            {/if}
             <!-- BI-8：会话收工建议（buildSummary 推导） -->
             <div class="lv-done-desc lv-anim-rise" style="animation-delay: 110ms">
                 <!-- BI-2：评分口径随目的——formal 庆祝每日目标，informal 只给鼓励不占目标 -->
@@ -1231,6 +1268,14 @@
                 <div class="lv-progress-fill" style={`width:${reviewedIDs.length / Math.max(1, reviewedIDs.length + queue.length) * 100}%`}></div>
             </div>
             {#if cramActive}<span class="b3-chip b3-chip--error">{t.exam.cramOn}</span>{/if}
+            {#if budgetMin > 0}
+                <!-- BI-12：预算倒计时；到点转为中性提示（不自动结束、不算失败） -->
+                {#if budgetExpired}
+                    <span class="b3-chip" title={t.review.budgetDoneTip}>{t.review.budgetDone}</span>
+                {:else}
+                    <span class="lv-timeout" title={t.review.budgetLabel}>⏳ {budgetClockText()}</span>
+                {/if}
+            {/if}
             {#if current.lvRequeue}<span class="b3-chip b3-chip--warning" title={t.review.requeueTip}>{t.review.requeueChip}</span>{/if}
             {#if eff().timeoutMode !== "off" && !showAnswer}
                 <span class="lv-timeout" class:lv-timeout-low={timeoutLeft <= 10}>⏱ {timeoutText()}</span>
@@ -1411,6 +1456,22 @@
                         <option value="forget">{t.settings.timeoutForget}</option>
                     </select>
                 </div>
+                <!-- BI-12：本场时间预算（预算到≠失败，仅提示；剩余卡保留队列） -->
+                <div class="lv-prefs-row">
+                    <span>{t.review.budgetLabel}</span>
+                    <div class="fn__flex-1"></div>
+                    <select class="b3-select b3-select--small" value={String(budgetMin)} onchange={(e: Event) => setBudget(Number((e.target as HTMLSelectElement).value))}>
+                        <option value="0">{t.review.budgetOff}</option>
+                        {#each BUDGET_PRESETS as m (m)}
+                            <option value={String(m)}>{t.review.budgetMinutes.replace("${n}", String(m))}</option>
+                        {/each}
+                    </select>
+                </div>
+                {#if budgetEstimate}
+                    <div class="lv-prefs-row">
+                        <span class="ft__smaller ft__on-surface">{t.review.budgetEst.replace("${done}", String(budgetEstimate.done)).replace("${left}", String(budgetEstimate.left))}</span>
+                    </div>
+                {/if}
                 <div class="lv-prefs-row">
                     <div class="fn__flex-1"></div>
                     <button class="b3-button b3-button--small" disabled={!hasOverrides} onclick={() => (sessionOverride = {})}>{t.review.prefsReset}</button>
