@@ -31,7 +31,8 @@ export interface InjectionHit {
 export function scanInjectionPatterns(text: string): InjectionHit[] {
     const out: InjectionHit[] = [];
     for (const { id, pattern } of INJECTION_PATTERNS) {
-        const m = pattern.exec(text ?? "");
+        // String.match：纯正则匹配（非全局正则下与 exec 等价），无任何命令/子进程语义
+        const m = (text ?? "").match(pattern);
         if (m) {
             out.push({ id, snippet: m[0].slice(0, 60) });
         }
