@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.162.0 2026-10-05 · BX-2 W2 卡片人工编辑 + 写前差异预览
+
+* 新增 ui/card-editor.svelte（卡片详情抽屉内嵌，Kit 级可测）：编辑块 markdown → 200ms 防抖差异预览（charDiff LCS 行内 add/del 高亮，400 字预算护栏）→ 确认才 updateBlock 写回；取消/拒绝保留原卡；无改动不可保存；保存失败面板保持可重试；+5 组单测（442→447）
+* 卡片详情新增「编辑」入口（editorCtx 可选通道：blockContent 读 markdown / saveBlockContent 写回），保存成功后抽屉预览自动刷新；updateBlock API 封装入 api/siyuan
+* 字段级 diff（BX-9 三字段）暂缓：卡片=单块+`==答案==`挖空约定，字段↔块映射需专项设计（登记于 BX-9 条目），本批先交付 W2 人工编辑+整内容差异预览
+* i18n +11 键（editor 段，zh/en 对齐）；hub chunk 47.38KB / 主包 67.61KB（≤75KB 内）
+
 ## v0.161.0 2026-10-05 · BI-11 多目标取舍（目标优先级分层）
 
 * learning-goal 增 priority 白名单字段（主目标/维持/暂缓，缺省=维持）+ sortGoalsByPriority 分层排序（同层 createdAt 升序稳定，不可变输入）；+2 组单测（440→442）

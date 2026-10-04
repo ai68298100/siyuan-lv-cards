@@ -863,5 +863,18 @@
             "goals": "Preserves: goal archive",
             "lifecycle": "Preserves: content lifecycle trail"
         }
+    },
+    "editor": {
+        "edit": "Edit",
+        "title": "Edit content",
+        "inputLabel": "Card content (markdown)",
+        "diffLabel": "Diff preview",
+        "noChange": "(no changes)",
+        "save": "Save",
+        "saving": "Saving…",
+        "cancel": "Cancel",
+        "hint": "Review the diff before saving; cancel keeps the original card",
+        "saveFail": "Save failed, try again",
+        "loadFail": "Failed to load content for editing"
     }
 }

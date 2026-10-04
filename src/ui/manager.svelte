@@ -45,6 +45,9 @@
             openReview: (cram: boolean, blockID?: string) => void;
             makeCards: (blockID: string, content: string) => void;
         };
+        /** BX-2 W2：卡片内容读写（可选——旧宿主不传则详情不显示编辑入口） */
+        blockContent?: (blockID: string) => Promise<string | null>;
+        saveBlockContent?: (blockID: string, md: string) => Promise<boolean>;
     }
 
     let { ctx }: { ctx: ManagerCtx } = $props();
@@ -350,8 +353,7 @@
         onClose={() => (detail = null)}
         lcCtx={ctx.lc ? {
             snapshot: detailLc,
-            onopen: () => {
-                ctx.lc!.open(detail!.id);
+            onopen: () => {                ctx.lc!.open(detail!.id);
                 detailLc = ctx.lc!.snapshot(detail!.id);
             },
             ontransition: (to, reason) => {
@@ -412,6 +414,10 @@
                     detailKo = ctx.ko!.snapshot(detail!.id);
                 }
             },
+        } : undefined}
+        editorCtx={ctx.blockContent && ctx.saveBlockContent ? {
+            load: () => ctx.blockContent!(detail!.id),
+            save: (md) => ctx.saveBlockContent!(detail!.id, md),
         } : undefined}
     />
 {/if}

@@ -39,7 +39,7 @@ import { addInboxItem, bulkSetStatus, emptyInbox, normalizeInbox, removeInboxIte
 import { emptyGoals, normalizeGoals, daysUntilDeadline, isGoalActive, type LearningGoalsData, type LearningGoal } from "./core/learning-goal";
 import { emptyEntryContexts, isContextFresh, normalizeEntryContexts, removeContext, upsertContext, type EntryContextData, type EntryKind } from "./core/entry-context";
 import { ensureLifecycle, emptyLifecycles, lifecycleStats, normalizeLifecycles, transition, type ContentLifecyclesData, type ContentState } from "./core/content-lifecycle";
-import { appendBlock, createDocWithMd, getNotebooks, getBlockDOM, getBlockDocMap, getDocTitles, exportMdContent, sqlQuery, kernelVersion } from "./api/siyuan";
+import { appendBlock, createDocWithMd, getNotebooks, getBlockDOM, getBlockDocMap, getDocTitles, exportMdContent, sqlQuery, kernelVersion, updateBlock } from "./api/siyuan";
 import { aiChat, estimateTokens, parseCards, isAICanceled } from "./api/ai";
 import { normalizeSuspendToday, rollDateIfNeeded, isSuspended, suspend, type SuspendTodayData } from "./core/suspend-today";
 import { parseRevlogCsv } from "./core/revlog-csv";
@@ -455,6 +455,24 @@ export default class LvCardsPlugin extends Plugin {
                                         plugin.transitionContentState(blockID, "stocked", reason.stocked);
                                     });
                                 },
+                            },
+                            // BX-2 W2：卡片内容读写（markdown；写前差异预览由 card-editor 呈现）
+                            blockContent: async (blockID: string) => {
+                                try {
+                                    const rows = await sqlQuery(`SELECT markdown FROM blocks WHERE id='${blockID.replace(/'/g, "''")}'`);
+                                    const md = rows[0]?.markdown;
+                                    return typeof md === "string" ? md : null;
+                                } catch {
+                                    return null;
+                                }
+                            },
+                            saveBlockContent: async (blockID: string, md: string) => {
+                                try {
+                                    await updateBlock("markdown", md, blockID);
+                                    return true;
+                                } catch {
+                                    return false;
+                                }
                             },
                         },
                         exam: plugin.settings.modules.exam ? {

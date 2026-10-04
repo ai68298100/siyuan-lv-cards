@@ -6,11 +6,12 @@
     import RelationsPanel from "./relations-panel.svelte";
     import KoPanel from "./ko-panel.svelte";
     import LifecyclePanel from "./lifecycle-panel.svelte";
+    import CardEditor from "./card-editor.svelte";
     import type { LcSnapshot } from "./lifecycle-panel.svelte";
     import type { ContentState } from "@/core/content-lifecycle";
     import type { NextAction } from "@/core/next-action";
 
-    let { block, t, onOpenDoc, onClose, relationsCtx, koCtx, lcCtx }: {
+    let { block, t, onOpenDoc, onClose, relationsCtx, koCtx, lcCtx, editorCtx }: {
         block: SearchBlock;
         t: any;
         onOpenDoc: () => void;
@@ -37,10 +38,19 @@
             onremove: (cardID: string) => void;
             onderive: (cardType: string) => void;
         };
+        /** BX-2 W2：卡片内容编辑（宿主注入；缺省=不显示编辑入口） */
+        editorCtx?: {
+            load: () => Promise<string | null>;
+            save: (md: string) => Promise<boolean>;
+        };
     } = $props();
 
     let html = $state("");
     let loadSeq = 0;
+    // BX-2 W2：编辑态（原文加载成功才进入；保存成功回读预览）
+    let editing = $state(false);
+    let editorMd = $state("");
+    let editorLoadFail = $state(false);
 
     onMount(async () => {
         const seq = ++loadSeq;
@@ -56,10 +66,38 @@
             }
         }
     });
+
+    async function startEdit() {
+        if (!editorCtx) return;
+        const md = await editorCtx.load();
+        if (md === null) {
+            editorLoadFail = true;
+            return;
+        }
+        editorLoadFail = false;
+        editorMd = md;
+        editing = true;
+    }
+
+    async function saveEdit(md: string): Promise<boolean> {
+        if (!editorCtx) return false;
+        const ok = await editorCtx.save(md);
+        if (ok) {
+            editing = false;
+            // 写回成功后刷新预览（失败保留旧卡面）
+            try {
+                html = await getBlockDOM(block.id);
+            } catch { /* 预览刷新失败不阻塞 */ }
+        }
+        return ok;
+    }
 </script>
 
 <LvDrawer open title={t.manager.detailTitle} width="min(560px, 92vw)" onclose={onClose}>
     {#snippet actions()}
+        {#if editorCtx && !editing}
+            <button class="b3-button b3-button--small" onclick={startEdit}>{t.editor.edit}</button>
+        {/if}
         <button class="b3-button b3-button--small" onclick={onOpenDoc}>{t.manager.openDoc}</button>
     {/snippet}
     <div class="lv-detail-preview">{@html html || (block.content ?? "")}</div>
@@ -67,6 +105,11 @@
         <div>{t.manager.detailBlockId}: {block.id}</div>
         {#if block.hPath}<div>{block.hPath}</div>{/if}
     </div>
+    {#if editing}
+        <CardEditor t={t} original={editorMd} onsave={saveEdit} oncancel={() => (editing = false)} />
+    {:else if editorLoadFail}
+        <div class="ft__smaller ft__on-surface">{t.editor.loadFail}</div>
+    {/if}
     {#if lcCtx}
         <LifecyclePanel
             t={t}

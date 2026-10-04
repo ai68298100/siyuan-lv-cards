@@ -43,6 +43,15 @@ export const getBlockAttrs = async (id: string): Promise<Record<string, string>>
     return unwrapKernelData<Record<string, string>>(resp) ?? {};
 };
 
+/** BX-2 W2（v0.162.0）：更新块内容（markdown）。非 0 抛错，成功返回 true */
+export const updateBlock = async (dataType: "markdown", data: string, id: string): Promise<boolean> => {
+    const resp = await fetchSyncPost("/api/block/updateBlock", { dataType, data, id });
+    if (!resp || resp.code !== 0) {
+        throw new Error(resp?.msg || `kernel error (code=${resp?.code ?? "unknown"})`);
+    }
+    return true;
+};
+
 /** 读块 DOM（AQ-20 统一入口）：非 0/字段缺失抛错，调用方 catch 后保留旧卡面 */
 export const getBlockDOM = async (id: string): Promise<string> => {
     const resp = await fetchSyncPost("/api/block/getBlockDOM", { id });
