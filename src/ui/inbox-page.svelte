@@ -49,6 +49,7 @@
         { id: "dismissed", labelKey: "tabDismissed" },
     ];
 
+    // svelte-ignore state_referenced_locally -- 初值快照刻意的：后续变更经 inbox 订阅/操作回调整体替换 snapshot（BX-10）
     let snapshot = $state<InboxData>(inbox.get());
     let filter = $state<InboxStatus>("inbox");
     let checked = $state<string[]>([]);

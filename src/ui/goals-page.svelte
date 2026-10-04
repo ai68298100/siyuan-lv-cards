@@ -22,6 +22,7 @@
 
     const t = $derived(i18n.goals);
 
+    // svelte-ignore state_referenced_locally -- 初值快照刻意的：目标变更经 get/save 回调整体替换 snapshot
     let snapshot = $state<LearningGoalsData>(goals.get());
     let editing = $state(false);
     let form = $state<LearningGoal>(blankGoal());

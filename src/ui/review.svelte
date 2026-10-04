@@ -152,6 +152,7 @@
     let recovery = $state<RecoveryOption[] | null>(null);
     let recoverySnap: RecoverySnapshot | null = null;
     // BI-8：收工原因（done 屏收集；可跳过，写入当日现场供恢复横幅/返场分流读取）
+    // svelte-ignore state_referenced_locally -- 初值刻意的：恢复路径在 onMount 恢复现场时回填 endPicked
     let endPicked = $state<string | null>(ctx.getSessionState()?.endReason ?? null);
     function pickEnd(r: EndReason) {
         const s = ctx.getSessionState();
@@ -178,6 +179,7 @@
     }
     // BI-2：本次会话目的（默认复习到期；informal 目的完成屏不庆祝每日目标）
     let purpose = $state<SessionPurpose>("review");
+    // svelte-ignore non_reactive_update -- scopeEl 仅作 bind:this 引用（focus 用），无需响应式
     let scopeEl: HTMLSelectElement | null = null;
 
     // 撤销历史栈（M3·FR7，ZY 技法：快照恢复 + 内核重评时按官方缓存恢复原状态）
