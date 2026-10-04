@@ -104,6 +104,8 @@ export default defineConfig(buildTarget === "kernel" ? {
     build: {
         outDir: outputDir,
         emptyOutDir: false,
+        // AT-15 实测定案（v0.151.0）：terser（含 toplevel mangle + drop_console）98.41KB，
+        // 不敌 esbuild 96.97KB——本代码库 esbuild 压缩率更优，维持 esbuild
         minify: true,
         sourcemap: isSrcmap ? "inline" : false,
 

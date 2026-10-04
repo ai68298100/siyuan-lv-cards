@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.151.0 2026-10-04 · AT-15 体积决策落地（压缩器实测定案 + 预算挂钩性能实测）
+
+* 压缩器实测：terser 5.51（toplevel mangle + drop_console）98.41KB 不敌 esbuild 96.97KB——维持 esbuild，terser 移除
+* 预算第三次修订 ≤98→≤101KB 且与真机性能实测挂钩（E2E-1：LCP 0.84-1.40s / INP 16-72ms 良好，非无据放宽）；为 UI 接线批次留位
+* 结构性回落方案登记为 AT-17：自研 chunk 加载器（内核 HTTP 服务插件资源已实证 GET /plugins/... 200，可绕开 require shim，预算可回落 ≤60KB 量级）
+* AT-15 勾选（194 done）；governance 935 条
 ## v0.150.2 2026-10-04 · 隔离式后台 e2e 框架（AT-16 主体交付）
 
 * 新增 scripts/e2e-isolated.mjs：临时工作区+无头内核（独立端口）+自动部署插件+setPetalEnabled 启用+内核 riff 全回环断言（建笔记本/文档/卡包/制卡/到期/评分/队列消费）+自动拆卸；--keep 保留环境供 UI 走查，--ui 尽力拉窗口

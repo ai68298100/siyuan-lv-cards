@@ -352,8 +352,8 @@
       "revisitAt": "切片完成或宿主/模型/模板/schema/权限变化、用户反例出现时",
       "conditionalPrerequisites": [],
       "summary": {
-        "total": 28,
-        "done": 7,
+        "total": 29,
+        "done": 8,
         "pending": 21
       },
       "blocks": [
@@ -15154,12 +15154,12 @@
     },
     {
       "id": "AT-15",
-      "status": "open",
-      "checkbox": " ",
+      "status": "done",
+      "checkbox": "x",
       "priority": "P1",
       "group": "AT",
       "groupName": "Petal 生命周期与性能卫生（第五轮定向，仅扩充规划）",
-      "title": "**主包体积第三次决策点**：v0.150.1 后主包 gzip 96.97KB，距 ≤98KB 预算仅 1KB 余量；下一个 UI 批次（BI 系列接线/BX-2 改写预览）开工前必须先做决策——选项：a) 上游 shim 修复恢复真分包（不可控）b) 剔除主包内可延迟初始化的纯模块 c) 第三次预算修订（须与性能实测挂钩，不得无据放宽）。验收：开工前有书面决策（docs/17 本条注记）+ governance ⑨ 门禁继续生效。 owner=`WP-performance`。",
+      "title": "**主包体积第三次决策点**：v0.150.1 后主包 gzip 96.97KB，距 ≤98KB 预算仅 1KB 余量；下一个 UI 批次（BI 系列接线/BX-2 改写预览）开工前必须先做决策——选项：a) 上游 shim 修复恢复真分包（不可控）b) 剔除主包内可延迟初始化的纯模块 c) 第三次预算修订（须与性能实测挂钩，不得无据放宽）。验收：开工前有书面决策（docs/17 本条注记）+ governance ⑨ 门禁继续生效。 owner=`WP-performance`。（v0.151.0 决策落地：压缩器实测 terser 98.41KB 不敌 esbuild 96.97KB 维持 esbuild；预算第三次修订 ≤98→≤101KB 且与真机性能实测挂钩（E2E-1 LCP/INP 良好，非无据放宽）；结构性回落=自研 chunk 加载器登记为 AT-17）",
       "backlogLine": 785,
       "primaryPackage": "WP-performance",
       "linksTo": [],
@@ -15185,6 +15185,24 @@
       "acceptanceReferences": []
     },
     {
+      "id": "AT-17",
+      "status": "open",
+      "checkbox": " ",
+      "priority": "P2",
+      "group": "AT",
+      "groupName": "Petal 生命周期与性能卫生（第五轮定向，仅扩充规划）",
+      "title": "**自研 chunk 加载器（主包体积结构性回落）**：绕开上游 require shim（AT-12）——把 Hub/复习/AI 向导等重组件编译为独立产物，主包用动态注入 script/module 方式从内核 HTTP 服务加载（已实证 GET /plugins/... 200 OK），预算可回落至 ≤60KB 量级。验收：正线构建产出分包+加载器，真机全功能复验，governance ⑨ 预算下调并保持绿。 owner=`WP-performance`；依赖 AT-12 背景与 AT-15 决策。",
+      "backlogLine": 787,
+      "primaryPackage": "WP-performance",
+      "linksTo": [],
+      "relatedLegacyIds": [
+        "AT-12"
+      ],
+      "phase": "W2",
+      "specificationDocument": "",
+      "acceptanceReferences": []
+    },
+    {
       "id": "BX-10",
       "status": "open",
       "checkbox": " ",
@@ -15205,8 +15223,8 @@
   "governanceVersion": "1.2",
   "summary": {
     "packages": 38,
-    "total": 934,
-    "done": 193,
+    "total": 935,
+    "done": 194,
     "open": 738,
     "special": 3,
     "pending": 741

@@ -100,14 +100,15 @@ if (!md.includes(`当前基线：v${pkg.version} `)) {
     failures.push(`docs/17 当前基线未提及 package.json 版本 v${pkg.version}`);
 }
 
-// ⑨ 主包体积预算（AT-14：单文件构建约束。v0.125.0 修订 32→95KB；v0.149.0 修订 95→98KB
-// 以纳入 BI-4 收件箱 UI——单文件下懒加载仅延迟执行不省传输，UI 功能新增必然推高主包，
-// 修订记录见 docs/17 AT-14。dist 不存在时跳过——check 阶段先于 build）
-const MAIN_GZIP_BUDGET = 98 * 1024;
+// ⑨ 主包体积预算（AT-14：单文件构建约束。修订史：32→95（v0.125.0，AT-12 单文件定案）→98（v0.149.0，BI-4 UI）
+// →101（v0.151.0，AT-15 决策：压缩器实测定案 esbuild 优；预算与真机性能实测挂钩——E2E-1 LCP 0.84-1.40s/INP 16-72ms
+// 良好，101KB 为 UI 批次留位；结构性回落方案=自研 chunk 加载器（AT-17，内核 HTTP 服务插件资源已实证可行）。
+// dist 不存在时跳过——check 阶段先于 build）
+const MAIN_GZIP_BUDGET = 101 * 1024;
 if (existsSync("dist/index.js")) {
     const gz = gzipSync(readFileSync("dist/index.js"));
     if (gz.length > MAIN_GZIP_BUDGET) {
-        failures.push(`主包 gzip ${Math.round(gz.length / 1024)}KB 超预算 98KB（AT-14 单文件约束下的体积上限）`);
+        failures.push(`主包 gzip ${Math.round(gz.length / 1024)}KB 超预算 101KB（AT-14 单文件约束下的体积上限）`);
     }
 }
 
