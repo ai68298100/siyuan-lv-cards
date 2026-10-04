@@ -534,6 +534,12 @@ export default class LvCardsPlugin extends Plugin {
                             get: () => plugin.learningGoals,
                             save: (goal: LearningGoal) => plugin.saveLearningGoal(goal),
                             remove: (id: string) => plugin.removeLearningGoal(id),
+                            // BI-15：目标材料的内容状态计数（只读内存过滤，为进度叙事供数）
+                            narrate: (blockIDs: string[]) => {
+                                if (blockIDs.length === 0) return {};
+                                const ids = new Set(blockIDs);
+                                return lifecycleStats(plugin.contentLifecycles.lifecycles.filter(lc => ids.has(lc.blockID)));
+                            },
                         },
                     });
                 });

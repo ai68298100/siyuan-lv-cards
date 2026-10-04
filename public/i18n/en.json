@@ -909,5 +909,12 @@
             "rest": "Impact: today due cards roll to tomorrow (kernel riff scheduling) — not counted as lapses, no negative history.",
             "rebuild": "Impact: rebuilding only discards today session scene (reviewed/skipped sets); kernel due/revlog and goal archives are all preserved — a read-only impact preview with undoable batch comes first."
         }
+    },
+    "goalNarrative": {
+        "filtered": "Filtered",
+        "stocked": "Stocked",
+        "applied": "Applied",
+        "maintain": "To maintain",
+        "narrativeNone": "No progress recorded yet — pick materials and start triaging to see stage progress here"
     }
 }

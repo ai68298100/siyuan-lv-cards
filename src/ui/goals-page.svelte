@@ -7,6 +7,7 @@
     import LvChip from "./kit/LvChip.svelte";
     import { GOAL_PRIORITIES, LEVELS, daysUntilDeadline, isGoalActive, sortGoalsByPriority, suggestedMinutes, type GoalPriority, type LearningGoal, type LearningGoalsData, type LearnerLevel } from "@/core/learning-goal";
     import { SESSION_PURPOSES } from "@/core/session-purpose";
+    import { narrateGoalProgress, stageLabelKey } from "@/core/goal-narrative";
 
     let {
         i18n,
@@ -17,6 +18,8 @@
             get: () => LearningGoalsData;
             save: (goal: LearningGoal) => LearningGoalsData;
             remove: (id: string) => LearningGoalsData;
+            /** BI-15：目标材料的内容状态计数（只读；缺省=不显示叙事行） */
+            narrate?: (blockIDs: string[]) => Record<string, number> | null;
         };
     } = $props();
 
@@ -98,6 +101,16 @@
     function priorityText(g: LearningGoal): string {
         return (t.priority as Record<string, string>)[g.priority ?? "keep"] ?? "";
     }
+
+    // BI-15：进度叙事（阶段计数非掌握百分比；无记录显示占位而非虚构 0%）
+    function narrativeText(g: LearningGoal): string {
+        const stats = goals.narrate?.(g.materialBlockIDs);
+        const stages = narrateGoalProgress(stats ?? {});
+        if (stages.length === 0) return t.narrativeNone;
+        return stages.map(s => `${(t as any)[stageLabelKey(s.stage)] ?? s.stage} ${s.count}`).join(" · ");
+    }
+
+    const showNarrative = $derived(typeof goals.narrate === "function");
 </script>
 
 <LvPage title={t.title} subtitle={`${sorted.length}`}>
@@ -157,6 +170,12 @@
                         <div class="lv-goal-meta ft__smaller ft__on-surface">
                             {deadlineText(g)} · {g.minutesPerDay > 0 ? t.minutesPerDay.replace("${n}", String(g.minutesPerDay)) : t.minutesUnset} · {levelText(g.level)}
                         </div>
+                        {#if showNarrative}
+                            <!-- BI-15：阶段计数叙事（描述进展，非掌握百分比） -->
+                            <div class="lv-goal-meta ft__smaller ft__on-surface" style="opacity:.8">
+                                🧭 {narrativeText(g)}
+                            </div>
+                        {/if}
                     </div>
                     <button class="b3-button b3-button--small" title={t.priorityTitle} onclick={() => cyclePriority(g)}>{priorityText(g)}</button>
                     <button class="b3-button b3-button--small" title={t.delete} onclick={() => remove(g.id)}>🗑</button>
