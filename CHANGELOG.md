@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.172.0 2026-10-05 · BU-33 AI eligibility 前置检查（组装前阻断 + 替代路径）
+
+* 新增 core/ai-eligibility.ts 纯模块：五类前置检查（材料非空/AI 配置/网络在线/来源敏感/成本预算）按固定优先级阻断，每条阻断强制配对「手工/本地替代路径」键——验收「不把环境失败归因成模型质量」；事实未提供的检查项不判而非失败（渐进接入：敏感=BL-5 预留、成本=BU-24/25 账本预留）；+5 组单测（486→491）
+* 向导 generate 接线：组装 prompt **前**检查（材料空/custom 未配端点密钥/navigator.onLine 离线）——不满足即抛「原因+替代」错误，零 token 消耗；siyuan 网关模式视为已配置
+* i18n +10 键（aiElig 段 5 原因+5 替代，zh/en 对齐）；主包 71.83KB（≤75KB 内）
+
 ## v0.171.0 2026-10-05 · BU-35 AI 调用流水线骨架（生成链收编单一入口）
 
 * 新增 core/ai-pipeline.ts：TaskRegistry（cards-generate：默认模板/schema 契约/固定写入目标/24000 token 保守窗口）+ assembleGeneratePrompt 组装器——模板解析（BU-5 自定义/默认双路径，行为逐字节保持）→ 不可信围栏（BU-7）→ 隔离条款 → BU-6 预算报告 → 审计字段（task/模板来源/token 数/截断层/needsBatching/writeTarget，不含材料明文）；+6 组单测（480→486）

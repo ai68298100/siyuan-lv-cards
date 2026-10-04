@@ -43,6 +43,7 @@ import { appendBlock, createDocWithMd, getNotebooks, getBlockDOM, getBlockDocMap
 import { aiChat, estimateTokens, parseCards, isAICanceled } from "./api/ai";
 import { normalizeSuspendToday, rollDateIfNeeded, isSuspended, suspend, unsuspend, type SuspendTodayData } from "./core/suspend-today";
 import { assembleGeneratePrompt } from "./core/ai-pipeline";
+import { checkEligibility } from "./core/ai-eligibility";
 import { parseRevlogCsv } from "./core/revlog-csv";
 import { normalizeSessionState, type SessionState } from "./core/session-state";
 import { normalizeExamPlans, daysLeft, examReportStats, type ExamPlan, type ExamPlansData } from "./core/exam";
@@ -1775,6 +1776,18 @@ export default class LvCardsPlugin extends Plugin {
                 // AQ-14：signal 随调用传入——向导关闭/换源/重生取消后，晚到响应不写回、不触发 fallback
                 // ADR-7 第 3 步：生成阶段入账作业生命周期（drafting→generating→reviewing / failed/canceled）
                 generate: async (source: string, cfg: { count: number; language: string; type: "qa" | "cloze" }, opts?: { signal?: AbortSignal }) => {
+                    // BU-33（v0.172.0）：组装 prompt 前的前置检查（阻断+给手工/本地替代；不把环境失败归因模型质量）
+                    const elig = checkEligibility({
+                        hasMaterial: source.trim().length > 0,
+                        // siyuan 模式由内核网关管理视为已配置；custom 模式需端点+密钥
+                        aiConfigured: this.settings.aiMode === "siyuan" || Boolean(this.settings.aiEndpoint && this.settings.aiKey),
+                        online: typeof navigator !== "undefined" ? navigator.onLine : undefined,
+                    });
+                    if (!elig.ok) {
+                        const e = (this.i18n as any).aiElig;
+                        const b = elig.block!;
+                        throw new Error(`${e[b.reason]} ${e.alt[b.reason]}`);
+                    }
                     // BU-35（v0.171.0）：提示组装收编流水线单一入口（模板解析/围栏/隔离条款/预算/审计）
                     const assembled = assembleGeneratePrompt({
                         task: "cards-generate",
