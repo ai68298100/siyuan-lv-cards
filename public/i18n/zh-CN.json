@@ -819,5 +819,14 @@
             "notification": "通知",
             "report": "试卷报告"
         }
+    },
+    "endReason": {
+        "title": "这次收工的原因？（可跳过）",
+        "last": "上次收工：",
+        "goal-done": "目标完成",
+        "time-up": "时间到了",
+        "energy": "精力不足",
+        "question": "有疑问待解决",
+        "manual": "手动结束"
     }
 }

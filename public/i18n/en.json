@@ -819,5 +819,14 @@
             "notification": "Notification",
             "report": "Exam report"
         }
+    },
+    "endReason": {
+        "title": "Why are you wrapping up? (optional)",
+        "last": "Last wrap-up: ",
+        "goal-done": "Goal done",
+        "time-up": "Time up",
+        "energy": "Low energy",
+        "question": "Open question",
+        "manual": "Manual end"
     }
 }

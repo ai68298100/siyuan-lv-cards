@@ -13,6 +13,7 @@
     import { parseOcclusion, type OcclusionData } from "@/core/occlusion";
     import { todayKey } from "@/core/exam";
     import { mergeSessionPrefs, pruneSessionPrefs } from "@/core/session-prefs";
+    import { END_REASONS, withEndReason, type EndReason } from "@/core/session-state";
     import { recoveryOptions, type RecoveryOption, type RecoverySnapshot } from "@/core/session-recovery";
     import { SESSION_PURPOSES, PURPOSE_PROFILES, type SessionPurpose } from "@/core/session-purpose";
     import { invalidateDueCache } from "@/api/due-shared";
@@ -77,8 +78,8 @@
         suspendToday: (cardID: string) => void;
         openDashboard: () => void;
         onScopePersist: (scopeKey: string) => void;
-        getSessionState: () => { date: string; reviewedIDs: string[]; skippedIDs: string[]; counters: { new: number; review: number; forget: number; skip: number } } | null;
-        saveSessionState: (s: { date: string; reviewedIDs: string[]; skippedIDs: string[]; counters: { new: number; review: number; forget: number; skip: number } }) => void;
+        getSessionState: () => { date: string; reviewedIDs: string[]; skippedIDs: string[]; counters: { new: number; review: number; forget: number; skip: number }; endReason?: EndReason | null } | null;
+        saveSessionState: (s: { date: string; reviewedIDs: string[]; skippedIDs: string[]; counters: { new: number; review: number; forget: number; skip: number }; endReason?: EndReason | null }) => void;
         clearSessionState: () => void;
         emitSessionFinished: (summary: { new: number; review: number; forget: number; skip: number }) => void;
         /** 订阅设置变更（AT-10）：保存设置后回调，超时参数立即生效，返回取消函数 */
@@ -147,6 +148,17 @@
     // BI-9：中断恢复分支（快照存在时给出四选一；不自动重复评分/写卡）
     let recovery = $state<RecoveryOption[] | null>(null);
     let recoverySnap: RecoverySnapshot | null = null;
+    // BI-8：收工原因（done 屏收集；可跳过，写入当日现场供恢复横幅/返场分流读取）
+    let endPicked = $state<string | null>(ctx.getSessionState()?.endReason ?? null);
+    function pickEnd(r: EndReason) {
+        const s = ctx.getSessionState();
+        if (!s) return;
+        const next = withEndReason(s, r);
+        if (next) {
+            ctx.saveSessionState(next);
+            endPicked = r;
+        }
+    }
     // BI-2：本次会话目的（默认复习到期；informal 目的完成屏不庆祝每日目标）
     let purpose = $state<SessionPurpose>("review");
     let scopeEl: HTMLSelectElement | null = null;
@@ -1029,6 +1041,8 @@
                 skippedCount: ss.counters.skip,
                 queueRemaining: -1, // 队列未拉取：首刷后回填
             };
+            // BI-8：上次收工原因（若已收集）随横幅展示，辅助返场分流
+            endPicked = ss.endReason ?? null;
             recovery = recoveryOptions(recoverySnap);
         }
         loadQueue();
@@ -1077,6 +1091,10 @@
     {#if recovery}
         <div class="lv-recover" role="group" aria-label={t.review.recoveryTitle}>
             <span class="lv-recover-title">{t.review.recoveryTitle}</span>
+            {#if endPicked}
+                <!-- BI-8：上次收工原因随横幅提示（辅助返场分流；不改变任何分支语义） -->
+                <span class="ft__smaller ft__on-surface" style="opacity:.75">{t.endReason.last}{t.endReason[endPicked] ?? ""}</span>
+            {/if}
             {#each recovery as opt (opt.branch)}
                 <button
                     class="b3-button b3-button--small"
@@ -1121,6 +1139,15 @@
             {#if dailyTip()}
                 <div class="lv-done-tip lv-anim-rise" style="animation-delay: 150ms">💡 {dailyTip()}</div>
             {/if}
+            <!-- BI-8：收工原因收集（可跳过；写当日现场，返场时恢复横幅/分流可读） -->
+            <div class="lv-done-end lv-anim-rise" style="animation-delay: 130ms" role="group" aria-label={t.endReason.title}>
+                <span class="ft__smaller ft__on-surface">{t.endReason.title}</span>
+                {#each END_REASONS as r (r)}
+                    <button class="b3-button b3-button--small" class:lv-btn-primary={endPicked === r}
+                        aria-pressed={endPicked === r}
+                        onclick={() => pickEnd(r)}>{t.endReason[r]}</button>
+                {/each}
+            </div>
             <div class="fn__flex lv-done-actions lv-anim-rise" style="animation-delay: 120ms">
                 <button class="b3-button b3-button--text" onclick={loadQueue}>{t.review.again}</button>
                 <button class="b3-button b3-button--outline" onclick={undoHistory}>{t.review.undoLast}</button>
@@ -1481,6 +1508,12 @@
             font-size: 12px;
             opacity: 0.85;
             line-height: 1.6;
+        }
+        /* BI-8：收工原因 chips（可跳过，不占完成屏视觉重心） */
+        .lv-done-end {
+            display: flex; flex-wrap: wrap; gap: var(--lv-sp-1); align-items: center; justify-content: center;
+            max-width: 460px;
+            font-size: 12px;
         }
         .lv-done-actions { gap: var(--lv-sp-2); justify-content: center; margin-top: var(--lv-sp-4); }
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.159.0 2026-10-05 · BI-8 收工原因（done 屏收集 + 恢复横幅随行）
+
+* session-state 增 endReason 白名单字段（目标完成/时间到/精力不足/疑问待解决/手动结束，normalize 清洗 + withEndReason 不可变写入，+3 组单测 436→439）
+* 复习完成屏新增五 chips「这次收工的原因？（可跳过）」——点选写入当日现场；「再次开始」新开现场时自动重置
+* 中断恢复横幅随行展示「上次收工：…」（不改变四分支语义，辅助返场分流）；PRIVACY 披露同步
+* 体积：主包 67.18KB / review chunk 31.35KB（done 屏在 review chunk），预算 ≤75KB 内余量充足
+
 ## v0.158.0 2026-10-05 · AT-17 chunk 加载器落地（主包 101.93→67.14KB）
 
 * 机制定案：解剖思源 stage/build 加载器实证——桌面端插件 JS=同步 XHR 文本+内联 script 注入（全局作用域 Node globals），移动端=src script 标签；本插件取 **src script 标签 + window.__lvChunks 注册表**（无 eval/CSP 依赖，与宿主同机制）

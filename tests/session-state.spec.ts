@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeSessionState, emptySessionState } from "../src/core/session-state";
+import { normalizeSessionState, emptySessionState, withEndReason, END_REASONS } from "../src/core/session-state";
 
 const TODAY = "2026-10-02";
 
@@ -35,5 +35,31 @@ describe("session-state（AQ-2：跳过集合落盘与清洗）", () => {
         expect(s.reviewedIDs).toEqual(["c1", "c2"]);
         expect(s.skippedIDs).toEqual([]);
         expect(s.counters).toEqual({ new: 0, review: 3, forget: 0, skip: 0 });
+    });
+});
+
+describe("session-state BI-8：收工原因", () => {
+    const live = { date: TODAY, reviewedIDs: ["c1"], skippedIDs: [], counters: { new: 1, review: 0, forget: 0, skip: 0 } };
+
+    it("白名单内原因不可变写入", () => {
+        const next = withEndReason(live, "energy")!;
+        expect(next.endReason).toBe("energy");
+        expect(next).not.toBe(live); // 不可变：原状态不受影响
+        expect(live.endReason).toBeUndefined();
+        expect(END_REASONS).toContain("goal-done");
+        expect(END_REASONS).toHaveLength(5);
+    });
+
+    it("跨天/空场拒绝写入（返回 null）", () => {
+        expect(withEndReason(emptySessionState(), "manual")).toBeNull();
+    });
+
+    it("normalize 白名单清洗：非法原因回空，合法保留", () => {
+        const ok = normalizeSessionState({ ...live, endReason: "time-up" }, TODAY);
+        expect(ok.endReason).toBe("time-up");
+        const bad = normalizeSessionState({ ...live, endReason: "hack" }, TODAY);
+        expect(bad.endReason).toBeNull();
+        const none = normalizeSessionState(live, TODAY);
+        expect(none.endReason).toBeNull();
     });
 });
