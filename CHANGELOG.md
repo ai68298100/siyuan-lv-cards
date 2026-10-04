@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.169.0 2026-10-05 · BU-6 上下文预算器（纯模块，零打包增量）
+
+* 新增 core/context-budget.ts：五层固定序拼接（system→instruction→preference→material→tool，与输入顺序无关）+ 优先级预算分配（材料证据层 priority 1 最后才裁）+ 从头截断保留来源位置（尾部可见标记，禁止静默）+ 材料独木超预算时 needsBatching/suggestBatches 分批建议（≥2）；+6 组单测（467→473）
+* 验收口径：超长材料先给裁剪/分批预览 ✓（reports 逐层列明截断/丢弃）；「不把答案带入题面」归模板层（BV 家族）职责，预算器只保证层级完整不重排不合并
+* 纯模块先行未接线（bundle 零变化 70.38KB）；消费方=BU-35 调用流水线注册（向导生成链改造时接入）
+
 ## v0.168.0 2026-10-05 · BI-25/BI-12 验收收口（批量恢复 + 自定义预算）
 
 * BI-25「撤销」补完：suspend-today 增 unsuspend（幂等移除，+1 组单测 465→467）；维护页已暂缓行显示「恢复」按钮，组内全部暂缓时组头切换为「本组恢复」；maintenance 通道增 unsuspendToday
