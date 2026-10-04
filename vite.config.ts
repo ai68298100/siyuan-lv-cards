@@ -13,6 +13,10 @@ const env = process.env;
 const isSrcmap = env.VITE_SOURCEMAP === "inline";
 const isDev = env.NODE_ENV === "development";
 const buildTarget = env.VITE_BUILD_TARGET === "kernel" ? "kernel" : "app";
+// AT-17（v0.158.0）：UI chunk 构建模式——VITE_CHUNK=hub|review 时产出独立 IIFE
+// （window.__lvChunks 注册表 + siyuan 走 __lvSiyuan 全局），主包经 script 标签加载
+// （思源移动端加载器同款机制，无 eval/CSP 依赖）；未设置时为主包构建。
+const chunkTarget = ["hub", "review"].includes(env.VITE_CHUNK ?? "") ? env.VITE_CHUNK : "";
 
 const outputDir = isDev ? "dev" : "dist";
 const pluginManifest = JSON.parse(readFileSync(resolve(import.meta.dirname, "plugin.json"), "utf8"));
@@ -63,6 +67,41 @@ export default defineConfig(buildTarget === "kernel" ? {
             },
         },
     }
+} : chunkTarget ? {
+    // AT-17：UI chunk 构建——独立 IIFE 自带 svelte（避免与主包 svelte 实例双份内部状态
+    // 造成 split-brain），siyuan 走 shell 注入的 __lvSiyuan 全局；CSS 平铺到 chunks/
+    resolve: {
+        alias: {
+            "@": resolve(import.meta.dirname, "src"),
+        }
+    },
+    plugins: [svelte()],
+    define: {
+        "process.env.DEV_MODE": JSON.stringify(isDev),
+        "process.env.NODE_ENV": JSON.stringify(env.NODE_ENV),
+        "__LV_VERSION__": JSON.stringify(pluginManifest.version),
+    },
+    build: {
+        outDir: outputDir,
+        emptyOutDir: false,
+        minify: true,
+        sourcemap: isSrcmap ? "inline" : false,
+        lib: {
+            entry: resolve(import.meta.dirname, `src/chunks/${chunkTarget}.ts`),
+            name: `lvChunk_${chunkTarget}`,
+            fileName: () => `chunks/${chunkTarget}.js`,
+            formats: ["iife"],
+            cssFileName: chunkTarget,
+        },
+        rollupOptions: {
+            external: ["siyuan", "process"],
+            output: {
+                entryFileNames: `chunks/${chunkTarget}.js`,
+                assetFileNames: (assetInfo) => assetInfo.name?.endsWith(".css") ? `chunks/${chunkTarget}[extname]` : (assetInfo.name ?? "asset"),
+                globals: { siyuan: "__lvSiyuan", process: "process" },
+            },
+        },
+    },
 } : {
     resolve: {
         alias: {
@@ -98,7 +137,8 @@ export default defineConfig(buildTarget === "kernel" ? {
 
     define: {
         "process.env.DEV_MODE": JSON.stringify(isDev),
-        "process.env.NODE_ENV": JSON.stringify(env.NODE_ENV)
+        "process.env.NODE_ENV": JSON.stringify(env.NODE_ENV),
+        "__LV_VERSION__": JSON.stringify(pluginManifest.version),
     },
 
     build: {

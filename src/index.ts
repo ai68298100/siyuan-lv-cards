@@ -2,8 +2,13 @@ import "./index.scss";
 
 import { mount, unmount } from "svelte";
 import { Plugin, Menu, getAllEditor, showMessage, openTab } from "siyuan";
+import * as siyuanNamespace from "siyuan";
 
+import { loadChunk, type ChunkMount } from "./libs/chunk-loader";
 import { svelteDialog, confirmDialogBool } from "./libs/dialog";
+
+// AT-17：UI chunk（独立 IIFE 自带 svelte）经全局取 siyuan 模块——shell 在此注入单一事实源
+(window as unknown as { __lvSiyuan: unknown }).__lvSiyuan = siyuanNamespace;
 import { lvLog, lvLogDump } from "./libs/log";
 import { loadStore, zipLoaded } from "./libs/store";
 import { createPersist, type PersistQueue } from "./libs/persist";
@@ -51,10 +56,27 @@ const lazyComp = (loader: () => Promise<{ default: any }>) => {
         return cached;
     };
 };
-// 复习面板同样走懒加载（体积评审：主包重回预算；tab 首开一次性 chunk 加载）
-const loadReview = lazyComp(() => import("./ui/review.svelte"));
-// AT-14：Hub（闪卡中心）懒加载——静态引用会把 Manager/Dashboard/CardDetail/KoPanel 全链拉进主包
-const loadHub = lazyComp(() => import("./ui/hub.svelte"));
+
+/**
+ * AT-17（v0.158.0）：hub/review 重组件改走 script 标签 chunk（独立 IIFE 自带 svelte，
+ * 挂载与组件同实例避免双份内部状态）。dev 模式保留进程内动态导入（dev 构建无 chunk 文件）。
+ * 统一返回 ChunkMount 形状：mount(target, props) → { destroy() }。
+ */
+const mountComp = (loader: () => Promise<{ default: any }>) =>
+    async (): Promise<ChunkMount["mount"]> => {
+        const Comp = (await loader()).default;
+        return (target: HTMLElement, props: Record<string, unknown>) => {
+            const app = mount(Comp, { target, props });
+            return { destroy: () => { void unmount(app); } };
+        };
+    };
+const loadHubMount: () => Promise<ChunkMount["mount"]> = process.env.DEV_MODE
+    ? mountComp(() => import("./ui/hub.svelte"))
+    : () => loadChunk("hub").then(m => m.mount);
+const loadReviewMount: () => Promise<ChunkMount["mount"]> = process.env.DEV_MODE
+    ? mountComp(() => import("./ui/review.svelte"))
+    : () => loadChunk("review").then(m => m.mount);
+
 const loadAIWizard = lazyComp(() => import("./ui/ai-wizard.svelte"));
 const loadOcclusionEditor = lazyComp(() => import("./ui/occlusion-editor.svelte"));
 const loadOnboarding = lazyComp(() => import("./ui/onboarding.svelte"));
@@ -238,14 +260,13 @@ export default class LvCardsPlugin extends Plugin {
             init() {
                 const div = document.createElement("div");
                 div.style.height = "100%";
-                // AT-14：Hub 懒加载挂载——加载完成前销毁 Tab 则放弃挂载（防悬挂实例）
-                let mountedApp: ReturnType<typeof mount> | null = null;
+                // AT-14/AT-17：Hub 懒加载挂载（生产=chunk script 标签，dev=进程内动态导入）——
+                // 加载完成前销毁 Tab 则放弃挂载（防悬挂实例）
+                let handle: { destroy(): void } | null = null;
                 let hubDisposed = false;
-                void loadHub().then((HubC) => {
+                void loadHubMount().then((mnt) => {
                     if (hubDisposed) return;
-                    mountedApp = mount(HubC, {
-                    target: div,
-                    props: {
+                    handle = mnt(div, {
                         i18n: plugin.i18n,
                         initialTab: (this.data?.tab as string) ?? plugin.settings.lastHubTab,
                         onTabChange: (id: string) => {
@@ -496,16 +517,13 @@ export default class LvCardsPlugin extends Plugin {
                             save: (goal: LearningGoal) => plugin.saveLearningGoal(goal),
                             remove: (id: string) => plugin.removeLearningGoal(id),
                         },
-                    },
-                });
+                    });
                 });
                 this.element.appendChild(div);
                 // AJ7 + AT-14：销毁回调兼容「尚未加载完成」窗口（先标记放弃，挂载后再卸载）
                 this.destroy = () => {
                     hubDisposed = true;
-                    if (mountedApp) {
-                        unmount(mountedApp);
-                    }
+                    handle?.destroy();
                 };
             },
         });
@@ -516,14 +534,14 @@ export default class LvCardsPlugin extends Plugin {
                 const div = document.createElement("div");
                 div.style.height = "100%";
                 this.element.appendChild(div);
-                // 懒加载 chunk 后异步挂载（v0.65 体积评审）；tab 已关则放弃挂载
-                loadReview().then(Review => {
+                // AT-17：懒加载 chunk 后异步挂载（生产=chunk script 标签，dev=进程内动态导入）；
+                // tab 已关则放弃挂载
+                let reviewHandle: { destroy(): void } | null = null;
+                loadReviewMount().then(mnt => {
                     if (!div.isConnected) {
                         return;
                     }
-                    const app = mount(Review, {
-                        target: div,
-                        props: {
+                    reviewHandle = mnt(div, {
                         initialScope: (this.data?.scope as string) ?? plugin.settings.lastReviewScope,
                         initialCram: this.data?.cram === true,
                         // BI-3：本次入口上下文（tab data 优先；重开无 entry 时回退同范围最新未过期记录）
@@ -638,9 +656,9 @@ export default class LvCardsPlugin extends Plugin {
                             }
                             return out;
                         },
-                    } },
+                    },
                     });
-                    this.destroy = () => unmount(app);
+                    this.destroy = () => reviewHandle?.destroy();
                 });
             },
         });

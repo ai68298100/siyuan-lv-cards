@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.158.0 2026-10-05 · AT-17 chunk 加载器落地（主包 101.93→67.14KB）
+
+* 机制定案：解剖思源 stage/build 加载器实证——桌面端插件 JS=同步 XHR 文本+内联 script 注入（全局作用域 Node globals），移动端=src script 标签；本插件取 **src script 标签 + window.__lvChunks 注册表**（无 eval/CSP 依赖，与宿主同机制）
+* 构建：VITE_CHUNK=hub|review 双模式——独立 IIFE 自带 svelte（挂载与组件同实例，避免双份内部状态 split-brain），siyuan 经 shell 注入 __lvSiyuan 全局；CSS 平铺 chunks/<n>.css 经 link 注入；zip 打包自动含 chunks
+* 加载器 libs/chunk-loader.ts：幂等注入（同 chunk 一次）、失败清缓存可重试、缺 mount 导出可诊断报错；+5 组单测（431→436）；dev 模式保留进程内动态导入双路径
+* 实测：主包 67.14KB（-34.8KB，启动传输结构性回落）；hub 46.12KB+3.0css / review 31.07KB+2.3css 按需加载；隔离 e2e 扩展 chunk 可服务四断言后 **14/14 通过**；governance ⑨ 第五次修订 ≤102→≤75KB（回降锁定）
+* 余项：AI 向导等对话框组件仍在主包（可再切 dialogs chunk）；**渲染进程 script 执行与页签挂载复验待真机**（无头 e2e 覆盖不到，UI 批次解禁以真机走查为准）
+
 ## v0.157.0 2026-10-05 · BI-10 长期返场检查（纯模块，零打包增量）
 
 * 新增 core/return-check.ts：返场四查（目标活跃/临期 · 材料过时与待修订 · 积压量与长间隔（阈值 BACKLOG_DUE_WARN=100 / GAP_DAYS_WARN=7）· 设备时钟回拨/跨设备恢复）——全部只读，不写内核不改调度不自动重建；info/warn 分级，健康问题不冒充记忆失败（BI-7 同构）

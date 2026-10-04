@@ -8,6 +8,10 @@ import { svelte } from "@sveltejs/vite-plugin-svelte";
 // 这些模块的测试策略是抽取零依赖纯逻辑到独立模块（ai-errors/ai-parse/v2-contract/kernel-response）后测纯逻辑。
 export default defineConfig({
     plugins: [svelte()],
+    // AT-17：chunk-loader 使用的构建期版本号常量（vite.config 主构建有同款 define）
+    define: {
+        __LV_VERSION__: JSON.stringify("0.0.0-test"),
+    },
     resolve: {
         // 注意：vite 8 中 alias 必须用对象形式——数组形式（尤其含正则 find 的条目）
         // 会触发 optimizeDeps 启动崩溃（"reading length"，v0.101 实测）

@@ -153,6 +153,14 @@ if (fs.existsSync(path.join(DIST, "i18n"))) {
         fs.copyFileSync(path.join(DIST, "i18n", f), path.join(dst, "i18n", f));
     }
 }
+// AT-17：UI chunks（hub/review 独立 IIFE + css）——缺失=复习/闪卡中心页签挂载失败
+const chunksSrc = path.join(DIST, "chunks");
+if (fs.existsSync(chunksSrc)) {
+    fs.mkdirSync(path.join(dst, "chunks"), { recursive: true });
+    for (const f of fs.readdirSync(chunksSrc)) {
+        fs.copyFileSync(path.join(chunksSrc, f), path.join(dst, "chunks", f));
+    }
+}
 for (const f of ["icon.png"]) {
     if (fs.existsSync(path.join(DIST, f))) fs.copyFileSync(path.join(DIST, f), path.join(dst, f));
 }
@@ -162,6 +170,11 @@ check("插件部署", manifest.version?.length > 0, `v${manifest.version}`);
 // 4. 插件静态资源可取（前端加载路径的代理断言）
 const asset = await getRaw(port, token, `/plugins/${PLUGIN_ID}/index.js`);
 check("插件资源可服务", asset.status === 200 && asset.size > 10000, `GET /plugins/.../index.js → ${asset.status}, ${asset.size}B`);
+// AT-17：UI chunks 可服务（缺失=复习/闪卡中心页签运行时挂载失败）
+for (const c of ["chunks/hub.js", "chunks/review.js", "chunks/hub.css", "chunks/review.css"]) {
+    const cr = await getRaw(port, token, `/plugins/${PLUGIN_ID}/${c}`);
+    check(`chunk 可服务 ${c}`, cr.status === 200 && cr.size > 500, `→ ${cr.status}, ${cr.size}B`);
+}
 
 // 5. 启用 petal 并核验
 let enabled = false;
