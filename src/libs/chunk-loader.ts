@@ -7,7 +7,8 @@
  */
 
 const BASE = `plugins/siyuan-lv-cards`;
-export type ChunkName = "hub" | "review";
+/** hub/review=挂载器形态 {mount}；dialogs=组件注册表+挂载器安装（形态随 chunk 约定） */
+export type ChunkName = "hub" | "review" | "dialogs";
 
 export interface ChunkMount {
     /** 挂载组件；返回句柄供 tab destroy 调用 */
@@ -44,16 +45,16 @@ function injectScript(name: ChunkName, version: string): Promise<void> {
     });
 }
 
-/** 加载 chunk 并返回其挂载入口（幂等：同 chunk 只注入一次） */
-export function loadChunk(name: ChunkName): Promise<ChunkMount> {
+/** 加载 chunk 并返回其注册表模块（幂等：同 chunk 只注入一次；形态由调用方按 chunk 约定解构） */
+export function loadChunk(name: ChunkName): Promise<Record<string, any>> {
     return (pending[name] ??= (async () => {
         const version = __LV_VERSION__;
         await injectScript(name, version);
         injectCss(name, version);
-        const reg = (window as any).__lvChunks as Record<string, unknown> | undefined;
-        const mod = reg?.[name] as ChunkMount | undefined;
-        if (!mod || typeof mod.mount !== "function") {
-            throw new Error(`lv chunk missing mount export: ${name}`);
+        const reg = (window as any).__lvChunks as Record<string, any> | undefined;
+        const mod = reg?.[name];
+        if (!mod || typeof mod !== "object") {
+            throw new Error(`lv chunk missing export: ${name}`);
         }
         return mod;
     })().catch((e) => {

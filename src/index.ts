@@ -5,6 +5,7 @@ import { Plugin, Menu, getAllEditor, showMessage, openTab } from "siyuan";
 import * as siyuanNamespace from "siyuan";
 
 import { loadChunk, type ChunkMount } from "./libs/chunk-loader";
+import { setDialogMounter } from "./libs/dialog";
 import { svelteDialog, confirmDialogBool } from "./libs/dialog";
 
 // AT-17：UI chunk（独立 IIFE 自带 svelte）经全局取 siyuan 模块——shell 在此注入单一事实源
@@ -80,15 +81,35 @@ const loadReviewMount: () => Promise<ChunkMount["mount"]> = process.env.DEV_MODE
     ? mountComp(() => import("./ui/review.svelte"))
     : () => loadChunk("review").then(m => m.mount);
 
-const loadAIWizard = lazyComp(() => import("./ui/ai-wizard.svelte"));
-const loadOcclusionEditor = lazyComp(() => import("./ui/occlusion-editor.svelte"));
-const loadOnboarding = lazyComp(() => import("./ui/onboarding.svelte"));
-const loadChallengeMode = lazyComp(() => import("./ui/challenge-mode.svelte"));
-const loadMarkerCards = lazyComp(() => import("./ui/marker-cards.svelte"));
-const loadPairingGame = lazyComp(() => import("./ui/pairing-game.svelte"));
-const loadSettingsPanel = lazyComp(() => import("./ui/settings.svelte"));
-const loadDeckPicker = lazyComp(() => import("./ui/deck-picker.svelte"));
-const loadQuickCard = lazyComp(() => import("./ui/quick-card.svelte"));
+/**
+ * AT-17（v0.174.0）：9 个对话框组件收编 dialogs chunk（自带 svelte 挂载器，
+ * shell 经 setDialogMounter 注入——组件与挂载同实例，无 split-brain）。
+ * dev 模式保留进程内动态导入。注意：DEV 三元必须在调用点（define+DCE 才能剪掉
+ * 实参位置的动态 import；包装函数的实参会被无条件打包）。
+ */
+let dialogsChunkReady: Promise<void> | null = null;
+function loadDialogsComp(compName: string): () => Promise<any> {
+    return async () => {
+        dialogsChunkReady ??= loadChunk("dialogs").then(m => {
+            setDialogMounter(m.mountDialogComponent);
+        });
+        await dialogsChunkReady;
+        const m = await loadChunk("dialogs");
+        const Comp = m.components?.[compName];
+        if (!Comp) throw new Error(`lv dialogs chunk missing component: ${compName}`);
+        return Comp;
+    };
+}
+
+const loadAIWizard = process.env.DEV_MODE ? lazyComp(() => import("./ui/ai-wizard.svelte")) : loadDialogsComp("AIWizard");
+const loadOcclusionEditor = process.env.DEV_MODE ? lazyComp(() => import("./ui/occlusion-editor.svelte")) : loadDialogsComp("OcclusionEditor");
+const loadOnboarding = process.env.DEV_MODE ? lazyComp(() => import("./ui/onboarding.svelte")) : loadDialogsComp("Onboarding");
+const loadChallengeMode = process.env.DEV_MODE ? lazyComp(() => import("./ui/challenge-mode.svelte")) : loadDialogsComp("ChallengeMode");
+const loadMarkerCards = process.env.DEV_MODE ? lazyComp(() => import("./ui/marker-cards.svelte")) : loadDialogsComp("MarkerCards");
+const loadPairingGame = process.env.DEV_MODE ? lazyComp(() => import("./ui/pairing-game.svelte")) : loadDialogsComp("PairingGame");
+const loadSettingsPanel = process.env.DEV_MODE ? lazyComp(() => import("./ui/settings.svelte")) : loadDialogsComp("SettingsPanel");
+const loadDeckPicker = process.env.DEV_MODE ? lazyComp(() => import("./ui/deck-picker.svelte")) : loadDialogsComp("DeckPicker");
+const loadQuickCard = process.env.DEV_MODE ? lazyComp(() => import("./ui/quick-card.svelte")) : loadDialogsComp("QuickCard");
 
 const TAB_DASHBOARD = "lv-cards-dashboard";
 const TAB_REVIEW = "lv-cards-review";

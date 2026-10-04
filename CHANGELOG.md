@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.174.0 2026-10-05 · AT-17 延伸：dialogs chunk 切分（主包 72.97→41.89KB）
+
+* libs/dialog 增挂载器注入点（setDialogMounter）：svelteDialog 经注入的 mounter 挂载 chunk 编译的组件——组件与挂载同 svelte 实例，杜绝双份内部状态 split-brain；未安装时回退 shell svelte（dev 进程内组件）；组件销毁统一出口兼容句柄/实例两种形态
+* 新增 chunks/dialogs.ts：9 个对话框组件（向导/遮挡/引导/挑战/标记/配对/设置/选卡组/快速制卡）+ mountDialogComponent；**关键坑位**：挂载器安装必须在 shell 侧（chunk 内 import shell 的 libs/dialog 会形成模块双副本，setter 无效）
+* **DCE 坑位**：dev 动态 import 若作实参传包装函数会被无条件打包（首测主包反涨 73.15KB）——DEV 三元移到调用点后 define+DCE 正确剪枝
+* 实测：主包 72.97→**41.89KB**（-31.1KB，对话框组件+kit+shell svelte 内部运行时全部移出）；dialogs chunk 37.88KB+css 按需加载；隔离 e2e 16/16（含 dialogs 六项断言）；预算第六次修订 ≤75→**≤55KB** 锁定收益
+* i18n 无变化；单测 +2（chunk-loader dialogs 形态与导出校验，496→498）
+
 ## v0.173.0 2026-10-05 · BU-31 AI 故障与安全事件处置（紧急停用 + 撤销同意）
 
 * 新增 core/ai-kill-switch.ts 纯模块：目标粒度紧急停用（provider:/model:/task:/template: 非明文键）+ 撤销同意总闸 + 批次隔离 + 安全事件流（最近 50 条，幂等操作不重复记事件，scope 截断 120 字不含材料内容）+ normalize 白名单清洗；+6 组单测（491→497）

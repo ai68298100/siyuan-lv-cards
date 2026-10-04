@@ -9,6 +9,29 @@
 import { Dialog } from "siyuan";
 import { Component, mount, unmount } from "svelte";
 
+/**
+ * AT-17（v0.174.0）：对话框组件挂载器注入点。
+ * dialogs chunk 自带 svelte（组件与挂载同实例，避免与 shell 双份内部状态 split-brain）；
+ * chunk 加载后由 shell 安装 mounter，svelteDialog 经其挂载 chunk 编译的组件。
+ * 未安装时回退 shell 自有 svelte（dev 模式进程内组件）。
+ */
+export type DialogMounter = (
+    comp: Component<any>,
+    target: HTMLElement,
+    props: Record<string, any>
+) => { destroy: () => void };
+let dialogMounter: DialogMounter | null = null;
+export function setDialogMounter(m: DialogMounter): void {
+    dialogMounter = m;
+}
+function mountDialog(comp: Component<any>, target: HTMLElement, props: Record<string, any>): { destroy: () => void } {
+    if (dialogMounter) {
+        return dialogMounter(comp, target, props);
+    }
+    const app = mount(comp, { target, props });
+    return { destroy: () => { void unmount(app); } };
+}
+
 interface IConfirmDialogArgs {
     title: string;
     content: string | HTMLElement;
@@ -110,15 +133,20 @@ export const svelteDialog = (args: {
     let destroyed = false;
     let unmounted = false;
     let dialogHandle: { destroy: () => void } | null = null;
-    let componentInstance: ReturnType<typeof mount> | null = null;
+    let componentInstance: unknown = null;
 
-    const doUnmount = () => {
+    // 组件销毁统一出口：chunk mounter 句柄（.destroy）或 shell svelte 实例（unmount）
+    const destroyComponent = () => {
         if (unmounted || !componentInstance) {
             return;
         }
         unmounted = true;
         try {
-            unmount(componentInstance);
+            if (dialogMounter) {
+                (componentInstance as { destroy: () => void }).destroy();
+            } else {
+                unmount(componentInstance as ReturnType<typeof mount>);
+            }
         } catch { /* 已卸载 */ }
     };
 
@@ -131,10 +159,10 @@ export const svelteDialog = (args: {
             try {
                 dialogHandle.destroy(); // destroyCallback 内完成 unmount + 业务 callback
             } catch {
-                doUnmount();
+                destroyComponent();
             }
         } else {
-            doUnmount();
+            destroyComponent();
         }
         restoreFocus();
     };
@@ -159,11 +187,8 @@ export const svelteDialog = (args: {
     let container = document.createElement('div')
     container.style.display = 'contents';
 
-    // 内部处理 mount
-    componentInstance = mount(args.component, {
-        target: container,
-        props,
-    });
+    // 内部处理 mount（chunk mounter 已安装时用 chunk 的 svelte 实例挂载）
+    componentInstance = mountDialog(args.component, container, props);
 
     const { dialog } = simpleDialog({
         title: args.title,
@@ -172,7 +197,7 @@ export const svelteDialog = (args: {
         height: args.height,
         callback: () => {
             destroyed = true;
-            doUnmount();
+            destroyComponent();
             restoreFocus();
             if (args.callback) args.callback();
         }

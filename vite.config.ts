@@ -16,7 +16,7 @@ const buildTarget = env.VITE_BUILD_TARGET === "kernel" ? "kernel" : "app";
 // AT-17（v0.158.0）：UI chunk 构建模式——VITE_CHUNK=hub|review 时产出独立 IIFE
 // （window.__lvChunks 注册表 + siyuan 走 __lvSiyuan 全局），主包经 script 标签加载
 // （思源移动端加载器同款机制，无 eval/CSP 依赖）；未设置时为主包构建。
-const chunkTarget = ["hub", "review"].includes(env.VITE_CHUNK ?? "") ? env.VITE_CHUNK : "";
+const chunkTarget = ["hub", "review", "dialogs"].includes(env.VITE_CHUNK ?? "") ? env.VITE_CHUNK : "";
 
 const outputDir = isDev ? "dev" : "dist";
 const pluginManifest = JSON.parse(readFileSync(resolve(import.meta.dirname, "plugin.json"), "utf8"));

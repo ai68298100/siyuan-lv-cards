@@ -171,7 +171,7 @@ check("插件部署", manifest.version?.length > 0, `v${manifest.version}`);
 const asset = await getRaw(port, token, `/plugins/${PLUGIN_ID}/index.js`);
 check("插件资源可服务", asset.status === 200 && asset.size > 10000, `GET /plugins/.../index.js → ${asset.status}, ${asset.size}B`);
 // AT-17：UI chunks 可服务（缺失=复习/闪卡中心页签运行时挂载失败）
-for (const c of ["chunks/hub.js", "chunks/review.js", "chunks/hub.css", "chunks/review.css"]) {
+for (const c of ["chunks/hub.js", "chunks/review.js", "chunks/dialogs.js", "chunks/hub.css", "chunks/review.css", "chunks/dialogs.css"]) {
     const cr = await getRaw(port, token, `/plugins/${PLUGIN_ID}/${c}`);
     check(`chunk 可服务 ${c}`, cr.status === 200 && cr.size > 500, `→ ${cr.status}, ${cr.size}B`);
 }

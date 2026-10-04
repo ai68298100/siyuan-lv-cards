@@ -48,20 +48,34 @@ describe("chunk-loader（AT-17）", () => {
         expect(css.rel).toBe("stylesheet");
     });
 
-    it("注册表缺 mount 导出 → 明确报错（部署不完整可诊断）", async () => {
+    it("注册表缺模块导出 → 明确报错（部署不完整可诊断）", async () => {
         const loadChunk = await freshLoader();
         (window as any).__lvChunks = {};
         preinject("review");
         const err = await loadChunk("review").catch(e => e);
         await flush();
-        expect(err.message).toContain("missing mount export");
+        expect(err.message).toContain("missing export");
+    });
+
+    it("dialogs 形态（组件注册表+挂载器）可整包返回", async () => {
+        const loadChunk = await freshLoader();
+        (window as any).__lvChunks = {
+            dialogs: {
+                AIWizard: {}, SettingsPanel: {},
+                mountDialogComponent: () => ({ destroy() { /* noop */ } }),
+            },
+        };
+        preinject("dialogs");
+        const m = await loadChunk("dialogs");
+        expect(typeof m.mountDialogComponent).toBe("function");
+        expect(m.AIWizard).toBeTruthy();
     });
 
     it("注册表整体缺失 → 同样可诊断报错", async () => {
         const loadChunk = await freshLoader();
         preinject("hub");
         const err = await loadChunk("hub").catch(e => e);
-        expect(err.message).toContain("missing mount export");
+        expect(err.message).toContain("missing export");
     });
 
     it("同 chunk 二次调用幂等：不重复注入 css（pending 缓存命中）", async () => {

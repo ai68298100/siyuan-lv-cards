@@ -103,13 +103,13 @@ if (!md.includes(`当前基线：v${pkg.version} `)) {
 // ⑨ 主包体积预算（AT-14：单文件构建约束。修订史：32→95（v0.125.0，AT-12 单文件定案）→98（v0.149.0，BI-4 UI）
 // →101（v0.151.0，AT-15 决策）→102（v0.155.0，BI-5/6/7 面板）→75（v0.158.0，AT-17 落地：hub/review 重组件
 // 切独立 chunk（script 标签加载，思源移动端加载器同款机制），主包实测 67.14KB——启动传输量结构性回落；
-// 对话框组件仍在主包（33KB 量级），后续可再切 dialogs chunk；⑤ e2e-isolated 已含 chunk 可服务断言。
+// v0.174.0 dialogs chunk 切分：9 个对话框组件移出主包（挂载器注入防 split-brain），实测 41.89KB，预算第六次修订 ≤75→≤55KB 锁定收益；⑤ e2e-isolated 已含 chunk 可服务断言。
 // dist 不存在时跳过——check 阶段先于 build）
-const MAIN_GZIP_BUDGET = 75 * 1024;
+const MAIN_GZIP_BUDGET = 55 * 1024;
 if (existsSync("dist/index.js")) {
     const gz = gzipSync(readFileSync("dist/index.js"));
     if (gz.length > MAIN_GZIP_BUDGET) {
-        failures.push(`主包 gzip ${Math.round(gz.length / 1024)}KB 超预算 75KB（AT-14 单文件约束下的体积上限）`);
+        failures.push(`主包 gzip ${Math.round(gz.length / 1024)}KB 超预算 55KB（AT-14 单文件约束下的体积上限）`);
     }
 }
 
