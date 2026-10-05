@@ -1546,14 +1546,14 @@
             {#if !showAnswer}
                 <button class="b3-button b3-button--text lv-btn-wide" onclick={() => (showAnswer = true)}>{t.review.showAnswer}</button>
             {:else if eff().ratingStyle === "three"}
-                <button class="b3-button lv-btn-rate lv-b1" onclick={() => rate(1)}><span class="lv-rate-label"><LvKbd k="1" />{t.review.unknown}</span><small>{dueText("1")}</small></button>
-                <button class="b3-button lv-btn-rate lv-b2" onclick={() => rate(2)}><span class="lv-rate-label"><LvKbd k="2" />{t.review.vague}</span><small>{dueText("2")}</small></button>
-                <button class="b3-button lv-btn-rate lv-b3" onclick={() => rate(3)}><span class="lv-rate-label"><LvKbd k="3" />{t.review.know}</span><small>{dueText("3")}</small></button>
+                <button class="b3-button lv-btn-rate lv-b1" onclick={() => rate(1)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.unknown}</span><LvKbd k="1" /></span><small>{dueText("1")}</small></button>
+                <button class="b3-button lv-btn-rate lv-b2" onclick={() => rate(2)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.vague}</span><LvKbd k="2" /></span><small>{dueText("2")}</small></button>
+                <button class="b3-button lv-btn-rate lv-b3" onclick={() => rate(3)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.know}</span><LvKbd k="3" /></span><small>{dueText("3")}</small></button>
             {:else}
-                <button class="b3-button lv-btn-rate lv-b1" onclick={() => rate(1)}><span class="lv-rate-label"><LvKbd k="1" />{t.review.againBtn}</span><small>{dueText("1")}</small></button>
-                <button class="b3-button lv-btn-rate lv-b2" onclick={() => rate(2)}><span class="lv-rate-label"><LvKbd k="2" />{t.review.hard}</span><small>{dueText("2")}</small></button>
-                <button class="b3-button lv-btn-rate lv-b3" onclick={() => rate(3)}><span class="lv-rate-label"><LvKbd k="3" />{t.review.good}</span><small>{dueText("3")}</small></button>
-                <button class="b3-button lv-btn-rate lv-b4" onclick={() => rate(4)}><span class="lv-rate-label"><LvKbd k="4" />{t.review.easy}</span><small>{dueText("4")}</small></button>
+                <button class="b3-button lv-btn-rate lv-b1" onclick={() => rate(1)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.againBtn}</span><LvKbd k="1" /></span><small>{dueText("1")}</small></button>
+                <button class="b3-button lv-btn-rate lv-b2" onclick={() => rate(2)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.hard}</span><LvKbd k="2" /></span><small>{dueText("2")}</small></button>
+                <button class="b3-button lv-btn-rate lv-b3" onclick={() => rate(3)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.good}</span><LvKbd k="3" /></span><small>{dueText("3")}</small></button>
+                <button class="b3-button lv-btn-rate lv-b4" onclick={() => rate(4)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.easy}</span><LvKbd k="4" /></span><small>{dueText("4")}</small></button>
             {/if}
         </div>
     {/if}
@@ -1908,16 +1908,17 @@
         .lv-actions {
             display: flex; gap: var(--lv-sp-3); justify-content: center;
             /* 紧凑密度（441）：评分按钮收窄高度与内边距 */
-            &.lv-actions-compact { gap: var(--lv-sp-2); .lv-btn-rate { max-width: 150px; padding: 4px 0; } }
+            &.lv-actions-compact { gap: var(--lv-sp-2); .lv-btn-rate { max-width: 150px; padding: 10px 14px; min-height: 56px; } }
             .lv-btn-wide { flex: 1; }
             .lv-btn-rate {
                 flex: 1;
                 max-width: 180px;
-                display: flex; flex-direction: column; align-items: center; gap: 2px;
+                /* R52 .rating：高卡、左对齐、kbd 右置、间隔提示下沉 */
+                display: flex; flex-direction: column; align-items: stretch; gap: 5px;
+                text-align: left;
                 border-radius: var(--lv-r-m);
-                padding: 10px 12px;
-                /* 触屏命中区（546）：粗指针设备保底 44px 高 */
-                @media (pointer: coarse) { min-height: 44px; }
+                padding: 14px 17px;
+                min-height: 77px;
                 transition: transform var(--lv-dur-1) var(--lv-ease),
                     background var(--lv-dur-1) var(--lv-ease),
                     box-shadow var(--lv-dur-2) var(--lv-ease);
@@ -1925,7 +1926,10 @@
                 &:hover { transform: translateY(-1px); }
                 &:active { transform: scale(0.98); }
 
-                .lv-rate-label { display: flex; align-items: center; gap: var(--lv-sp-1); font-weight: 600; }
+                .lv-rate-top {
+                    display: flex; align-items: center; justify-content: space-between;
+                    gap: var(--lv-sp-2); font-weight: 600;
+                }
                 small { opacity: 0.7; font-size: 11px; font-variant-numeric: tabular-nums; }
             }
 

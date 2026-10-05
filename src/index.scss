@@ -198,13 +198,13 @@
     color: transparent;
 }
 
-// 区块标题行
+// 区块标题行（R52 .panel h3：15px/650）
 .lv-secthead {
     display: flex;
     align-items: center;
     gap: var(--lv-sp-2);
-    font-weight: 600;
-    font-size: 14px;
+    font-weight: 650;
+    font-size: 15px;
     margin-bottom: var(--lv-sp-3);
 
     .lv-secthead-sub {
@@ -229,6 +229,7 @@
     overflow: hidden;
     background: var(--b3-theme-primary);
     color: var(--b3-theme-on-primary);
+    font-weight: 550;
     transition: transform var(--lv-dur-1) var(--lv-ease),
         box-shadow var(--lv-dur-2) var(--lv-ease), filter var(--lv-dur-1) var(--lv-ease);
 
@@ -238,6 +239,17 @@
         filter: brightness(1.06);
     }
     &:active { transform: scale(0.98); }
+}
+
+// 插件容器内宿主按钮微反馈（R52 button：0.12s 过渡，不覆写宿主配色）
+.lv-page,
+.lv-hub {
+    .b3-button {
+        transition: background var(--lv-dur-1) var(--lv-ease),
+            border-color var(--lv-dur-1) var(--lv-ease),
+            color var(--lv-dur-1) var(--lv-ease),
+            box-shadow var(--lv-dur-2) var(--lv-ease);
+    }
 }
 
 // 细滚动条（插件容器内）
@@ -444,6 +456,8 @@
         gap: var(--lv-sp-3);
         flex-wrap: wrap;
         .lv-hero-remaining { font-size: 12px; color: var(--b3-theme-on-surface); }
+        /* 原型主动作：48px 高的明确主按钮 */
+        .lv-btn-primary { min-height: 48px; padding: 0 22px; }
     }
     .lv-hero-text { min-width: 0; }
 
