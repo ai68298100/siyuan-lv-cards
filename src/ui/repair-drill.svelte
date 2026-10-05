@@ -12,6 +12,7 @@
 
     const STEPS = 5;
     let step = $state(1); // 1..5
+    // svelte-ignore state_referenced_locally -- 初值刻意的：样例题面只在打开时注入一次
     let draft = $state(t.drillBrokenQ);
     let revealed = $state(false);
 
@@ -51,8 +52,8 @@
                 <div class="lv-notice lv-notice--warn">{t.drillIssue}</div>
             {:else if step === 3}
                 <!-- 修改并看实际卡面 -->
-                <label class="ft__smaller" style="display: block; margin-bottom: 6px">{t.drillEditLabel}</label>
-                <textarea class="b3-text-field fn__block" rows="2" bind:value={draft}></textarea>
+                <label class="ft__smaller" style="display: block; margin-bottom: 6px" for="drill-rewrite">{t.drillEditLabel}</label>
+                <textarea id="drill-rewrite" class="b3-text-field fn__block" rows="2" bind:value={draft}></textarea>
                 <div class="lv-card2" style="margin-top: 10px; padding: 18px 20px">
                     <div class="lv-eyebrow">{t.aiWizard.previewQLabel}</div>
                     <div style="font-weight: 650; margin: 8px 0; line-height: 1.65">{draft || "—"}</div>
