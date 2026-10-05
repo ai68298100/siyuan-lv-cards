@@ -237,6 +237,8 @@
     let peek = $state<{ html: string; card: RiffDueCard } | null>(null);
     // 超时倒计时（M3·FR8）
     let timeoutLeft = $state(0);
+    // docs/13 §6：「遗忘」限时到点标记——揭示答案并提示自评，不自动记分
+    let timeoutExpired = $state(false);
     let timeoutTimer: ReturnType<typeof setInterval> | null = null;
     // AT-10：最近一次生效的超时参数（设置变更时对比决定是否重启计时）
     let lastTimeoutMode: "off" | "reveal" | "forget" = "off";
@@ -618,6 +620,7 @@
 
     function restartTimeout() {
         stopTimeout();
+        timeoutExpired = false;
         const s = eff();
         if (s.timeoutMode === "off" || !current) {
             timeoutLeft = 0;
@@ -636,10 +639,11 @@
             timeoutLeft = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
             if (timeoutLeft <= 0) {
                 stopTimeout();
-                if (s.timeoutMode === "reveal") {
-                    showAnswer = true;
-                } else if (s.timeoutMode === "forget") {
-                    rate(1, true);
+                // docs/13 §6 行为修正（2026-10-06）：任何限时模式到点都只揭示答案、不自动提交
+                // 正式评分——「遗忘」尤其不能被定时器塞进正式账本；评分必须由用户确认
+                showAnswer = true;
+                if (s.timeoutMode === "forget") {
+                    timeoutExpired = true;
                 }
             }
         }, 250);
@@ -1564,7 +1568,11 @@
                 </div>
             </div>
         {/if}
-        <div class="lv-actions" class:lv-actions-compact={eff().ratingDensity === "compact"}>
+            {#if timeoutExpired && showAnswer}
+                <!-- docs/13 §6：限时到点不自动记分，评分由用户确认 -->
+                <div class="lv-notice lv-notice--warn" style="margin-bottom: var(--lv-sp-2)">{t.review.timeoutExpiredNote}</div>
+            {/if}
+            <div class="lv-actions" class:lv-actions-compact={eff().ratingDensity === "compact"}>
             {#if !showAnswer}
                 <button class="b3-button b3-button--text lv-btn-wide" onclick={() => (showAnswer = true)}>{t.review.showAnswer}</button>
             {:else if eff().ratingStyle === "three"}
