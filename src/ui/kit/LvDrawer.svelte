@@ -25,12 +25,13 @@
 
 {#if open}
     <div class="lv-drawer-mask" transition:fade={{ duration: 120 }} onclick={onclose} role="presentation"></div>
-    <div class="lv-drawer b3-typography" style={`width:${width}`} transition:fade={{ duration: 150 }}>
+    <!-- AS-1：非模态层显式声明 aria-modal="false"（不劫持页面其余部分），标题经 aria-label 关联 -->
+    <div class="lv-drawer b3-typography" style={`width:${width}`} transition:fade={{ duration: 150 }} role="dialog" aria-modal="false" aria-label={title || undefined}>
         <div class="lv-drawer-head">
             <span class="lv-drawer-title">{title}</span>
             <span class="lv-drawer-actions">
                 {#if actions}{@render actions()}{/if}
-                <button class="b3-button b3-button--small" onclick={onclose}>✕</button>
+                <button class="b3-button b3-button--small" onclick={onclose} aria-label="close">✕</button>
             </span>
         </div>
         <div class="lv-drawer-body">

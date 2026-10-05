@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.199.0 2026-10-06 · AS-1 焦点陷阱：对话框键盘闭环（Tab 循环/Esc/移入/归还）
+
+* 新增 libs/focus-trap.ts（纯 DOM 工具，happy-dom 可单测）：getFocusable（排除 disabled/负 tabindex，属性排除在代码层做——happy-dom 属性选择器口径不一）+ trapFocus（打开记宿主→焦点移入首个可聚焦元素→Tab/Shift+Tab 容器内循环→Esc 只回调不执行关闭→release 幂等并按选项归还焦点）
+* 对话框接线：confirmDialog 捕获焦点（Esc 关闭+按钮后归还）；svelteDialog 捕获焦点（Esc→既有 closeOnce 一次性；归还走 AR-2 既有 restoreFocus，restoreOnRelease=false 防双重归还）——全部对话框（AI 向导/设置/目标/卡片详情等 9+）键盘流闭环
+* LvDrawer 非模态语义显式化：role="dialog" aria-modal="false"（不劫持页面其余部分，验收「非模态层不误加 aria-modal」）+ aria-label + 关闭按钮 aria-label
+* 质量：642 测试（+7）；check 0/0；i18n 零增量（纯行为）
+
 ## v0.198.0 2026-10-06 · E 批小修三连：同步有界重载 + 报告写入闭环 + UI import 边界门禁
 
 * AT-1（保守版）：覆写 `onDataChanged`（宽容兼容 string[] 与 {files} 两种宿主形态）——只认本插件 petal 存储目录变更，防抖 2s、单飞串行；重载前先 `persist.waitAll` 冲刷本地在途写（**绝不覆盖未 flush 的本地状态**），再整批重读+normalize（与 onload 同一装配路径，读取/装配抽成方法防错位回归）；完成后刷新角标；卸载取消挂起重载。打开中页签不自动重渲染（完整 UI 刷新协议待真机专项），已知边界诚实登记

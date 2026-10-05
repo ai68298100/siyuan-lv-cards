@@ -8,6 +8,7 @@
  */
 import { Dialog } from "siyuan";
 import { Component, mount, unmount } from "svelte";
+import { trapFocus, type FocusTrap } from "./focus-trap";
 
 /**
  * AT-17（v0.174.0）：对话框组件挂载器注入点。
@@ -65,14 +66,19 @@ export const confirmDialog = (args: IConfirmDialogArgs) => {
         target.appendChild(content);
     }
 
+    // AS-1：确认框捕获焦点（Tab 循环 + Esc 关闭 + 关闭后归还宿主焦点）
+    const trap = trapFocus(dialog.element, { onEscape: () => dialog.destroy() });
+
     const btnsElement = dialog.element.querySelectorAll(".b3-button");
     btnsElement[0].addEventListener("click", () => {
+        trap.release();
         if (cancel) {
             cancel(target);
         }
         dialog.destroy();
     });
     btnsElement[1].addEventListener("click", () => {
+        trap.release();
         if (confirm) {
             confirm(target);
         }
@@ -134,6 +140,8 @@ export const svelteDialog = (args: {
     let unmounted = false;
     let dialogHandle: { destroy: () => void } | null = null;
     let componentInstance: unknown = null;
+    /** AS-1：对话框焦点陷阱（Tab 循环/Esc）；释放归 dialog.ts 既有 restoreFocus（防双重归还传 false） */
+    let focusTrap: FocusTrap | null = null;
 
     // 组件销毁统一出口：chunk mounter 句柄（.destroy）或 shell svelte 实例（unmount）
     const destroyComponent = () => {
@@ -155,6 +163,7 @@ export const svelteDialog = (args: {
             return;
         }
         destroyed = true;
+        focusTrap?.release();
         if (dialogHandle) {
             try {
                 dialogHandle.destroy(); // destroyCallback 内完成 unmount + 业务 callback
@@ -197,12 +206,15 @@ export const svelteDialog = (args: {
         height: args.height,
         callback: () => {
             destroyed = true;
+            focusTrap?.release();
             destroyComponent();
             restoreFocus();
             if (args.callback) args.callback();
         }
     });
     dialogHandle = dialog;
+    // AS-1：焦点捕获（Esc→closeOnce 一次性；归还走既有 restoreFocus）
+    focusTrap = trapFocus(dialog.element, { onEscape: closeOnce, restoreOnRelease: false });
 
     return {
         component: componentInstance,
