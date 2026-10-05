@@ -1222,21 +1222,21 @@
     {:else if sessionDone || !current}
         <div class="lv-center lv-done">
             <div class="lv-done-badge" aria-hidden="true">✓</div>
-            <div class="lv-done-title lv-anim-rise">{t.review.done}</div>
-            <div class="lv-done-desc lv-anim-rise" style="animation-delay: 60ms">
+            <div class="lv-done-title">{t.review.done}</div>
+            <div class="lv-done-desc">
                 {t.review.doneNew} {sessionNew} · {t.review.doneReview} {sessionReview} · {t.review.doneForget} {sessionForget} · {t.review.doneSkip} {sessionSkip}
             </div>
-            <div class="lv-done-desc lv-anim-rise" style="animation-delay: 90ms">
+            <div class="lv-done-desc">
                 ⏱ {sessionDurationText()}{#if targetProgressText()} · {targetProgressText()}{/if}
             </div>
             {#if budgetExpired || budgetMin > 0}
                 <!-- BI-12：预算中性提示（到点收工不算失败；未完成项真实保留） -->
-                <div class="lv-done-desc lv-anim-rise" style="animation-delay: 100ms">
+                <div class="lv-done-desc">
                     ⏳ {budgetExpired ? t.review.budgetDoneTip : t.review.budgetOn}
                 </div>
             {/if}
             <!-- BI-8：会话收工建议（buildSummary 推导） -->
-            <div class="lv-done-desc lv-anim-rise" style="animation-delay: 110ms">
+            <div class="lv-done-desc">
                 <!-- BI-2：评分口径随目的——formal 庆祝每日目标，informal 只给鼓励不占目标 -->
                 {#if PURPOSE_PROFILES[purpose].grading === "informal"}
                     💪 {t.purpose[purpose].end} · {t.review.purposeInformal}
@@ -1247,13 +1247,13 @@
                 {/if}
             </div>
             {#if streakMilestoneText()}
-                <div class="lv-done-milestone lv-anim-rise" style="animation-delay: 120ms">🔥 {streakMilestoneText()}</div>
+                <div class="lv-done-milestone">🔥 {streakMilestoneText()}</div>
             {/if}
             {#if dailyTip()}
-                <div class="lv-done-tip lv-anim-rise" style="animation-delay: 150ms">💡 {dailyTip()}</div>
+                <div class="lv-done-tip">💡 {dailyTip()}</div>
             {/if}
             <!-- BI-8：收工原因收集（可跳过；写当日现场，返场时恢复横幅/分流可读） -->
-            <div class="lv-done-end lv-anim-rise" style="animation-delay: 130ms" role="group" aria-label={t.endReason.title}>
+            <div class="lv-done-end" role="group" aria-label={t.endReason.title}>
                 <span class="ft__smaller ft__on-surface">{t.endReason.title}</span>
                 {#each END_REASONS as r (r)}
                     <button class="b3-button b3-button--small" class:lv-btn-primary={endPicked === r}
@@ -1261,7 +1261,7 @@
                         onclick={() => pickEnd(r)}>{t.endReason[r]}</button>
                 {/each}
             </div>
-            <div class="fn__flex lv-done-actions lv-anim-rise" style="animation-delay: 120ms">
+            <div class="fn__flex lv-done-actions">
                 <button class="b3-button b3-button--text" onclick={loadQueue}>{t.review.again}</button>
                 <button class="b3-button b3-button--outline" onclick={undoHistory}>{t.review.undoLast}</button>
                 <button class="b3-button b3-button--outline" onclick={ctx.openDashboard}>{t.review.viewStats}</button>
@@ -1690,6 +1690,12 @@
         }
         .lv-done-actions { gap: var(--lv-sp-2); justify-content: center; margin-top: var(--lv-sp-4); }
 
+        /* R52 docs/15 §6：完成态单次淡入，不做逐行错峰 */
+        .lv-done { animation: lv-done-fade var(--lv-dur-3) var(--lv-ease) both; }
+        @keyframes lv-done-fade {
+            from { opacity: 0; transform: translateY(4px); }
+        }
+
         .lv-done-badge {
             width: 56px; height: 56px;
             border-radius: 50%;
@@ -1753,7 +1759,10 @@
             border: 1px solid var(--lv-border);
             border-radius: var(--lv-r-l);
             box-shadow: var(--lv-shadow-2);
-            padding: 32px;
+            /* R52 卡面规范（starline .study-card）：48/44 内边距、min-height 300，窄屏收窄 */
+            padding: 48px 44px;
+            min-height: 300px;
+            @media (max-width: 740px) { padding: 26px 22px; }
             position: relative;
             transition: box-shadow var(--lv-dur-2) var(--lv-ease), transform var(--lv-dur-2) var(--lv-ease);
 
@@ -1920,13 +1929,11 @@
                 small { opacity: 0.7; font-size: 11px; font-variant-numeric: tabular-nums; }
             }
 
-            // 评分条错峰入场（答案展示时）
-            @media (prefers-reduced-motion: no-preference) {
-                .lv-btn-rate { animation: lv-rise var(--lv-dur-2) var(--lv-ease) both; }
-                .lv-btn-rate:nth-child(1) { animation-delay: 0ms; }
-                .lv-btn-rate:nth-child(2) { animation-delay: 40ms; }
-                .lv-btn-rate:nth-child(3) { animation-delay: 80ms; }
-                .lv-btn-rate:nth-child(4) { animation-delay: 120ms; }
+            // R52 动效纪律：评分条不做逐钮错峰；窄屏按原型折为 2×2
+            @media (max-width: 740px) {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                .lv-btn-rate { max-width: none; }
             }
             .lv-b1 {
                 background: var(--lv-danger-soft); color: var(--b3-theme-error);
