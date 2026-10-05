@@ -193,7 +193,12 @@ check("petal 启用", enabled || mine?.enabled === true, JSON.stringify(mine ? {
 const nb = await api(port, token, "/api/notebook/createNotebook", { name: "e2e-isolated" });
 check("建笔记本", nb.code === 0, nb.msg || "");
 if (nb.code === 0) {
-        const doc = await api(port, token, "/api/filetree/createDocWithMd", { notebook: nb.data.notebook.id, path: "e2e/riff-smoke", markdown: "e2e smoke block" });
+    // 抗抖动：冷启动内核索引未就绪时 createDocWithMd 偶发 "block not found"（实测出现过一次），重试一次
+    let doc = await api(port, token, "/api/filetree/createDocWithMd", { notebook: nb.data.notebook.id, path: "e2e/riff-smoke", markdown: "e2e smoke block" });
+    if (doc.code !== 0) {
+        await sleep(1500);
+        doc = await api(port, token, "/api/filetree/createDocWithMd", { notebook: nb.data.notebook.id, path: "e2e/riff-smoke", markdown: "e2e smoke block" });
+    }
     check("建文档", doc.code === 0, doc.msg || "");
     if (doc.code === 0) {
         // 与插件 src/api/riff.ts 相同的两段式：createRiffDeck → addRiffCards

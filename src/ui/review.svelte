@@ -198,6 +198,13 @@
     // BI-13：减负选择（只读建议；点击展开对 due/历史的影响说明，可跳过）
     const reliefChoices = loadReliefChoices();
     let reliefOpen = $state<LoadChoice | null>(null);
+    function onReliefPick(key: LoadChoice) {
+        reliefOpen = reliefOpen === key ? null : key;
+        // 「缩小范围」联动范围选择器（聚焦提示用户收窄；不代选任何范围）
+        if (key === "narrow") {
+            scopeEl?.focus();
+        }
+    }
     // BI-2：本次会话目的（默认复习到期；informal 目的完成屏不庆祝每日目标）
     let purpose = $state<SessionPurpose>("review");
     // svelte-ignore non_reactive_update -- scopeEl 仅作 bind:this 引用（focus 用），无需响应式
@@ -477,6 +484,12 @@
                 sessionDone = true;
                 if (finished && reviewedIDs.length > 0) {
                     ctx.emitSessionFinished({ new: sessionNew, review: sessionReview, forget: sessionForget, skip: sessionSkip });
+                }
+                // BI-8/BI-12：预算到点自动记「时间到」收工原因（中性事实；用户手动点选的原因优先）
+                if (finished && budgetExpired && !ctx.getSessionState()?.endReason) {
+                    const s = ctx.getSessionState();
+                    const next = s ? withEndReason(s, "time-up") : null;
+                    if (next) ctx.saveSessionState(next);
                 }
                 stopTimeout();
             } else {
@@ -1191,7 +1204,7 @@
             <span class="lv-return-title">{t.loadRelief.title}</span>
             {#each reliefChoices as c (c.key)}
                 <button class="b3-button b3-button--small" aria-expanded={reliefOpen === c.key}
-                    onclick={() => (reliefOpen = reliefOpen === c.key ? null : c.key)}>{t.loadRelief[c.key]}</button>
+                    onclick={() => onReliefPick(c.key)}>{t.loadRelief[c.key]}</button>
             {/each}
         </div>
         {#if reliefOpen}
