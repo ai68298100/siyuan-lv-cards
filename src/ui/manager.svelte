@@ -349,7 +349,20 @@
     {:else}
         <div class="lv-list">
             {#each filteredBlocks as b (b.id)}
-                <div class="lv-row" role="presentation" onclick={(e: MouseEvent) => onRowClick(e, b)}>
+                <div
+                    class="lv-row"
+                    role="button"
+                    tabindex="0"
+                    onclick={(e: MouseEvent) => onRowClick(e, b)}
+                    onkeydown={(e: KeyboardEvent) => {
+                        // docs/38 P1-B：操作不依赖 hover/指针——Enter/Space 程序化点击等价打开详情
+                        if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            if ((e.target as HTMLElement).closest("input,button,a,select")) return;
+                            (e.currentTarget as HTMLElement).click();
+                        }
+                    }}
+                >
                     <input
                         type="checkbox"
                         class="lv-check"

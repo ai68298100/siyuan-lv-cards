@@ -1268,6 +1268,21 @@
                         onclick={() => pickEnd(r)}>{t.endReason[r]}</button>
                 {/each}
             </div>
+            {#if sessionSkip > 0 || sessionForget > 0}
+                <!-- T07 下一步建议（docs/40）：本场数据推导，本地口径、可忽略——"把疑问留下，也把下一步留下" -->
+                <div class="lv-done-next">
+                    <div class="lv-eyebrow">{t.review.nextTitle}</div>
+                    {#if sessionSkip > 0}
+                        <div class="lv-next-row">
+                            <span>{t.review.nextSkipped.replace("${n}", String(sessionSkip))}</span>
+                            <button class="b3-button b3-button--small" onclick={ctx.openDashboard}>{t.review.nextAct}</button>
+                        </div>
+                    {/if}
+                    {#if sessionForget > 0}
+                        <div class="lv-next-row"><span>{t.review.nextForgotten.replace("${n}", String(sessionForget))}</span></div>
+                    {/if}
+                </div>
+            {/if}
             <div class="fn__flex lv-done-actions">
                 <button class="b3-button b3-button--text" onclick={loadQueue}>{t.review.again}</button>
                 <button class="b3-button b3-button--outline" onclick={undoHistory}>{t.review.undoLast}</button>
@@ -1696,6 +1711,22 @@
             font-size: 12px;
         }
         .lv-done-actions { gap: var(--lv-sp-2); justify-content: center; margin-top: var(--lv-sp-4); }
+
+        /* T07 下一步建议（docs/40）：软面板 + 行式布局 */
+        .lv-done-next {
+            margin-top: var(--lv-sp-4);
+            padding: var(--lv-sp-3) var(--lv-sp-4);
+            background: color-mix(in srgb, var(--b3-theme-on-background) 4%, transparent);
+            border: 1px solid var(--lv-border);
+            border-radius: var(--lv-r-m);
+            text-align: left;
+            max-width: 420px;
+        }
+        .lv-next-row {
+            display: flex; align-items: center; justify-content: space-between; gap: var(--lv-sp-2);
+            font-size: 13px;
+            padding: 4px 0;
+        }
 
         /* R52 docs/15 §6：完成态单次淡入，不做逐行错峰 */
         .lv-done { animation: lv-done-fade var(--lv-dur-3) var(--lv-ease) both; }
