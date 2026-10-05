@@ -250,7 +250,7 @@
             const docCovPromise: Promise<{ docs: { docID: string; title: string; seen: number }[]; unattributed: number } | null> =
                 ctx.getDocCoverage ? ctx.getDocCoverage().catch(() => null) : Promise.resolve(null);
             const v2StatsPromise: Promise<any[]> = ctx.getV2Status()
-                ? getFlashcardStatistics({}).catch(() => [])
+                ? getFlashcardStatistics({}).then((s) => s as any[]).catch(() => [])
                 : Promise.resolve([]);
             const [deckList, due] = await Promise.all([
                 getRiffDecks(),
