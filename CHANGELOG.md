@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.195.0 2026-10-06 · B13 红队 fixture 扩容（注入模式库 10→14 + 扫描资源上限）
+
+* INJECTION_PATTERNS 扩容 4 个高信号模式：HTML 事件外发（`<img onerror=` 等）、聊天模板逃逸（`<|im_start|>` / `[INST]` / `[/SYS]`）、密钥套取（打印 API key/口令）、Markdown 信标（超长外链图片 ≥80 字符）
+* 红队 fixture 10→15：新增 HTML 事件外发、聊天模板逃逸、INST 标记逃逸、Markdown 信标、套取密钥五组攻击样本；零误报集同步扩容（相对路径图片/普通短链图片不命中信标模式）
+* 资源上限：扫描输入截断 SCAN_MAX_CHARS=200K 字符（诊断留证不是安全边界，防超长材料资源耗尽；BU-21「超长输入」项的有界化），有界性有测试
+* 覆盖度护栏改为按唯一 expectId 断言（两 fixture 可共用一模式）；8/8 spec 全过
+* i18n 零增量（扫描器为诊断层，无用户可见文案）
+
 ## v0.194.0 2026-10-06 · B10（BU-19 批次 pin）：生成环境快照随批次落盘
 
 * ai-batches 批次记录新增 pin 字段（BU-19）：mode/modelId/templateHash（生效 system 提示 FNV-1a）/sourceHash（来源材料指纹，**不回存原文**）/pinnedAt——模型或模板升级后旧批次口径可复现、可比较；类型层无 key 字段，密钥永不落盘
