@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.184.0 2026-10-05 · BI-20 来源健康状态（纯模块，五类影响分类器）
+
+* 新增 core/source-health.ts：五类健康问题分类器（删除/移动/版本变化/媒体失效/许可变化，按验收列举顺序独立标记可并存）+ 健康史（发现追加、原地标记解决不删史——验收「修复保留历史」）+ openIssues 未解决清单
+* 验收硬性要求落档：每条问题 `affectsScheduling: false` 恒定——**健康问题不冒充记忆失败**，复习统计与调度归内核 riff（ADR-3）
+* 事实由调用方采集（SQL 存在性/归属、内容指纹、媒体探测），本模块只做分类与历史；bundle 零增量（未接线）；+5 组单测（514→519）
+* i18n +5 键（sourceHealth.impact.*，zh/en 对齐）
+
 ## v0.183.0 2026-10-05 · BI-19 学习对象生命周期状态机（纯模块，九态+四元数据）
 
 * 新增 core/learning-object.ts：九态学习旅程（captured→clarified→candidate→committed→practiced→applied→maintained / stale / retired）；**转移表即契约**——每次转移必须携带触发（trigger 枚举）/责任模块（capture/wizard/review/user）/可见原因（reasonKey，不裸露枚举）/撤销策略（none/previous/explicit）四元数据，缺一不合法；+7 组单测（507→514）

@@ -998,5 +998,14 @@
         "rePracticed": "Practiced again to reinforce",
         "reCaptured": "Re-captured into study",
         "undone": "Last transition undone"
+    },
+    "sourceHealth": {
+        "impact": {
+            "deleted": "Source deleted — review data kept, content no longer viewable",
+            "moved": "Source moved to another doc — reference path updated",
+            "changed": "Source content changed — check whether cards need revision",
+            "media": "Some media files missing — cards may render without images",
+            "license": "Source license changed — review compliance"
+        }
     }
 }
