@@ -565,6 +565,8 @@
         "ankiImportFail": "导入失败：${m}",
         "ankiImportNoSqlite": "当前宿主不支持本地解析：${r}。请使用较新的思源桌面版。",
         "ankiNbName": "Anki 导入",
+        "ankiLossCopy": "复制损失明细",
+        "ankiLossCopied": "损失明细已复制到剪贴板",
         "ankiUrl": "AnkiConnect 地址",
         "ankiKey": "AnkiConnect Key（可选）",
         "ankiTest": "测试连接",

@@ -565,6 +565,8 @@
         "ankiImportFail": "Import failed: ${m}",
         "ankiImportNoSqlite": "Local parsing unavailable on this host: ${r}. Use a newer SiYuan desktop version.",
         "ankiNbName": "Anki Import",
+        "ankiLossCopy": "Copy loss report",
+        "ankiLossCopied": "Loss report copied to clipboard",
         "ankiUrl": "AnkiConnect URL",
         "ankiKey": "AnkiConnect key (optional)",
         "ankiTest": "Test connection",

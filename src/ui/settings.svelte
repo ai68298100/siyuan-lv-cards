@@ -81,6 +81,8 @@
     // Anki M3：本地 .apkg 导入（docs/39 §3）——解析/预览/建文档/配对/制卡/台账，幂等重导
     let ankiBusy = $state(false);
     let ankiStatus = $state<{ kind: "info" | "warn" | "error"; text: string } | null>(null);
+    // Anki M3：损失明细（导入完成时可一键复制）
+    let ankiLosses = $state<string[]>([]);
     async function importAnki(e: Event) {
         const input = e.target as HTMLInputElement;
         const file = input.files?.[0];
@@ -92,6 +94,7 @@
             return;
         }
         ankiBusy = true;
+        ankiLosses = [];
         ankiStatus = { kind: "info", text: t.settings.ankiImportParsing };
         try {
             const bytes = new Uint8Array(await file.arrayBuffer());
@@ -141,6 +144,9 @@
                 kind: "warn",
                 text: t.settings.ankiImportDone.replace("${ok}", String(blockIDs.length)).replace("${skip}", String(already.length)).replace("${loss}", String(preview.losses.length)),
             };
+            if (preview.losses.length > 0) {
+                ankiLosses = preview.losses.map((l) => `[${l.guid}] ${l.reason}`);
+            }
         } catch (e) {
             ankiStatus = { kind: "error", text: (t.settings.ankiImportFail || "导入失败").replace("${m}", e instanceof Error ? e.message : String(e)) };
         } finally {
@@ -735,7 +741,23 @@
             {/snippet}
         </LvRow>
         {#if ankiStatus}
-            <div class="lv-notice {ankiStatus.kind === 'info' ? '' : 'lv-notice--warn'}" style="max-height: 180px; overflow: auto">{ankiStatus.text}</div>
+            <div class="lv-notice {ankiStatus.kind === 'info' ? '' : 'lv-notice--warn'}" style="max-height: 180px; overflow: auto">
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap">
+                    <span style="flex: 1; min-width: 200px">{ankiStatus.text}</span>
+                    {#if ankiStatus.kind === "warn" && ankiLosses.length > 0}
+                        <!-- Anki M3：损失明细一键复制（诊断对账用） -->
+                        <button
+                            class="b3-button b3-button--small"
+                            onclick={() => {
+                                navigator.clipboard.writeText(ankiLosses.join("\n")).then(
+                                    () => showMessage(t.settings.ankiLossCopied, 1500, "info"),
+                                    () => { /* 剪贴板不可用静默 */ },
+                                );
+                            }}
+                        >{t.settings.ankiLossCopy}</button>
+                    {/if}
+                </div>
+            </div>
         {/if}
     </LvSection>
     {/if}
