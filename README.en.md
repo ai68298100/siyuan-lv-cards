@@ -17,19 +17,21 @@
 
 > **Note**: The primary README and all design docs are in Chinese (the author's language). This English page covers the essentials; dive into [docs/](./docs/README.md) with your translator of choice for the full design material.
 
-SiYuan ships a built-in FSRS flashcard system. Lv Cards aims to become its most complete local-first learning platform: absorbing proven mechanisms from Anki, Obsidian, RemNote, Quizlet, language tools, reading tools and exam products across the full lifecycle. AI is planned as a cross-cutting learning copilot for capture, understanding, card design, practice, application, maintenance, reporting and SiYuan Agent workflows. The planned workflow requires reviewable proposals; the current version supports AI preview editing, while per-card source and invocation provenance remain future work. The kernel remains authoritative for formal scheduling. Stable capabilities ship first; V2, external-service and infrastructure-heavy capabilities remain in a tracked later pool, with no silent export of user data.
+SiYuan ships a built-in FSRS flashcard system. Lv Cards aims to become its most complete local-first learning platform: absorbing proven mechanisms from Anki, Obsidian, RemNote, Quizlet, language tools, reading tools and exam products across the full lifecycle. AI already assists card generation behind a full safety chain — preflight checks, prompt-injection isolation, a context budget planner and an emergency kill switch — wired through a single pipeline entry. The kernel remains authoritative for formal scheduling. Capabilities that depend on real-machine verification or host APIs stay tracked with dependencies; no silent export of user data ever happens.
 
 ## ✨ Features
 
 | Module | Highlights |
 |---|---|
-| 🃏 **Review** | Interval preview on every rating · 4/3-button styles · forgotten-card batch re-queue (scheduling untouched) · undo · quick reschedule · type-in grading (LCS diff) · dictation mode (TTS) · multiple choice · image occlusion · touch swipe · source-context preview · timeout mode · session resume |
-| ✍️ **Create** | Block cards (multi-select) · one-click cloze from selection · quick Q/A · marker scanning (`term:: def` and `?` blocks) · AI batch generation (5 input sources + per-card regenerate + difficulty tags + prompt templates + provider fallback) · occlusion editor |
-| 📊 **Stats** | Heatmap (17/26/52 weeks) · True Retention · measured retention curve (PNG export) · week-over-week · milestones · XP/levels (optional) · AI batch quality & token usage |
-| 🗂 **Manage** | Paged browsing · text/status/leech filters · sort by lapses · batch reset/remove · export selected CSV · card detail drawer · saved filters |
+| 🃏 **Review** | Interval preview on every rating · 4/3-button styles · forgotten-card batch re-queue (scheduling untouched) · undo · quick reschedule · type-in grading (LCS diff) · dictation mode (TTS) · multiple choice (local distractors) · image occlusion · touch swipe · source-context preview · timeout mode · session resume · **mixed question-type rotation** (flip/typing/choice by session turn — display layer only) |
+| ✍️ **Create** | Block cards (multi-select) · one-click cloze from selection · quick Q/A · marker scanning (`term:: def` and `?` blocks) · AI batch generation (5 input sources + per-card regenerate + difficulty tags + **12-template prompt registry** + provider fallback) · occlusion editor · manual editing with pre-save diff preview |
+| 🧭 **Learning journey** | Material inbox → one-click card generation · learning goals (purpose/deadline/daily minutes/priority/custom done-criteria with history) · content lifecycle panel (ten states + next-action suggestions + why-explanations) · entry context (doc/exam/card entries with return points) · wrap-up reasons · recovery banner · long-return check + load-relief choices · stage-count progress narrative |
+| 📊 **Stats** | Heatmap (17/26/52 weeks) · True Retention · measured retention curve (PNG export) · week-over-week · milestones · capability share · error-reason distribution · XP/levels (optional) · AI batch quality & token usage |
+| 🗂 **Manage** | Paged browsing · text/status/leech filters (restored on return) · sort by lapses · batch reset/remove · export selected CSV · card detail drawer (knowledge objects / relations / lifecycle) · saved filters · **maintenance debt queue** (duplicate/leak/over-long/needs-review detection + reversible pause) |
 | 🎓 **Exam** | Countdown pacing + daily targets · cram mode · 30/7/1-day system notifications · post-exam report (clipboard or doc) |
 | 🩺 **Data health** | Review log JSON/CSV export & import · multi-device fork detection & merge preview · storage audit · diagnostics copy (with 200-entry ring log) |
-| 🔌 **Engineering** | Dual-track gateway (3.8.x riff + 3.9.0 V2 auto-detect) · 19-component UI Kit · error boundary · ≤32KB gzip bundle (CI-enforced) · 27 unit tests · zh/en i18n |
+| 🔌 **Engineering** | Dual-track gateway (3.8.x riff + 3.9.0 V2 auto-detect) · 19-component UI Kit · error boundary · chunked UI (shell ≈42KB gzip ≤55KB CI-enforced; hub/review/dialogs on demand) · 500+ unit tests · isolated headless e2e (16 assertions) · zh/en i18n |
+| 🛡 **AI safety** | Preflight checks (empty material / unconfigured / offline → block with alternatives, zero tokens) · prompt-injection isolation (untrusted-data fence + system clause + offline attack fixtures) · context budget (priority-layered trimming, never silently truncated, batching suggestions) · emergency kill switch (per provider/model stop, consent revoke, pending-job cleanup) |
 
 ## 🚀 Install
 
@@ -45,6 +47,8 @@ SiYuan ships a built-in FSRS flashcard system. Lv Cards aims to become its most 
 pnpm install
 pnpm dev          # watch build + livereload (SiYuan running)
 pnpm make-link    # symlink dist into your workspace's data/plugins/
+pnpm test         # 500+ unit tests
+pnpm build        # production build (emits hub/review/dialogs UI chunks)
 ```
 
 ## ⌨️ 30-second start
@@ -61,8 +65,8 @@ Design docs and user guides are in [docs/](./docs/README.md) (Chinese): user gui
 
 Version numbers are delivery windows; the long-term roadmap has four lanes:
 
-- **Currently deliverable**: core card creation, review, statistics, management, exams, AI preview, export and platform fallbacks
-- **Near-term enhancements**: full card types, field templates, language materials, course packages, application practice and content versioning
+- **Currently deliverable**: core card creation, review, statistics, management, exams, AI generation with full safety chain, learning-journey primitives, export and platform fallbacks
+- **Near-term enhancements**: journey-banner UI wiring, source-health probing UI, field-level rewrite design, language materials, course packages, application practice and content versioning
 - **Host/external dependencies**: V2 card types, live media, deep series integration, Anki extensions and cloud AI
 - **Long-term exploration**: cloud sync, collaboration, content marketplace, full incremental reading, standalone clients and widgets
 
