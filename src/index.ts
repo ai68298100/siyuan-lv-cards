@@ -335,6 +335,8 @@ export default class LvCardsPlugin extends Plugin {
                                 new: plugin.settings.dailyNewTarget,
                                 review: plugin.settings.dailyReviewTarget,
                             }),
+                            // T01 今日行动 hero（docs/39 批 2）：当日会话续场判断
+                            getSessionState: () => plugin.sessionState,
                             openReview: () => plugin.openTabOf(TAB_REVIEW),
                             openOnboarding: () => plugin.openOnboarding(),
                             getAIBatches: () => plugin.aiBatches.batches,

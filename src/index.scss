@@ -354,3 +354,39 @@
         background: var(--b3-theme-primary);
     }
 }
+
+// 统计卡栅格单元（批 1 收敛：替代逐卡 inline min-width/display/flex）
+.lv-cards .lv-stat-cell {
+    flex: 1;
+    min-width: 140px;
+    display: flex;
+
+    > * { flex: 1; }
+}
+
+// T01 今日行动 hero（docs/39 批 2）：brand-soft 底行动卡，行动优先于统计
+.lv-hero {
+    display: flex;
+    align-items: center;
+    gap: var(--lv-sp-4);
+    padding: var(--lv-sp-4) var(--lv-sp-5);
+    margin-bottom: var(--lv-sp-4);
+    border: 1px solid var(--lv-primary-border, var(--lv-border));
+    border-radius: var(--lv-r-l);
+    background: var(--lv-primary-soft, color-mix(in srgb, var(--b3-theme-primary) 8%, transparent));
+
+    .lv-hero-title { font-size: 16px; font-weight: 700; }
+    .lv-hero-sub {
+        margin-top: 2px;
+        font-size: 12px;
+        color: var(--b3-theme-on-surface);
+    }
+    .lv-hero-text { flex: 1; min-width: 0; }
+}
+
+// 深度统计渐进展开开关（T01：首屏只留行动与今日统计）
+.lv-deep-toggle {
+    width: 100%;
+    margin-bottom: var(--lv-sp-4);
+    color: var(--b3-theme-on-surface);
+}

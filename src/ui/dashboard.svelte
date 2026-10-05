@@ -45,6 +45,8 @@
         getCapabilityShare?: () => { cap: string; count: number; pct: number }[];
         /** BJ-4：错误原因分布统计（遗忘卡标注；口径=当日或全量） */
         getErrorReasonStats?: () => { reason: string; count: number }[];
+        /** T01 今日行动 hero（docs/39 批 2）：当日会话状态（续场判断；可缺省） */
+        getSessionState?: () => { date: string; counters: { new: number; review: number; forget: number; skip: number }; endReason?: string | null };
     }
 
     let { ctx }: { ctx: DashboardCtx } = $props();
@@ -54,6 +56,10 @@
     let decks: RiffDeck[] = $state([]);
     let dueCount = $state(0);
     let newCount = $state(0);
+    // T01（docs/39 批 2）：今日行动 hero——当日未收场会话可「继续本场」；深度统计默认折叠
+    let sessReps = $state(0);
+    let sessLive = $state(false);
+    let deepOpen = $state(false);
     let oldCount = $state(0);
     let streak = $state(0);
     let todayReview = $state(0);
@@ -247,6 +253,12 @@
             }
             dueCount = due.unreviewedCount;
             newCount = due.unreviewedNewCardCount;
+            const sess = ctx.getSessionState?.();
+            const d = new Date();
+            const localToday = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+            sessLive = !!sess && sess.date === localToday && !sess.endReason
+                && (sess.counters.new + sess.counters.review + sess.counters.forget) > 0;
+            sessReps = sessLive ? sess!.counters.new + sess!.counters.review + sess!.counters.forget : 0;
             oldCount = due.unreviewedOldCardCount;
             const first = revlog.entries[0]?.ts;
             revlogNote = first ? new Date(first).toLocaleDateString() : "";
@@ -358,55 +370,54 @@
 
         <!-- AR-8 错误态优先级：首次加载失败（无任何成功数据）时只显示错误+重试，
              不同时展示「空库→引导」误导与全 0 统计；有旧数据时横幅叠加旧值可见（标注上次刷新） -->
+        <!-- T01 今日行动 hero（docs/39 批 2）：行动优先于统计；当日未收场会话给「继续本场」 -->
+        <div class="lv-hero">
+            <div class="lv-hero-text">
+                <div class="lv-hero-title">{t.dashboard.heroTitle}</div>
+                <div class="lv-hero-sub">
+                    {#if sessLive}{t.dashboard.heroResumeLine.replace("${n}", String(sessReps))} · {/if}{t.dashboard.todayDue} {dueCount} · {t.dashboard.newCards} {newCount}
+                </div>
+            </div>
+            <button class="b3-button lv-btn-primary" onclick={() => ctx.openReview()}>
+                {sessLive ? t.dashboard.heroResume : t.dashboard.heroStart}
+            </button>
+        </div>
+
         {#if totalCards === 0 && !errorMsg}
             <LvEmpty text={t.dashboard.onboardingHint} actionLabel={t.dashboard.onboardingStart} onaction={ctx.openOnboarding} />
         {/if}
 
         {#if totalCards > 0 || !errorMsg}
         <div class="fn__flex fn__flex-wrap lv-cards">
-            <div class="fn__flex-1" style="min-width: 140px; display: flex;">
-                <div style="flex: 1">
-                    <LvStat label={t.dashboard.todayDue} value={dueCount} tone="error" animate />
-                </div>
+            <div class="lv-stat-cell">
+                <LvStat label={t.dashboard.todayDue} value={dueCount} tone="error" animate />
             </div>
-            <div class="fn__flex-1" style="min-width: 140px; display: flex;">
-                <div style="flex: 1">
-                    <LvStat label={t.dashboard.newCards} value={newCount} tone="warn" animate />
-                </div>
+            <div class="lv-stat-cell">
+                <LvStat label={t.dashboard.newCards} value={newCount} tone="warn" animate />
             </div>
-            <div class="fn__flex-1" style="min-width: 140px; display: flex;">
-                <div style="flex: 1">
-                    <LvStat label={t.dashboard.reviewCards} value={oldCount} tone="primary" animate />
-                </div>
+            <div class="lv-stat-cell">
+                <LvStat label={t.dashboard.reviewCards} value={oldCount} tone="primary" animate />
             </div>
-            <div class="fn__flex-1" style="min-width: 140px; display: flex;">
-                <div style="flex: 1">
-                    <LvStat
-                        label={t.dashboard.todayDone}
-                        value={todayReview}
-                        denom={targets.review > 0 ? String(targets.review) : ""}
-                        tone="primary"
-                        progress={targetPct()}
-                    />
-                </div>
+            <div class="lv-stat-cell">
+                <LvStat
+                    label={t.dashboard.todayDone}
+                    value={todayReview}
+                    denom={targets.review > 0 ? String(targets.review) : ""}
+                    tone="primary"
+                    progress={targetPct()}
+                />
             </div>
-            <div class="fn__flex-1" style="min-width: 140px; display: flex;">
-                <div style="flex: 1">
-                    <LvStat label={t.dashboard.streak} value={streak} tone="warn" animate />
-                </div>
+            <div class="lv-stat-cell">
+                <LvStat label={t.dashboard.streak} value={streak} tone="warn" animate />
             </div>
             {#if todayStudyMinutes > 0}
-                <div class="fn__flex-1" style="min-width: 140px; display: flex;">
-                    <div style="flex: 1">
-                        <!-- AQ-13：今日作答用时（仅统计带耗时的插件面板评分；原生无字段不补 0） -->
-                        <LvStat label={t.dashboard.studyTime} value={todayStudyMinutes} tone="neutral" />
-                    </div>
+                <div class="lv-stat-cell">
+                    <!-- AQ-13：今日作答用时（仅统计带耗时的插件面板评分；原生无字段不补 0） -->
+                    <LvStat label={t.dashboard.studyTime} value={todayStudyMinutes} tone="neutral" />
                 </div>
             {/if}
-            <div class="fn__flex-1" style="min-width: 140px; display: flex;">
-                <div style="flex: 1">
-                    <LvStat label={t.dashboard.totalCards} value={totalCards} tone="neutral" animate />
-                </div>
+            <div class="lv-stat-cell">
+                <LvStat label={t.dashboard.totalCards} value={totalCards} tone="neutral" animate />
             </div>
         </div>
         {/if}
@@ -444,6 +455,11 @@
             {/if}
         {/if}
 
+        <!-- T01 渐进展开（docs/13 §1.3）：行动与今日统计留在首屏，深度统计默认折叠 -->
+        <button class="b3-button b3-button--outline lv-deep-toggle" onclick={() => (deepOpen = !deepOpen)}>
+            {t.dashboard.deepToggle} {deepOpen ? "▴" : "▾"}
+        </button>
+        {#if deepOpen}
         <LvSection title={t.dashboard.heatmap} sub={revlogNote ? `${t.dashboard.since} ${revlogNote}` : ""}>
             <LvHeatmap days={heat} />
         </LvSection>
@@ -671,6 +687,7 @@
             </LvSection>
         {/if}
     {/if}
+        {/if}
 </LvPage>
 
 <style lang="scss">

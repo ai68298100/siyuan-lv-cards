@@ -160,6 +160,13 @@
 </script>
 
 <div class="lv-hub">
+    <!-- T01 页头语义（docs/39 批 2）：eyebrow 页题 + 副题，页签栏之上 -->
+    <div class="lv-pagehead">
+        <div>
+            <div class="lv-pagehead-title">{i18n.menuDashboard}</div>
+            <div class="lv-pagehead-sub">{i18n.hubTagline}</div>
+        </div>
+    </div>
     <div class="lv-hub-bar">
         <LvTabs {tabs} active={active} onchange={switchTab} />
     </div>

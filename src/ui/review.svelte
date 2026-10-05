@@ -1317,33 +1317,34 @@
             {#if budgetMin > 0}
                 <!-- BI-12：预算倒计时；到点转为中性提示（不自动结束、不算失败） -->
                 {#if budgetExpired}
-                    <span class="b3-chip" title={t.review.budgetDoneTip}>{t.review.budgetDone}</span>
+                    <span class="lv-chip2 lv-chip2--default" title={t.review.budgetDoneTip}>{t.review.budgetDone}</span>
                 {:else}
                     <span class="lv-timeout" title={t.review.budgetLabel}>⏳ {budgetClockText()}</span>
                 {/if}
             {/if}
-            {#if current.lvRequeue}<span class="b3-chip b3-chip--warning" title={t.review.requeueTip}>{t.review.requeueChip}</span>{/if}
+            {#if current.lvRequeue}<span class="lv-chip2 lv-chip2--warn" title={t.review.requeueTip}>{t.review.requeueChip}</span>{/if}
             {#if eff().timeoutMode !== "off" && !showAnswer}
                 <span class="lv-timeout" class:lv-timeout-low={timeoutLeft <= 10}>⏱ {timeoutText()}</span>
             {/if}
             <span class="lv-tags">
                 {#if !(eff().hideMetaUntilAnswer && !showAnswer)}
-                    {#if current.state === 0}<span class="b3-chip b3-chip--primary">{t.review.tagNew}</span>{/if}
-                    <span class="b3-chip">{t.review.reps} {current.reps} · {t.review.lapses} {current.lapses}</span>
+                    {#if current.state === 0}<span class="lv-chip2 lv-chip2--primary">{t.review.tagNew}</span>{/if}
+                    <span class="lv-chip2 lv-chip2--default">{t.review.reps} {current.reps} · {t.review.lapses} {current.lapses}</span>
                 {/if}
             </span>
             {#if current.deckID && !(eff().hideMetaUntilAnswer && !showAnswer)}
                 <span class="ft__smaller ft__on-surface" style="opacity:.7">{current.deckID}</span>
             {/if}
             <div class="fn__flex-1"></div>
-            <button class="b3-button b3-button--small" title={t.review.ctxToggle} aria-label={t.review.ctxToggle} class:lv-btn-primary={ctxOpen} onclick={toggleContext}>≡</button>
-            <button class="b3-button b3-button--small" title={t.review.prefsTitle} aria-label={t.review.prefsTitle} class:lv-btn-primary={prefsOpen || hasOverrides} onclick={() => (prefsOpen = !prefsOpen)}>{hasOverrides ? "⚙●" : "⚙"}</button>
-            <button class="b3-button b3-button--small" title={t.review.refreshCard} aria-label={t.review.refreshCard} onclick={refreshCard}>⟳</button>
-            <button class="b3-button b3-button--small" title={t.review.helpTitle} aria-label={t.review.helpTitle} onclick={() => (helpOpen = true)}>?</button>
-            <button class="b3-button b3-button--small" title={t.review.undoTitle} aria-label={t.review.undoTitle} onclick={undoHistory}>↶</button>
-            <button class="b3-button b3-button--small" title={t.review.peekPrev} aria-label={t.review.peekPrev} onclick={togglePeek}>[{t.review.peekPrev.slice(0, 2)}]</button>
+            <!-- docs/13 §4：图标可读、操作不依赖 hover——工具栏一律可读文字按钮（P1 批 1） -->
+            <button class="b3-button b3-button--small" title={t.review.ctxToggle} aria-label={t.review.ctxToggle} class:lv-btn-primary={ctxOpen} onclick={toggleContext}>{t.review.tbCtx}</button>
+            <button class="b3-button b3-button--small" title={t.review.prefsTitle} aria-label={t.review.prefsTitle} class:lv-btn-primary={prefsOpen || hasOverrides} onclick={() => (prefsOpen = !prefsOpen)}>{t.review.tbPrefs}{hasOverrides ? " ●" : ""}</button>
+            <button class="b3-button b3-button--small" title={t.review.refreshCard} aria-label={t.review.refreshCard} onclick={refreshCard}>{t.review.tbRefresh}</button>
+            <button class="b3-button b3-button--small" title={t.review.helpTitle} aria-label={t.review.helpTitle} onclick={() => (helpOpen = true)}>{t.review.tbHelp}</button>
+            <button class="b3-button b3-button--small" title={t.review.undoTitle} aria-label={t.review.undoTitle} onclick={undoHistory}>{t.review.tbUndo}</button>
+            <button class="b3-button b3-button--small" title={t.review.peekPrev} aria-label={t.review.peekPrev} onclick={togglePeek}>{t.review.peekPrev.slice(0, 2)}</button>
             <button class="b3-button b3-button--small" title={t.review.openInEditor} onclick={openInEditor}>{t.review.open}</button>
-            <button class="b3-button b3-button--small" title={t.review.suspendToday} aria-label={t.review.suspendToday} onclick={suspendToday}>✕</button>
+            <button class="b3-button b3-button--small" title={t.review.suspendToday} aria-label={t.review.suspendToday} onclick={suspendToday}>{t.review.tbSuspend}</button>
             <button class="b3-button b3-button--small" onclick={skip}>{t.review.skip}</button>
         </div>
         <div class="lv-card b3-typography" class:lv-anim-glow={showAnswer} bind:this={cardEl} style={`max-width:${eff().cardMaxWidth}px; width:100%; margin:0 auto;`}>
