@@ -717,6 +717,8 @@
         "openSource": "回源：打开原文档",
         "sourceEditHint": "可直接编辑或裁剪材料——生成以这里的内容为准",
         "sourceClear": "清空材料",
+        "srcLedger": "来源清单",
+        "sourceEmptyHint": "材料为空——从左侧载入文档、选区或剪贴板，也可直接粘贴。",
         "previewTitle": "AI 任务预览——请确认后再发送",
         "previewParams": "拟生成 ${n} 张 · ${lang} · ${type}",
         "previewTokens": "（估算，实际以请求为准）",

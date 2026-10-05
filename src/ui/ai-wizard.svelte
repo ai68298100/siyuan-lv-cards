@@ -368,69 +368,73 @@
 
     {#if step === 1}
         <div transition:fade={{ duration: 160 }}>
-            <LvSection title={t.aiWizard.source}>
-                <div style="margin-bottom: var(--lv-sp-2); display: flex; gap: var(--lv-sp-2); flex-wrap: wrap">
+            <!-- T02 完整工作面（docs/13 §4）：左=来源清单与载入，右=材料编辑与参数 -->
+            <div class="lv-wb">
+                <div class="lv-wb-side">
+                    <div class="lv-eyebrow">{t.aiWizard.source}</div>
                     {#if loadCurrentDoc}
-                        <button class="b3-button b3-button--small" onclick={loadActiveDoc}>{t.aiWizard.loadDoc}</button>
+                        <button class="b3-button b3-button--small lv-wb-load" onclick={loadActiveDoc}>{t.aiWizard.loadDoc}</button>
                     {/if}
                     {#if loadNotebookMaterial}
-                        <button class="b3-button b3-button--small" onclick={loadNotebookContent}>{t.aiWizard.loadNotebook}</button>
-                        <select class="b3-select" bind:value={nbId} style="max-width: 160px">
+                        <button class="b3-button b3-button--small lv-wb-load" onclick={loadNotebookContent}>{t.aiWizard.loadNotebook}</button>
+                        <select class="b3-select lv-wb-load" bind:value={nbId}>
                             {#each nbOptions as n (n.id)}<option value={n.id}>{n.name}</option>{/each}
                         </select>
                     {/if}
-                    <button class="b3-button b3-button--small" onclick={loadSelection}>{t.aiWizard.loadSelection}</button>
-                    <button class="b3-button b3-button--small" onclick={loadClipboard}>{t.aiWizard.loadClipboard}</button>
-                </div>
-                {#if source}
-                    <!-- T02 来源清单（docs/13 §4）：分条标签 + 单条移除 + 文档来源回源 -->
+                    <button class="b3-button b3-button--small lv-wb-load" onclick={loadSelection}>{t.aiWizard.loadSelection}</button>
+                    <button class="b3-button b3-button--small lv-wb-load" onclick={loadClipboard}>{t.aiWizard.loadClipboard}</button>
                     {#if sources.length > 0}
-                        <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px">
+                        <div class="lv-eyebrow" style="margin-top: 10px">{t.aiWizard.srcLedger}</div>
+                        <div class="lv-wb-chips">
                             {#each sources as src (src.id)}
-                                <span class="lv-chip2 lv-chip2--default" style="gap: 4px">
+                                <div class="lv-wb-chip">
+                                    <span class="lv-wb-chip-label" title={src.label}>{src.label} · {src.content.length}</span>
+                                    <div class="fn__flex-1"></div>
                                     {#if src.docId && openDocById}
                                         <button class="b3-button b3-button--small" style="border: none; background: transparent; padding: 0 2px; min-height: auto" title={t.aiWizard.openSource} onclick={() => openDocById?.(src.docId!)}>📂</button>
                                     {/if}
-                                    <span>{src.label} · {src.content.length}</span>
                                     <button class="b3-button b3-button--small" style="border: none; background: transparent; padding: 0 2px; min-height: auto" title={t.aiWizard.srcRemove} onclick={() => removeSource(src.id)}>✕</button>
-                                </span>
+                                </div>
                             {/each}
                         </div>
                     {/if}
-                    <!-- 材料可读可改：裁剪即编辑，生成以此处内容为准 -->
-                    <textarea
-                        class="b3-text-field fn__block"
-                        rows="6"
-                        bind:value={source}
-                        placeholder={t.aiWizard.sourceEditHint}
-                        style="margin-top: 6px; font-size: 12px; line-height: 1.6"
-                    ></textarea>
-                    <div class="ft__smaller ft__on-surface" style="margin-top: 4px; display: flex; gap: 8px; align-items: center">
-                        <span>{source.length} 字符 · ≈ {Math.ceil(source.length / 4)} tokens</span>
-                        <div class="fn__flex-1"></div>
-                        <button class="b3-button b3-button--small" onclick={() => (source = "")}>{t.aiWizard.sourceClear}</button>
+                </div>
+                <div class="lv-wb-main">
+                    {#if source}
+                        <!-- 材料可读可改：裁剪即编辑，生成以此处内容为准 -->
+                        <textarea
+                            class="b3-text-field fn__block"
+                            rows="10"
+                            bind:value={source}
+                            placeholder={t.aiWizard.sourceEditHint}
+                            style="font-size: 12px; line-height: 1.6"
+                        ></textarea>
+                        <div class="ft__smaller ft__on-surface" style="margin-top: 4px; display: flex; gap: 8px; align-items: center">
+                            <span>{source.length} 字符 · ≈ {Math.ceil(source.length / 4)} tokens</span>
+                            <div class="fn__flex-1"></div>
+                            <button class="b3-button b3-button--small" onclick={() => (source = "")}>{t.aiWizard.sourceClear}</button>
+                        </div>
+                    {:else}
+                        <div class="lv-hint" style="padding: 24px 0; text-align: center">{t.aiWizard.sourceEmptyHint}</div>
+                    {/if}
+                    <div class="fn__flex fn__flex-wrap" style="gap: var(--lv-sp-3); margin-top: var(--lv-sp-3); align-items: center">
+                        <span class="ft__smaller ft__on-surface">{t.aiWizard.count}</span>
+                        <select class="b3-select" style="max-width: 90px" bind:value={count}>
+                            {#each [5, 10, 15, 20] as n (n)}<option value={n}>{n}</option>{/each}
+                        </select>
+                        <span class="ft__smaller ft__on-surface">{t.aiWizard.language}</span>
+                        <select class="b3-select" style="max-width: 140px" bind:value={language}>
+                            <option value="中文">中文</option>
+                            <option value="English">English</option>
+                        </select>
+                        <span class="ft__smaller ft__on-surface">{t.aiWizard.cardType}</span>
+                        <select class="b3-select" style="max-width: 140px" bind:value={cardType}>
+                            <option value="qa">{t.aiWizard.typeQa}</option>
+                            <option value="cloze">{t.aiWizard.typeCloze}</option>
+                        </select>
                     </div>
-                {/if}
-            </LvSection>
-            <LvSection title={t.aiWizard.config}>
-                <LvRow label={t.aiWizard.count}>
-                    <select class="b3-select fn__size-60" bind:value={count}>
-                        {#each [5, 10, 15, 20] as n (n)}<option value={n}>{n}</option>{/each}
-                    </select>
-                </LvRow>
-                <LvRow label={t.aiWizard.language}>
-                    <select class="b3-select fn__size-200" bind:value={language}>
-                        <option value="中文">中文</option>
-                        <option value="English">English</option>
-                    </select>
-                </LvRow>
-                <LvRow label={t.aiWizard.cardType}>
-                    <select class="b3-select fn__size-200" bind:value={cardType}>
-                        <option value="qa">{t.aiWizard.typeQa}</option>
-                        <option value="cloze">{t.aiWizard.typeCloze}</option>
-                    </select>
-                </LvRow>
-            </LvSection>
+                </div>
+            </div>
             {#if errorMsg}
                 <div class="ft__smaller" style="color: var(--b3-theme-error); margin-bottom: var(--lv-sp-2)">{errorMsg}</div>
             {/if}
@@ -574,4 +578,27 @@
         flex-direction: column;
         gap: var(--lv-sp-2);
     }
+
+    /* T02 完整工作面（docs/13 §4）：左=来源清单与载入，右=材料编辑与参数 */
+    .lv-wb {
+        display: grid;
+        grid-template-columns: 230px minmax(0, 1fr);
+        gap: var(--lv-sp-4);
+        margin-bottom: var(--lv-sp-3);
+        @media (max-width: 740px) { grid-template-columns: 1fr; }
+    }
+    .lv-wb-side { display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
+    .lv-wb-side .lv-wb-load { width: 100%; text-align: left; }
+    .lv-wb-chips { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+    .lv-wb-chip {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 11px;
+        padding: 3px 6px;
+        border: 1px solid var(--lv-border);
+        border-radius: 6px;
+        background: color-mix(in srgb, var(--b3-theme-on-background) 4%, transparent);
+    }
+    .lv-wb-chip-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 </style>
