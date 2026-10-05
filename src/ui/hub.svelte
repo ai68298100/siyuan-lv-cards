@@ -184,7 +184,8 @@
                     </div>
                 {/snippet}
                 {#if active === "overview"}
-                    <Dashboard ctx={dctx} />
+                    <!-- T08：注入页签切换（待处理分区直达收件箱） -->
+                    <Dashboard ctx={{ ...dctx, openHubTab: (id: string) => switchTab(id) }} />
                 {:else if active === "manage"}
                     <Manager ctx={managerCtx} />
                 {:else if active === "goals"}

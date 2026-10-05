@@ -350,6 +350,15 @@ export default class LvCardsPlugin extends Plugin {
                                 plugin.settings.sessionBudgetMin = min;
                                 plugin.saveSettingsSoon();
                             },
+                            // T08 待处理聚合（docs/40 批 5 简化版）：疑问/暂停/恢复
+                            getInboxOpenCount: () => plugin.inbox.items.filter((i) => i.status !== "dismissed").length,
+                            getSuspendedCount: () => plugin.suspendToday.cardIDs.length,
+                            restoreSuspendedToday: () => {
+                                const ids = [...plugin.suspendToday.cardIDs];
+                                for (const id of ids) unsuspend(plugin.suspendToday, id);
+                                plugin.persist.save(SUSPEND_TODAY_DATA, plugin.suspendToday).catch(() => { /* onFail 已记录 */ });
+                                return ids.length;
+                            },
                             openReview: () => plugin.openTabOf(TAB_REVIEW),
                             openOnboarding: () => plugin.openOnboarding(),
                             getAIBatches: () => plugin.aiBatches.batches,

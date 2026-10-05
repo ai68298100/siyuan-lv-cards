@@ -50,6 +50,12 @@
         /** T01 可用时间（docs/40）：hero 选择落偏好，复习开场默认预算 */
         getSessionBudget?: () => number;
         setSessionBudget?: (min: number) => void;
+        /** T08 待处理聚合（docs/40 批 5 简化版） */
+        getInboxOpenCount?: () => number;
+        getSuspendedCount?: () => number;
+        restoreSuspendedToday?: () => number;
+        /** 直达 hub 其他页签（收件箱等） */
+        openHubTab?: (id: string) => void;
     }
 
     let { ctx }: { ctx: DashboardCtx } = $props();
@@ -66,6 +72,9 @@
     // T01 可用时间（docs/40）：hero 选择，落偏好并在复习开场生效
     let sessionBudget = $state(15);
     const BUDGET_CHOICES = [0, 5, 15, 30, 60] as const;
+    // T08 待处理聚合（docs/40 批 5 简化版）：疑问/暂停/续传
+    let inboxOpen = $state(0);
+    let suspended = $state(0);
     /** hero eyebrow 的本地日期（R52：TODAY / 2026.10.02 同款） */
     function heroDateText(): string {
         const d = new Date();
@@ -271,6 +280,8 @@
                 && (sess.counters.new + sess.counters.review + sess.counters.forget) > 0;
             sessReps = sessLive ? sess!.counters.new + sess!.counters.review + sess!.counters.forget : 0;
             sessionBudget = ctx.getSessionBudget?.() ?? 15;
+            inboxOpen = ctx.getInboxOpenCount?.() ?? 0;
+            suspended = ctx.getSuspendedCount?.() ?? 0;
             oldCount = due.unreviewedOldCardCount;
             const first = revlog.entries[0]?.ts;
             revlogNote = first ? new Date(first).toLocaleDateString() : "";
@@ -493,6 +504,32 @@
                 </div>
             {/if}
         {/if}
+
+        <!-- T08 待处理与恢复（docs/40 批 5 简化聚合）：只聚合不重做；恢复幂等 -->
+        <LvSection title={t.dashboard.todoTitle}>
+            {#if inboxOpen === 0 && suspended === 0 && !unfinishedAI}
+                <div class="lv-hint">{t.dashboard.todoNone}</div>
+            {:else}
+                {#if inboxOpen > 0}
+                    <div class="lv-todo-row">
+                        <span>{t.dashboard.todoInbox.replace("${n}", String(inboxOpen))}</span>
+                        {#if ctx.openHubTab}<button class="b3-button b3-button--small" onclick={() => ctx.openHubTab?.("inbox")}>{t.dashboard.todoAct}</button>{/if}
+                    </div>
+                {/if}
+                {#if suspended > 0}
+                    <div class="lv-todo-row">
+                        <span>{t.dashboard.todoSuspended.replace("${n}", String(suspended))}</span>
+                        <button class="b3-button b3-button--small" onclick={() => { suspended = Math.max(0, suspended - (ctx.restoreSuspendedToday?.() ?? 0)); }}>{t.dashboard.todoSuspendedAct}</button>
+                    </div>
+                {/if}
+                {#if unfinishedAI}
+                    <div class="lv-todo-row">
+                        <span>{t.dashboard.todoAI.replace("${n}", String(unfinishedAI.total - unfinishedAI.done))}</span>
+                        {#if ctx.openAIWizard}<button class="b3-button b3-button--small" onclick={() => ctx.openAIWizard?.()}>{t.dashboard.todoAIAct}</button>{/if}
+                    </div>
+                {/if}
+            {/if}
+        </LvSection>
 
         <!-- T01 渐进展开（docs/13 §1.3）：行动与今日统计留在首屏，深度统计默认折叠 -->
         <button class="b3-button b3-button--outline lv-deep-toggle" onclick={() => (deepOpen = !deepOpen)}>
@@ -741,6 +778,16 @@
     }
 
     .lv-cards { gap: var(--lv-sp-3); margin-bottom: var(--lv-sp-4); }
+
+    /* T08 待处理行（docs/40 批 5）：行式布局 + 右侧动作 */
+    .lv-todo-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--lv-sp-2);
+        font-size: 13px;
+        padding: var(--lv-sp-1) 0;
+    }
     .lv-unfinished-ai {
         display: block;
         width: 100%;
