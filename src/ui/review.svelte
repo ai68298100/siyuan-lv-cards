@@ -19,6 +19,7 @@
     import { nominateVariant } from "@/core/question-rotation";
     import { loadReliefChoices, type LoadChoice } from "@/core/load-relief";
     import { recoveryOptions, type RecoveryOption, type RecoverySnapshot } from "@/core/session-recovery";
+    import { triageReturn, RETURN_REASONS, type ReturnReason } from "@/core/return-triage";
     import { SESSION_PURPOSES, PURPOSE_PROFILES, type SessionPurpose } from "@/core/session-purpose";
     import { invalidateDueCache } from "@/api/due-shared";
     import { nextHint, logHint, deriveHintLevels, availableLevels, type HintLevel, type HintLevelsInput } from "@/core/hint-ladder";
@@ -170,6 +171,8 @@
     let lastAnswered: { html: string; card: RiffDueCard } | null = null; // 回看数据源（AJ2：不再自动打开）
     // BI-9：中断恢复分支（快照存在时给出四选一；不自动重复评分/写卡）
     let recovery = $state<RecoveryOption[] | null>(null);
+    // BI-27 返场分流横幅（跨天 + 上日收工原因；展示性方案，可忽略）
+    let returnBanner = $state<{ planText: string; steps: string[]; capText: string } | null>(null);
     let recoverySnap: RecoverySnapshot | null = null;
     // BI-8：收工原因（done 屏收集；可跳过，写入当日现场供恢复横幅/返场分流读取）
     // svelte-ignore state_referenced_locally -- 初值刻意的：恢复路径在 onMount 恢复现场时回填 endPicked
@@ -474,6 +477,28 @@
                 cards = shuffle(cards);
             }
             queue = cards;
+            // BI-27 返场分流：跨天返场且上日有收工原因 → 今日方案横幅（展示性，不自动改预算/队列）。
+            // 口径映射：BI-8 收工原因 → BI-27 返场原因（time-up→time-short、energy→pressure、其余→plain-leave）
+            if (!recovery) {
+                const ss = ctx.getSessionState();
+                const today = new Date();
+                const localToday = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+                const reasonRaw = ss?.endReason;
+                if (ss?.date && ss.date !== localToday && reasonRaw) {
+                    const mapped: ReturnReason = reasonRaw === "time-up" ? "time-short" : reasonRaw === "energy" ? "pressure" : "plain-leave";
+                    if ((RETURN_REASONS as readonly string[]).includes(mapped)) {
+                        const daysGap = Math.max(1, Math.round((Date.now() - new Date(`${ss.date}T00:00:00`).getTime()) / 86400000));
+                        const plan = triageReturn(mapped, { dueCount: queue.length, daysGap, staleCount: 0 });
+                        const tt = t.returnTriage as any;
+                        const capText = plan.suggestedCap === null ? tt.capNone : plan.suggestedCap === 0 ? tt.capReadonly : tt.capN.replace("${n}", String(plan.suggestedCap));
+                        returnBanner = {
+                            planText: tt.plan?.[plan.planKey] ?? plan.planKey,
+                            steps: plan.steps.map((k) => tt.step?.[k.replace("step.", "")] ?? k),
+                            capText,
+                        };
+                    }
+                }
+            }
             // BI-9：首刷后回填队列剩余数，恢复分支可用性随之刷新（继续原场/缩小范围是否可选）
             if (recovery && recoverySnap) {
                 recoverySnap.queueRemaining = queue.length;
@@ -1182,6 +1207,18 @@
 >
     <!-- AS-4：读屏播报区域（视觉隐藏） -->
     <LvLive message={liveMsg} tone={liveTone} />
+    <!-- BI-27 返场分流（docs/13 §4 BI-27 UI 接线）：方案展示可忽略，不自动改预算/队列 -->
+    {#if returnBanner && !recovery}
+        <div class="lv-notice" role="status">
+            <div class="lv-eyebrow">{t.review.returnTriageTitle}</div>
+            <div style="margin-top: 4px">{returnBanner.planText}</div>
+            <div class="ft__smaller ft__on-surface" style="margin-top: 4px">{returnBanner.steps.join(" · ")}</div>
+            <div class="ft__smaller ft__on-surface" style="margin-top: 2px">{returnBanner.capText}</div>
+            <div style="margin-top: 6px; text-align: right">
+                <button class="b3-button b3-button--small" onclick={() => (returnBanner = null)}>{t.review.returnDismiss}</button>
+            </div>
+        </div>
+    {/if}
     <!-- BI-9：中断恢复分支（四选一，用户拍板；disabled 项带原因） -->
     {#if recovery}
         <div class="lv-recover" role="group" aria-label={t.review.recoveryTitle}>
