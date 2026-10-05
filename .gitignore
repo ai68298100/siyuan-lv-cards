@@ -15,3 +15,6 @@ tmp
 # e2e 内联构建产物（真机验收专用，不入库）
 dist-inline/
 .tmp-*
+
+# 本地视觉核对台与临时产物（design/preview.html、icon 候选、内核日志等）
+design/
