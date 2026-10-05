@@ -2137,6 +2137,35 @@ export default class LvCardsPlugin extends Plugin {
                 sensitiveTerms: this.settings.aiSensitiveTerms,
                 // BU-14：模型可信度——siyuan 内核网关视为已配置；custom 模式按注册表登记状态
                 modelTrustKnown: () => this.settings.aiMode === "siyuan" || isSelectableModel(this.settings.aiModel),
+                // BU-36：上下文包预览——组装纯函数零网络，返回分层预算报告供发送前展示
+                previewBudget: (source: string, cfg: { count: number; language: string; type: "qa" | "cloze" }) => {
+                    try {
+                        const assembled = assembleGeneratePrompt({
+                            task: "cards-generate",
+                            customTemplate: this.settings.aiPromptTemplate,
+                            defaultSystem: this.i18n.aiSystemPrompt,
+                            userTemplate: this.i18n.aiUserPrompt,
+                            source,
+                            cfg,
+                            typeClozeHint: this.i18n.aiTypeClozeHint,
+                            typeQaHint: this.i18n.aiTypeQaHint,
+                            guardClause: (this.i18n as any).aiInjectionGuard,
+                            untrustedLabel: (this.i18n as any).aiUntrustedLabel,
+                            modelId: this.settings.aiMode === "custom" ? this.settings.aiModel : "",
+                        });
+                        return {
+                            budgetTokens: assembled.audit.budgetTokens,
+                            budgetSource: assembled.audit.budgetSource,
+                            modelId: assembled.audit.modelId,
+                            totalTokens: assembled.audit.totalTokens,
+                            sourceTokens: assembled.audit.sourceTokens,
+                            needsBatching: assembled.needsBatching,
+                            layers: assembled.budget.reports.map(r => ({ key: r.key, tokens: r.keptTokens, originalTokens: r.originalTokens, truncated: r.truncated, dropped: r.dropped })),
+                        };
+                    } catch {
+                        return null; // 预览失败不阻塞发送（generate 侧有完整校验）
+                    }
+                },
                 onClose: () => { /* svelteDialog 自理销毁 */ },
             },
         });

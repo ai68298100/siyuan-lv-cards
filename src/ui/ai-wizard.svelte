@@ -9,10 +9,21 @@
     import { scoreBatch, type Scorecard } from "@/core/ai-quality-scorecard";
     import { planReview, type ReviewPlan } from "@/core/ai-review-strategy";
     import { appendVersion, type CardProvenance, type ProvenanceVersion } from "@/core/ai-provenance";
+
+    /** BU-36 分层预算报告（宿主 assembleGeneratePrompt 纯函数产出） */
+    interface BudgetPreview {
+        budgetTokens: number;
+        budgetSource: "model-registry" | "task-default";
+        modelId: string | null;
+        totalTokens: number;
+        sourceTokens: number;
+        needsBatching: boolean;
+        layers: { key: string; tokens: number; originalTokens?: number; truncated?: boolean; dropped?: boolean }[];
+    }
     import LvChip from "./kit/LvChip.svelte";
     import LvSteps from "./kit/LvSteps.svelte";
 
-    let { i18n, initialSource = "", loadCurrentDoc, loadNotebookMaterial, generate, onCreate, onClose, getUnfinishedJob, onResumeAIJob, onAbandonAIJob, openDocById, isSourceDenied, onDenySource, sensitiveTerms = "", modelTrustKnown }: {
+    let { i18n, initialSource = "", loadCurrentDoc, loadNotebookMaterial, generate, onCreate, onClose, getUnfinishedJob, onResumeAIJob, onAbandonAIJob, openDocById, isSourceDenied, onDenySource, sensitiveTerms = "", modelTrustKnown, previewBudget }: {
         i18n: any;
         /** 预填材料（leech 改写联动） */
         initialSource?: string;
@@ -35,6 +46,8 @@
         sensitiveTerms?: string;
         /** BU-14：模型是否可信（登记 active 或内核网关）；不传=按未登记从严 */
         modelTrustKnown?: () => boolean;
+        /** BU-36：上下文包分层预算预览（宿主纯函数，零网络；不传=不显示该区） */
+        previewBudget?: (source: string, cfg: { count: number; language: string; type: "qa" | "cloze" }) => BudgetPreview | null;
         /** 未完成的 AI 导入（ADR-7 恢复入口）；null=无；failed=失败明细供导出 */
         getUnfinishedJob?: () => { id: string; done: number; total: number; failed: { index: number; q: string; error: string }[] } | null;
         onResumeAIJob?: (id: string) => Promise<void>;
@@ -190,6 +203,12 @@
     let loadDocBusy = $state(false);
     // T02：生成前预览确认（docs/13 §4）——确认后才真正外发
     let previewOpen = $state(false);
+    /** BU-36：打开预览时的分层预算报告（随打开时点计算一次；关闭即清） */
+    let budgetPv = $state<BudgetPreview | null>(null);
+    function openPreview() {
+        previewOpen = true;
+        budgetPv = previewBudget?.(source.trim(), { count, language, type: cardType }) ?? null;
+    }
     // T02：来源分条查看原文（单开）
     let viewSrc = $state<string | null>(null);
     // T03：候选审核——来源依据折叠 + 逐卡卡面预览（单开）
@@ -609,6 +628,29 @@
                         · ≈ {Math.ceil(source.trim().length / 4)} tokens {t.aiWizard.previewTokens}
                     </div>
                     <div class="ft__smaller ft__on-surface">{t.aiWizard.previewEndpoint}</div>
+                    {#if budgetPv}
+                        <!-- BU-36：上下文包分层预览（发送前可见截断与预算来源，不静默裁剪） -->
+                        <div style="border: 1px solid var(--lv-border); border-radius: 6px; padding: 8px; display: flex; flex-direction: column; gap: 4px">
+                            <div class="lv-eyebrow">{t.aiWizard.budgetTitle} · {budgetPv.totalTokens}/{budgetPv.budgetTokens}</div>
+                            {#each budgetPv.layers as layer (layer.key)}
+                                <div class="fn__flex ft__smaller" style="gap: 8px; align-items: baseline">
+                                    <span style="min-width: 72px">{layer.key === "system" ? t.aiWizard.budgetSystem : t.aiWizard.budgetMaterial}</span>
+                                    <span class="ft__on-surface">{layer.tokens}</span>
+                                    {#if layer.truncated || layer.dropped}
+                                        <span style="color: var(--b3-theme-warning)">{layer.dropped ? t.aiWizard.budgetDropped : t.aiWizard.budgetTruncated}</span>
+                                    {/if}
+                                </div>
+                            {/each}
+                            <div class="ft__smaller ft__on-surface">
+                                {budgetPv.budgetSource === "model-registry"
+                                    ? t.aiWizard.budgetFromRegistry.replace("${m}", budgetPv.modelId ?? "")
+                                    : t.aiWizard.budgetFromDefault}
+                            </div>
+                            {#if budgetPv.needsBatching}
+                                <div class="ft__smaller" style="color: var(--b3-theme-error)">{t.aiTooLong}</div>
+                            {/if}
+                        </div>
+                    {/if}
                     {#if sensHits.length > 0 && !sensOverride}
                         <!-- BU-8：发送前敏感扫描——命中打码样本展示，处置权在用户 -->
                         <div style="border: 1px solid var(--b3-theme-warning); border-radius: 6px; padding: 8px; display: flex; flex-direction: column; gap: 6px">
@@ -636,7 +678,7 @@
             <div class="fn__flex" style="justify-content: flex-end; gap: var(--lv-sp-2)">
                 <button class="b3-button b3-button--cancel" onclick={closeWizard}>{window.siyuan.languages.cancel}</button>
                 <div class="fn__space"></div>
-                <button class="b3-button b3-button--text lv-btn-primary" disabled={busy || !source.trim()} onclick={() => (previewOpen = true)}>
+                <button class="b3-button b3-button--text lv-btn-primary" disabled={busy || !source.trim()} onclick={openPreview}>
                     {busy ? t.aiWizard.generating : `${t.aiWizard.generate} →`}
                 </button>
             </div>

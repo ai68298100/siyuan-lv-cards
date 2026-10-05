@@ -776,7 +776,14 @@
         "sensNote": "Only masked samples are shown. Continue masked (replaced with placeholders, reviewable in the editor), send the original anyway, or go back to revise",
         "sensMask": "Mask and continue",
         "sensOverride": "Send original anyway",
-        "sensCustom": "Custom term"
+        "sensCustom": "Custom term",
+        "budgetTitle": "Context pack preview",
+        "budgetSystem": "System prompt",
+        "budgetMaterial": "Material",
+        "budgetTruncated": "truncated",
+        "budgetDropped": "dropped",
+        "budgetFromRegistry": "Budget from model registry (${m}, window-tightened)",
+        "budgetFromDefault": "Budget is the task default (model not registered)"
     },
     "aiSystemPrompt": "You are a flashcard expert. Generate flashcards from the user material. Output ONLY a JSON array in the form [{\"q\":\"question\",\"a\":\"answer\",\"d\":1}] with no other text. d is a difficulty tag (1=easy, 2=medium, 3=hard). Questions must be specific and actively recallable; answers concise and accurate; difficulty reflects how hard an average learner would find it.",
     "aiUserPrompt": "Material:\n${source}\n\nGenerate ${count} flashcards in ${language}. Card style: ${type}.",

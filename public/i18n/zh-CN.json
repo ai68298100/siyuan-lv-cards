@@ -776,7 +776,14 @@
         "sensNote": "命中项仅显示打码样本；可选择「脱敏后继续」（替换为占位符，返回编辑区可核对），或「仍发送原文」，或返回修改材料",
         "sensMask": "脱敏后继续",
         "sensOverride": "仍发送原文",
-        "sensCustom": "自定义词"
+        "sensCustom": "自定义词",
+        "budgetTitle": "上下文包预览",
+        "budgetSystem": "系统提示",
+        "budgetMaterial": "材料",
+        "budgetTruncated": "已截断",
+        "budgetDropped": "已丢弃",
+        "budgetFromRegistry": "预算上限来自模型注册表（${m}，按窗口收紧）",
+        "budgetFromDefault": "预算上限为任务默认（模型未在册）"
     },
     "aiSystemPrompt": "你是记忆卡片专家。根据用户提供的材料生成闪卡。只输出 JSON 数组，格式为 [{\"q\":\"问题\",\"a\":\"答案\",\"d\":1}]，不要输出任何其他内容。d 为难度标注（1=易，2=中，3=难）。要求：问题具体、可主动回忆；答案简洁准确；难度按材料对普通学习者的实际难度评估。",
     "aiUserPrompt": "材料：\n${source}\n\n请生成 ${count} 张${language}闪卡。题型要求：${type}。",
