@@ -1007,5 +1007,28 @@
             "media": "Some media files missing — cards may render without images",
             "license": "Source license changed — review compliance"
         }
+    },
+    "returnTriage": {
+        "plan": {
+            "time-short": "Short on time: set a small budget, do the most important, the rest stays queued",
+            "goal-changed": "Goals changed: re-examine done-criteria and priorities before deciding what to study",
+            "content-stale": "Content stale: run source health and the revision list first — revision before review",
+            "data-failure": "Data had issues: export diagnostics and verify first, then review in a small batch",
+            "pressure": "Under pressure: browse only (no grading) today, or just rest",
+            "plain-leave": "Ordinary return: continue with the standard queue"
+        },
+        "step": {
+            "budget": "Set a session budget",
+            "high-priority": "High-priority only",
+            "review-criteria": "Re-examine done criteria",
+            "re-prioritize": "Re-order goal priorities",
+            "source-health": "Check source health (BI-20)",
+            "revision-first": "Revision before review",
+            "diagnostics": "Export diagnostics",
+            "verify-then-review": "Verify, then small batch",
+            "browse-only": "Browse only, no grading",
+            "rest": "Rest for a day",
+            "normal-review": "Review the standard queue"
+        }
     }
 }

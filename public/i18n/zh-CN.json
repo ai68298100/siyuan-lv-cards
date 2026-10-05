@@ -1007,5 +1007,28 @@
             "media": "部分媒体文件缺失——卡片展示可能缺图",
             "license": "来源许可发生变化——建议复核使用合规性"
         }
+    },
+    "returnTriage": {
+        "plan": {
+            "time-short": "时间不够：设个小预算，先做最要紧的，剩下的留在队列里",
+            "goal-changed": "目标变了：先重审完成标准和优先级，再决定学什么",
+            "content-stale": "内容过时：先过一遍来源健康与修订清单，修订优先于复习",
+            "data-failure": "数据出过问题：先导出诊断对账，确认完好后再小批量复习",
+            "pressure": "压力大：今天只浏览不评分，或者干脆休息",
+            "plain-leave": "普通返场：按标准队列正常复习即可"
+        },
+        "step": {
+            "budget": "设本场预算",
+            "high-priority": "只做高优先级",
+            "review-criteria": "重审完成标准",
+            "re-prioritize": "调整目标优先级",
+            "source-health": "检查来源健康（BI-20）",
+            "revision-first": "修订优先于复习",
+            "diagnostics": "导出诊断对账",
+            "verify-then-review": "验证后小批量复习",
+            "browse-only": "只读浏览不评分",
+            "rest": "休息一天",
+            "normal-review": "正常复习队列"
+        }
     }
 }
