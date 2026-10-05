@@ -4,6 +4,7 @@
     import { getRiffCards, removeRiffCards, resetRiffCards, type SearchBlock } from "@/api/riff";
     import { invalidateDueCache } from "@/api/due-shared";
     import { confirmDialog } from "@/libs/dialog";
+    import { parseManagerView } from "@/core/settings";
     import CardDetail from "./card-detail.svelte";
     import LvPage from "./kit/LvPage.svelte";
     import LvEmpty from "./kit/LvEmpty.svelte";
@@ -15,6 +16,8 @@
         i18n: any;
         /** BI-14：界面模式（simple=隐藏高级批量操作；显示性控制，不删配置） */
         uiMode?: "simple" | "advanced";
+        /** BI-17：管理器视图状态持久化（可选——旧宿主不传则不恢复筛选） */
+        view?: { initial: string | null; save: (v: string) => void };
         app: any;
         savedFilters: () => { name: string; filter: string }[];
         saveFilter: (name: string, filter: string) => void;
@@ -238,7 +241,21 @@
 
     onMount(() => {
         savedList = ctx.savedFilters();
+        // BI-17：返回时恢复上次筛选/排序（滚动/焦点依赖宿主 DOM，登记余项）
+        const v = parseManagerView(ctx.view?.initial ?? undefined);
+        if (v) {
+            filterText = v.filter;
+            sortMode = v.sort as typeof sortMode;
+            leechOnly = v.leechOnly;
+            statusFilter = v.status as typeof statusFilter;
+            if (v.status === "due") { void onStatusChange(); }
+        }
         load();
+    });
+
+    // BI-17：视图变化即持久化（settings 走 saveSettingsSoon 防抖）
+    $effect(() => {
+        ctx.view?.save(JSON.stringify({ filter: filterText, sort: sortMode, leechOnly, status: statusFilter }));
     });
 
     function saveCurrent() {

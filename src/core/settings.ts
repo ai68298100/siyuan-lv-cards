@@ -107,8 +107,26 @@ export interface LvCardsSettings {
     /** 记忆：上次所在中心子页 / 上次复习范围 */
     lastHubTab: string;
     lastReviewScope: string;
+    /** BI-17（v0.181.0）：管理器视图状态 JSON（filter/sort/leechOnly/status——返回时恢复筛选） */
+    lastManagerView: string;
     /** Onboarding 已完成 */
     onboarded: boolean;
+}
+
+/** BI-17：管理器视图状态解析（宽容 JSON：非法/缺字段回 null，调用方走默认视图） */
+export function parseManagerView(raw: string | undefined): { filter: string; sort: string; leechOnly: boolean; status: string } | null {
+    if (!raw) return null;
+    try {
+        const v = JSON.parse(raw) as Partial<{ filter: unknown; sort: unknown; leechOnly: unknown; status: unknown }>;
+        if (!v || typeof v !== "object") return null;
+        const filter = typeof v.filter === "string" ? v.filter : "";
+        const sort = typeof v.sort === "string" && ["default", "path", "content", "lapses"].includes(v.sort) ? v.sort : "default";
+        const leechOnly = v.leechOnly === true;
+        const status = typeof v.status === "string" && ["all", "new", "review", "due"].includes(v.status) ? v.status : "all";
+        return { filter, sort, leechOnly, status };
+    } catch {
+        return null;
+    }
 }
 
 const SETTINGS_VERSION = 1;
@@ -175,6 +193,7 @@ export function defaultSettings(): LvCardsSettings {
         cardMaxWidth: 880,
         lastHubTab: "overview",
         lastReviewScope: "all",
+        lastManagerView: "",
         onboarded: false,
     };
 }
@@ -210,7 +229,7 @@ const BOOL_FIELDS: (keyof LvCardsSettings)[] = [
 ];
 const STR_FIELDS: (keyof LvCardsSettings)[] = [
     "gatewayState", "ttsVoice", "aiEndpoint", "aiKey", "aiModel", "aiFallbackEndpoint", "aiFallbackKey",
-    "aiFallbackModel", "aiPromptTemplate", "targetNotebookId", "ankiClientKey", "lastHubTab", "lastReviewScope",
+    "aiFallbackModel", "aiPromptTemplate", "targetNotebookId", "ankiClientKey", "lastHubTab", "lastReviewScope", "lastManagerView",
 ];
 
 export function normalizeSettings(raw: unknown): LvCardsSettings {

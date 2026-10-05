@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.181.0 2026-10-05 · BI-17 切片：管理器视图状态持久化（返回恢复筛选）
+
+* settings 增 lastManagerView（JSON 字符串）+ parseManagerView 宽容解析纯函数（非法枚举/缺字段回缺省、损坏 JSON 回 null，+3 组单测 504→507）
+* 管理器页签：挂载时恢复上次筛选词/排序/烂卡筛选/状态过滤（due 态恢复自动重拉到期集）；视图变化即持久化（settings 走 saveSettingsSoon 防抖）——验收「筛选恢复」部分落地；滚动/焦点恢复依赖宿主 DOM 登记余项
+* BI-17 全项（跨练习/来源/目标的多级返回+滚动焦点）仍需宿主导航能力，本切片只收口可离线交付部分
+* 主包 42.11KB 不变
+
 ## v0.180.0 2026-10-05 · 优化轮：dialogs 缓存失败可重试 + 预算自定义值回显
 
 * 缺陷修复（自查发现）：loadDialogsComp 的 ready 缓存会把 rejected promise 驻留——dialogs chunk 一次加载失败（如网络瞬断）后所有对话框永久报错、不再重试；修复为失败即清缓存（rejected 不驻留），重试链与 chunk-loader 既有语义（已测）对齐

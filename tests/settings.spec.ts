@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeSettings, defaultSettings } from "../src/core/settings";
+import { normalizeSettings, defaultSettings, parseManagerView } from "../src/core/settings";
 import { normalizeExamPlans, daysLeft, isCramActive } from "../src/core/exam";
 
 describe("settings 旧 ID 迁移", () => {
@@ -155,5 +155,24 @@ describe("settings 运行时字段校验（AQ-22）", () => {
             expect(s.dailyReviewTarget).toBe(200);
             expect(s.aiMode).toBe("siyuan");
         }
+    });
+});
+
+describe("parseManagerView（BI-17 视图状态恢复）", () => {
+    it("合法 JSON 全字段解析", () => {
+        expect(parseManagerView('{"filter":"线粒体","sort":"lapses","leechOnly":true,"status":"due"}')).toEqual({
+            filter: "线粒体", sort: "lapses", leechOnly: true, status: "due",
+        });
+    });
+
+    it("缺字段/非法枚举回缺省；空串/null 回 null", () => {
+        expect(parseManagerView('{"filter":"x"}')).toEqual({ filter: "x", sort: "default", leechOnly: false, status: "all" });
+        expect(parseManagerView('{"sort":"bogus","status":"bogus"}')).toEqual({ filter: "", sort: "default", leechOnly: false, status: "all" });
+        expect(parseManagerView("")).toBeNull();
+        expect(parseManagerView(undefined)).toBeNull();
+    });
+
+    it("损坏 JSON 回 null（宽容不抛）", () => {
+        expect(parseManagerView("{corrupt")).toBeNull();
     });
 });

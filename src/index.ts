@@ -380,6 +380,14 @@ export default class LvCardsPlugin extends Plugin {
                             app: plugin.app,
                             uiMode: plugin.settings.uiMode,
                             savedFilters: () => plugin.settings.savedFilters,
+                            // BI-17：管理器视图状态持久化（返回时恢复筛选/排序）
+                            view: {
+                                initial: plugin.settings.lastManagerView || null,
+                                save: (v: string) => {
+                                    plugin.settings.lastManagerView = v;
+                                    plugin.saveSettingsSoon();
+                                },
+                            },
                             saveFilter: (name: string, filter: string) => {
                                 plugin.settings.savedFilters = [
                                     ...plugin.settings.savedFilters.filter(f => f.name !== name),
