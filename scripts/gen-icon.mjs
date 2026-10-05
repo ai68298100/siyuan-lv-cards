@@ -1,4 +1,6 @@
-// 生成品牌 icon.png（160×160）：渐变圆角底 + 双卡片图形。
+// 生成品牌 icon.png（160×160）：渐变圆角底 + 白卡闪电（v0.186 图标重塑形，系列语言：
+// 渐变圆角方底 + 单一白色简形 + 点缀橙点，用户 2026-10-05 从 A/B/C 候选中选定 A）。
+// 候选探索工具见 scripts/icon-candidates.mjs，候选渲染记录见 design/icon-candidates/。
 // 纯 Node 实现 PNG 编码（zlib deflate + CRC32），4x 超采样抗锯齿。
 // 用法：node scripts/gen-icon.mjs [输出路径=icon.png]
 import { deflateSync } from "node:zlib";
@@ -16,6 +18,15 @@ const inRoundedRect = (x, y, rx, ry, rw, rh, r) => {
     const dx = x - cx, dy = y - cy;
     return dx * dx + dy * dy <= r * r;
 };
+const inCircle = (x, y, cx, cy, r) => (x - cx) ** 2 + (y - cy) ** 2 <= r * r;
+const inPoly = (x, y, pts) => {
+    let inside = false;
+    for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+        const [xi, yi] = pts[i], [xj, yj] = pts[j];
+        if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+    }
+    return inside;
+};
 
 const lerp = (a, b, t) => a + (b - a) * t;
 
@@ -25,11 +36,12 @@ const bg = (x, y) => {
     return [Math.round(lerp(79, 139, t)), Math.round(lerp(107, 92, t)), Math.round(lerp(255, 246, t))];
 };
 
-// 圆角卡片区域与描边（白色系）
-const cardBack = (x, y) => inRoundedRect(x, y, N * 0.38, N * 0.16, N * 0.44, N * 0.58, N * 0.10);
-const cardFront = (x, y) => inRoundedRect(x, y, N * 0.18, N * 0.28, N * 0.46, N * 0.58, N * 0.10);
-const slotRows = [0.46, 0.57, 0.68]; // 前卡三条信息槽（相对 N）
-const inSlot = (x, y, r) => inRoundedRect(x, y, N * 0.28, N * r, N * (r === 0.68 ? 0.18 : 0.26), N * 0.045, N * 0.022);
+// 前后卡与闪电镂空、点缀橙点（比例相对 N）
+const cardBack = (x, y) => inRoundedRect(x, y, N * 0.46, N * 0.14, N * 0.38, N * 0.40, N * 0.09);
+const cardFront = (x, y) => inRoundedRect(x, y, N * 0.14, N * 0.24, N * 0.54, N * 0.56, N * 0.11);
+const BOLT = [[0.345, 0.30], [0.475, 0.30], [0.415, 0.455], [0.505, 0.455], [0.315, 0.735], [0.385, 0.535], [0.295, 0.535]];
+const inBolt = (x, y) => inPoly(x, y, BOLT.map(([px, py]) => [px * N, py * N]));
+const inDot = (x, y) => inCircle(x, y, N * 0.735, N * 0.70, N * 0.05);
 
 const buf = Buffer.alloc(N * N * 4);
 
@@ -40,23 +52,16 @@ for (let py = 0; py < N; py++) {
 
         if (inRoundedRect(x, y, 0, 0, N, N, N * 0.225)) {
             [r, g, b] = bg(x, y);
-            // 后卡（半透明白）
+            // 层序与候选一致：后卡（半透明白）先判，前卡白底上做渐变闪电镂空，卡外橙点
             if (cardBack(x, y)) {
-                const w = 0.62 * 255;
-                r = Math.round(lerp(r, 255, 0.62)); g = Math.round(lerp(g, 255, 0.62)); b = Math.round(lerp(b, 255, 0.62));
-            }
-            // 前卡（纯白 + 轻投影色）
-            if (cardFront(x, y)) {
-                r = 255; g = 255; b = 255;
-                // 三条信息槽：蓝紫渐变色
-                for (const row of slotRows) {
-                    if (inSlot(x, y, row)) {
-                        const t = (row - 0.46) / 0.22;
-                        r = Math.round(lerp(79, 139, t));
-                        g = Math.round(lerp(107, 92, t));
-                        b = Math.round(lerp(255, 246, t));
-                    }
+                const w = 0.5 * 255;
+                r = Math.round(lerp(r, 255, 0.5)); g = Math.round(lerp(g, 255, 0.5)); b = Math.round(lerp(b, 255, 0.5));
+            } else if (cardFront(x, y)) {
+                if (!inBolt(x, y)) {
+                    r = 255; g = 255; b = 255;
                 }
+            } else if (inDot(x, y)) {
+                r = 249; g = 115; b = 22; // #F97316
             }
         } else {
             a = 0; // 圆角外透明
