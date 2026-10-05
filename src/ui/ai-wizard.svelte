@@ -10,7 +10,7 @@
     import LvChip from "./kit/LvChip.svelte";
     import LvSteps from "./kit/LvSteps.svelte";
 
-    let { i18n, initialSource = "", loadCurrentDoc, loadNotebookMaterial, generate, onCreate, onClose, getUnfinishedJob, onResumeAIJob, onAbandonAIJob }: {
+    let { i18n, initialSource = "", loadCurrentDoc, loadNotebookMaterial, generate, onCreate, onClose, getUnfinishedJob, onResumeAIJob, onAbandonAIJob, openDocById }: {
         i18n: any;
         /** 预填材料（leech 改写联动） */
         initialSource?: string;
@@ -19,16 +19,43 @@
         /** ADR-7：逐卡提交——卡片携带 origIndex 指向作业 candidates 原位（✕ 移除后仍正确） */
         onCreate: (cards: { q: string; a: string; origIndex: number }[], deckID: string, deckName: string, jobId: string) => Promise<void>;
         onClose: () => void;
-        /** 载入当前打开文档（M2·FR6 输入源扩展；不可用时返回 null） */
-        loadCurrentDoc?: () => Promise<{ name: string; content: string } | null>;
+        /** 载入当前打开文档（M2·FR6 输入源扩展；不可用时返回 null）；docId 供回源（T02） */
+        loadCurrentDoc?: () => Promise<{ name: string; content: string; docId?: string } | null>;
         /** 载入笔记本范围材料（M2·FR6 扩展） */
         loadNotebookMaterial?: (nbId: string) => Promise<string>;
+        /** T02 来源清单：按文档 ID 回源跳转（可选——旧宿主不传则不显示回源按钮） */
+        openDocById?: (docId: string) => void;
         /** 未完成的 AI 导入（ADR-7 恢复入口）；null=无；failed=失败明细供导出 */
         getUnfinishedJob?: () => { id: string; done: number; total: number; failed: { index: number; q: string; error: string }[] } | null;
         onResumeAIJob?: (id: string) => Promise<void>;
         onAbandonAIJob?: (id: string) => void;
     } = $props();
     const t = $derived(i18n);
+
+    /** T02 来源清单（docs/13 §4）：分条记账——标签/字数/单条移除/文档来源可回源 */
+    interface WizardSource {
+        id: string;
+        label: string;
+        content: string;
+        docId?: string;
+    }
+    let sourceSeq = 0;
+    let sources = $state<WizardSource[]>([]);
+
+    function addSource(label: string, content: string, docId?: string): void {
+        sources = [...sources, { id: `src-${++sourceSeq}`, label, content, docId }];
+        source = source ? `${source}\n\n${content}` : content;
+    }
+
+    /** 移除来源条目：正文尽力删首次出现（用户已手动编辑则只移条目） */
+    function removeSource(id: string): void {
+        const entry = sources.find((s) => s.id === id);
+        if (entry && source.includes(entry.content)) {
+            const idx = source.indexOf(entry.content);
+            source = (source.slice(0, idx) + source.slice(idx + entry.content.length)).replace(/^\n+/, "").replace(/\n{3,}/g, "\n\n").trim();
+        }
+        sources = sources.filter((s) => s.id !== id);
+    }
 
     /** ADR-7 恢复入口：打开时检查未完成导入 */
     let resume = $state<{ id: string; done: number; total: number; failed: { index: number; q: string; error: string }[] } | null>(null);
@@ -71,7 +98,7 @@
         try {
             const material = await loadNotebookMaterial(nbId);
             if (material) {
-                source = source ? `${source}\n\n${material}` : material;
+                addSource(nbOptions.find((n) => n.id === nbId)?.name ?? t.aiWizard.loadNotebook, material);
                 errorMsg = "";
             } else {
                 errorMsg = t.aiWizard.noDoc;
@@ -91,7 +118,7 @@
         try {
             const doc = await loadCurrentDoc();
             if (doc?.content) {
-                source = source ? `${source}\n\n${doc.content}` : doc.content;
+                addSource(doc.name || t.aiWizard.loadDoc, doc.content, doc.docId);
             } else {
                 errorMsg = t.aiWizard.noDoc;
             }
@@ -107,7 +134,7 @@
         try {
             const sel = window.getSelection()?.toString().trim();
             if (sel) {
-                source = source ? `${source}\n\n${sel}` : sel;
+                addSource(t.aiWizard.srcSelection, sel);
                 errorMsg = "";
             } else {
                 errorMsg = t.aiWizard.noSelection;
@@ -122,7 +149,7 @@
         try {
             const text = (await navigator.clipboard.readText()).trim();
             if (text) {
-                source = source ? `${source}\n\n${text}` : text;
+                addSource(t.aiWizard.srcClipboard, text);
                 errorMsg = "";
             } else {
                 errorMsg = t.aiWizard.noClipboard;
@@ -135,6 +162,10 @@
     onMount(async () => {
         // ADR-7 恢复入口：打开时检查未完成的 AI 导入
         resume = getUnfinishedJob?.() ?? null;
+        // T02：预填材料（leech 改写联动）记入来源清单
+        if (initialSource.trim()) {
+            addSource(t.aiWizard.srcInitial, initialSource);
+        }
         try {
             decks = await getRiffDecks();
             if (decks.length > 0) {
@@ -332,7 +363,21 @@
                     <button class="b3-button b3-button--small" onclick={loadClipboard}>{t.aiWizard.loadClipboard}</button>
                 </div>
                 {#if source}
-                    <!-- T02 材料整理（docs/13 §4）：当前材料可读可改——裁剪即编辑，生成以此处内容为准 -->
+                    <!-- T02 来源清单（docs/13 §4）：分条标签 + 单条移除 + 文档来源回源 -->
+                    {#if sources.length > 0}
+                        <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px">
+                            {#each sources as src (src.id)}
+                                <span class="lv-chip2 lv-chip2--default" style="gap: 4px">
+                                    {#if src.docId && openDocById}
+                                        <button class="b3-button b3-button--small" style="border: none; background: transparent; padding: 0 2px; min-height: auto" title={t.aiWizard.openSource} onclick={() => openDocById?.(src.docId!)}>📂</button>
+                                    {/if}
+                                    <span>{src.label} · {src.content.length}</span>
+                                    <button class="b3-button b3-button--small" style="border: none; background: transparent; padding: 0 2px; min-height: auto" title={t.aiWizard.srcRemove} onclick={() => removeSource(src.id)}>✕</button>
+                                </span>
+                            {/each}
+                        </div>
+                    {/if}
+                    <!-- 材料可读可改：裁剪即编辑，生成以此处内容为准 -->
                     <textarea
                         class="b3-text-field fn__block"
                         rows="6"

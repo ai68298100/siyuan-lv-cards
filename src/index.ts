@@ -1620,8 +1620,8 @@ export default class LvCardsPlugin extends Plugin {
     }
 
     /** 当前打开的文档（M2·FR6 输入源扩展，🧪 getAllEditor 行为真机验证） */
-    private async loadCurrentDoc(): Promise<{ name: string; content: string } | null> {
-        // name 字段由 hPath 提供
+    private async loadCurrentDoc(): Promise<{ name: string; content: string; docId?: string } | null> {
+        // name 字段由 hPath 提供；docId 供向导「回源」跳转（T02）
         const editors: any[] = (getAllEditor() as any) ?? [];
         if (editors.length === 0) {
             return null;
@@ -1634,7 +1634,7 @@ export default class LvCardsPlugin extends Plugin {
             return null;
         }
         const md = await exportMdContent(rootID);
-        return { name: md.hPath, content: md.content };
+        return { name: md.hPath, content: md.content, docId: rootID };
     }
 
     /** 标记符制卡（M2·FR4）：活动文档 → 选卡组 → 扫描 `术语:: 定义` 与「？」结尾块 → 勾选入组 */
@@ -1865,6 +1865,10 @@ export default class LvCardsPlugin extends Plugin {
                 initialSource,
                 loadCurrentDoc: () => this.loadCurrentDoc(),
                 loadNotebookMaterial: (nbId: string) => this.loadNotebookMaterial(nbId),
+                // T02：来源清单「回源」——按文档 ID 跳回原文档
+                openDocById: (docId: string) => {
+                    openTab({ app: this.app, doc: { id: docId } });
+                },
                 // AQ-14：signal 随调用传入——向导关闭/换源/重生取消后，晚到响应不写回、不触发 fallback
                 // ADR-7 第 3 步：生成阶段入账作业生命周期（drafting→generating→reviewing / failed/canceled）
                 generate: async (source: string, cfg: { count: number; language: string; type: "qa" | "cloze" }, opts?: { signal?: AbortSignal }) => {
