@@ -5,8 +5,6 @@
     import { getRiffDecks, createRiffDeck, type RiffDeck } from "@/api/riff";
     import { isAICanceled } from "@/api/ai";
     import { lintAICards } from "@/core/ai-lint";
-    import LvSection from "./kit/LvSection.svelte";
-    import LvRow from "./kit/LvRow.svelte";
     import LvChip from "./kit/LvChip.svelte";
     import LvSteps from "./kit/LvSteps.svelte";
 
