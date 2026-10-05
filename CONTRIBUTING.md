@@ -14,7 +14,7 @@ pnpm build        # 生产构建（app + kernel）
 pnpm release      # 交互式发版改版（更新 plugin.json/package.json 并复跑门禁）
 ```
 
-- Node ≥ 24, pnpm ≥ 11, SiYuan ≥ 3.8.0（调试内核 riff API 建议 3.8.x 最新版）。
+- Node ≥ 24, pnpm ≥ 12.5, SiYuan ≥ 3.8.0（调试内核 riff API 建议 3.8.x 最新版）。
 - 插件开发速成见思源官方 [plugin-sample-vite-svelte](https://github.com/siyuan-note/plugin-sample-vite-svelte)。
 
 ## Architecture in 60 seconds / 架构 60 秒
@@ -22,7 +22,7 @@ pnpm release      # 交互式发版改版（更新 plugin.json/package.json 并�
 - **双轨 Gateway**：运行时探测内核 flashcard V2（3.9.0 feature 分支），未激活走 riff API（3.8.x）。上层只依赖 Gateway。
 - **内核唯一调度源**：评分/排程永远调内核（go-fsrs），插件只做增值层——请勿引入自建调度。
 - **UI 必须 Kit 装配**：新界面只允许组合 [docs/16](./docs/16-UI组件库规范.md) 的组件；缺件先补 Kit。
-- **体积预算**：`dist/index.js` gzip ≤32KB（CI 强制），重组件一律懒加载 chunk。
+- **体积预算**：`dist/index.js` gzip ≤55KB（CI 强制，当前主包约42KB；以治理脚本为准），重组件一律懒加载 chunk。
 - 全部架构决策见 [docs/24-ADR](./docs/24-架构决策记录.md)，设计基线见 [docs/10-16](./docs/README.md)。
 
 ## Pull request checklist / PR 自检清单

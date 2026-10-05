@@ -6,8 +6,8 @@
 
 中文 ｜ [English](./README.en.md)
 
-[![Release](https://img.shields.io/github/v/release/ai68298100/siyuan-lv-cards)](./releases)
-[![CI](https://github.com/ai68298100/siyuan-lv-cards/actions/workflows/ci.yml/badge.svg)](../../actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/ai68298100/siyuan-lv-cards)](https://github.com/ai68298100/siyuan-lv-cards/releases)
+[![CI](https://github.com/ai68298100/siyuan-lv-cards/actions/workflows/ci.yml/badge.svg)](https://github.com/ai68298100/siyuan-lv-cards/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
 [![SiYuan >= 3.8.0](https://img.shields.io/badge/SiYuan-%3E%3D%203.8.0-blue)](https://b3log.org/siyuan/)
 
@@ -17,7 +17,7 @@
 
 > **Note**: The primary README and all design docs are in Chinese (the author's language). This English page covers the essentials; dive into [docs/](./docs/README.md) with your translator of choice for the full design material.
 
-SiYuan ships a built-in FSRS flashcard system. Lv Cards aims to become its most complete local-first learning platform: absorbing proven mechanisms from Anki, Obsidian, RemNote, Quizlet, language tools, reading tools and exam products across the full lifecycle. AI already assists card generation behind a full safety chain — preflight checks, prompt-injection isolation, a context budget planner and an emergency kill switch — wired through a single pipeline entry. The kernel remains authoritative for formal scheduling. Capabilities that depend on real-machine verification or host APIs stay tracked with dependencies; no silent export of user data ever happens.
+SiYuan ships a built-in FSRS flashcard system. Lv Cards aims to become its most complete local-first learning platform: absorbing proven mechanisms from Anki, Obsidian, RemNote, Quizlet, language tools, reading tools and exam products across the full lifecycle. AI already assists card generation behind a safety chain — preflight checks, prompt-injection isolation, a context budget planner and an emergency kill switch — wired through a single pipeline entry. The kernel remains authoritative for formal scheduling. Offline checks and isolated E2E pass for the current baseline; real desktop/Android walkthroughs and some host-dependent paths are still being verified.
 
 ## ✨ Features
 
@@ -35,7 +35,7 @@ SiYuan ships a built-in FSRS flashcard system. Lv Cards aims to become its most 
 
 ## 🚀 Install
 
-**Users** (SiYuan ≥ 3.8.0, all platforms):
+**Users** (SiYuan ≥ 3.8.0; platform coverage is being verified):
 
 1. Download `package.zip` from the [latest release](https://github.com/ai68298100/siyuan-lv-cards/releases/latest) (do **not** unzip)
 2. SiYuan → Settings → Marketplace → Download → "Import package" → pick the zip
@@ -58,6 +58,8 @@ pnpm build        # production build (emits hub/review/dialogs UI chunks)
 3. In review: **Space** flips, **1-4** rates, `?` shows all shortcuts
 
 ## 📚 Docs
+
+Status labels used by the project: shipped in code · real-device verified · experimental · host-dependent · planned. See the [current review and quality backlog](./docs/38-%E5%BD%93%E5%89%8D%E7%8A%B6%E6%80%81%E8%AF%84%E5%AE%A1%E4%B8%8E%E7%B2%BE%E5%93%81%E5%8C%96%E5%BE%85%E5%8A%9E.md).
 
 Design docs and user guides are in [docs/](./docs/README.md) (Chinese): user guide (21), FAQ (20), module specs (11), interaction spec (12), UI kit spec (16), backlog (17), decisions (18/24).
 

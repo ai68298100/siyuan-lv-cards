@@ -9,7 +9,7 @@ labels: bug
 
 **环境 / Environment**
 - 思源版本 / SiYuan version: （例 3.8.7）
-- 插件版本 / Plugin version: （例 v0.63.0）
+- 插件版本 / Plugin version: （例 v0.185.0）
 - 平台 / Platform: （desktop / mobile / browser…）
 - 主题 / Theme: （默认 / 第三方主题名）
 
