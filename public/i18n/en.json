@@ -737,6 +737,7 @@
         "sourceEditHint": "Edit or trim the material directly — generation uses exactly this",
         "sourceClear": "Clear material",
         "srcLedger": "Sources",
+        "viewSource": "View this source’s content",
         "sourceEmptyHint": "No material yet — load a document, selection or clipboard from the left, or paste directly.",
         "previewTitle": "AI task preview — confirm before sending",
         "previewParams": "${n} cards · ${lang} · ${type}",
