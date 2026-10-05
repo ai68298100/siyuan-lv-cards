@@ -164,7 +164,7 @@
         "onboardingStart": "Start guide",
         "report": "Study report",
         "writeDoc": "Write to SiYuan doc",
-        "reportWritten": "Report written to SiYuan doc"
+        "reportWritten": "Report written to \"Lv Cards / Study Report / <date>\" and opened"
     },
     "review": {
         "done": "Session complete!",

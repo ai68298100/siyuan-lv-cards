@@ -270,20 +270,63 @@ export default class LvCardsPlugin extends Plugin {
     /** 最近一次到期数（角标点击行为统一用：>0 开复习，否则开中心） */
     private lastDue = 0;
 
-    async onload() {
-        // AT-6：启动性能计时起点（onload 首行）
-        this.perf.markStart();
-        this.addIcons(`<symbol id="iconLvCards" viewBox="0 0 32 32">
-<path d="M6 10h16v16H6z" fill="none" stroke="currentColor" stroke-width="2"></path>
-<path d="M10 6h16v16" fill="none" stroke="currentColor" stroke-width="2"></path>
-<path d="M11 16h6M11 20h10" stroke="currentColor" stroke-width="2"></path>
-</symbol>`);
+    /** AT-1：批量装载键（onload 与同步重载共用同一路径，防错位回归） */
+    private static readonly STORE_KEYS = [SETTINGS_DATA, REVLOG_DATA, SUSPEND_TODAY_DATA, EXAM_PLANS_DATA, AI_BATCHES_DATA, SESSION_STATE_DATA, AI_JOBS_DATA, KNOWLEDGE_OBJECTS_DATA, CARD_RELATIONS_DATA, ERROR_TAGS_DATA, INBOX_DATA, LEARNING_GOALS_DATA, ENTRY_CONTEXTS_DATA, CONTENT_LIFECYCLES_DATA, AI_KILL_SWITCH_DATA, ANKI_LEDGER_DATA, CONTENT_VERSIONS_DATA, AI_DENY_LIST_DATA, AI_COST_LEDGER_DATA] as const;
 
-        // AQ-1：批量加载以 keys 数组驱动并按位置配对，杜绝「6 项加载只解构 5 项」的错位回归
-        const STORE_KEYS = [SETTINGS_DATA, REVLOG_DATA, SUSPEND_TODAY_DATA, EXAM_PLANS_DATA, AI_BATCHES_DATA, SESSION_STATE_DATA, AI_JOBS_DATA, KNOWLEDGE_OBJECTS_DATA, CARD_RELATIONS_DATA, ERROR_TAGS_DATA, INBOX_DATA, LEARNING_GOALS_DATA, ENTRY_CONTEXTS_DATA, CONTENT_LIFECYCLES_DATA, AI_KILL_SWITCH_DATA, ANKI_LEDGER_DATA, CONTENT_VERSIONS_DATA, AI_DENY_LIST_DATA, AI_COST_LEDGER_DATA] as const;
-        const loaded = zipLoaded(STORE_KEYS, await Promise.all(STORE_KEYS.map(key => this.loadData(key))));
+    /** AT-1（保守版）：同步/覆盖变更 → 有界串行重载。防抖 2s、单飞、先冲刷本地在途写（绝不覆盖未 flush 的本地状态）。
+     * 打开中的页签不会自动重渲染（完整 UI 刷新协议待真机专项）；重载后新读取即取到新数据，角标即时刷新。 */
+    private reloadInFlight = false;
+    private reloadQueued = false;
+    private reloadTimer: ReturnType<typeof setTimeout> | null = null;
+
+    onDataChanged(files?: unknown) {
+        try {
+            // 兼容两种形态：string[] / { files: string[] }（宿主版本契约有差异）
+            const raw = Array.isArray(files) ? files : (files as any)?.files;
+            const list = Array.isArray(raw) ? raw : [];
+            const ours = list.some(f => typeof f === "string" && f.includes("/storage/petal/siyuan-lv-cards/"));
+            if (!ours) {
+                return;
+            }
+            if (this.reloadTimer) {
+                clearTimeout(this.reloadTimer);
+            }
+            this.reloadTimer = setTimeout(() => {
+                this.reloadTimer = null;
+                void this.reloadLocalStoresBounded();
+            }, 2000);
+        } catch { /* 协议差异不容阻断宿主 */ }
+    }
+
+    private async reloadLocalStoresBounded() {
+        if (this.reloadInFlight) {
+            this.reloadQueued = true;
+            return;
+        }
+        this.reloadInFlight = true;
+        try {
+            // 关键顺序：先冲刷本地在途写（重载读盘才不会用旧数据覆盖内存新状态）
+            await this.persist.waitAll(3000);
+            await this.applyLoadedStores(await this.readAllStores());
+            this.refreshDueBadge();
+            lvLog("info", `[sync] reloaded ${LvCardsPlugin.STORE_KEYS.length} stores after data change`);
+        } catch (e) {
+            lvLog("error", `[sync] reload failed: ${e instanceof Error ? e.message : String(e)}`);
+        } finally {
+            this.reloadInFlight = false;
+            if (this.reloadQueued) {
+                this.reloadQueued = false;
+                void this.reloadLocalStoresBounded();
+            }
+        }
+    }
+
+    private async readAllStores(): Promise<Record<string, unknown>> {
+        return zipLoaded(LvCardsPlugin.STORE_KEYS, await Promise.all(LvCardsPlugin.STORE_KEYS.map(key => this.loadData(key))));
+    }
+
+    private async applyLoadedStores(loaded: Record<string, unknown>) {
         this.settings = normalizeSettings(loaded[SETTINGS_DATA]);
-        this.perf.setCold(!this.settings.onboarded); // AT-6：首轮未完成引导=冷启动
         this.revlog = normalizeRevlog(loaded[REVLOG_DATA]); // AQ-3：清洗非法条目并由明细重建 days
         this.suspendToday = normalizeSuspendToday(loaded[SUSPEND_TODAY_DATA]);
         this.killSwitch = normalizeKillSwitch(loaded[AI_KILL_SWITCH_DATA]);
@@ -317,6 +360,21 @@ export default class LvCardsPlugin extends Plugin {
             fallback: emptyAIJobs,
             normalize: normalizeAIJobs,
         }, loaded[AI_JOBS_DATA]);
+    }
+
+    async onload() {
+        // AT-6：启动性能计时起点（onload 首行）
+        this.perf.markStart();
+        this.addIcons(`<symbol id="iconLvCards" viewBox="0 0 32 32">
+<path d="M6 10h16v16H6z" fill="none" stroke="currentColor" stroke-width="2"></path>
+<path d="M10 6h16v16" fill="none" stroke="currentColor" stroke-width="2"></path>
+<path d="M11 16h6M11 20h10" stroke="currentColor" stroke-width="2"></path>
+</symbol>`);
+
+        // AQ-1：批量加载以 keys 数组驱动并按位置配对，杜绝「6 项加载只解构 5 项」的错位回归
+        // （AT-1：读取与装配抽成方法，同步/覆盖变更后的有界串行重载复用同一路径）
+        await this.applyLoadedStores(await this.readAllStores());
+        this.perf.setCold(!this.settings.onboarded); // AT-6：首轮未完成引导=冷启动
         if (rollDateIfNeeded(this.suspendToday)) {
             await this.persist.save(SUSPEND_TODAY_DATA, this.suspendToday);
         }
@@ -1158,6 +1216,11 @@ export default class LvCardsPlugin extends Plugin {
         const unloadStart = Date.now();
         this.eventBus.off("click-flashcard-action", this.onNativeCardAction);
         this.eventBus.off("click-blockicon", this.onBlockIcon);
+        // AT-1：取消挂起中的同步重载（卸载后不再触发读盘）
+        if (this.reloadTimer) {
+            clearTimeout(this.reloadTimer);
+            this.reloadTimer = null;
+        }
         // AT-2：防抖中的设置保存立即落盘，禁用/重载不丢最后一次改动
         if (this.settingsSaveTimer) {
             clearTimeout(this.settingsSaveTimer);
@@ -1516,6 +1579,8 @@ export default class LvCardsPlugin extends Plugin {
             throw new Error(this.i18n.quickCardFail);
         }
         showMessage(this.i18n.examReportWritten, 2000, "info");
+        // AR-5：成功打开复盘文档
+        openTab({ app: this.app, doc: { id: docID } });
     }
 
     /** 笔记本归属集合（AR-11）：按 revlog 中出现的 blockID 分批查内核，落在该笔记本的才算命中范围 */
@@ -2772,5 +2837,8 @@ export default class LvCardsPlugin extends Plugin {
         if (!docID) {
             throw new Error(this.i18n.quickCardFail);
         }
+        // AR-5：成功回显路径并打开文档（失败由调用方 catch 展示，报告可重试）
+        showMessage((this.i18n as any).dashboard?.reportWritten ?? docID, 2500, "info");
+        openTab({ app: this.app, doc: { id: docID } });
     }
 }

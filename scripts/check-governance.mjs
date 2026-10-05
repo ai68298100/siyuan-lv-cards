@@ -5,7 +5,7 @@
 // ④ docs/17「总计」统计行与 docs/31 summary 一致
 // ⑤ 每条 entry 恰有一个主归属（primaryPackage 非空且在 packages 中存在）
 // 用法：node scripts/check-governance.mjs（CI 门禁用，不一致退出码 1）
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import { gzipSync } from "node:zlib";
 
 const failures = [];
@@ -110,6 +110,36 @@ if (existsSync("dist/index.js")) {
     const gz = gzipSync(readFileSync("dist/index.js"));
     if (gz.length > MAIN_GZIP_BUDGET) {
         failures.push(`主包 gzip ${Math.round(gz.length / 1024)}KB 超预算 55KB（AT-14 单文件约束下的体积上限）`);
+    }
+}
+
+// ⑩ UI 层 import 边界（AX-8，v0.198.0）：src/ui 与 src/chunks 不得直连内核数据端点——
+// siyuan 包只允许展示级 helper（showMessage/openTab）；数据面必须经 src/api 收口（超时/错误层统一）。
+// 白名单外导入即失败；新增白名单项须在本节登记理由。
+const UI_SIYUAN_ALLOW = new Set(["showMessage", "openTab"]);
+function walkUiFiles(dir) {
+    const out = [];
+    for (const name of readdirSync(dir)) {
+        const p = `${dir}/${name}`;
+        if (statSync(p).isDirectory()) {
+            out.push(...walkUiFiles(p));
+        } else if (p.endsWith(".svelte") || p.endsWith(".ts")) {
+            out.push(p);
+        }
+    }
+    return out;
+}
+for (const dir of ["src/ui", "src/chunks"]) {
+    if (!existsSync(dir)) { continue; }
+    for (const file of walkUiFiles(dir)) {
+        const text = readFileSync(file, "utf8");
+        for (const m of text.matchAll(/import\s*\{([^}]*)\}\s*from\s*["']siyuan["']/g)) {
+            for (const name of m[1].split(",").map(s => s.trim().split(/\s+as\s+/)[0]).filter(Boolean)) {
+                if (!UI_SIYUAN_ALLOW.has(name)) {
+                    failures.push(`AX-8 边界：${file} 从 "siyuan" 导入 "${name}"（UI 层只允许展示级 helper：${[...UI_SIYUAN_ALLOW].join("/")}；数据面请走 src/api）`);
+                }
+            }
+        }
     }
 }
 

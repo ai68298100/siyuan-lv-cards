@@ -219,6 +219,24 @@
         setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
 
+    /** AR-5：报告写入文档——busy 防重复点击 + catch 展示原因（报告纯函数随时可重试） */
+    let writeBusy = $state(false);
+    let writeError = $state("");
+    async function writeDocReport() {
+        if (writeBusy) {
+            return;
+        }
+        writeBusy = true;
+        writeError = "";
+        try {
+            await ctx.writeReportDoc(buildReportMd());
+        } catch (e: any) {
+            writeError = e?.message ?? String(e);
+        } finally {
+            writeBusy = false;
+        }
+    }
+
     /** 数字滚动统一由 LvStat 的 animate 承担（reduced-motion 直落） */
     function targetPct(): number {
         const target = targets.review;
@@ -360,12 +378,19 @@
 <LvPage title={t.dashboard.title} subtitle={revlogNote ? `${t.dashboard.since} ${revlogNote}` : ""} dot>
     {#snippet actions()}
         <button class="b3-button b3-button--outline" onclick={downloadReport}>{t.dashboard.report}</button>
-        <button class="b3-button b3-button--outline" onclick={() => ctx.writeReportDoc(buildReportMd())}>{t.dashboard.writeDoc}</button>
+        <!-- AR-5：写入中禁点；失败原因就近展示（报告可重试，草稿不丢） -->
+        <button class="b3-button b3-button--outline" disabled={writeBusy} title={writeError || undefined} onclick={writeDocReport}>{writeBusy ? "…" : t.dashboard.writeDoc}</button>
         <button class="b3-button b3-button--outline" onclick={() => ctx.openManager()}>{t.menuManager}</button>
         <button class="b3-button b3-button--text lv-btn-primary" onclick={() => ctx.openReview()}>{t.dashboard.openReview}</button>
         <button class="b3-button b3-button--outline" onclick={refresh}>{t.dashboard.refresh}</button>
     {/snippet}
 
+    {#if writeError}
+        <!-- AR-5：写入失败原因就近展示（按钮 title 同步提示） -->
+        <div class="lv-glass" style="border-color: var(--b3-theme-error); padding: 6px 10px; margin-bottom: 8px">
+            <span class="ft__smaller" style="color: var(--b3-theme-error)">{writeError}</span>
+        </div>
+    {/if}
     {#if ctx.getV2Status()}
         <div class="lv-glass lv-v2banner">
             <span class="lv-dot"></span>

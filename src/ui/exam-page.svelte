@@ -1,5 +1,6 @@
 <script lang="ts">
     import { onMount } from "svelte";
+    import { showMessage } from "siyuan";
     import { getRiffDecks, type RiffDeck } from "@/api/riff";
     import { getNotebooks, type Notebook } from "@/api/siyuan";
     import {
@@ -21,8 +22,8 @@
         onReviewScope: (scopeKind: ExamScopeKind, scopeId: string, cram: boolean, planId?: string) => void;
         /** 生成考后复盘报告（复制到剪贴板） */
         onReport: (plan: ExamPlan) => void;
-        /** 写入复盘文档 */
-        onWriteReport: (plan: ExamPlan) => void;
+        /** 写入复盘文档（AR-5：busy 防重复 + 失败 toast） */
+        onWriteReport: (plan: ExamPlan) => Promise<void>;
         /** 本地复习日志（AQ-8 动态建议用，只读） */
         getRevlog: () => RevlogData;
         /** 每日复习上限设置（不可行判定用） */
@@ -52,6 +53,22 @@
     onMount(() => {
         void load();
     });
+
+    /** AR-5：复盘文档写入闭环——busy 防重复、失败 toast 原因 */
+    let reportBusyId = $state("");
+    async function writeDoc(plan: ExamPlan) {
+        if (reportBusyId) {
+            return;
+        }
+        reportBusyId = plan.id;
+        try {
+            await onWriteReport(plan);
+        } catch (e: any) {
+            showMessage(e?.message ?? String(e), 3500, "error");
+        } finally {
+            reportBusyId = "";
+        }
+    }
 
     function newPlan(): ExamPlan {
         return {
@@ -204,7 +221,10 @@
                 <div class="fn__flex lv-plan-actions">
                     <button class="b3-button b3-button--small" onclick={() => (editing = { ...plan })}>{t.exam.edit}</button>
                     <button class="b3-button b3-button--small" onclick={() => onReport(plan)}>{t.exam.report}</button>
-                    <button class="b3-button b3-button--small" onclick={() => onWriteReport(plan)}>{t.exam.writeDoc}</button>
+                    <!-- AR-5：写入中禁点，失败 toast 给原因（文档写入失败可重试） -->
+                    <button class="b3-button b3-button--small" disabled={reportBusyId === plan.id} onclick={() => writeDoc(plan)}>
+                        {reportBusyId === plan.id ? "…" : t.exam.writeDoc}
+                    </button>
                     <button class="b3-button b3-button--small" onclick={() => onSavePlan({ ...plan, archived: true, enabled: false })}>{t.exam.archive}</button>
                     <button class="b3-button b3-button--small" onclick={() => onSavePlan({ ...plan, enabled: !plan.enabled, archived: false })}>
                         {plan.enabled ? t.exam.pause : t.exam.enable}
