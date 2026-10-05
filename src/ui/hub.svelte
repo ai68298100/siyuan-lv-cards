@@ -10,11 +10,15 @@
 
     let {
         i18n, dashboardBase, managerCtx, exam, inbox, goals, maintenance, uiMode = "advanced", initialTab = "overview", onTabChange,
+        openWizard, openDrill,
     }: {
         i18n: any;
         /** 总览页上下文（不含 openManager，由 Hub 内部切换页签实现） */
         dashboardBase: Omit<DashboardCtx, "openManager">;
         managerCtx: ManagerCtx;
+        /** T02 工作台入口页：向导与修卡演练（可选——旧宿主不传则页签隐藏） */
+        openWizard?: () => void;
+        openDrill?: () => void;
         /** 考试子页数据通道；null = 模块关闭 */
         exam: {
             plans: ExamPlansData;
@@ -64,6 +68,7 @@
     const tabs = [
         { id: "overview", label: i18n.hubTabOverview },
         { id: "manage", label: i18n.hubTabManage },
+        ...(openWizard ? [{ id: "authoring", label: i18n.hubTabAuthoring }] : []),
         { id: "goals", label: i18n.hubTabGoals },
         ...(inbox ? [{ id: "inbox", label: i18n.hubTabInbox }] : []),
         ...(exam && uiMode !== "simple" ? [{ id: "exam", label: i18n.hubTabExam }] : []),
@@ -186,6 +191,23 @@
                 {#if active === "overview"}
                     <!-- T08：注入页签切换（待处理分区直达收件箱） -->
                     <Dashboard ctx={{ ...dctx, openHubTab: (id: string) => switchTab(id) }} />
+                {:else if active === "authoring"}
+                    <!-- T02 工作台入口页（docs/40）：向导/演练常驻入口；全屏内嵌工作面为后续批次 -->
+                    <div style="padding: var(--lv-sp-5); max-width: 720px; margin: 0 auto">
+                        <div class="lv-eyebrow">{i18n.hubTabAuthoring}</div>
+                        <div class="lv-card2" style="margin-top: 10px; padding: 20px 22px">
+                            <div style="font-weight: 650; font-size: 15px">{i18n.aiWizardTitle}</div>
+                            <div class="ft__smaller ft__on-surface" style="margin: 6px 0 12px">{i18n.authoringWizardDesc}</div>
+                            <button class="b3-button lv-btn-primary" onclick={() => openWizard?.()}>{i18n.authoringWizardOpen}</button>
+                        </div>
+                        {#if openDrill}
+                            <div class="lv-card2" style="margin-top: var(--lv-sp-3); padding: 20px 22px">
+                                <div style="font-weight: 650; font-size: 15px">{i18n.drillTitle}</div>
+                                <div class="ft__smaller ft__on-surface" style="margin: 6px 0 12px">{i18n.authoringDrillDesc}</div>
+                                <button class="b3-button b3-button--outline" onclick={() => openDrill?.()}>{i18n.authoringDrillOpen}</button>
+                            </div>
+                        {/if}
+                    </div>
                 {:else if active === "manage"}
                     <Manager ctx={managerCtx} />
                 {:else if active === "goals"}

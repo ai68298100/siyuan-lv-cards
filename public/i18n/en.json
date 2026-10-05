@@ -14,6 +14,11 @@
     "menuManager": "Card Manager",
     "menuSettings": "Settings",
     "cmdOpenDashboard": "Open Card Hub",
+    "hubTabAuthoring": "Authoring",
+    "authoringWizardDesc": "Source ledger, material trimming and request preview — candidates are reviewed and imported here.",
+    "authoringWizardOpen": "Open AI wizard",
+    "authoringDrillDesc": "Practice the five-step repair flow on a fixed public sample — no real data, no ratings.",
+    "authoringDrillOpen": "Start repair drill",
     "detail": {
         "facetContent": "Content",
         "facetSource": "Source",

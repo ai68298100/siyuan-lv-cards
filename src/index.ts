@@ -341,6 +341,9 @@ export default class LvCardsPlugin extends Plugin {
                         initialTab: (this.data?.tab as string) ?? plugin.settings.lastHubTab,
                         // BI-14：界面模式（挂载时定格；设置修改后重开页签生效）
                         uiMode: plugin.settings.uiMode,
+                        // T02 工作台入口页：向导对话框与修卡演练的常驻入口
+                        openWizard: () => this.openAIWizard(),
+                        openDrill: () => this.openRepairDrill(),
                         onTabChange: (id: string) => {
                             plugin.settings.lastHubTab = id;
                             plugin.saveSettingsSoon();

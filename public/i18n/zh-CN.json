@@ -14,6 +14,11 @@
     "menuManager": "闪卡管理器",
     "menuSettings": "设置",
     "cmdOpenDashboard": "打开闪卡中心",
+    "hubTabAuthoring": "制卡工作台",
+    "authoringWizardDesc": "来源清单分条管理、材料裁剪与请求预览确认——生成的候选在此审核入库。",
+    "authoringWizardOpen": "打开 AI 制卡向导",
+    "authoringDrillDesc": "在固定公开样例上练习修卡五步流程——不触真实数据，不产生评分。",
+    "authoringDrillOpen": "进入修卡演练",
     "detail": {
         "facetContent": "内容",
         "facetSource": "来源",
