@@ -337,6 +337,12 @@ export default class LvCardsPlugin extends Plugin {
                             }),
                             // T01 今日行动 hero（docs/39 批 2）：当日会话续场判断
                             getSessionState: () => plugin.sessionState,
+                            // T01 可用时间（docs/40）：hero 选择落偏好，复习开场默认预算
+                            getSessionBudget: () => plugin.settings.sessionBudgetMin,
+                            setSessionBudget: (min: number) => {
+                                plugin.settings.sessionBudgetMin = min;
+                                plugin.saveSettingsSoon();
+                            },
                             openReview: () => plugin.openTabOf(TAB_REVIEW),
                             openOnboarding: () => plugin.openOnboarding(),
                             getAIBatches: () => plugin.aiBatches.batches,
@@ -694,6 +700,8 @@ export default class LvCardsPlugin extends Plugin {
                         ctx: {
                         i18n: plugin.i18n,
                         app: plugin.app,
+                        // T01 可用时间（docs/40）：开场默认预算来自 hero 偏好
+                        preferredBudgetMin: () => plugin.settings.sessionBudgetMin,
                         settings: () => ({
                             ratingStyle: plugin.settings.ratingStyle,
                             timeoutMode: plugin.settings.timeoutMode,

@@ -70,6 +70,8 @@
         app: any;
         /** 实时读取设置（保存后热生效，无需重建面板） */
         settings: () => ReviewSettings;
+        /** T01 可用时间偏好（分钟，0=不限）：复习开场默认预算（hero 选择落偏好） */
+        preferredBudgetMin?: () => number;
         /** 初始范围（考试模式直达）："" 或 "deck:<id>" / "notebook:<id>" */
         initialScope?: string;
         /** 初始 cram 模式（考前：lapses 降序） */
@@ -1107,6 +1109,11 @@
     }
 
     onMount(() => {
+        // T01 可用时间（docs/40）：开场即按偏好挂预算（原型 hero「可用时间 [15 分钟▾]」→ 会话结束条件）
+        const prefBudget = ctx.preferredBudgetMin?.() ?? 0;
+        if (prefBudget > 0) {
+            setBudget(prefBudget);
+        }
         // 会话中断恢复（M3）：当日已有评分进度时，恢复计数并从剩余卡继续
         const ss = ctx.getSessionState();
         if (ss && ss.reviewedIDs.length > 0) {

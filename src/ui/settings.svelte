@@ -65,6 +65,29 @@
     // 初值语义：draft 是打开设置时的快照，保存前不随源变化
     // svelte-ignore state_referenced_locally
     let draft: LvCardsSettings = $state(JSON.parse(JSON.stringify(ctx.settings)));
+
+    // T09 三件套（docs/40）：搜索定位——按分组标题+代表字段标签匹配（i18n 值，中英皆可搜）
+    let searchQuery = $state("");
+    const SECTION_KEYWORDS: Record<string, string[]> = {
+        persona: ["personaSection", "personaManage", "personaActive"],
+        modules: ["modules", "gateway", "review", "stats"],
+        studyRhythm: ["studyRhythm", "dailyNewTarget", "dailyReviewTarget"],
+        studyAnswer: ["studyAnswer", "ratingStyle", "timeoutMode", "timeoutForget", "typingEnabled", "dictationEnabled", "choiceEnabled"],
+        studyVoice: ["studyVoice", "ttsEnabled", "ttsRate"],
+        studyNotify: ["studyNotify", "notifyDue", "dailyTipEnabled"],
+        aiSection: ["aiSection", "aiEndpoint", "aiModel", "aiPromptTemplate", "aiKillTitle"],
+        exam: ["exam"],
+        ankiSection: ["ankiSection", "ankiSectionHint"],
+        appearance: ["appearance", "cardFontScale", "uiMode"],
+        dataSection: ["dataSection"],
+    };
+    function sectionMatches(id: string): boolean {
+        const q = searchQuery.trim().toLowerCase();
+        if (!q) return true;
+        const dict = t.settings as Record<string, unknown>;
+        const hay = (SECTION_KEYWORDS[id] ?? []).map((k) => String(dict[k] ?? "")).join(" ").toLowerCase();
+        return hay.includes(q);
+    }
     // svelte-ignore state_referenced_locally
     let v2Label = $state(ctx.getV2Status());
     let voices = $state<{ name: string }[]>([]);
@@ -274,6 +297,26 @@
 </script>
 
 <div class="lv-settings b3-typography">
+
+    <!-- T09 三件套（docs/40）：搜索定位 + 本地样例预览（虚构内容，不触真实卡片） -->
+    <div class="lv-searchbar">
+        <input class="b3-text-field" style="width: 100%" placeholder={t.settings.searchPlaceholder} bind:value={searchQuery} />
+    </div>
+    {#if sectionMatches("appearance")}
+    <div class="lv-notice" style="display: flex; gap: var(--lv-sp-4); align-items: center; flex-wrap: wrap">
+        <div style="flex: 1; min-width: 240px">
+            <div class="lv-eyebrow">{t.settings.previewTitle}</div>
+            <div class="ft__smaller ft__on-surface" style="margin-top: 4px">{t.settings.previewSub}</div>
+        </div>
+        <div class="lv-card2" style="max-width: 320px; font-size: ${draft.cardFontScale || 1}em; flex: 1">
+            <div style="padding: 12px 16px">
+                <strong>{t.settings.previewQ}</strong>
+                <div class="ft__smaller ft__on-surface" style="margin-top: 4px">{t.settings.previewA}</div>
+            </div>
+        </div>
+    </div>
+    {/if}
+    {#if sectionMatches("persona")}
     <LvSection title={t.settings.personaSection}>
         <div class="fn__flex fn__flex-wrap lv-personas">
             {#each PERSONA_PRESETS as p (p.id)}
@@ -299,7 +342,9 @@
             </label>
         </div>
     </LvSection>
+    {/if}
 
+    {#if sectionMatches("modules")}
     <LvSection title={t.settings.modules}>
         <!-- BI-14：界面模式（simple=隐藏考试/维护等高级入口；纯显示控制，不删配置） -->
         <LvRow label={t.settings.uiModeLabel} hint={t.settings.uiModeHint}>
@@ -326,8 +371,10 @@
             </LvRow>
         {/each}
     </LvSection>
+    {/if}
 
     <!-- 学习偏好四区（13-W10）：节奏与目标 / 评分与作答 / 朗读与音效 / 提醒与免打扰 -->
+    {#if sectionMatches("studyRhythm")}
     <LvSection title={t.settings.studyRhythm}>
         <LvRow label={t.settings.dailyNewTarget}>
             <input class="b3-text-field fn__size-60" type="number" min="0" bind:value={draft.dailyNewTarget} />
@@ -360,7 +407,9 @@
             <input class="b3-text-field fn__size-60" type="number" min="1" bind:value={draft.leechThreshold} />
         </LvRow>
     </LvSection>
+    {/if}
 
+    {#if sectionMatches("studyAnswer")}
     <LvSection title={t.settings.studyAnswer}>
         <LvRow label={t.settings.ratingStyle}>
             <LvSegmented
@@ -372,6 +421,9 @@
                 onchange={(v) => (draft.ratingStyle = v as "four" | "three")}
             />
         </LvRow>
+
+        <!-- T09：生效来源显示（docs/40）——全局默认 + 本场覆盖口径 -->
+        <div class="lv-notice">{t.settings.effectiveSource.replace("${v}", draft.ratingStyle === "four" ? t.settings.ratingFour : t.settings.ratingThree)}</div>
         <LvRow label={t.settings.timeoutMode}>
         <LvSelect
             bind:value={draft.timeoutMode}
@@ -409,7 +461,9 @@
             <LvSwitch bind:checked={draft.mixedRotation} />
         </LvRow>
     </LvSection>
+    {/if}
 
+    {#if sectionMatches("studyVoice")}
     <LvSection title={t.settings.studyVoice}>
         <LvRow label={t.settings.ttsEnabled}>
             <LvSwitch bind:checked={draft.ttsEnabled} />
@@ -444,7 +498,9 @@
             </LvRow>
         {/if}
     </LvSection>
+    {/if}
 
+    {#if sectionMatches("studyNotify")}
     <LvSection title={t.settings.studyNotify}>
         <LvRow label={t.settings.quietStart} hint={t.settings.quietHint}>
             <input class="b3-text-field fn__size-60" type="time" bind:value={draft.quietStart} />
@@ -464,7 +520,9 @@
             </LvRow>
         {/if}
     </LvSection>
+    {/if}
 
+    {#if sectionMatches("aiSection")}
     <LvSection title={t.settings.aiSection} sub={t.settings.aiSectionHint}>
         <LvRow label={t.settings.targetNotebook} hint={t.settings.targetNotebookHint}>
             <LvSelect
@@ -556,7 +614,9 @@
             {/if}
         {/if}
     </LvSection>
+    {/if}
 
+    {#if sectionMatches("exam")}
     <LvSection title={t.settings.exam}>
         <LvRow label={t.settings.examEnabled}>
             <LvSwitch bind:checked={draft.examEnabled} />
@@ -566,7 +626,9 @@
         </LvRow>
         <div class="ft__smaller ft__on-surface">{t.settings.examHint}</div>
     </LvSection>
+    {/if}
 
+    {#if sectionMatches("ankiSection")}
     <LvSection title={t.settings.ankiSection} sub={t.settings.ankiSectionHint}>
         <LvRow label={t.settings.ankiUrl}>
             <input class="b3-text-field fn__size-200" bind:value={draft.ankiClientUrl} />
@@ -581,7 +643,9 @@
             {/snippet}
         </LvRow>
     </LvSection>
+    {/if}
 
+    {#if sectionMatches("appearance")}
     <LvSection title={t.settings.appearance}>
         <LvRow label={t.settings.cardFontScale}>
             <LvSlider value={draft.cardFontScale} min={0.85} max={1.25} step={0.05} suffix="×" onchange={(v) => (draft.cardFontScale = v)} />
@@ -611,7 +675,9 @@
             </select>
         </LvRow>
     </LvSection>
+    {/if}
 
+    {#if sectionMatches("dataSection")}
     <LvSection title={t.settings.dataSection}>
         <LvRow label="Flashcard V2" hint={t.dashboard.v2Active}>
             {#snippet children()}
@@ -672,6 +738,7 @@
             {/snippet}
         </LvRow>
     </LvSection>
+    {/if}
 
     <div class="b3-dialog__action">
         <button class="b3-button b3-button--cancel" onclick={requestClose}>{window.siyuan.languages.cancel}</button>

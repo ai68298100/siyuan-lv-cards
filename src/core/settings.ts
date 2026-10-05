@@ -44,6 +44,8 @@ export interface LvCardsSettings {
     cardFontScale: number;
     /** 热力图范围（439）：周数 */
     heatmapWeeks: number;
+    /** T01 可用时间偏好（分钟，0=不限）：hero 选择，复习开场默认预算 */
+    sessionBudgetMin: number;
     /** 角标刷新间隔秒（440）：0=关闭心跳 */
     badgeRefreshSec: number;
     /** 评分按钮密度（441）：cozy 舒适 / compact 紧凑 */
@@ -158,6 +160,7 @@ export function defaultSettings(): LvCardsSettings {
         gatewayState: "",
         cardFontScale: 1,
         heatmapWeeks: 17,
+        sessionBudgetMin: 15,
         badgeRefreshSec: 60,
         ratingDensity: "cozy",
         hideMetaUntilAnswer: false,
@@ -208,6 +211,7 @@ const INT_FIELDS: [keyof LvCardsSettings, number, number, number][] = [
     ["backlogDays", 3, 1, 90],
     ["cardMaxWidth", 880, 320, 1600],
     ["answerTimeCapSec", 60, 5, 3600],
+    ["sessionBudgetMin", 15, 0, 600],
 ];
 const FLOAT_FIELDS: [keyof LvCardsSettings, number, number, number][] = [
     ["cardFontScale", 1, 0.85, 1.25],

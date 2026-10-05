@@ -47,6 +47,9 @@
         getErrorReasonStats?: () => { reason: string; count: number }[];
         /** T01 今日行动 hero（docs/39 批 2）：当日会话状态（续场判断；可缺省） */
         getSessionState?: () => { date: string; counters: { new: number; review: number; forget: number; skip: number }; endReason?: string | null };
+        /** T01 可用时间（docs/40）：hero 选择落偏好，复习开场默认预算 */
+        getSessionBudget?: () => number;
+        setSessionBudget?: (min: number) => void;
     }
 
     let { ctx }: { ctx: DashboardCtx } = $props();
@@ -60,6 +63,9 @@
     let sessReps = $state(0);
     let sessLive = $state(false);
     let deepOpen = $state(false);
+    // T01 可用时间（docs/40）：hero 选择，落偏好并在复习开场生效
+    let sessionBudget = $state(15);
+    const BUDGET_CHOICES = [0, 5, 15, 30, 60] as const;
     /** hero eyebrow 的本地日期（R52：TODAY / 2026.10.02 同款） */
     function heroDateText(): string {
         const d = new Date();
@@ -264,6 +270,7 @@
             sessLive = !!sess && sess.date === localToday && !sess.endReason
                 && (sess.counters.new + sess.counters.review + sess.counters.forget) > 0;
             sessReps = sessLive ? sess!.counters.new + sess!.counters.review + sess!.counters.forget : 0;
+            sessionBudget = ctx.getSessionBudget?.() ?? 15;
             oldCount = due.unreviewedOldCardCount;
             const first = revlog.entries[0]?.ts;
             revlogNote = first ? new Date(first).toLocaleDateString() : "";
@@ -384,7 +391,21 @@
                     {:else}
                         <span class="lv-eyebrow">{t.dashboard.heroEyebrow.replace("${d}", heroDateText())}</span>
                     {/if}
-                    <span class="ft__smaller ft__on-surface">{t.dashboard.heroBudget.replace("${n}", String(targets.review))}</span>
+                    <!-- T01 可用时间（R52 hero「可用时间 [15 分钟▾]」）：选择落偏好，复习开场生效 -->
+                    <div class="fn__flex" style="gap: 6px; align-items: center">
+                        <span class="ft__smaller ft__on-surface">{t.dashboard.heroTimeBudget}</span>
+                        <select
+                            class="b3-select"
+                            style="font-size: 12px; padding: 2px 8px"
+                            aria-label={t.dashboard.heroTimeBudget}
+                            value={String(sessionBudget)}
+                            onchange={(e) => ctx.setSessionBudget?.(Number((e.currentTarget as HTMLSelectElement).value))}
+                        >
+                            {#each BUDGET_CHOICES as m (m)}
+                                <option value={String(m)}>{m === 0 ? t.dashboard.heroTimeOff : t.dashboard.heroTimeMin.replace("${n}", String(m))}</option>
+                            {/each}
+                        </select>
+                    </div>
                 </div>
                 <div class="lv-hero-title">
                     {sessLive ? t.dashboard.heroResumeTitle : t.dashboard.heroStartTitle}
