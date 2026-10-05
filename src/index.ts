@@ -2035,12 +2035,20 @@ export default class LvCardsPlugin extends Plugin {
                         this.aiJobs.jobs = pruneJobs([...this.aiJobs.jobs, job]);
                         await this.persist.save(AI_JOBS_DATA, this.aiJobs).catch(() => { /* onFail 已记录 */ });
                         // 批次元数据（质量反哺数据源，P2 消费）；tokens 供消耗历史（299）
+                        // BU-19：批次 pin——生成环境快照落盘（modelId/templateHash/来源 hash，均指纹不含密钥与原文）
                         this.aiBatches.batches.push({
                             id: `ai-${Date.now().toString(36)}`,
                             date: localDate(Date.now()),
                             deckID: "",
                             blockIDs: [],
                             tokens: estimateTokens(system) + estimateTokens(user) + estimateTokens(raw),
+                            pin: {
+                                mode: this.settings.aiMode,
+                                modelId: assembled.audit.modelId,
+                                templateHash: fnv1a(system),
+                                sourceHash: fnv1a(source),
+                                pinnedAt: Date.now(),
+                            },
                         });
                         if (this.aiBatches.batches.length > 200) {
                             this.aiBatches.batches = this.aiBatches.batches.slice(-200);

@@ -44,3 +44,31 @@ describe("normalizeAIBatches（AI 批次 schema 清洗，AX·526）", () => {
         expect(normalizeAIBatches(JSON.parse(JSON.stringify(once)))).toEqual(once);
     });
 });
+
+// BU-19 批次 pin：生成环境快照随批次落盘（指纹不含密钥/原文）；坏 pin 剔除、旧批次无 pin 兼容
+describe("ai-batches pin（BU-19，v0.194.0）", () => {
+    const pin = { mode: "custom", modelId: "gpt-4o-mini", templateHash: "ab12cd34", sourceHash: "ef56ab78", pinnedAt: 1700000000000 };
+
+    it("合法 pin 保留；modelId 非字符串回 null；坏 pin（mode 非法/缺 hash）整条剔除", () => {
+        const r = normalizeAIBatches({
+            batches: [
+                batch("p1", { pin }),
+                batch("p2", { pin: { ...pin, modelId: 42 } }),
+                batch("p3", { pin: { ...pin, mode: "galaxy" } }),
+                batch("p4", { pin: { mode: "siyuan", modelId: null } }), // 缺 hash
+                batch("p5", { pin: null }),
+            ],
+        });
+        expect(r.batches[0].pin).toEqual(pin);
+        expect(r.batches[1].pin?.modelId).toBeNull();
+        expect(r.batches[2].pin).toBeUndefined();
+        expect(r.batches[3].pin).toBeUndefined();
+        expect(r.batches[4].pin).toBeUndefined();
+    });
+
+    it("旧批次无 pin 字段兼容不动（normalize 幂等）", () => {
+        const once = normalizeAIBatches({ batches: [batch("legacy"), batch("p", { pin })] });
+        expect(normalizeAIBatches(JSON.parse(JSON.stringify(once)))).toEqual(once);
+        expect(once.batches[0].pin).toBeUndefined();
+    });
+});
