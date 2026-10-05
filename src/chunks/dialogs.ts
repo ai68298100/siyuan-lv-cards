@@ -12,6 +12,7 @@ import PairingGame from "@/ui/pairing-game.svelte";
 import SettingsPanel from "@/ui/settings.svelte";
 import DeckPicker from "@/ui/deck-picker.svelte";
 import QuickCard from "@/ui/quick-card.svelte";
+import Drill from "@/ui/repair-drill.svelte"; // T10 修卡演练
 
 type Props = Record<string, any>;
 
@@ -33,6 +34,7 @@ const w = window as unknown as { __lvChunks?: Record<string, unknown> };
         SettingsPanel,
         DeckPicker,
         QuickCard,
+    Drill,
     },
     mountDialogComponent,
 };

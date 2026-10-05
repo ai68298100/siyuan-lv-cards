@@ -117,6 +117,7 @@ const loadPairingGame = process.env.DEV_MODE ? lazyComp(() => import("./ui/pairi
 const loadSettingsPanel = process.env.DEV_MODE ? lazyComp(() => import("./ui/settings.svelte")) : loadDialogsComp("SettingsPanel");
 const loadDeckPicker = process.env.DEV_MODE ? lazyComp(() => import("./ui/deck-picker.svelte")) : loadDialogsComp("DeckPicker");
 const loadQuickCard = process.env.DEV_MODE ? lazyComp(() => import("./ui/quick-card.svelte")) : loadDialogsComp("QuickCard");
+const loadRepairDrill = process.env.DEV_MODE ? lazyComp(() => import("./ui/repair-drill.svelte")) : loadDialogsComp("Drill"); // T10 修卡演练
 
 /**
  * chunk 加载/挂载失败的页签兜底（v0.185.1 真机空白教训：无 .catch 时静默 reject，
@@ -869,6 +870,13 @@ export default class LvCardsPlugin extends Plugin {
             langText: this.i18n.cmdQuickCard,
             hotkey: "",
             callback: () => this.openQuickCard(),
+        });
+        // T10 修卡演练（docs/13 §12）：独立样例入口
+        this.addCommand({
+            langKey: "drill",
+            langText: this.i18n.cmdDrill,
+            hotkey: "",
+            callback: () => this.openRepairDrill(),
         });
         this.addCommand({
             langKey: "openExam",
@@ -1854,6 +1862,17 @@ export default class LvCardsPlugin extends Plugin {
     }
 
     /** AI 制卡向导（M2·FR6-10）：生成回调 + 批次记录落库；initialSource 用于 leech 改写预填 */
+    /** T10 修卡演练（docs/13 §12）：独立样例、零网络零写入、进度不迁入真实学习 */
+    private openRepairDrill() {
+        const Drill = loadRepairDrill();
+        svelteDialog({
+            title: this.i18n.drillTitle,
+            component: Drill,
+            width: "min(720px, 94vw)",
+            props: { i18n: this.i18n, onClose: () => { /* svelteDialog 自理销毁 */ } },
+        });
+    }
+
     private async openAIWizard(initialSource = "", onCreated?: () => void) {
         const AIWizard = await loadAIWizard();
         svelteDialog({
