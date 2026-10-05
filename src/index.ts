@@ -90,9 +90,15 @@ const loadReviewMount: () => Promise<ChunkMount["mount"]> = process.env.DEV_MODE
 let dialogsChunkReady: Promise<void> | null = null;
 function loadDialogsComp(compName: string): () => Promise<any> {
     return async () => {
-        dialogsChunkReady ??= loadChunk("dialogs").then(m => {
-            setDialogMounter(m.mountDialogComponent);
-        });
+        // 失败可重试：rejected 不驻留缓存（否则一次网络瞬断后对话框永久失败）
+        dialogsChunkReady ??= loadChunk("dialogs")
+            .then(m => {
+                setDialogMounter(m.mountDialogComponent);
+            })
+            .catch(e => {
+                dialogsChunkReady = null;
+                throw e;
+            });
         await dialogsChunkReady;
         const m = await loadChunk("dialogs");
         const Comp = m.components?.[compName];

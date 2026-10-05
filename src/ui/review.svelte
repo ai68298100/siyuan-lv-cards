@@ -1504,6 +1504,10 @@
                         {#each BUDGET_PRESETS as m (m)}
                             <option value={String(m)}>{t.review.budgetMinutes.replace("${n}", String(m))}</option>
                         {/each}
+                        {#if budgetMin > 0 && !(BUDGET_PRESETS as readonly number[]).includes(budgetMin)}
+                            <!-- 自定义值回显（否则 select 空白） -->
+                            <option value={String(budgetMin)}>{t.review.budgetMinutes.replace("${n}", String(budgetMin))}</option>
+                        {/if}
                     </select>
                     <input
                         class="b3-text-field b3-text-field--small lv-budget-custom"
