@@ -49,6 +49,7 @@ import { assembleGeneratePrompt } from "./core/ai-pipeline";
 import { checkEligibility } from "./core/ai-eligibility";
 import { disableTarget, emptyKillSwitch, enableTarget, grantConsent, killSwitchBlock, normalizeKillSwitch, revokeConsent, type AIKillSwitchData } from "./core/ai-kill-switch";
 import { addDenyRule, emptyDenyList, isDenied, normalizeDenyList, type DenyListData } from "./core/ai-source-deny";
+import { evaluateRefusal } from "./core/ai-refusal";
 import { parseRevlogCsv } from "./core/revlog-csv";
 import { normalizeSessionState, type SessionState } from "./core/session-state";
 import { normalizeExamPlans, daysLeft, examReportStats, type ExamPlan, type ExamPlansData } from "./core/exam";
@@ -2016,7 +2017,14 @@ export default class LvCardsPlugin extends Plugin {
                         );
                         const parsed = parseCards(raw).slice(0, cfg.count);
                         if (parsed.length === 0) {
-                            throw new Error((this.i18n as any).aiWizard?.emptyResult ?? "AI returned no cards");
+                            // BU-11：空响应按「格式失败」拒答呈现（可读原因 + 有序下一步，不偷偷重试/换端点）
+                            const refusal = evaluateRefusal({ "format-failure": "empty" });
+                            const dict = (this.i18n as any).aiRefusal;
+                            const parts = [
+                                dict?.kind?.[refusal.kind] ?? (this.i18n as any).aiWizard?.emptyResult ?? "AI returned no cards",
+                                ...refusal.nextKeys.map(k => dict?.next?.[k.replace("aiRefusal.next.", "")]).filter(Boolean),
+                            ];
+                            throw new Error(parts.join("；"));
                         }
                         job = transitionJob(job, {
                             type: "GENERATE_OK",

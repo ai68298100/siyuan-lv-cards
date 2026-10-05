@@ -1209,5 +1209,28 @@
         "cn-mobile": "手机号",
         "email": "邮箱",
         "cn-id": "身份证号（已验证校验位）"
+    },
+    "aiRefusal": {
+        "kind": {
+            "insufficient-evidence": "材料不足以支撑可靠出卡（事实不足）",
+            "source-conflict": "来源之间存在冲突，无法确定可信口径",
+            "stale-material": "材料已标记过时或来源版本已变化",
+            "hazardous-request": "材料或请求触发了安全规则（注入/越权/敏感目标），已停止处理",
+            "beyond-capability": "该任务超出当前在册能力范围",
+            "format-failure": "AI 响应为空或无法解析为卡片（格式失败）"
+        },
+        "next": {
+            "stop": "建议放弃本次 AI 处理，改走本地手工路径",
+            "manual-local": "建议本地手工处理敏感内容",
+            "inspect-sources": "逐条核对来源原文，找出冲突点",
+            "pick-side-or-split": "确定采信口径，或按来源拆分为多张卡",
+            "manual-card": "可改用快速制卡手工录入",
+            "narrow-topic": "缩小主题范围后重试",
+            "add-source": "补充更多来源材料",
+            "source-health": "先跑来源健康检查（BI-20）",
+            "update-source": "先更新来源内容再出卡",
+            "split-task": "把大任务拆成更小的制卡批次",
+            "retry-once": "可重试一次（模型偶发空响应）"
+        }
     }
 }

@@ -1209,5 +1209,28 @@
         "cn-mobile": "Mobile number",
         "email": "Email",
         "cn-id": "CN national ID (checksum verified)"
+    },
+    "aiRefusal": {
+        "kind": {
+            "insufficient-evidence": "Material is insufficient for reliable card generation",
+            "source-conflict": "Sources conflict; no trustworthy account can be determined",
+            "stale-material": "Material is marked stale or the source version has changed",
+            "hazardous-request": "Material or request triggered a safety rule (injection/escalation/sensitive target) — stopped",
+            "beyond-capability": "This task is outside the registered capability scope",
+            "format-failure": "AI response was empty or could not be parsed into cards (format failure)"
+        },
+        "next": {
+            "stop": "Consider abandoning AI processing for this request; use the local manual path",
+            "manual-local": "Consider handling the sensitive content manually, locally",
+            "inspect-sources": "Review each source excerpt to locate the conflict",
+            "pick-side-or-split": "Choose which account to trust, or split by source into multiple cards",
+            "manual-card": "Quick-card entry is available for manual creation",
+            "narrow-topic": "Narrow the topic and retry",
+            "add-source": "Add more source material",
+            "source-health": "Run the source health check (BI-20) first",
+            "update-source": "Update the source content before generating",
+            "split-task": "Split the large task into smaller batches",
+            "retry-once": "Retry once (models occasionally return empty responses)"
+        }
     }
 }
