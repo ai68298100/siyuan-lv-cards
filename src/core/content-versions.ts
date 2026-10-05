@@ -8,6 +8,8 @@ export interface ContentVersion {
     md: string;
     at: number;
     via: "editor" | "ai";
+    /** T05：用户核对确认（原型「用户接受」）——同块仅最新接受的版本带此标记 */
+    accepted?: boolean;
 }
 
 export interface ContentVersionBlock {
@@ -42,7 +44,7 @@ export function normalizeContentVersions(raw: unknown): ContentVersionsData {
         const versions: ContentVersion[] = [];
         for (const v of b.versions) {
             if (typeof v?.md !== "string" || !v.md || typeof v?.at !== "number") continue;
-            versions.push({ md: v.md, at: v.at, via: asVia(v.via) });
+            versions.push({ md: v.md, at: v.at, via: asVia(v.via), accepted: v.accepted === true ? true : undefined });
         }
         if (versions.length === 0) continue;
         versions.sort((a, b) => a.at - b.at);
@@ -82,4 +84,19 @@ export function appendVersion(
 
 export function versionsOf(data: ContentVersionsData, blockID: string): ContentVersion[] {
     return [...(data.blocks.find((b) => b.blockID === blockID)?.versions ?? [])].reverse(); // 最新在前
+}
+
+/** 用户核对确认：标记指定版本为「已接受」，同块其他版本的标记剥离（编辑/新保存自然失效） */
+export function acceptVersion(data: ContentVersionsData, blockID: string, at: number): ContentVersionsData {
+    const blocks = data.blocks.map((b) => ({
+        blockID: b.blockID,
+        versions: b.versions.map((v) => {
+            const rest = (({ accepted: _a, ...r }) => r)(v);
+            return v.at === at ? { ...rest, accepted: true } : rest;
+        }),
+    }));
+    const block = blocks.find((b) => b.blockID === blockID);
+    const target = block?.versions.find((v) => v.at === at);
+    if (!target) return data;
+    return { version: 1, blocks };
 }

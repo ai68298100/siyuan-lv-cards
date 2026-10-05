@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { appendVersion, emptyContentVersions, normalizeContentVersions, versionsOf } from "../src/core/content-versions";
+import { acceptVersion, appendVersion, emptyContentVersions, normalizeContentVersions, versionsOf } from "../src/core/content-versions";
 
 describe("content-versions（T05）", () => {
     it("normalize：坏条目剔除、每块限量保留最新、块数限量保留最近写入", () => {
@@ -46,5 +46,28 @@ describe("content-versions（T05）", () => {
 
     it("versionsOf：未知块返回空数组", () => {
         expect(versionsOf(emptyContentVersions(), "nope")).toEqual([]);
+    });
+
+    it("acceptVersion：同块仅最新接受的版本带标记；normalize 保留", () => {
+        let data = emptyContentVersions();
+        data = appendVersion(data, "b1", "v1", 1, "editor");
+        data = appendVersion(data, "b1", "v2", 2, "editor");
+        data = acceptVersion(data, "b1", 1);
+        let vs = versionsOf(data, "b1");
+        expect(vs.find((v) => v.at === 1)?.accepted).toBe(true);
+        expect(vs.find((v) => v.at === 2)?.accepted).toBeUndefined();
+        // 再接受 v2：v1 标记清除
+        data = acceptVersion(data, "b1", 2);
+        vs = versionsOf(data, "b1");
+        expect(vs.find((v) => v.at === 2)?.accepted).toBe(true);
+        expect(vs.find((v) => v.at === 1)?.accepted).toBeUndefined();
+        // normalize 往返保留标记
+        expect(normalizeContentVersions(data).blocks[0].versions.find((v) => v.at === 2)?.accepted).toBe(true);
+    });
+
+    it("acceptVersion：目标版本不存在 → 原样返回", () => {
+        let data = emptyContentVersions();
+        data = appendVersion(data, "b1", "v1", 1, "editor");
+        expect(acceptVersion(data, "b1", 999)).toBe(data);
     });
 });

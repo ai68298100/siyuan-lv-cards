@@ -25,7 +25,9 @@
         getBlockHistory?: (blockID: string) => { rating: number; ts: number; dur: number | null }[];
         getBlockIssues?: (blockID: string) => { addedAt: number; status: string }[];
         /** T05 内容版本快照（最新在前；可选——旧宿主不传则不显示版本） */
-        contentVersionsOf?: (blockID: string) => { md: string; at: number; via: "editor" | "ai" }[];
+        contentVersionsOf?: (blockID: string) => { md: string; at: number; via: "editor" | "ai"; accepted?: boolean }[];
+        /** T05：用户核对确认某版本 */
+        acceptContentAt?: (blockID: string, at: number) => void;
         deleteFilter: (name: string) => void;
         getLeechCards: () => { blockID: string; lapses: number }[];
         /** 状态过滤（M6·FR2）：新卡=本地 revlog 无记录 */
@@ -395,6 +397,7 @@
         historyEntries={ctx.getBlockHistory?.(detail!.id) ?? []}
         issues={ctx.getBlockIssues?.(detail!.id) ?? []}
         versions={ctx.contentVersionsOf?.(detail!.id) ?? []}
+        acceptVersion={(at) => ctx.acceptContentAt?.(detail!.id, at)}
         lcCtx={ctx.lc ? {
             snapshot: detailLc,
             onopen: () => {                ctx.lc!.open(detail!.id);

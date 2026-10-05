@@ -44,7 +44,7 @@ import { appendBlock, createDocWithMd, getNotebooks, getBlockDOM, getBlockDocMap
 import { aiChat, estimateTokens, parseCards, isAICanceled } from "./api/ai";
 import { normalizeSuspendToday, rollDateIfNeeded, isSuspended, suspend, unsuspend, type SuspendTodayData } from "./core/suspend-today";
 import { normalizeLedger, type LedgerEntry } from "./core/anki-import";
-import { appendVersion, emptyContentVersions, normalizeContentVersions, versionsOf } from "./core/content-versions";
+import { acceptVersion, appendVersion, emptyContentVersions, normalizeContentVersions, versionsOf } from "./core/content-versions";
 import { assembleGeneratePrompt } from "./core/ai-pipeline";
 import { checkEligibility } from "./core/ai-eligibility";
 import { disableTarget, emptyKillSwitch, enableTarget, grantConsent, killSwitchBlock, normalizeKillSwitch, revokeConsent, type AIKillSwitchData } from "./core/ai-kill-switch";
@@ -586,6 +586,10 @@ export default class LvCardsPlugin extends Plugin {
                             },
                             // T05：内容分面「版本 N」历史
                             contentVersionsOf: (blockID: string) => versionsOf(this.contentVersions, blockID),
+                            acceptContentAt: (blockID: string, at: number) => {
+                                this.contentVersions = acceptVersion(this.contentVersions, blockID, at);
+                                this.persist.save(CONTENT_VERSIONS_DATA, this.contentVersions).catch(() => { /* onFail 已记录 */ });
+                            },
                         },
                         exam: plugin.settings.modules.exam ? {
                             plans: plugin.examPlans,

@@ -28,7 +28,9 @@
         "versionHistory": "Version history",
         "viaEditor": "editor",
         "viaAI": "AI",
-        "diffCompare": "Compare with current"
+        "diffCompare": "Compare with current",
+        "acceptVer": "Accept this version",
+        "accepted": "Accepted"
     },
     "cmdDrill": "Card repair drill (sample)",
     "drillTitle": "Card repair drill",

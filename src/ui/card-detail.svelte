@@ -13,7 +13,7 @@
     import type { ContentState } from "@/core/content-lifecycle";
     import type { NextAction } from "@/core/next-action";
 
-    let { block, t, onOpenDoc, onClose, relationsCtx, koCtx, lcCtx, editorCtx, historyEntries = [], issues = [], versions = [] }: {
+    let { block, t, onOpenDoc, onClose, relationsCtx, koCtx, lcCtx, editorCtx, historyEntries = [], issues = [], versions = [], acceptVersion }: {
         block: SearchBlock;
         t: any;
         onOpenDoc: () => void;
@@ -22,7 +22,9 @@
         historyEntries?: { rating: number; ts: number; dur: number | null }[];
         issues?: { addedAt: number; status: string }[];
         /** T05 内容版本快照（最新在前；可选——旧宿主不传则不显示版本） */
-        versions?: { md: string; at: number; via: "editor" | "ai" }[];
+        versions?: { md: string; at: number; via: "editor" | "ai"; accepted?: boolean }[];
+        /** T05：用户核对确认某版本（可选） */
+        acceptVersion?: (at: number) => void;
         /** BI-5/6/7：内容状态面板数据与操作（宿主注入；缺省=不显示内容状态区） */
         lcCtx?: {
             snapshot: LcSnapshot | null;
@@ -178,6 +180,8 @@
                                 <button class="b3-button b3-button--small" onclick={() => (verOpenAt = verOpenAt === v.at ? null : v.at)}>
                                     {new Date(v.at).toLocaleString()} · {v.via === "ai" ? t.detail.viaAI : t.detail.viaEditor}
                                 </button>
+                                {#if v.accepted}<LvChip tone="primary">{t.detail.accepted}</LvChip>{/if}
+                                <button class="b3-button b3-button--small" disabled={v.accepted} title={t.detail.acceptVer} onclick={() => acceptVersion?.(v.at)}>✓</button>
                                 <button class="b3-button b3-button--small" disabled={diffBusy} onclick={() => compareWithCurrent(v.at, v.md)}>{t.detail.diffCompare}</button>
                             </div>
                             {#if verOpenAt === v.at}
