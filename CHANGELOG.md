@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.196.0 2026-10-06 · B11（BU-24/25 成本账本）：月度预算阻断 + 用量记账
+
+* 成本账本纯模块（core/ai-cost-ledger.ts）：每次出卡记一条用量（任务/端点形态/模型/token 估算/费用估算/算法与价格版本）——**token 全为估算并显式标记 est=true**（chars/4 + 注册表价格快照），绝不冒充账单事实；价格未知记 null 不编数字；上限 2000 条自动裁旧；**key 与材料/卡片原文永不入账本**
+* 月度预算（BU-24）：设置新增「AI 成本预算」行（开关 + 月度 token 上限 + 本月已用即时显示）——达到 80% 预警 toast、达到上限在组装 prompt 前阻断（eligibility costExceeded 事实源落地，BU-33 预留位补全）；**阻断信息自带手工替代路径，fallback 不会启动**（不偷换端点）；自然月窗口本地时区
+* 用量可导出/删除（BU-25）：设置 → 数据新增「AI 用量账本」行——JSON 导出（按模型/按日聚合 + 明细）与确认清空（预算归零重计）
+* 存储接线：ai-cost-ledger.json 新文件（PRIVACY 披露行同步；storageStats 自动收录）；i18n +8 键（zh/en 对齐 1150）
+* 质量：635 测试（+5，含聚合价格未知组 null 传播、预算窗口跨月、warn/exceeded 阈值边界）
+
 ## v0.195.0 2026-10-06 · B13 红队 fixture 扩容（注入模式库 10→14 + 扫描资源上限）
 
 * INJECTION_PATTERNS 扩容 4 个高信号模式：HTML 事件外发（`<img onerror=` 等）、聊天模板逃逸（`<|im_start|>` / `[INST]` / `[/SYS]`）、密钥套取（打印 API key/口令）、Markdown 信标（超长外链图片 ≥80 字符）

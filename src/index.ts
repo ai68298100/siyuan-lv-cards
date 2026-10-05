@@ -51,7 +51,9 @@ import { disableTarget, emptyKillSwitch, enableTarget, grantConsent, killSwitchB
 import { addDenyRule, emptyDenyList, isDenied, normalizeDenyList, type DenyListData } from "./core/ai-source-deny";
 import { evaluateRefusal } from "./core/ai-refusal";
 import { fnv1a } from "./core/ai-provenance";
-import { isSelectableModel } from "./core/ai-model-registry";
+import { isSelectableModel, estimateCallCostUsd } from "./core/ai-model-registry";
+import { budgetState, emptyCostLedger, normalizeCostLedger, recordEntry, aggregateByModel, aggregateByDay, type CostLedgerData } from "./core/ai-cost-ledger";
+import { MODEL_PRICE_SNAPSHOT } from "./core/ai-model-registry";
 import { parseRevlogCsv } from "./core/revlog-csv";
 import { normalizeSessionState, type SessionState } from "./core/session-state";
 import { normalizeExamPlans, daysLeft, examReportStats, type ExamPlan, type ExamPlansData } from "./core/exam";
@@ -164,6 +166,8 @@ const ANKI_LEDGER_DATA = "anki-ledger.json";
 const CONTENT_VERSIONS_DATA = "content-versions.json";
 /** BW-9：来源级 AI 禁止外发规则（笔记本/文档/块 ID，不含内容） */
 const AI_DENY_LIST_DATA = "ai-deny-list.json";
+/** BU-24/25：AI 用量账本（token 估算/模型/任务，不含 key 与原文） */
+const AI_COST_LEDGER_DATA = "ai-cost-ledger.json";
 
 export default class LvCardsPlugin extends Plugin {
 
@@ -257,6 +261,8 @@ export default class LvCardsPlugin extends Plugin {
     private contentVersions = emptyContentVersions();
     /** BW-9：来源级禁止外发规则（笔记本/文档/块 ID；显式登记、显式解除） */
     private aiDenyList: DenyListData = emptyDenyList();
+    /** BU-24/25：AI 用量账本（估算记账；月度预算阻断事实源） */
+    private costLedger: CostLedgerData = emptyCostLedger();
     /** T05 探针/出口：版本数（诊断用） */
     get contentVersionCount(): number {
         return this.contentVersions.blocks.reduce((n, b) => n + b.versions.length, 0);
@@ -274,7 +280,7 @@ export default class LvCardsPlugin extends Plugin {
 </symbol>`);
 
         // AQ-1：批量加载以 keys 数组驱动并按位置配对，杜绝「6 项加载只解构 5 项」的错位回归
-        const STORE_KEYS = [SETTINGS_DATA, REVLOG_DATA, SUSPEND_TODAY_DATA, EXAM_PLANS_DATA, AI_BATCHES_DATA, SESSION_STATE_DATA, AI_JOBS_DATA, KNOWLEDGE_OBJECTS_DATA, CARD_RELATIONS_DATA, ERROR_TAGS_DATA, INBOX_DATA, LEARNING_GOALS_DATA, ENTRY_CONTEXTS_DATA, CONTENT_LIFECYCLES_DATA, AI_KILL_SWITCH_DATA, ANKI_LEDGER_DATA, CONTENT_VERSIONS_DATA, AI_DENY_LIST_DATA] as const;
+        const STORE_KEYS = [SETTINGS_DATA, REVLOG_DATA, SUSPEND_TODAY_DATA, EXAM_PLANS_DATA, AI_BATCHES_DATA, SESSION_STATE_DATA, AI_JOBS_DATA, KNOWLEDGE_OBJECTS_DATA, CARD_RELATIONS_DATA, ERROR_TAGS_DATA, INBOX_DATA, LEARNING_GOALS_DATA, ENTRY_CONTEXTS_DATA, CONTENT_LIFECYCLES_DATA, AI_KILL_SWITCH_DATA, ANKI_LEDGER_DATA, CONTENT_VERSIONS_DATA, AI_DENY_LIST_DATA, AI_COST_LEDGER_DATA] as const;
         const loaded = zipLoaded(STORE_KEYS, await Promise.all(STORE_KEYS.map(key => this.loadData(key))));
         this.settings = normalizeSettings(loaded[SETTINGS_DATA]);
         this.perf.setCold(!this.settings.onboarded); // AT-6：首轮未完成引导=冷启动
@@ -297,6 +303,8 @@ export default class LvCardsPlugin extends Plugin {
         this.contentVersions = normalizeContentVersions(loaded[CONTENT_VERSIONS_DATA]);
         // BW-9：来源级禁止外发规则装载（只存 ID 不存内容；规则不因重开/移动失效）
         this.aiDenyList = normalizeDenyList(loaded[AI_DENY_LIST_DATA]);
+        // BU-24/25：AI 用量账本装载（token 估算/模型/任务，不含 key 与原文）
+        this.costLedger = normalizeCostLedger(loaded[AI_COST_LEDGER_DATA]);
         // AI 批次走 TypedStore 入口（322）：结构清洗 + 兜底，非法条目剔除（526）；复用批量加载结果不再二次读盘
         this.aiBatches = await loadStore(this, {
             key: AI_BATCHES_DATA,
@@ -1940,6 +1948,11 @@ export default class LvCardsPlugin extends Plugin {
                 // AQ-14：signal 随调用传入——向导关闭/换源/重生取消后，晚到响应不写回、不触发 fallback
                 // ADR-7 第 3 步：生成阶段入账作业生命周期（drafting→generating→reviewing / failed/canceled）
                 generate: async (source: string, cfg: { count: number; language: string; type: "qa" | "cloze" }, opts?: { signal?: AbortSignal; provenance?: { notebookIds?: string[]; docIds?: string[] } }) => {
+                    // BU-24（v0.196.0）：月度 token 预算——超限在组装 prompt 前阻断（fallback 不会启动，绝不偷换端点）
+                    const budget = budgetState(this.costLedger, {
+                        enabled: this.settings.aiCostBudgetEnabled,
+                        monthlyTokenCap: this.settings.aiCostMonthlyCap,
+                    });
                     // BW-9（v0.190.0）：来源级禁止外发——来源 provenance 任一命中 deny 规则即阻断（组装 prompt 前）
                     const prov = opts?.provenance;
                     const denyHit = [
@@ -1954,6 +1967,8 @@ export default class LvCardsPlugin extends Plugin {
                         online: typeof navigator !== "undefined" ? navigator.onLine : undefined,
                         // BW-9：deny 规则 = eligibility sensitive 事实源（BL-5 deny 名单的落地形态）
                         sensitive: denyHit,
+                        // BU-24：月度预算超限 = eligibility costExceeded 事实源（BU-33 预留位落地）
+                        costExceeded: budget.exceeded,
                     });
                     if (!elig.ok) {
                         const e = (this.i18n as any).aiElig;
@@ -2054,6 +2069,27 @@ export default class LvCardsPlugin extends Plugin {
                             this.aiBatches.batches = this.aiBatches.batches.slice(-200);
                         }
                         this.persist.save(AI_BATCHES_DATA, this.aiBatches).catch(() => { /* onFail 已记录 */ });
+                        // BU-25（v0.196.0）：用量入账（估算显式标记；价格未知=null 不编数字；不含 key 与原文）
+                        const tokensIn = estimateTokens(system) + estimateTokens(user);
+                        const tokensOut = estimateTokens(raw);
+                        this.costLedger = recordEntry(this.costLedger, {
+                            at: Date.now(),
+                            task: "cards-generate",
+                            mode: this.settings.aiMode,
+                            modelId: assembled.audit.modelId,
+                            tokens: tokensIn + tokensOut,
+                            est: true,
+                            costUsd: assembled.audit.modelId
+                                ? estimateCallCostUsd(assembled.audit.modelId, tokensIn, tokensOut)
+                                : null,
+                            algorithm: "chars/4",
+                            priceVersion: MODEL_PRICE_SNAPSHOT,
+                        });
+                        this.persist.save(AI_COST_LEDGER_DATA, this.costLedger).catch(() => { /* onFail 已记录 */ });
+                        // BU-24：预算预警（80% 阈值，到顶前提醒；超限已在下一轮请求前置阻断）
+                        if (budgetState(this.costLedger, { enabled: this.settings.aiCostBudgetEnabled, monthlyTokenCap: this.settings.aiCostMonthlyCap }).warn) {
+                            showMessage((this.i18n as any).aiCost?.warn ?? "AI cost budget warning", 3000, "info");
+                        }
                         // BU-15：生成环境快照随结果返回（mode/modelId/templateHash；不含 key），向导记入版本链
                         return {
                             cards: parsed,
@@ -2535,6 +2571,12 @@ export default class LvCardsPlugin extends Plugin {
                     },
                     exportRevlog: () => this.exportRevlog(),
                     clearRevlog: () => this.clearRevlog(),
+                    // BU-24/25：AI 用量账本（导出/清空 + 本月已用显示）
+                    costLedger: {
+                        export: () => this.exportCostLedger(),
+                        clear: () => this.clearCostLedger(),
+                        monthUsed: () => budgetState(this.costLedger, { enabled: false, monthlyTokenCap: 0 }).monthUsed,
+                    },
                     // Anki M3：guid 导入台账（幂等重导）——启动已装载，读写内存副本
                     ankiLedger: {
                         load: async () => this.ankiLedger,
@@ -2662,6 +2704,32 @@ export default class LvCardsPlugin extends Plugin {
         this.revlog = emptyRevlog();
         this.persist.save(REVLOG_DATA, this.revlog).catch(() => { /* onFail 已记录 */ });
         this.refreshDueBadge();
+        showMessage(this.i18n.settingsSaved, 2000, "info");
+    }
+
+    /** BU-25：导出 AI 用量账本（聚合视图 + 明细；不含 key 与原文） */
+    private exportCostLedger() {
+        const payload = {
+            exportedAt: new Date().toISOString(),
+            aggregates: {
+                byModel: aggregateByModel(this.costLedger),
+                byDay: aggregateByDay(this.costLedger),
+            },
+            entries: this.costLedger.entries,
+        };
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `lv-cards-ai-cost-${localDate(Date.now())}.json`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    /** BU-25：清空 AI 用量账本（预算随之归零重计） */
+    private clearCostLedger() {
+        this.costLedger = emptyCostLedger();
+        this.persist.save(AI_COST_LEDGER_DATA, this.costLedger).catch(() => { /* onFail 已记录 */ });
         showMessage(this.i18n.settingsSaved, 2000, "info");
     }
 

@@ -630,7 +630,14 @@
         "aiModelStale": "该模型在注册表中已标记失效，不再出现在推荐列表，建议更换",
         "aiModelUnknown": "未在注册表登记：按保守默认预算执行，能力以实际请求为准",
         "aiSensitiveTerms": "自定义敏感词",
-        "aiSensitiveTermsHint": "逗号分隔；AI 发送前扫描材料，命中时提示可一键脱敏（仅本地检测，不自动拦截）"
+        "aiSensitiveTermsHint": "逗号分隔；AI 发送前扫描材料，命中时提示可一键脱敏（仅本地检测，不自动拦截）",
+        "aiCostBudget": "AI 成本预算（月度）",
+        "aiCostBudgetHint": "按 token 估算限制 AI 出卡用量；达到上限后停止 AI 出卡（手工建卡不受影响），预警阈值 80%；账本只记用量与模型名，不含卡片内容和密钥",
+        "aiCostMonthlyCap": "月度上限（tokens）",
+        "aiCostUsed": "本月已用 ${n} tokens",
+        "exportCostLedger": "AI 用量账本（导出 / 清空）",
+        "clearCostLedger": "清空账本",
+        "clearCostLedgerConfirm": "清空后本月用量与预算从零重计；不影响已创建的卡片与批次记录。"
     },
     "hubTabOverview": "总览",
     "hubTabError": "该子页出现错误，已隔离在边界内",
@@ -1288,5 +1295,8 @@
             "taskRisk": "任务风险"
         },
         "sampleHint": "其余卡片接受前至少快速浏览一遍"
+    },
+    "aiCost": {
+        "warn": "AI 用量已达到月度预算的 80%，接近上限"
     }
 }

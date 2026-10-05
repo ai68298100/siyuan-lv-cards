@@ -31,6 +31,12 @@
         close: () => void;
         exportRevlog: () => void;
         clearRevlog: () => void;
+        /** BU-24/25：AI 用量账本（可选——旧宿主不传则不显示相关行） */
+        costLedger?: {
+            export: () => void;
+            clear: () => void;
+            monthUsed: () => number;
+        };
         /** Anki M3：guid 导入台账（幂等重导）；可选——旧宿主不传则不持久化 */
         ankiLedger?: {
             load: () => Promise<unknown>;
@@ -733,10 +739,23 @@
                 </LvRow>
             {/if}
         {/if}
-        <!-- BU-8：自定义敏感词（发送前扫描提示脱敏，仅本地；思源内置 AI 与自定义端点都生效） -->
-        <LvRow label={t.settings.aiSensitiveTerms} hint={t.settings.aiSensitiveTermsHint}>
-            <LvInput bind:value={draft.aiSensitiveTerms} placeholder="projectblue, 项目代号" width="200px" />
-        </LvRow>
+            <!-- BU-8：自定义敏感词（发送前扫描提示脱敏，仅本地；思源内置 AI 与自定义端点都生效） -->
+            <LvRow label={t.settings.aiSensitiveTerms} hint={t.settings.aiSensitiveTermsHint}>
+                <LvInput bind:value={draft.aiSensitiveTerms} placeholder="projectblue, 项目代号" width="200px" />
+            </LvRow>
+            {#if ctx.costLedger}
+                <!-- BU-24：月度 token 预算（超限阻断出卡；手工路径不受限；账本只记 token/模型，不含内容） -->
+                <LvRow label={t.settings.aiCostBudget} hint={t.settings.aiCostBudgetHint}>
+                    {#snippet children()}
+                        <div class="fn__flex" style="gap: 8px; align-items: center; flex-wrap: wrap">
+                            <LvSwitch bind:checked={draft.aiCostBudgetEnabled} />
+                            <span class="ft__smaller ft__on-surface">{t.settings.aiCostMonthlyCap}</span>
+                            <input class="b3-text-field fn__size-60" type="number" min="0" bind:value={draft.aiCostMonthlyCap} />
+                            <span class="ft__smaller ft__on-surface">{t.settings.aiCostUsed.replace("${n}", String(ctx.costLedger.monthUsed()))}</span>
+                        </div>
+                    {/snippet}
+                </LvRow>
+            {/if}
     </LvSection>
     {/if}
 
@@ -890,6 +909,22 @@
                 >{t.settings.clearRevlog}</button>
             {/snippet}
         </LvRow>
+        {#if ctx.costLedger}
+            <!-- BU-25：账本可导出（聚合+明细）与删除 -->
+            <LvRow label={t.settings.exportCostLedger}>
+                {#snippet children()}
+                    <button class="b3-button b3-button--outline" onclick={ctx.costLedger.export}>JSON</button>
+                    <button
+                        class="b3-button b3-button--outline"
+                        onclick={() => confirmDialog({
+                            title: t.settings.clearCostLedger,
+                            content: `<div class="b3-typography">${t.settings.clearCostLedgerConfirm}</div>`,
+                            confirm: () => ctx.costLedger!.clear(),
+                        })}
+                    >{t.settings.clearCostLedger}</button>
+                {/snippet}
+            </LvRow>
+        {/if}
     </LvSection>
     {/if}
 

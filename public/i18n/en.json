@@ -630,7 +630,14 @@
         "aiModelStale": "This model is marked stale in the registry and no longer listed; consider switching",
         "aiModelUnknown": "Not in registry: conservative default budget applies; verify capabilities with real requests",
         "aiSensitiveTerms": "Custom sensitive terms",
-        "aiSensitiveTermsHint": "Comma-separated; materials are scanned locally before sending, with a one-click masking option (local detection only, never auto-blocks)"
+        "aiSensitiveTermsHint": "Comma-separated; materials are scanned locally before sending, with a one-click masking option (local detection only, never auto-blocks)",
+        "aiCostBudget": "AI cost budget (monthly)",
+        "aiCostBudgetHint": "Caps AI card generation by estimated tokens; generation stops at the cap (manual card creation is unaffected), warning at 80%; the ledger records only usage and model names — never card content or keys",
+        "aiCostMonthlyCap": "Monthly cap (tokens)",
+        "aiCostUsed": "Used ${n} tokens this month",
+        "exportCostLedger": "AI usage ledger (export / clear)",
+        "clearCostLedger": "Clear ledger",
+        "clearCostLedgerConfirm": "Clearing resets this month's usage and budget to zero; created cards and batch records are unaffected."
     },
     "hubTabOverview": "Overview",
     "hubTabError": "This tab hit an error (contained by the boundary)",
@@ -1288,5 +1295,8 @@
             "taskRisk": "Task risk"
         },
         "sampleHint": "Skim the rest before accepting"
+    },
+    "aiCost": {
+        "warn": "AI usage reached 80% of the monthly budget"
     }
 }

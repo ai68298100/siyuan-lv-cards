@@ -99,6 +99,9 @@ export interface LvCardsSettings {
     aiFallbackModel: string;
     /** BU-8：自定义敏感词（逗号分隔）——发送前扫描提示脱敏，仅本地 */
     aiSensitiveTerms: string;
+    /** BU-24：月度 token 预算（enabled + cap>0 生效；超限阻断出卡，手工路径不受限） */
+    aiCostBudgetEnabled: boolean;
+    aiCostMonthlyCap: number;
     /** Prompt 模板（294）：自定义 system 模板，空=内置默认；支持 ${count}/${language}/${type} 占位符 */
     aiPromptTemplate: string;
     /** 快速制卡/标记制卡落盘笔记本（605）：id，空=第一个打开的笔记本 */
@@ -194,6 +197,8 @@ export function defaultSettings(): LvCardsSettings {
         aiFallbackKey: "",
         aiFallbackModel: "",
         aiSensitiveTerms: "",
+        aiCostBudgetEnabled: false,
+        aiCostMonthlyCap: 200000,
         aiPromptTemplate: "",
         targetNotebookId: "",
         dailyTipEnabled: true,
@@ -218,6 +223,7 @@ const INT_FIELDS: [keyof LvCardsSettings, number, number, number][] = [
     ["cardMaxWidth", 880, 320, 1600],
     ["answerTimeCapSec", 60, 5, 3600],
     ["sessionBudgetMin", 15, 0, 600],
+    ["aiCostMonthlyCap", 200000, 0, 100000000],
 ];
 const FLOAT_FIELDS: [keyof LvCardsSettings, number, number, number][] = [
     ["cardFontScale", 1, 0.85, 1.25],
@@ -236,7 +242,7 @@ const BOOL_FIELDS: (keyof LvCardsSettings)[] = [
     "deepStatsOpen",
     "randomOrder", "typingEnabled", "typingStrict", "dictationEnabled", "choiceEnabled", "mixedRotation", "requeueAgain",
     "xpEnabled", "markerEnabled", "hideMetaUntilAnswer", "reverseOrder", "ttsEnabled", "reminderEnabled",
-    "sfxEnabled", "examEnabled", "dailyTipEnabled", "onboarded",
+    "sfxEnabled", "examEnabled", "dailyTipEnabled", "onboarded", "aiCostBudgetEnabled",
 ];
 const STR_FIELDS: (keyof LvCardsSettings)[] = [
     "gatewayState", "ttsVoice", "aiEndpoint", "aiKey", "aiModel", "aiFallbackEndpoint", "aiFallbackKey",

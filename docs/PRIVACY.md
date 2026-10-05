@@ -16,6 +16,7 @@
 | 学习目标 / 入口上下文 / 内容生命周期（learning-goals.json / entry-contexts.json / content-lifecycles.json） | `data/storage/petal/siyuan-lv-cards/` | BI-1/BI-3/BI-5（v0.148.0）：目标参数（目的/截止/材料块 ID/分钟数/水平自评）、入口上下文（来源 ID/范围/返回点）、内容状态轨迹（状态 + 转移原因 + 时间）；全部本地存储、不外发、不参与调度；随插件私有数据整体处理 |
 | Anki 导入台账（anki-ledger.json）/ 内容版本快照（content-versions.json） | `data/storage/petal/siyuan-lv-cards/` | Anki M3（v0.186.0）：导入幂等台账只存 guid→卡组/块 ID 映射与时间（上限 5 万条，不含笔记内容）。内容版本追踪（v0.186.0）：卡面编辑快照（块 ID + 卡面文本 + 时间 + 途径，每块留 10 版、上限 2000 块）——**该文件含你的卡片文本**，仅本地存储、不外发、不参与调度；随插件私有数据整体处理 |
 | AI 禁止外发规则（ai-deny-list.json） | `data/storage/petal/siyuan-lv-cards/` | BW-9（v0.190.0）：来源级禁止外发规则，只存笔记本/文档/块 ID + 登记时间 + 可选备注（上限 2000 条，**不存任何笔记内容**）；规则只随你的显式删除而解除，移动/导入/重开不失效。命中时 AI 请求在组装前被阻断并给出替代路径；仅本地存储 |
+| AI 用量账本（ai-cost-ledger.json） | `data/storage/petal/siyuan-lv-cards/` | BU-24/25（v0.196.0）：每次 AI 出卡记一条用量——时间/任务/端点形态/模型名/token 估算/费用估算（**token 为估算值并显式标记，费用按注册表参考价估算，均非账单事实**；价格未知记 null）。上限 2000 条自动裁旧；**不含密钥与任何材料/卡片原文**；可在设置 → 数据导出或清空；仅本地存储 |
 
 ### 复习日志（revlog.json）的构成与上限语义
 
