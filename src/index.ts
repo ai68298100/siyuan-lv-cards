@@ -362,6 +362,12 @@ export default class LvCardsPlugin extends Plugin {
                                 plugin.settings.sessionBudgetMin = min;
                                 plugin.saveSettingsSoon();
                             },
+                            // T01 深度统计展开态持久化
+                            getDeepStatsOpen: () => plugin.settings.deepStatsOpen,
+                            setDeepStatsOpen: (open: boolean) => {
+                                plugin.settings.deepStatsOpen = open;
+                                plugin.saveSettingsSoon();
+                            },
                             // T08 待处理聚合（docs/40 批 5 简化版）：疑问/暂停/恢复
                             getInboxOpenCount: () => plugin.inbox.items.filter((i) => i.status !== "dismissed").length,
                             getSuspendedCount: () => plugin.suspendToday.cardIDs.length,

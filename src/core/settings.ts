@@ -44,6 +44,8 @@ export interface LvCardsSettings {
     cardFontScale: number;
     /** 热力图范围（439）：周数 */
     heatmapWeeks: number;
+    /** T01 深度统计展开态（docs/40）：记忆用户上次的选择 */
+    deepStatsOpen: boolean;
     /** T01 可用时间偏好（分钟，0=不限）：hero 选择，复习开场默认预算 */
     sessionBudgetMin: number;
     /** 角标刷新间隔秒（440）：0=关闭心跳 */
@@ -160,6 +162,7 @@ export function defaultSettings(): LvCardsSettings {
         gatewayState: "",
         cardFontScale: 1,
         heatmapWeeks: 17,
+        deepStatsOpen: false,
         sessionBudgetMin: 15,
         badgeRefreshSec: 60,
         ratingDensity: "cozy",
@@ -227,6 +230,7 @@ const ENUM_FIELDS: [keyof LvCardsSettings, readonly string[], string][] = [
     ["aiMode", ["siyuan", "custom"], "siyuan"],
 ];
 const BOOL_FIELDS: (keyof LvCardsSettings)[] = [
+    "deepStatsOpen",
     "randomOrder", "typingEnabled", "typingStrict", "dictationEnabled", "choiceEnabled", "mixedRotation", "requeueAgain",
     "xpEnabled", "markerEnabled", "hideMetaUntilAnswer", "reverseOrder", "ttsEnabled", "reminderEnabled",
     "sfxEnabled", "examEnabled", "dailyTipEnabled", "onboarded",

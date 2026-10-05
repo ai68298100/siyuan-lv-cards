@@ -50,6 +50,9 @@
         /** T01 可用时间（docs/40）：hero 选择落偏好，复习开场默认预算 */
         getSessionBudget?: () => number;
         setSessionBudget?: (min: number) => void;
+        /** T01 深度统计展开态持久化 */
+        getDeepStatsOpen?: () => boolean;
+        setDeepStatsOpen?: (open: boolean) => void;
         /** T08 待处理聚合（docs/40 批 5 简化版） */
         getInboxOpenCount?: () => number;
         getSuspendedCount?: () => number;
@@ -283,6 +286,7 @@
                 && (sess.counters.new + sess.counters.review + sess.counters.forget) > 0;
             sessReps = sessLive ? sess!.counters.new + sess!.counters.review + sess!.counters.forget : 0;
             sessionBudget = ctx.getSessionBudget?.() ?? 15;
+            deepOpen = ctx.getDeepStatsOpen?.() ?? false;
             inboxOpen = ctx.getInboxOpenCount?.() ?? 0;
             suspended = ctx.getSuspendedCount?.() ?? 0;
             oldCount = due.unreviewedOldCardCount;
@@ -540,7 +544,7 @@
         </LvSection>
 
         <!-- T01 渐进展开（docs/13 §1.3）：行动与今日统计留在首屏，深度统计默认折叠 -->
-        <button class="b3-button b3-button--outline lv-deep-toggle" onclick={() => (deepOpen = !deepOpen)}>
+        <button class="b3-button b3-button--outline lv-deep-toggle" onclick={() => { deepOpen = !deepOpen; ctx.setDeepStatsOpen?.(deepOpen); }}>
             {t.dashboard.deepToggle} {deepOpen ? "▴" : "▾"}
         </button>
         {#if deepOpen}
