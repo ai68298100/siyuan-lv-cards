@@ -25,6 +25,11 @@ pnpm release      # 交互式发版改版（更新 plugin.json/package.json 并�
 - **体积预算**：`dist/index.js` gzip ≤55KB（CI 强制，当前主包约42KB；以治理脚本为准），重组件一律懒加载 chunk。
 - 全部架构决策见 [docs/24-ADR](./docs/24-架构决策记录.md)，设计基线见 [docs/10-16](./docs/README.md)。
 
+## Smoke / e2e conventions / 冒烟与 e2e 约定
+
+- 写型冒烟（建删笔记本/写块/riff）一律打**隔离靶场**：`node scripts/e2e-isolated.mjs` 自起临时 workspace + 无头内核；不要直打在用工作区或与他人共用的内核；
+- 附着既有内核用 `SIYUAN_BASE_URL` / `SIYUAN_TOKEN`（缺 token 拒跑；共享内核会被 `siyuan-lv-cards-smoke-*` 前缀防呆拦截，豁免用 `SIYUAN_E2E_ALLOW_SHARED=1`）；
+- 同一实例上的写型冒烟**串行**执行；只读走查可并发。详见 [docs/34](docs/34-真机验收清单.md)。
 ## Pull request checklist / PR 自检清单
 
 1. `pnpm check && pnpm test && pnpm build` 全绿。
