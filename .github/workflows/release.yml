@@ -16,9 +16,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install pnpm
+        # 版本单一事实源 = package.json packageManager（v0.149.1 同类教训：此处硬编码会漂移）
         uses: pnpm/action-setup@v4
         with:
-          version: 11.4.0
           run_install: false
 
       - name: Install Node.js
