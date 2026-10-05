@@ -84,6 +84,9 @@
     let loadDocBusy = $state(false);
     // T02：生成前预览确认（docs/13 §4）——确认后才真正外发
     let previewOpen = $state(false);
+    // T03：候选审核——来源依据折叠 + 逐卡卡面预览（单开）
+    let sourceOpen = $state(false);
+    let previewIdx = $state<number | null>(null);
 
     // 笔记本范围源（M2·FR6 扩展）
     let nbOptions = $state<{ id: string; name: string }[]>([]);
@@ -445,7 +448,16 @@
             <div class="fn__flex" style="align-items: center; gap: var(--lv-sp-2); margin-bottom: var(--lv-sp-2)">
                 <button class="b3-button b3-button--small" onclick={() => (step = 1)}>← {t.aiWizard.back}</button>
                 <LvChip tone="primary">{candidates.filter(c => c.keep).length} / {candidates.length}</LvChip>
+                <div class="fn__flex-1"></div>
+                <!-- T03：来源依据折叠（审核时可对照，不离开本屏） -->
+                <button class="b3-button b3-button--small" onclick={() => (sourceOpen = !sourceOpen)}>{t.aiWizard.sourceFold} {sourceOpen ? "▴" : "▾"}</button>
             </div>
+            {#if sourceOpen}
+                <div class="lv-card2" style="margin-bottom: var(--lv-sp-2)">
+                    <div class="lv-eyebrow">{t.aiWizard.sourceFold}</div>
+                    <div class="ft__smaller" style="max-height: 160px; overflow: auto; white-space: pre-wrap; margin-top: 6px">{source}</div>
+                </div>
+            {/if}
             <div class="lv-aiwiz-list">
                 {#each candidates as c, i (i)}
                     <div class="lv-card2 lv-aiwiz-card">
@@ -456,14 +468,26 @@
                                 <LvChip tone={c.d === 3 ? "error" : c.d === 2 ? "warn" : "default"}>{c.d === 3 ? t.aiWizard.diffHard : c.d === 2 ? t.aiWizard.diffMid : t.aiWizard.diffEasy}</LvChip>
                             {/if}
                             {#each lintWarnings[i] ?? [] as warn (warn)}
-                                <LvChip tone="warn">{warn === "duplicate" ? t.aiWizard.lintDup : warn === "overlong" ? t.aiWizard.lintLong : t.aiWizard.lintShort}</LvChip>
+                                <LvChip tone="warn">{warn === "duplicate" ? t.aiWizard.lintDup : warn === "overlong" ? t.aiWizard.lintLong : warn === "tooshort" ? t.aiWizard.lintShort : warn}</LvChip>
                             {/each}
                             <div class="fn__flex-1"></div>
+                            <button class="b3-button b3-button--small" title={t.aiWizard.cardPreview} onclick={() => (previewIdx = previewIdx === i ? null : i)}>{t.aiWizard.cardPreview}</button>
                             <button class="b3-button b3-button--small" title={t.aiWizard.regenerate} disabled={regenBusy === i} onclick={() => regenerateCard(i)}>↻</button>
                             <button class="b3-button b3-button--small" onclick={() => (candidates = candidates.filter((_, j) => j !== i))}>✕</button>
                         </label>
                         <textarea class="b3-text-field fn__block" rows="2" bind:value={c.q} placeholder={t.quickCardQ}></textarea>
                         <textarea class="b3-text-field fn__block" rows="2" bind:value={c.a} placeholder={t.quickCardA}></textarea>
+                        {#if previewIdx === i}
+                            <!-- T03：实际卡面预览（评审稿 .study-card/.study-answer 同构；随编辑实时更新） -->
+                            <div class="lv-card2" style="padding: 18px 20px; margin-top: 8px">
+                                <div class="lv-eyebrow">{t.aiWizard.previewQLabel}</div>
+                                <div style="font-weight: 650; margin: 8px 0; line-height: 1.65">{c.q || "—"}</div>
+                                <div style="border-top: 1px solid var(--lv-border); padding-top: 12px; margin-top: 12px">
+                                    <div class="lv-eyebrow">{t.aiWizard.previewALabel}</div>
+                                    <div style="margin-top: 6px; line-height: 1.65">{c.a || "—"}</div>
+                                </div>
+                            </div>
+                        {/if}
                     </div>
                 {/each}
             </div>

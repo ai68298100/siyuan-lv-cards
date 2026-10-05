@@ -312,6 +312,10 @@
     },
     "nextAction": {
         "openSource": "Back to source",
+        "cardPreview": "Preview card",
+        "previewQLabel": "Question",
+        "previewALabel": "Answer",
+        "sourceFold": "Source material",
         "explain": "Explain this",
         "makeCards": "Make cards",
         "practice": "Practice",

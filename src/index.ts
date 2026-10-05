@@ -1859,7 +1859,8 @@ export default class LvCardsPlugin extends Plugin {
         svelteDialog({
             title: this.i18n.aiWizardTitle,
             component: AIWizard,
-            width: "min(680px, 94vw)",
+            // T03：候选审核需要来源/编辑/卡面对照空间，加宽至 860
+            width: "min(860px, 94vw)",
             props: {
                 i18n: this.i18n,
                 initialSource,

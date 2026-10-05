@@ -312,6 +312,10 @@
     },
     "nextAction": {
         "openSource": "回来源",
+        "cardPreview": "卡面预览",
+        "previewQLabel": "问题",
+        "previewALabel": "参考答案",
+        "sourceFold": "来源依据",
         "explain": "解释这段",
         "makeCards": "制成卡片",
         "practice": "练习巩固",
