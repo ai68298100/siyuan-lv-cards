@@ -72,7 +72,23 @@
     let selected = $state("");
     let newName = $state("");
 
-    let candidates: { q: string; a: string; d?: number; keep: boolean; origIndex: number }[] = $state([]);
+    /** T03 片二：审阅状态——已选(keep)≠已审(review)；入库只取 已选+已接受 */
+    let candidates: { q: string; a: string; d?: number; keep: boolean; origIndex: number; review: "pending" | "accepted" | "verified" }[] = $state([]);
+    let acceptedCount = $derived(candidates.filter((c) => c.keep && c.review === "accepted").length);
+    /** 编辑已接受卡 → 退回未审（修改后需重新核对，docs/13 §5） */
+    function touchCandidate(i: number) {
+        if (candidates[i]?.review === "accepted") {
+            candidates[i] = { ...candidates[i], review: "pending" };
+            candidates = [...candidates];
+        }
+    }
+    function setReview(i: number, review: "accepted" | "verified" | "pending") {
+        candidates[i] = { ...candidates[i], review };
+        candidates = [...candidates];
+    }
+    function acceptAll() {
+        candidates = candidates.map((c) => (c.keep && c.review !== "verified" ? { ...c, review: "accepted" } : c));
+    }
     /** AQ-16 预览 lint：随 candidates（含编辑）响应式重算（批内重复/过长/过短） */
     let lintWarnings: string[][] = $derived.by(() => lintAICards(candidates.map(c => ({ q: c.q, a: c.a }))));
     /** ADR-7：当前预览对应的作业 ID（导入按 candidates 下标断点记账；重生替换内容不换绑定） */
@@ -236,7 +252,7 @@
             if (cards.length === 0) {
                 throw new Error(t.aiWizard.emptyResult);
             }
-            candidates = cards.map((c, i) => ({ ...c, keep: true, origIndex: i }));
+            candidates = cards.map((c, i) => ({ ...c, keep: true, origIndex: i, review: "pending" }));
             // ADR-7：绑定本次作业，导入时按候选下标断点记账
             currentJobId = jobId;
             step = 2;
@@ -273,7 +289,7 @@
             if (cards.length > 0) {
                 const keep = candidates[i].keep;
                 // 重生成仅替换内容：保持 origIndex 与作业 candidates 对位（内容为新生成，已知边界）
-                candidates[i] = { ...cards[0], keep, origIndex: i };
+                candidates[i] = { ...cards[0], keep, origIndex: i, review: "pending" };
                 candidates = [...candidates];
             } else {
                 errorMsg = t.aiWizard.emptyResult;
@@ -293,7 +309,8 @@
 
     async function importCards() {
         // ADR-7：origIndex 随候选对象存续（✕ 移除后仍指向作业 candidates 原位）
-        const picked = candidates.filter(c => c.keep);
+        // T03：入库口径 = 已选 + 已接受（待核实/未审不入库）
+        const picked = candidates.filter(c => c.keep && c.review === "accepted");
         if (picked.length === 0 || creating) {
             return;
         }
@@ -447,8 +464,11 @@
         <div transition:fade={{ duration: 160 }}>
             <div class="fn__flex" style="align-items: center; gap: var(--lv-sp-2); margin-bottom: var(--lv-sp-2)">
                 <button class="b3-button b3-button--small" onclick={() => (step = 1)}>← {t.aiWizard.back}</button>
-                <LvChip tone="primary">{candidates.filter(c => c.keep).length} / {candidates.length}</LvChip>
+                <!-- T03：已选≠已审——选中决定集合，接受决定入库资格 -->
+                <LvChip tone="default">{t.aiWizard.selCount.replace("${n}", String(candidates.filter(c => c.keep).length))}</LvChip>
+                <LvChip tone="primary">{t.aiWizard.accCount.replace("${n}", String(acceptedCount))}</LvChip>
                 <div class="fn__flex-1"></div>
+                <button class="b3-button b3-button--small" onclick={acceptAll}>{t.aiWizard.acceptAll}</button>
                 <!-- T03：来源依据折叠（审核时可对照，不离开本屏） -->
                 <button class="b3-button b3-button--small" onclick={() => (sourceOpen = !sourceOpen)}>{t.aiWizard.sourceFold} {sourceOpen ? "▴" : "▾"}</button>
             </div>
@@ -471,12 +491,19 @@
                                 <LvChip tone="warn">{warn === "duplicate" ? t.aiWizard.lintDup : warn === "overlong" ? t.aiWizard.lintLong : warn === "tooshort" ? t.aiWizard.lintShort : warn}</LvChip>
                             {/each}
                             <div class="fn__flex-1"></div>
+                            {#if c.review === "accepted"}<LvChip tone="primary">{t.aiWizard.reviewAccepted}</LvChip>{:else if c.review === "verified"}<LvChip tone="warn">{t.aiWizard.reviewVerified}</LvChip>{/if}
                             <button class="b3-button b3-button--small" title={t.aiWizard.cardPreview} onclick={() => (previewIdx = previewIdx === i ? null : i)}>{t.aiWizard.cardPreview}</button>
                             <button class="b3-button b3-button--small" title={t.aiWizard.regenerate} disabled={regenBusy === i} onclick={() => regenerateCard(i)}>↻</button>
                             <button class="b3-button b3-button--small" onclick={() => (candidates = candidates.filter((_, j) => j !== i))}>✕</button>
                         </label>
-                        <textarea class="b3-text-field fn__block" rows="2" bind:value={c.q} placeholder={t.quickCardQ}></textarea>
-                        <textarea class="b3-text-field fn__block" rows="2" bind:value={c.a} placeholder={t.quickCardA}></textarea>
+                        <textarea class="b3-text-field fn__block" rows="2" bind:value={c.q} oninput={() => touchCandidate(i)} placeholder={t.quickCardQ}></textarea>
+                        <textarea class="b3-text-field fn__block" rows="2" bind:value={c.a} oninput={() => touchCandidate(i)} placeholder={t.quickCardA}></textarea>
+                        <div class="fn__flex" style="gap: 6px; margin-top: 6px">
+                            <button class="b3-button b3-button--small {c.review === 'accepted' ? 'lv-btn-primary' : ''}" onclick={() => setReview(i, "accepted")}>{c.review === "accepted" ? t.aiWizard.reviewAccepted : t.aiWizard.acceptVer}</button>
+                            <button class="b3-button b3-button--small {c.review === 'verified' ? 'lv-btn-primary' : ''}" onclick={() => setReview(i, "verified")}>{t.aiWizard.markVerified}</button>
+                            <div class="fn__flex-1"></div>
+                            <button class="b3-button b3-button--small" title={t.aiWizard.cardPreview} onclick={() => (previewIdx = previewIdx === i ? null : i)}>{t.aiWizard.cardPreview}</button>
+                        </div>
                         {#if previewIdx === i}
                             <!-- T03：实际卡面预览（评审稿 .study-card/.study-answer 同构；随编辑实时更新） -->
                             <div class="lv-card2" style="padding: 18px 20px; margin-top: 8px">
@@ -500,8 +527,8 @@
                 <select class="b3-select" style="max-width: 180px" bind:value={selected} disabled={decks.length === 0}>
                     {#each decks as d (d.id)}<option value={d.id}>{d.name}</option>{/each}
                 </select>
-                <button class="b3-button b3-button--text lv-btn-primary" disabled={creating || candidates.filter(c => c.keep).length === 0} onclick={importCards}>
-                    {creating ? "…" : `${t.aiWizard.import} (${candidates.filter(c => c.keep).length})`}
+                <button class="b3-button b3-button--text lv-btn-primary" disabled={creating || acceptedCount === 0} onclick={importCards} title={t.aiWizard.importReviewed}>
+                    {creating ? "…" : `${t.aiWizard.import} (${acceptedCount})`}
                 </button>
             </div>
         </div>
