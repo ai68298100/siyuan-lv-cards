@@ -49,7 +49,7 @@
     });
 </script>
 
-<div class="lv-card2 lv-card2--hover lv-stat">
+<div class="lv-card2 lv-stat">
     <div class="lv-stat-label">
         <span class="lv-stat-dot" style={`background:${toneColor[tone]}`}></span>{label}
     </div>
@@ -64,7 +64,7 @@
         display: flex;
         align-items: center;
         gap: 6px;
-        font-size: 12px;
+        font-size: 11px;
         color: var(--b3-theme-on-surface);
         margin-bottom: var(--lv-sp-1);
     }

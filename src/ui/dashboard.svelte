@@ -60,6 +60,11 @@
     let sessReps = $state(0);
     let sessLive = $state(false);
     let deepOpen = $state(false);
+    /** hero eyebrow 的本地日期（R52：TODAY / 2026.10.02 同款） */
+    function heroDateText(): string {
+        const d = new Date();
+        return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
+    }
     let oldCount = $state(0);
     let streak = $state(0);
     let todayReview = $state(0);
@@ -370,17 +375,30 @@
 
         <!-- AR-8 错误态优先级：首次加载失败（无任何成功数据）时只显示错误+重试，
              不同时展示「空库→引导」误导与全 0 统计；有旧数据时横幅叠加旧值可见（标注上次刷新） -->
-        <!-- T01 今日行动 hero（docs/39 批 2）：行动优先于统计；当日未收场会话给「继续本场」 -->
+        <!-- T01 今日行动 hero（R52 .hero 结构）：徽章行 / 大标题 / muted 描述 / CTA 行 -->
         <div class="lv-hero">
             <div class="lv-hero-text">
-                <div class="lv-hero-title">{t.dashboard.heroTitle}</div>
-                <div class="lv-hero-sub">
+                <div class="lv-hero-badge-row">
+                    {#if sessLive}
+                        <span class="lv-tag lv-tag--brand">{t.dashboard.heroResume}</span>
+                    {:else}
+                        <span class="lv-eyebrow">{t.dashboard.heroEyebrow.replace("${d}", heroDateText())}</span>
+                    {/if}
+                    <span class="ft__smaller ft__on-surface">{t.dashboard.heroBudget.replace("${n}", String(targets.review))}</span>
+                </div>
+                <div class="lv-hero-title">
+                    {sessLive ? t.dashboard.heroResumeTitle : t.dashboard.heroStartTitle}
+                </div>
+                <p class="lv-hero-desc">
                     {#if sessLive}{t.dashboard.heroResumeLine.replace("${n}", String(sessReps))} · {/if}{t.dashboard.todayDue} {dueCount} · {t.dashboard.newCards} {newCount}
+                </p>
+                <div class="lv-hero-cta">
+                    <button class="b3-button lv-btn-primary" onclick={() => ctx.openReview()}>
+                        {sessLive ? t.dashboard.heroResume : t.dashboard.heroStart}
+                    </button>
+                    <span class="lv-hero-remaining">{t.dashboard.todayDue} {dueCount}{#if targets.review > 0} · {targetPct()}%{/if}</span>
                 </div>
             </div>
-            <button class="b3-button lv-btn-primary" onclick={() => ctx.openReview()}>
-                {sessLive ? t.dashboard.heroResume : t.dashboard.heroStart}
-            </button>
         </div>
 
         {#if totalCards === 0 && !errorMsg}

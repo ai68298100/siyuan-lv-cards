@@ -160,11 +160,12 @@
 </script>
 
 <div class="lv-hub">
-    <!-- T01 页头语义（docs/39 批 2）：eyebrow 页题 + 副题，页签栏之上 -->
+    <!-- T01 页头语义（R52 .page-head）：eyebrow + 页题 + 副题，页签栏之上 -->
     <div class="lv-pagehead">
         <div>
+            <div class="lv-eyebrow">{i18n.topbarTitle}</div>
             <div class="lv-pagehead-title">{i18n.menuDashboard}</div>
-            <div class="lv-pagehead-sub">{i18n.hubTagline}</div>
+            <p class="lv-pagehead-sub">{i18n.hubTagline}</p>
         </div>
     </div>
     <div class="lv-hub-bar">
