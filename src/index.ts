@@ -1863,8 +1863,8 @@ export default class LvCardsPlugin extends Plugin {
 
     /** AI 制卡向导（M2·FR6-10）：生成回调 + 批次记录落库；initialSource 用于 leech 改写预填 */
     /** T10 修卡演练（docs/13 §12）：独立样例、零网络零写入、进度不迁入真实学习 */
-    private openRepairDrill() {
-        const Drill = loadRepairDrill();
+    private async openRepairDrill() {
+        const Drill = await loadRepairDrill();
         svelteDialog({
             title: this.i18n.drillTitle,
             component: Drill,
