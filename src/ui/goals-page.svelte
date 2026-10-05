@@ -115,6 +115,19 @@
     }
 
     const showNarrative = $derived(typeof goals.narrate === "function");
+
+    // T06 步骤链（docs/13 §8）：了解 → 回忆 → 应用；状态如实——应用证据未追踪就标注未追踪
+    function hasRecall(g: LearningGoal): boolean {
+        const stats = goals.narrate?.(g.materialBlockIDs) ?? null;
+        if (!stats) return false;
+        return Object.values(stats).some((n) => (n ?? 0) > 0);
+    }
+    function goalGaps(g: LearningGoal): string[] {
+        const out: string[] = [];
+        if (g.materialBlockIDs.length === 0) out.push(t.gapMaterial);
+        if (g.minutesPerDay === 0) out.push(t.gapBudget);
+        return out;
+    }
 </script>
 
 <LvPage title={t.title} subtitle={`${sorted.length}`}>
@@ -191,6 +204,24 @@
                                 🎯 {currentCriteria(g)}
                             </div>
                         {/if}
+                        <!-- T06 步骤链（docs/13 §8）：了解 → 回忆 → 应用；应用证据未追踪，如实标注 -->
+                        <div class="lv-goal-steps">
+                            <div class="lv-step">
+                                <span class="lv-step-num" class:lv-step-done={g.materialBlockIDs.length > 0}>1</span>
+                                <span>{t.stepConcept}{g.materialBlockIDs.length > 0 ? ` · ${t.stepScope.replace("${n}", String(g.materialBlockIDs.length))}` : ` · ${t.stepGapMaterial}`}</span>
+                            </div>
+                            <div class="lv-step">
+                                <span class="lv-step-num" class:lv-step-done={hasRecall(g)}>2</span>
+                                <span>{t.stepRecall}{hasRecall(g) ? ` · ${narrativeText(g)}` : ` · ${t.stepNotStarted}`}</span>
+                            </div>
+                            <div class="lv-step">
+                                <span class="lv-step-num">3</span>
+                                <span>{t.stepApply} · {t.stepUntracked}</span>
+                            </div>
+                        </div>
+                        {#if goalGaps(g).length > 0}
+                            <div class="lv-notice lv-notice--warn" style="margin-top: 8px">{t.gapPrefix}{goalGaps(g).join("；")}</div>
+                        {/if}
                     </div>
                     <button class="b3-button b3-button--small" title={t.priorityTitle} onclick={() => cyclePriority(g)}>{priorityText(g)}</button>
                     <button class="b3-button b3-button--small" title={t.delete} onclick={() => remove(g.id)}>🗑</button>
@@ -240,6 +271,38 @@
         display: flex;
         flex-direction: column;
         gap: var(--lv-sp-2);
+
+        /* T06 步骤链（docs/13 §8） */
+        .lv-goal-steps {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            margin-top: var(--lv-sp-2);
+        }
+        .lv-step {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: var(--b3-theme-on-surface);
+        }
+        .lv-step-num {
+            flex: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid var(--lv-border-strong);
+            font-size: 10px;
+        }
+        .lv-step-done { color: var(--b3-theme-primary); }
+        .lv-step-num.lv-step-done {
+            background: var(--lv-primary-soft);
+            border-color: transparent;
+            color: var(--b3-theme-primary);
+        }
     }
     .lv-goal-row {
         display: flex;
