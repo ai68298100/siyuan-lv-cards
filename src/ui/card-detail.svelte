@@ -3,6 +3,7 @@
     import { getBlockDOM } from "@/api/siyuan";
     import type { SearchBlock } from "@/api/riff";
     import LvDrawer from "./kit/LvDrawer.svelte";
+    import LvChip from "./kit/LvChip.svelte";
     import RelationsPanel from "./relations-panel.svelte";
     import KoPanel from "./ko-panel.svelte";
     import LifecyclePanel from "./lifecycle-panel.svelte";
@@ -11,7 +12,7 @@
     import type { ContentState } from "@/core/content-lifecycle";
     import type { NextAction } from "@/core/next-action";
 
-    let { block, t, onOpenDoc, onClose, relationsCtx, koCtx, lcCtx, editorCtx, historyEntries = [], issues = [] }: {
+    let { block, t, onOpenDoc, onClose, relationsCtx, koCtx, lcCtx, editorCtx, historyEntries = [], issues = [], versions = [] }: {
         block: SearchBlock;
         t: any;
         onOpenDoc: () => void;
@@ -19,6 +20,8 @@
         /** T05 分面（docs/40）：块学习记录与关联疑问（可选——旧宿主不传则分面显示空态） */
         historyEntries?: { rating: number; ts: number; dur: number | null }[];
         issues?: { addedAt: number; status: string }[];
+        /** T05 内容版本快照（最新在前；可选——旧宿主不传则不显示版本） */
+        versions?: { md: string; at: number; via: "editor" | "ai" }[];
         /** BI-5/6/7：内容状态面板数据与操作（宿主注入；缺省=不显示内容状态区） */
         lcCtx?: {
             snapshot: LcSnapshot | null;
@@ -50,6 +53,9 @@
 
     let html = $state("");
     let loadSeq = 0;
+    // T05 内容版本（docs/40）：历史列表折叠 + 单版本展开
+    let versionsOpen = $state(false);
+    let verOpenAt = $state<number | null>(null);
     // T05 分面（docs/40）：内容/来源/学习记录/问题
     type Facet = "content" | "source" | "history" | "issues";
     let facet = $state<Facet>("content");
@@ -132,6 +138,29 @@
         {/each}
     </div>
     {#if facet === "content"}
+        <!-- T05 内容版本（docs/40）：保存即留快照；可展开回看历史内容 -->
+        {#if versions.length > 0}
+            <div style="margin-bottom: var(--lv-sp-2); display: flex; align-items: center; gap: 6px">
+                <LvChip tone="primary">{t.detail.version} {versions.length}</LvChip>
+                <button class="b3-button b3-button--small" onclick={() => (versionsOpen = !versionsOpen)}>
+                    {t.detail.versionHistory} {versionsOpen ? "▴" : "▾"}
+                </button>
+            </div>
+            {#if versionsOpen}
+                <div class="lv-ver-list">
+                    {#each versions as v (v.at)}
+                        <div class="lv-ver-row">
+                            <button class="b3-button b3-button--small" onclick={() => (verOpenAt = verOpenAt === v.at ? null : v.at)}>
+                                {new Date(v.at).toLocaleString()} · {v.via === "ai" ? t.detail.viaAI : t.detail.viaEditor}
+                            </button>
+                            {#if verOpenAt === v.at}
+                                <div class="ft__smaller" style="white-space: pre-wrap; max-height: 160px; overflow: auto; margin-top: 4px; padding: 8px; border: 1px solid var(--lv-border); border-radius: 6px">{v.md}</div>
+                            {/if}
+                        </div>
+                    {/each}
+                </div>
+            {/if}
+        {/if}
         <div class="lv-detail-preview">{@html html || (block.content ?? "")}</div>
         {#if editing}
             <CardEditor t={t} original={editorMd} onsave={saveEdit} oncancel={() => (editing = false)} />

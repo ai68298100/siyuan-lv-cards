@@ -24,6 +24,8 @@
         /** T05 分面（docs/40）：块学习记录与关联疑问（可选——旧宿主不传则分面显示空态） */
         getBlockHistory?: (blockID: string) => { rating: number; ts: number; dur: number | null }[];
         getBlockIssues?: (blockID: string) => { addedAt: number; status: string }[];
+        /** T05 内容版本快照（最新在前；可选——旧宿主不传则不显示版本） */
+        contentVersionsOf?: (blockID: string) => { md: string; at: number; via: "editor" | "ai" }[];
         deleteFilter: (name: string) => void;
         getLeechCards: () => { blockID: string; lapses: number }[];
         /** 状态过滤（M6·FR2）：新卡=本地 revlog 无记录 */
@@ -392,6 +394,7 @@
         onClose={() => (detail = null)}
         historyEntries={ctx.getBlockHistory?.(detail!.id) ?? []}
         issues={ctx.getBlockIssues?.(detail!.id) ?? []}
+        versions={ctx.contentVersionsOf?.(detail!.id) ?? []}
         lcCtx={ctx.lc ? {
             snapshot: detailLc,
             onopen: () => {                ctx.lc!.open(detail!.id);

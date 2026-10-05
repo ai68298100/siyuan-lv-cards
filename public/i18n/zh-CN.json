@@ -23,7 +23,11 @@
         "histSummary": "正式评分 ${r} 次 · 遗忘 ${f} 次",
         "issuesEmpty": "暂无关联疑问",
         "issueStatus": "状态",
-        "issuesHint": "可在闪卡中心 → 收件箱页签统一处理疑问。"
+        "issuesHint": "可在闪卡中心 → 收件箱页签统一处理疑问。",
+        "version": "版本",
+        "versionHistory": "历史版本",
+        "viaEditor": "编辑器",
+        "viaAI": "AI"
     },
     "cmdDrill": "修卡演练（独立样例）",
     "drillTitle": "修卡演练",

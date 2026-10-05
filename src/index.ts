@@ -44,6 +44,7 @@ import { appendBlock, createDocWithMd, getNotebooks, getBlockDOM, getBlockDocMap
 import { aiChat, estimateTokens, parseCards, isAICanceled } from "./api/ai";
 import { normalizeSuspendToday, rollDateIfNeeded, isSuspended, suspend, unsuspend, type SuspendTodayData } from "./core/suspend-today";
 import { normalizeLedger, type LedgerEntry } from "./core/anki-import";
+import { appendVersion, emptyContentVersions, normalizeContentVersions, versionsOf } from "./core/content-versions";
 import { assembleGeneratePrompt } from "./core/ai-pipeline";
 import { checkEligibility } from "./core/ai-eligibility";
 import { disableTarget, emptyKillSwitch, enableTarget, grantConsent, killSwitchBlock, normalizeKillSwitch, revokeConsent, type AIKillSwitchData } from "./core/ai-kill-switch";
@@ -155,6 +156,8 @@ const CONTENT_LIFECYCLES_DATA = "content-lifecycles.json";
 const AI_KILL_SWITCH_DATA = "ai-killswitch.json";
 /** Anki M3：guid 导入台账（幂等重导） */
 const ANKI_LEDGER_DATA = "anki-ledger.json";
+/** T05：块内容版本快照（每块上限 10） */
+const CONTENT_VERSIONS_DATA = "content-versions.json";
 
 export default class LvCardsPlugin extends Plugin {
 
@@ -244,6 +247,12 @@ export default class LvCardsPlugin extends Plugin {
     private sessionState: SessionState = { date: "", reviewedIDs: [], skippedIDs: [], counters: { new: 0, review: 0, forget: 0, skip: 0 } };
     /** Anki M3：guid 导入台账（幂等重导） */
     private ankiLedger: LedgerEntry[] = [];
+    /** T05：块内容版本快照 */
+    private contentVersions = emptyContentVersions();
+    /** T05 探针/出口：版本数（诊断用） */
+    get contentVersionCount(): number {
+        return this.contentVersions.blocks.reduce((n, b) => n + b.versions.length, 0);
+    }
     /** 最近一次到期数（角标点击行为统一用：>0 开复习，否则开中心） */
     private lastDue = 0;
 
@@ -257,7 +266,7 @@ export default class LvCardsPlugin extends Plugin {
 </symbol>`);
 
         // AQ-1：批量加载以 keys 数组驱动并按位置配对，杜绝「6 项加载只解构 5 项」的错位回归
-        const STORE_KEYS = [SETTINGS_DATA, REVLOG_DATA, SUSPEND_TODAY_DATA, EXAM_PLANS_DATA, AI_BATCHES_DATA, SESSION_STATE_DATA, AI_JOBS_DATA, KNOWLEDGE_OBJECTS_DATA, CARD_RELATIONS_DATA, ERROR_TAGS_DATA, INBOX_DATA, LEARNING_GOALS_DATA, ENTRY_CONTEXTS_DATA, CONTENT_LIFECYCLES_DATA, AI_KILL_SWITCH_DATA, ANKI_LEDGER_DATA] as const;
+        const STORE_KEYS = [SETTINGS_DATA, REVLOG_DATA, SUSPEND_TODAY_DATA, EXAM_PLANS_DATA, AI_BATCHES_DATA, SESSION_STATE_DATA, AI_JOBS_DATA, KNOWLEDGE_OBJECTS_DATA, CARD_RELATIONS_DATA, ERROR_TAGS_DATA, INBOX_DATA, LEARNING_GOALS_DATA, ENTRY_CONTEXTS_DATA, CONTENT_LIFECYCLES_DATA, AI_KILL_SWITCH_DATA, ANKI_LEDGER_DATA, CONTENT_VERSIONS_DATA] as const;
         const loaded = zipLoaded(STORE_KEYS, await Promise.all(STORE_KEYS.map(key => this.loadData(key))));
         this.settings = normalizeSettings(loaded[SETTINGS_DATA]);
         this.perf.setCold(!this.settings.onboarded); // AT-6：首轮未完成引导=冷启动
@@ -276,6 +285,8 @@ export default class LvCardsPlugin extends Plugin {
         this.contentLifecycles = normalizeLifecycles(loaded[CONTENT_LIFECYCLES_DATA]);
         // Anki M3：guid 导入台账（幂等重导）——启动装载进内存，ctx 读写内存副本
         this.ankiLedger = normalizeLedger(loaded[ANKI_LEDGER_DATA]);
+        // T05：内容版本快照装载
+        this.contentVersions = normalizeContentVersions(loaded[CONTENT_VERSIONS_DATA]);
         // AI 批次走 TypedStore 入口（322）：结构清洗 + 兜底，非法条目剔除（526）；复用批量加载结果不再二次读盘
         this.aiBatches = await loadStore(this, {
             key: AI_BATCHES_DATA,
@@ -565,11 +576,16 @@ export default class LvCardsPlugin extends Plugin {
                             saveBlockContent: async (blockID: string, md: string) => {
                                 try {
                                     await updateBlock("markdown", md, blockID);
+                                    // T05：保存成功即留版本快照（连续相同自动跳过）
+                                    this.contentVersions = appendVersion(this.contentVersions, blockID, md, Date.now(), "editor");
+                                    this.persist.save(CONTENT_VERSIONS_DATA, this.contentVersions).catch(() => { /* onFail 已记录 */ });
                                     return true;
                                 } catch {
                                     return false;
                                 }
                             },
+                            // T05：内容分面「版本 N」历史
+                            contentVersionsOf: (blockID: string) => versionsOf(this.contentVersions, blockID),
                         },
                         exam: plugin.settings.modules.exam ? {
                             plans: plugin.examPlans,

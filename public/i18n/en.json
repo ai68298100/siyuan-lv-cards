@@ -23,7 +23,11 @@
         "histSummary": "${r} formal reviews · ${f} lapses",
         "issuesEmpty": "No linked issues",
         "issueStatus": "Status",
-        "issuesHint": "Handle inbox items together in Card Hub → Inbox."
+        "issuesHint": "Handle inbox items together in Card Hub → Inbox.",
+        "version": "Version",
+        "versionHistory": "Version history",
+        "viaEditor": "editor",
+        "viaAI": "AI"
     },
     "cmdDrill": "Card repair drill (sample)",
     "drillTitle": "Card repair drill",
