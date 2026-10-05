@@ -95,12 +95,17 @@
         ankiStatus = { kind: "info", text: t.settings.ankiImportParsing };
         try {
             const bytes = new Uint8Array(await file.arrayBuffer());
-            const host = openSqliteFile(bytes);
+            // M1 解析器契约：传入"打开器"（由解析器自行打开字节），关闭句柄在此收口
+            let closeDb: (() => void) | null = null;
             let pkg;
             try {
-                pkg = parseAnkiPackage(bytes, host.adapter);
+                pkg = parseAnkiPackage(bytes, (dbBytes) => {
+                    const h = openSqliteFile(dbBytes);
+                    closeDb = h.close;
+                    return h.adapter;
+                });
             } finally {
-                host.close();
+                closeDb?.();
             }
             const preview = buildImportPreview(pkg);
             const rawLedger = ctx.ankiLedger ? await ctx.ankiLedger.load() : [];
