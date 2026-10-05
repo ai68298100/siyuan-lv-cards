@@ -55,6 +55,8 @@
     let errorMsg = $state("");
 
     let loadDocBusy = $state(false);
+    // T02：生成前预览确认（docs/13 §4）——确认后才真正外发
+    let previewOpen = $state(false);
 
     // 笔记本范围源（M2·FR6 扩展）
     let nbOptions = $state<{ id: string; name: string }[]>([]);
@@ -330,7 +332,19 @@
                     <button class="b3-button b3-button--small" onclick={loadClipboard}>{t.aiWizard.loadClipboard}</button>
                 </div>
                 {#if source}
-                    <div class="ft__smaller ft__on-surface" style="margin-top: 4px">≈ {Math.ceil(source.length / 4)} tokens</div>
+                    <!-- T02 材料整理（docs/13 §4）：当前材料可读可改——裁剪即编辑，生成以此处内容为准 -->
+                    <textarea
+                        class="b3-text-field fn__block"
+                        rows="6"
+                        bind:value={source}
+                        placeholder={t.aiWizard.sourceEditHint}
+                        style="margin-top: 6px; font-size: 12px; line-height: 1.6"
+                    ></textarea>
+                    <div class="ft__smaller ft__on-surface" style="margin-top: 4px; display: flex; gap: 8px; align-items: center">
+                        <span>{source.length} 字符 · ≈ {Math.ceil(source.length / 4)} tokens</span>
+                        <div class="fn__flex-1"></div>
+                        <button class="b3-button b3-button--small" onclick={() => (source = "")}>{t.aiWizard.sourceClear}</button>
+                    </div>
                 {/if}
             </LvSection>
             <LvSection title={t.aiWizard.config}>
@@ -355,10 +369,28 @@
             {#if errorMsg}
                 <div class="ft__smaller" style="color: var(--b3-theme-error); margin-bottom: var(--lv-sp-2)">{errorMsg}</div>
             {/if}
+            {#if previewOpen}
+                <!-- T02 AI 请求预览（docs/13 §4）：实际片段/参数/估算 → 确认后才发送 -->
+                <div class="lv-notice" style="display: flex; flex-direction: column; gap: 6px">
+                    <div class="lv-eyebrow">{t.aiWizard.previewTitle}</div>
+                    <div class="ft__smaller" style="max-height: 120px; overflow: auto; white-space: pre-wrap">{source.trim().slice(0, 600)}{source.trim().length > 600 ? "…" : ""}</div>
+                    <div class="ft__smaller ft__on-surface">
+                        {t.aiWizard.previewParams.replace("${n}", String(count)).replace("${lang}", language).replace("${type}", cardType === "qa" ? t.aiWizard.typeQa : t.aiWizard.typeCloze)}
+                        · ≈ {Math.ceil(source.trim().length / 4)} tokens {t.aiWizard.previewTokens}
+                    </div>
+                    <div class="ft__smaller ft__on-surface">{t.aiWizard.previewEndpoint}</div>
+                    <div class="fn__flex" style="justify-content: flex-end; gap: var(--lv-sp-2)">
+                        <button class="b3-button b3-button--small" onclick={() => (previewOpen = false)}>{t.aiWizard.previewBack}</button>
+                        <button class="b3-button lv-btn-primary" disabled={busy} onclick={() => { previewOpen = false; run(); }}>
+                            {busy ? t.aiWizard.generating : t.aiWizard.previewConfirm}
+                        </button>
+                    </div>
+                </div>
+            {/if}
             <div class="fn__flex" style="justify-content: flex-end; gap: var(--lv-sp-2)">
                 <button class="b3-button b3-button--cancel" onclick={closeWizard}>{window.siyuan.languages.cancel}</button>
                 <div class="fn__space"></div>
-                <button class="b3-button b3-button--text lv-btn-primary" disabled={busy || !source.trim()} onclick={run}>
+                <button class="b3-button b3-button--text lv-btn-primary" disabled={busy || !source.trim()} onclick={() => (previewOpen = true)}>
                     {busy ? t.aiWizard.generating : `${t.aiWizard.generate} →`}
                 </button>
             </div>

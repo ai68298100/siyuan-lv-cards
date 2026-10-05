@@ -629,7 +629,7 @@
     },
     "aiWizardTitle": "AI Cards",
     "aiWizard": {
-        "aiWizard": "resumeCopyFailed",
+        "resumeCopyFailed": "Copy failed details",
         "resumeContinue": "Resume import",
         "resumeHint": "Previous AI import unfinished (${done}/${total} cards placed). Continue?",
         "diffEasy": "Easy",
@@ -658,6 +658,14 @@
         "loadClipboard": "Paste clipboard",
         "noClipboard": "Clipboard is empty",
         "noClipboardPerm": "Cannot read the clipboard (permission or environment) — paste into the text box instead",
+        "sourceEditHint": "Edit or trim the material directly — generation uses exactly this",
+        "sourceClear": "Clear material",
+        "previewTitle": "AI task preview — confirm before sending",
+        "previewParams": "${n} cards · ${lang} · ${type}",
+        "previewTokens": "(estimate; actual request may differ)",
+        "previewEndpoint": "Endpoint and model come from your settings; the request contains only the material excerpt above",
+        "previewBack": "Back to edit",
+        "previewConfirm": "Confirm & send",
         "noSelection": "No selected text found",
         "loadNotebook": "Load notebook",
         "noNotebook": "Pick a notebook first"

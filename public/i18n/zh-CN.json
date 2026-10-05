@@ -629,7 +629,7 @@
     },
     "aiWizardTitle": "AI 制卡",
     "aiWizard": {
-        "aiWizard": "resumeCopyFailed",
+        "resumeCopyFailed": "复制失败明细",
         "resumeContinue": "继续导入",
         "resumeHint": "上次有未完成的 AI 导入（${done}/${total} 已落卡），是否继续？",
         "diffEasy": "易",
@@ -658,6 +658,14 @@
         "loadClipboard": "粘贴剪贴板",
         "noClipboard": "剪贴板是空的",
         "noClipboardPerm": "无法读取剪贴板（权限或环境不支持），请直接粘贴到文本框",
+        "sourceEditHint": "可直接编辑或裁剪材料——生成以这里的内容为准",
+        "sourceClear": "清空材料",
+        "previewTitle": "AI 任务预览——请确认后再发送",
+        "previewParams": "拟生成 ${n} 张 · ${lang} · ${type}",
+        "previewTokens": "（估算，实际以请求为准）",
+        "previewEndpoint": "端点与模型为设置中当前配置；请求仅包含上述材料片段，不含其他内容",
+        "previewBack": "返回修改",
+        "previewConfirm": "确认发送",
         "noSelection": "未检测到选中的文字",
         "loadNotebook": "载入笔记本内容",
         "noNotebook": "请先选择笔记本"
