@@ -981,5 +981,22 @@
     "consentRevoked": "AI 使用同意已撤销：一切 AI 请求被阻断。",
     "targetDisabled": "当前 AI 配置处于紧急停用状态。",
     "tplAnswerRubric": "答案评分要点（rubric）",
-    "tplListTableBidi": "列表/表格/双向卡"
+    "tplListTableBidi": "列表/表格/双向卡",
+    "loState": {
+        "clarified": "已弄清它是什么、为何学",
+        "retired": {
+            "discarded": "捕获后放弃，未进入学习",
+            "stale": "过时且不再维护，已退役"
+        },
+        "candidate": "确认值得制卡",
+        "stale": "内容或目标变化，暂时失效",
+        "committed": "已产出卡片并进入正式学习",
+        "practiced": "练习/突击巩固过",
+        "maintained": "进入长期维持节奏",
+        "backToCommitted": "回到卡片集继续学习",
+        "applied": "在输出或真实任务中使用过",
+        "rePracticed": "再次练习巩固",
+        "reCaptured": "重新捕获进入学习",
+        "undone": "已撤销上一次转移"
+    }
 }

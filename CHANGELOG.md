@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.183.0 2026-10-05 · BI-19 学习对象生命周期状态机（纯模块，九态+四元数据）
+
+* 新增 core/learning-object.ts：九态学习旅程（captured→clarified→candidate→committed→practiced→applied→maintained / stale / retired）；**转移表即契约**——每次转移必须携带触发（trigger 枚举）/责任模块（capture/wizard/review/user）/可见原因（reasonKey，不裸露枚举）/撤销策略（none/previous/explicit）四元数据，缺一不合法；+7 组单测（507→514）
+* undo 策略可执行：previous 直接落 undo 反向记录（不受正向表约束，trigger=undo）；normalize 接受正向与 undo 两类轨迹且元数据缺一剔除；历史截 50 条
+* i18n +13 键（loState 段 reasonKeys，嵌套结构配点路径解析，zh/en 对齐）——吸取 BU-5 教训，reasonKeys 交付时即入 i18n 并附解析核对
+* 与 BI-5 分工：BI-5 管材料内容生命周期，本模块管学习旅程本身，并行记录互不替代；bundle 零增量（未接线）
+
 ## v0.182.0 2026-10-05 · 优化轮三连：e2e 抗抖动 + 预算到自动记因 + 减负联动
 
 * e2e-isolated 抗抖动：冷启动内核索引未就绪时 createDocWithMd 偶发 "block not found"（本轮实测一次误报）——失败自动重试一次

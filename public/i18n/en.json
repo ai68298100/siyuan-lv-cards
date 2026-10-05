@@ -981,5 +981,22 @@
     "consentRevoked": "AI consent has been revoked: all AI requests are blocked.",
     "targetDisabled": "The current AI configuration is under emergency stop.",
     "tplAnswerRubric": "Answer rubric",
-    "tplListTableBidi": "List/table/bidirectional"
+    "tplListTableBidi": "List/table/bidirectional",
+    "loState": {
+        "clarified": "Clarified what it is and why to learn",
+        "retired": {
+            "discarded": "Discarded after capture, never studied",
+            "stale": "Stale and unmaintained, retired"
+        },
+        "candidate": "Confirmed worth making cards",
+        "stale": "Content or goal changed, temporarily invalid",
+        "committed": "Cards created, entered formal study",
+        "practiced": "Practiced via cram session",
+        "maintained": "Entered long-term maintenance",
+        "backToCommitted": "Back to the deck for study",
+        "applied": "Used in output or a real task",
+        "rePracticed": "Practiced again to reinforce",
+        "reCaptured": "Re-captured into study",
+        "undone": "Last transition undone"
+    }
 }
