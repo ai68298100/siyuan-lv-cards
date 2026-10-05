@@ -1,6 +1,7 @@
 <script lang="ts">
     import { onMount } from "svelte";
     import { getBlockDOM } from "@/api/siyuan";
+    import { diffLines, type DiffRow } from "@/core/line-diff";
     import type { SearchBlock } from "@/api/riff";
     import LvDrawer from "./kit/LvDrawer.svelte";
     import LvChip from "./kit/LvChip.svelte";
@@ -53,9 +54,32 @@
 
     let html = $state("");
     let loadSeq = 0;
-    // T05 内容版本（docs/40）：历史列表折叠 + 单版本展开
+    // T05 内容版本（docs/40）：历史列表折叠 + 单版本展开 + 对比当前（逐行 diff）
     let versionsOpen = $state(false);
     let verOpenAt = $state<number | null>(null);
+    let diffAt = $state<number | null>(null);
+    let diffRows = $state<DiffRow[]>([]);
+    let diffBusy = $state(false);
+    async function compareWithCurrent(at: number, versionMd: string) {
+        if (diffBusy) return;
+        if (diffAt === at) { diffAt = null; return; }
+        if (!editorCtx) return;
+        diffBusy = true;
+        try {
+            const cur = await editorCtx.load();
+            diffRows = diffLines(versionMd, cur ?? "");
+            diffAt = at;
+        } finally {
+            diffBusy = false;
+        }
+    }
+    // 切换块时重置折叠/对比状态
+    $effect(() => {
+        void block.id;
+        versionsOpen = false;
+        verOpenAt = null;
+        diffAt = null;
+    });
     // T05 分面（docs/40）：内容/来源/学习记录/问题
     type Facet = "content" | "source" | "history" | "issues";
     let facet = $state<Facet>("content");
@@ -150,11 +174,21 @@
                 <div class="lv-ver-list">
                     {#each versions as v (v.at)}
                         <div class="lv-ver-row">
-                            <button class="b3-button b3-button--small" onclick={() => (verOpenAt = verOpenAt === v.at ? null : v.at)}>
-                                {new Date(v.at).toLocaleString()} · {v.via === "ai" ? t.detail.viaAI : t.detail.viaEditor}
-                            </button>
+                            <div class="fn__flex" style="gap: 4px; align-items: center">
+                                <button class="b3-button b3-button--small" onclick={() => (verOpenAt = verOpenAt === v.at ? null : v.at)}>
+                                    {new Date(v.at).toLocaleString()} · {v.via === "ai" ? t.detail.viaAI : t.detail.viaEditor}
+                                </button>
+                                <button class="b3-button b3-button--small" disabled={diffBusy} onclick={() => compareWithCurrent(v.at, v.md)}>{t.detail.diffCompare}</button>
+                            </div>
                             {#if verOpenAt === v.at}
                                 <div class="ft__smaller" style="white-space: pre-wrap; max-height: 160px; overflow: auto; margin-top: 4px; padding: 8px; border: 1px solid var(--lv-border); border-radius: 6px">{v.md}</div>
+                            {/if}
+                            {#if diffAt === v.at}
+                                <div class="lv-diff">
+                                    {#each diffRows as r, ri (ri)}
+                                        <div class="lv-diff-row lv-diff-{r.kind}">{r.kind === "add" ? "+ " : r.kind === "del" ? "− " : "  "}{r.text}</div>
+                                    {/each}
+                                </div>
                             {/if}
                         </div>
                     {/each}
@@ -271,4 +305,20 @@
         box-shadow: var(--lv-shadow-1);
     }
     .lv-hist-list { max-height: 320px; overflow: auto; }
+
+    /* T05 版本对比（docs/40）：逐行差异 */
+    .lv-diff {
+        margin-top: 4px;
+        padding: 6px 8px;
+        border: 1px solid var(--lv-border);
+        border-radius: 6px;
+        max-height: 220px;
+        overflow: auto;
+        font-size: 12px;
+        line-height: 1.6;
+    }
+    .lv-diff-row { white-space: pre-wrap; word-break: break-word; padding: 0 4px; }
+    .lv-diff-del { background: var(--lv-danger-soft); color: var(--b3-theme-error); }
+    .lv-diff-add { background: var(--lv-good-soft); color: var(--b3-theme-success, var(--b3-theme-primary)); }
+    .lv-diff-same { opacity: 0.65; }
 </style>
