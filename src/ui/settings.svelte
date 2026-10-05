@@ -14,6 +14,8 @@
     import LvSelect from "./kit/LvSelect.svelte";
     import LvInput from "./kit/LvInput.svelte";
     import { PROMPT_TEMPLATES } from "@/core/prompt-templates";
+    // BU-18 模型能力注册表：快选列表 + 登记状态提示
+    import { lookupModel, selectableModelOptions, formatModelContext } from "@/core/ai-model-registry";
     // Anki M3：本地 .apkg 导入（docs/39 §3）——宿主适配 + 解析/预览/编排
     import { detectSqlite, openSqliteFile } from "@/api/anki-host";
     import { getNotebooks, createNotebook, createDocWithMd, sqlQuery } from "@/api/siyuan";
@@ -175,6 +177,17 @@
         const dict = t.settings as Record<string, unknown>;
         const hay = (SECTION_KEYWORDS[id] ?? []).map((k) => String(dict[k] ?? "")).join(" ").toLowerCase();
         return hay.includes(q);
+    }
+
+    /** BU-18：模型登记状态提示（登记→窗口规模；失效→建议更换；未登记→保守默认口径） */
+    function modelRegistryHint(): string {
+        const id = (draft.aiModel ?? "").trim();
+        if (!id) { return ""; }
+        const m = lookupModel(id);
+        const dict = t.settings as Record<string, string>;
+        if (!m) { return dict.aiModelUnknown ?? ""; }
+        if (m.status !== "active") { return dict.aiModelStale ?? ""; }
+        return (dict.aiModelCtx ?? "").replace("{n}", formatModelContext(m.contextWindow));
     }
     // svelte-ignore state_referenced_locally
     let v2Label = $state(ctx.getV2Status());
@@ -636,8 +649,27 @@
             <LvRow label={t.settings.aiEndpoint}>
             <LvInput bind:value={draft.aiEndpoint} placeholder="https://api.example.com/v1" width="200px" />
             </LvRow>
-            <LvRow label={t.settings.aiModel}>
-                <LvInput bind:value={draft.aiModel} placeholder="gpt-4o-mini" width="200px" />
+            <LvRow label={t.settings.aiModel} hint={modelRegistryHint()}>
+                {#snippet children()}
+                    <div class="fn__flex" style="gap: 6px; align-items: center; flex-wrap: wrap">
+                        <LvInput bind:value={draft.aiModel} placeholder="gpt-4o-mini" width="160px" />
+                        <!-- BU-18 模型能力注册表：快选只列 active 在册模型（失效模型不出现） -->
+                        <select
+                            class="b3-select b3-button--small"
+                            aria-label={t.settings.aiModelPreset}
+                            onchange={(e: Event) => {
+                                const id = (e.target as HTMLSelectElement).value;
+                                if (id) { draft.aiModel = id; }
+                                (e.target as HTMLSelectElement).value = "";
+                            }}
+                        >
+                            <option value="">{t.settings.aiModelPreset}</option>
+                            {#each selectableModelOptions() as o (o.value)}
+                                <option value={o.value}>{o.label}</option>
+                            {/each}
+                        </select>
+                    </div>
+                {/snippet}
             </LvRow>
             <LvRow label={t.settings.aiKey} hint={t.settings.aiKeyHint}>
                 <LvInput bind:value={draft.aiKey} type="password" width="200px" />

@@ -1960,6 +1960,8 @@ export default class LvCardsPlugin extends Plugin {
                         typeQaHint: this.i18n.aiTypeQaHint,
                         guardClause: (this.i18n as any).aiInjectionGuard,
                         untrustedLabel: (this.i18n as any).aiUntrustedLabel,
+                        // BU-18：custom 模式按登记模型收紧预算（siyuan 模式模型由内核管理，不判）
+                        modelId: this.settings.aiMode === "custom" ? this.settings.aiModel : "",
                     });
                     const { system, user } = assembled;
                     // AuditSink（lvLog）：仅非敏感字段（task/模板来源/token 数/写入目标）
@@ -1990,7 +1992,9 @@ export default class LvCardsPlugin extends Plugin {
                                 onProvider: p => {
                                     if (p === "fallback" && !fallbackNotified) {
                                         fallbackNotified = true;
-                                        showMessage(this.i18n.aiFallbackUsed, 2500, "info");
+                                        // BU-28：呈现实际降级路径 + 费用提示（不做静默 fallback）
+                                        const deg = (this.i18n as any).aiDegrad;
+                                        showMessage(`${deg.usedFallback}（${deg.mayCost}）`, 3000, "info");
                                     }
                                 },
                             },

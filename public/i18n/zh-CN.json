@@ -8,7 +8,6 @@
     "examNotifTitle": "考试倒计时",
     "examNotifBody": "「${name}」还剩 ${n} 天，按计划的每日目标继续推进吧。",
     "menuDashboard": "闪卡中心",
-"menuDashboard": "闪卡中心",
     "hubTagline": "全域闪卡学习台",
     "menuReview": "开始复习",
     "menuManager": "闪卡管理器",
@@ -48,13 +47,13 @@
     "drillIntro": "用下面的固定样例完整走一遍修卡流程：看材料 → 找问题 → 改题面 → 对照改法 → 旁路试练。全程不触真实卡片，不产生正式评分。",
     "drillMaterialLabel": "材料与必要条件",
     "drillMaterial": "TCP 是面向连接的可靠传输协议。通信双方通过握手同步初始序列号，并确认对方具备发送与接收能力。三次握手的意义在于：每一步都确认了一件具体的事。",
-        "drillSample1": "样例一 · 题面过宽",
-        "drillSample2": "样例二 · 缺少条件",
-        "drill2Material": "光在真空中的传播速度约为每秒 30 万公里。在其他介质中光速会变慢（如水中约为真空的 3/4）。比较光速时必须先说明介质条件。",
-        "drill2BrokenQ": "光速是多少？",
-        "drill2Issue": "问题：缺少必要条件——光速取决于介质，不说明介质就无法回答，答案也只能是模糊的。",
-        "drill2Fixed": "光在真空中的传播速度是多少？",
-        "drill2Answer": "约每秒 30 万公里（299,792,458 m/s）；其他介质中更慢，如水中约为真空的 3/4。",
+    "drillSample1": "样例一 · 题面过宽",
+    "drillSample2": "样例二 · 缺少条件",
+    "drill2Material": "光在真空中的传播速度约为每秒 30 万公里。在其他介质中光速会变慢（如水中约为真空的 3/4）。比较光速时必须先说明介质条件。",
+    "drill2BrokenQ": "光速是多少？",
+    "drill2Issue": "问题：缺少必要条件——光速取决于介质，不说明介质就无法回答，答案也只能是模糊的。",
+    "drill2Fixed": "光在真空中的传播速度是多少？",
+    "drill2Answer": "约每秒 30 万公里（299,792,458 m/s）；其他介质中更慢，如水中约为真空的 3/4。",
     "drillMaterialNote": "来源快照 · 版本 2 · 公开演练材料（可自由修改）",
     "drillCardLabel": "待修的卡",
     "drillBrokenQ": "TCP 到底是什么？",
@@ -466,7 +465,7 @@
         "modules": "功能模块",
         "lockedModule": "基础组件，不可关闭",
         "study": "学习偏好",
-                "appearance": "外观",
+        "appearance": "外观",
         "searchPlaceholder": "搜索设置：听写、字号、评分、费用…",
         "previewTitle": "本地样例预览",
         "previewSub": "用虚构内容试效果——改动只影响预览，不触真实卡片",
@@ -625,7 +624,11 @@
         "uiModeAdvanced": "熟练",
         "uiModeHint": "简单模式隐藏考试、维护与批量高级操作；切换不删除任何配置，全部功能仍可从命令面板与设置访问。",
         "mixedRotationLabel": "混合题型轮换",
-        "mixedRotationHint": "开题形态按本场张数在翻面/打字/选择间轮换（仅轮换已启用的题型；展示层轮换，不影响调度与统计）"
+        "mixedRotationHint": "开题形态按本场张数在翻面/打字/选择间轮换（仅轮换已启用的题型；展示层轮换，不影响调度与统计）",
+        "aiModelPreset": "常用模型（在册）",
+        "aiModelCtx": "已登记：上下文窗口约 {n} tokens；价格估算仅供参考",
+        "aiModelStale": "该模型在注册表中已标记失效，不再出现在推荐列表，建议更换",
+        "aiModelUnknown": "未在注册表登记：按保守默认预算执行，能力以实际请求为准"
     },
     "hubTabOverview": "总览",
     "hubTabError": "该子页出现错误，已隔离在边界内",
@@ -762,7 +765,6 @@
     "aiTypeQaHint": "问答式：问题应具体、可主动回忆；答案简洁准确",
     "aiTypeClozeHint": "完形填空式：答案应是材料中的关键术语或数字",
     "aiTooLong": "材料过长，请分段生成",
-    "aiFallbackUsed": "主端点失败，已自动切换备用端点",
     "storageWriteFail": "部分插件数据保存失败（自动重试仍失败）。请检查磁盘/同步状态，可用「复制诊断」查看详情。",
     "menuAICard": "AI 制卡",
     "cardTypeTyping": "打字题",
@@ -1181,5 +1183,9 @@
             "rest": "休息一天",
             "normal-review": "正常复习队列"
         }
+    },
+    "aiDegrad": {
+        "usedFallback": "主端点失败，已自动切换备用端点",
+        "mayCost": "备用请求可能产生额外费用"
     }
 }

@@ -8,7 +8,6 @@
     "examNotifTitle": "Exam countdown",
     "examNotifBody": "\"${name}\" is ${n} day(s) away — keep pace with your daily target.",
     "menuDashboard": "Card Hub",
-"menuDashboard": "Card Hub",
     "hubTagline": "Full-lifecycle flashcard learning",
     "menuReview": "Start Review",
     "menuManager": "Card Manager",
@@ -48,13 +47,13 @@
     "drillIntro": "Walk the full repair flow on the fixed sample below: read the material, find the problem, rewrite the question, compare a suggested fix, then self-practice. Nothing touches real cards and no formal ratings are produced.",
     "drillMaterialLabel": "Material & necessary conditions",
     "drillMaterial": "TCP is a connection-oriented, reliable transport protocol. Both sides synchronise initial sequence numbers during the handshake and confirm each other can send and receive. Each step of the handshake confirms one specific thing.",
-        "drillSample1": "Sample 1 · Over-broad question",
-        "drillSample2": "Sample 2 · Missing condition",
-        "drill2Material": "Light travels at about 300,000 km per second in a vacuum. It slows in other media (about 3/4 of that in water). Any comparison of light speed must state the medium first.",
-        "drill2BrokenQ": "What is the speed of light?",
-        "drill2Issue": "Problem: a necessary condition is missing — light speed depends on the medium, so without stating one the question has no precise answer.",
-        "drill2Fixed": "What is the speed of light in a vacuum?",
-        "drill2Answer": "About 300,000 km/s (299,792,458 m/s); slower in other media — roughly 3/4 of that in water.",
+    "drillSample1": "Sample 1 · Over-broad question",
+    "drillSample2": "Sample 2 · Missing condition",
+    "drill2Material": "Light travels at about 300,000 km per second in a vacuum. It slows in other media (about 3/4 of that in water). Any comparison of light speed must state the medium first.",
+    "drill2BrokenQ": "What is the speed of light?",
+    "drill2Issue": "Problem: a necessary condition is missing — light speed depends on the medium, so without stating one the question has no precise answer.",
+    "drill2Fixed": "What is the speed of light in a vacuum?",
+    "drill2Answer": "About 300,000 km/s (299,792,458 m/s); slower in other media — roughly 3/4 of that in water.",
     "drillMaterialNote": "Source snapshot · version 2 · public practice material (edit freely)",
     "drillCardLabel": "The card to repair",
     "drillBrokenQ": "What exactly is TCP?",
@@ -466,7 +465,7 @@
         "modules": "Modules",
         "lockedModule": "Core component, cannot be disabled",
         "study": "Study Preferences",
-                "appearance": "Appearance",
+        "appearance": "Appearance",
         "searchPlaceholder": "Search settings: dictation, font size, rating, cost…",
         "previewTitle": "Local sample preview",
         "previewSub": "Try settings on fictional content — nothing touches real cards",
@@ -625,7 +624,11 @@
         "uiModeAdvanced": "Advanced",
         "uiModeHint": "Simple mode hides exam, maintenance and batch operations; switching never deletes configuration — everything stays reachable via the command palette and settings.",
         "mixedRotationLabel": "Mixed question rotation",
-        "mixedRotationHint": "Rotate the answering form (flip/typing/choice) across cards in a session — only among enabled types; display-layer only, scheduling and stats untouched"
+        "mixedRotationHint": "Rotate the answering form (flip/typing/choice) across cards in a session — only among enabled types; display-layer only, scheduling and stats untouched",
+        "aiModelPreset": "Common models (registry)",
+        "aiModelCtx": "Registered: context window ≈ {n} tokens; price estimates are indicative only",
+        "aiModelStale": "This model is marked stale in the registry and no longer listed; consider switching",
+        "aiModelUnknown": "Not in registry: conservative default budget applies; verify capabilities with real requests"
     },
     "hubTabOverview": "Overview",
     "hubTabError": "This tab hit an error (contained by the boundary)",
@@ -762,7 +765,6 @@
     "aiTypeQaHint": "Q&A: specific, actively recallable questions with concise accurate answers",
     "aiTypeClozeHint": "Cloze: answers should be key terms or numbers from the material",
     "aiTooLong": "Material too long — split it and generate in parts",
-    "aiFallbackUsed": "Primary endpoint failed — switched to the fallback endpoint",
     "storageWriteFail": "Some plugin data failed to save (retries exhausted). Check disk/sync status; see Copy diagnostics for details.",
     "menuAICard": "AI cards",
     "cardTypeTyping": "Typing",
@@ -1181,5 +1183,9 @@
             "rest": "Rest for a day",
             "normal-review": "Review the standard queue"
         }
+    },
+    "aiDegrad": {
+        "usedFallback": "Primary endpoint failed — switched to the fallback endpoint",
+        "mayCost": "Fallback requests may incur extra cost"
     }
 }

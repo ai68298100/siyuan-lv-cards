@@ -11,6 +11,7 @@
 import { estimateTokens } from "../api/ai-parse";
 import { INJECTION_GUARD_DEFAULT, wrapUntrusted } from "./prompt-injection";
 import { planContext, type BudgetReport, type ContextLayerKey } from "./context-budget";
+import { effectiveBudgetTokens } from "./ai-model-registry";
 
 export const AI_TASKS = ["cards-generate"] as const;
 export type AiTask = (typeof AI_TASKS)[number];
@@ -53,6 +54,8 @@ export interface AssembleInput {
     guardClause?: string;
     /** 不可信数据围栏标签（i18n aiUntrustedLabel；缺省「来源材料」） */
     untrustedLabel?: string;
+    /** 目标模型 ID（custom 模式；BU-18——登记模型按窗口收紧预算，未登记用任务默认） */
+    modelId?: string;
 }
 
 export interface AssembleResult {
@@ -71,6 +74,11 @@ export interface AssembleResult {
         truncatedLayers: ContextLayerKey[];
         needsBatching: boolean;
         writeTarget: string;
+        /** BU-18：生效预算及其来源（注册表按模型收紧 / 任务默认） */
+        budgetTokens: number;
+        budgetSource: "model-registry" | "task-default";
+        /** 登记模型 ID（未登记/未传为 null；不含密钥等敏感字段） */
+        modelId: string | null;
     };
 }
 
@@ -99,9 +107,11 @@ export function assembleGeneratePrompt(input: AssembleInput): AssembleResult {
         { key: "system" as ContextLayerKey, text: system, priority: 2 },
         { key: "material" as ContextLayerKey, text: wrapped, priority: 1 },
     ];
-    const budget = planContext(layers, desc.budgetTokens);
+    // BU-18：预算从模型注册表解析（登记模型按窗口×0.6 收紧，只收紧不放大；未登记回任务默认）
+    const budgetRes = effectiveBudgetTokens(input.modelId ?? "", desc.budgetTokens);
+    const budget = planContext(layers, budgetRes.tokens);
     const sourceTokens = estimateTokens(input.source);
-    const needsBatching = sourceTokens > desc.budgetTokens;
+    const needsBatching = sourceTokens > budgetRes.tokens;
 
     return {
         system,
@@ -116,6 +126,9 @@ export function assembleGeneratePrompt(input: AssembleInput): AssembleResult {
             truncatedLayers: budget.reports.filter(r => r.truncated || r.dropped).map(r => r.key),
             needsBatching,
             writeTarget: desc.writeTarget,
+            budgetTokens: budgetRes.tokens,
+            budgetSource: budgetRes.source,
+            modelId: budgetRes.model?.id ?? null,
         },
     };
 }

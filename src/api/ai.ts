@@ -7,9 +7,13 @@
  */
 import { fetchSyncPost } from "siyuan";
 import { AICanceledError, isAICanceled, isRecoverableAIError } from "./ai-errors";
+import { classifyAiFailure, nextLadderStep, type LadderStep } from "../core/ai-degradation";
 
 // 错误分类从零依赖模块再导出（单测不经 siyuan 包解析；调用方仍从 @/api/ai 引入）
 export { AICanceledError, isAICanceled, isRecoverableAIError };
+// BU-28 阶梯分类/决策随调用层暴露（向导/审计可呈现实际降级路径）
+export { classifyAiFailure, nextLadderStep };
+export type { LadderStep };
 
 export interface AIConfig {
     mode: "siyuan" | "custom";
@@ -27,6 +31,8 @@ export interface AICallOptions {
     signal?: AbortSignal;
     /** 实际使用的 provider 回调（界面可提示「已切换备用端点」） */
     onProvider?: (provider: "primary" | "fallback") => void;
+    /** BU-28：阶梯决策回调——转备用发生时携带实际路径/费用提示（界面不静默 fallback 的验收点） */
+    onDegradation?: (step: LadderStep) => void;
     /** 请求超时毫秒，默认 15000 */
     timeoutMs?: number;
 }
@@ -41,15 +47,19 @@ export async function aiChat(cfg: AIConfig, system: string, user: string, opts: 
         try {
             return await chatCompletions(cfg, system, user, opts);
         } catch (e) {
-            const fallback = cfg.fallbackEndpoint ? normalizeEndpoint(cfg.fallbackEndpoint) : "";
-            if (fallback && fallback !== normalizeEndpoint(cfg.endpoint) && isRecoverableAIError(e)) {
+            // BU-28 阶梯决策（主端点不重试，maxPrimaryAttempts=1 维持既有行为）：
+            // 可重试类（网络/5xx/限流）→ 已配置备用则转备用；终止类（401/配额/隐私/解析/取消）直接给原因
+            const fb = cfg.fallbackEndpoint ? normalizeEndpoint(cfg.fallbackEndpoint) : "";
+            const step = nextLadderStep(classifyAiFailure(e), { maxPrimaryAttempts: 1, hasFallback: Boolean(fb) && fb !== normalizeEndpoint(cfg.endpoint) }, 1);
+            if (step.action === "try-fallback") {
                 try {
                     const text = await chatCompletions(
-                        { ...cfg, endpoint: fallback, apiKey: cfg.fallbackApiKey ?? "", model: cfg.fallbackModel || cfg.model },
+                        { ...cfg, endpoint: fb, apiKey: cfg.fallbackApiKey ?? "", model: cfg.fallbackModel || cfg.model },
                         system, user,
                         { ...opts, signal: opts.signal, onProvider: undefined },
                     );
                     opts.onProvider?.("fallback");
+                    opts.onDegradation?.(step);
                     return text;
                 } catch (e2) {
                     throw new Error(

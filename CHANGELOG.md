@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.189.0 2026-10-06 · BU-18 模型能力注册表 + BU-28 分层降级阶梯（AI 治理 B1+B2 批）
+
+* BU-18 模型能力注册表（core/ai-model-registry.ts 纯模块）：14 个常用 OpenAI 兼容模型登记 provider/上下文窗口/输入模态/参考价（快照 2026-10，缺失=null 不编数字）/已知限制标签/active-deprecated-retired 三态；**失效模型不再出现在可选列表**（selectableModelOptions 只回 active，测试全表核对 deprecated/retired 零泄漏）；ID 匹配宽容（大小写/空格、openrouter「/」中转后缀、dated 变体归并 gpt-4o-2024-11-20→gpt-4o）
+* 预算从注册表收紧：effectiveBudgetTokens 按窗口×0.6 收口（只收紧不放大、下限 2000、未登记回任务默认）——小窗口模型（如 moonshot-v1-8k）材料超窗不再溢出；ai-pipeline audit 新增 budgetSource/modelId（lvLog 审计可追溯预算依据）；custom 模式 generate 按设置模型解析，siyuan 模式内核管理不判
+* BU-28 分层降级阶梯（core/ai-degradation.ts 纯模块）：十类失败分类（取消/隐私拒绝/配额/auth/限流/5xx/网络/解析/风险/未知；**配额先于 429**——insufficient_quota 重试有害）+ 三动作阶梯（重试主端点/转已授权备用/中止）；终止类（401/配额/隐私/解析/风险/取消）无论备用可用性一律中止，**绝不静默回退**；决策携带 mayCost/usedFallback/retryAfterMs 供界面呈现实际路径与费用（验收硬性要求）
+* 口径收敛：ai-errors.isRecoverableAIError 委托阶梯分类器（AQ-15 判定单一事实源，既有 5 组测试零改动全过）；ai.ts fallback 决策走阶梯（可观察行为保持：主端点不重试、组合错误信息不变）+ 新增 onDegradation 回调；降级 toast 升级为「已切换备用端点+可能产生额外费用」说明
+* 设置页模型快选：AI 区「模型」行新增在册模型下拉（仅 active，含 provider+窗口规模标签）+ 登记状态提示（登记→窗口规模；失效→建议更换警示；未登记→保守默认口径）
+* i18n：aiDegrad 两键（usedFallback/mayCost）+ settings 模型 4 键，zh/en 对齐（1065 叶键；顺带清理 zh-CN 重复键 menuDashboard 与残留缩进噪声）；PRIVACY 补 anki-ledger/content-versions 存储披露（v0.186 漂移收口）+ 回退口径改写为阶梯语义
+* 质量：589 测试（净增 22：注册表 9 + 降级阶梯 9 + pipeline 预算 2 + 既有委托口径 2）；主包 46.28KB ≤55KB 门禁
+
 ## v0.188.0 2026-10-06 · 工作台页签 + 深度统计记忆 + 损失明细复制
 
 * 闪卡中心新增「制卡工作台」常驻页签（T02）：AI 制卡向导与修卡演练的集中入口（openWizard/openDrill 宿主通道，旧宿主兼容）；全屏内嵌工作面留待后续批次（跨 chunk 加载专项）

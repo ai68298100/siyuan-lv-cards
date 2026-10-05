@@ -59,4 +59,24 @@ describe("ai-pipeline（BU-35 骨架）", () => {
         const r = assembleGeneratePrompt(base);
         expect(JSON.stringify(r.audit)).not.toContain("线粒体");
     });
+
+    // BU-18：预算从模型注册表解析——登记模型按窗口收紧，未登记回任务默认
+    it("modelId 登记模型：预算按窗口收紧并记入审计（budgetSource=model-registry）", () => {
+        const r = assembleGeneratePrompt({ ...base, modelId: "moonshot-v1-8k" });
+        expect(r.audit.budgetSource).toBe("model-registry");
+        expect(r.audit.modelId).toBe("moonshot-v1-8k");
+        expect(r.audit.budgetTokens).toBe(Math.floor(8192 * 0.6));
+        // 小窗口下中等材料即触发分批建议（不静默截断）
+        const long = assembleGeneratePrompt({ ...base, modelId: "moonshot-v1-8k", source: "M".repeat(30000) });
+        expect(long.needsBatching).toBe(true);
+    });
+
+    it("modelId 未登记/缺省：任务默认预算，审计 modelId=null", () => {
+        const r = assembleGeneratePrompt({ ...base, modelId: "my-private-model" });
+        expect(r.audit.budgetSource).toBe("task-default");
+        expect(r.audit.modelId).toBeNull();
+        expect(r.audit.budgetTokens).toBe(TASK_REGISTRY["cards-generate"].budgetTokens);
+        const noModel = assembleGeneratePrompt(base);
+        expect(noModel.audit.budgetSource).toBe("task-default");
+    });
 });
