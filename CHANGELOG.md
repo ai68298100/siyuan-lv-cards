@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.186.0 2026-10-06 · UI 精品化批 1-4 + Anki 本地导入 + 冒烟加固
+
+* UI 精品化（docs/39/40，原型十任务面全部核心落地）：R52 视觉纪律（状态点静态化/去光泽辉光/完成页与评分条去错峰）、页头 eyebrow+24px 题制、评分条原型规格（77px 高卡/kbd 右置/间隔下沉/窄屏 2×2）、向导双栏工作台（来源清单分条+回源📂+材料可编辑裁剪+AI 请求预览确认步）、审核状态机（已选≠已审、接受/待核实、编辑即失效、入库只取已接受、全部接受快径）、详情四分面（内容/来源/学习记录/问题）+ 内容版本追踪（保存留快照、对比当前逐行 diff）、T08 待处理聚合（疑问/暂停/续传，恢复幂等）、T06 目标三步链（了解→回忆→应用，状态如实）+ 缺口提示、T10 修卡演练（独立样例五步，零网络零写入）
+* 行为修正：限时模式到点不再自动提交正式评分——只揭示答案并提醒自评（docs/13 §6 遗留差距清零）；v0.82 遗留 resumeCopyFailed 坏键修复（恢复横幅按钮此前渲染 undefined）
+* Anki 本地导入 M1-M3：.apkg/.colpkg 解析（自研 zip 读取 + 注入式 SQLite 适配）、字段映射/保守 HTML 清洗（损失台账绝不静默丢弃）/归一化指纹查重/导入预览、SR 单行落库编排 + guid 台账幂等重导；设置页 Anki 区入口（node:sqlite 可用性自检，不可用降级提示）；1000 笔记大库基准在预算内
+* 冒烟/e2e 加固：scripts/lib/smoke-kernel.mjs（前缀注册表/靶场防呆/残留清扫）、e2e-isolated 双模式（自起隔离靶场 / SIYUAN_BASE_URL+TOKEN 附着既有内核）、失败路径退出码语义修复（SilentExit 替代 process.exit）；发布包 smoke-dist 门禁（build 链尾真实执行 chunk 注册契约——v0.185.0 真机空白屏根因类）
+* 质量与工具：567 测试（净增 47）、Anki 1000 笔记大库基准、i18n +46 键中英对齐、品牌图标重设计（白卡闪电，系列语言，用户从 A/B/C 候选选定 A）、deploy-device 参数化（LV_DEVICE_PLUGIN_DIR）
+* 文档：docs/38 状态评审（v0.185 基线）、docs/39 UI 精品化差距与批次计划、docs/40 原型全页核对清单（T01-T10 逐面对照）、docs/34 冒烟加固约定与 V-8 行为修正补记
+
 ## v0.185.1 2026-10-05 · fix：真机空白屏——chunk 注册契约失配 + BASE 相对路径（AT-17 回归门禁）
 
 * 修复两个自 v0.158.0（AT-17）以来生产构建**必现**的 chunk 加载缺陷（dev 模式走进程内导入不暴露，首个真机生产安装即空白）：① hub/review/dialogs 三个 chunk 整表覆盖 `window.__lvChunks`，而 loader 按 `__lvChunks.<name>` 取模块——恒 undefined，闪卡中心/复习/9 个对话框全数挂载失败；② chunk BASE 为相对路径，桌面端页面位于 `/stage/build/app/` 下，script 解析到 `/stage/build/app/plugins/…` 必 404（内核对 `/plugins/*` 实测 200）。修复：按键合并注册（dialogs 带 `components` 子表，与 shell 消费同形）+ BASE 根绝对
