@@ -18,25 +18,36 @@ export function composeImportMarkdown(cards: PreviewCard[]): string {
     return cards.map((c) => composeCardLine(c)).join("\n\n");
 }
 
-/** 已建块（按 sort 升序）与卡配对：整行内容精确匹配（composeCardLine 的产物） */
+/** 已建块（按 sort 升序）与卡配对：整行精确匹配为主；markdown 往返可能微调内容，
+ *  开启 orderFallback 时未配对卡按出现顺序补齐剩余 p 块 */
 export function pairImportedBlocks(
     blocks: { id: string; content: string }[],
     cards: PreviewCard[],
+    opts: { orderFallback?: boolean } = {},
 ): { byGuid: Map<string, string>; unmatchedGuids: string[] } {
     const byGuid = new Map<string, string>();
     const byLine = new Map<string, string>();
     for (const b of blocks) {
         const key = String(b.content ?? "").trim();
-        // 同文档重复行（理论不应发生）：保留首个，其余在 unmatched 里如实呈现
+        // 同文档重复行（理论不应发生）：保留首个
         if (!byLine.has(key)) byLine.set(key, b.id);
     }
-    const unmatchedGuids: string[] = [];
+    const unmatched: PreviewCard[] = [];
     for (const c of cards) {
         const blockId = byLine.get(composeCardLine(c));
         if (blockId) byGuid.set(c.guid, blockId);
-        else unmatchedGuids.push(c.guid);
+        else unmatched.push(c);
     }
-    return { byGuid, unmatchedGuids };
+    if (opts.orderFallback) {
+        // 剩余块按文档顺序补齐剩余卡（markdown 往返改写内容时的兜底）
+        const used = new Set(byGuid.values());
+        const free = blocks.filter((b) => !used.has(b.id));
+        for (let i = 0; i < unmatched.length && i < free.length; i++) {
+            byGuid.set(unmatched[i].guid, free[i].id);
+        }
+        unmatched.splice(0, Math.min(unmatched.length, free.length));
+    }
+    return { byGuid, unmatchedGuids: unmatched.map((c) => c.guid) };
 }
 
 // ---------- 幂等台账 ----------

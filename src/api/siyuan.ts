@@ -19,6 +19,16 @@ export const getNotebooks = async (): Promise<Notebook[]> => {
     return boxes.filter(b => !b.closed).map(b => ({ id: b.id as string, name: b.name as string }));
 };
 
+/** 创建笔记本（Anki 导入落点；同名已存在时内核报错由调用方处理） */
+export const createNotebook = async (name: string): Promise<string | null> => {
+    const resp = await fetchSyncPost("/api/notebook/createNotebook", { name });
+    if (!resp || resp.code !== 0) {
+        throw new Error(resp?.msg || `kernel error (code=${resp?.code ?? "unknown"})`);
+    }
+    const d: any = resp.data;
+    return d?.notebook?.id ?? d?.notebook ?? d?.id ?? null;
+};
+
 /** Markdown 创建文档，返回文档块 ID（快速制卡/示例卡落点） */
 export const createDocWithMd = async (notebook: string, path: string, markdown: string): Promise<string | null> => {
     const resp = await fetchSyncPost("/api/filetree/createDocWithMd", { notebook, path, markdown });

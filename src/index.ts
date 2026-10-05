@@ -43,6 +43,7 @@ import { ensureLifecycle, emptyLifecycles, lifecycleStats, normalizeLifecycles, 
 import { appendBlock, createDocWithMd, getNotebooks, getBlockDOM, getBlockDocMap, getDocTitles, exportMdContent, sqlQuery, kernelVersion, updateBlock } from "./api/siyuan";
 import { aiChat, estimateTokens, parseCards, isAICanceled } from "./api/ai";
 import { normalizeSuspendToday, rollDateIfNeeded, isSuspended, suspend, unsuspend, type SuspendTodayData } from "./core/suspend-today";
+import { normalizeLedger, type LedgerEntry } from "./core/anki-import";
 import { assembleGeneratePrompt } from "./core/ai-pipeline";
 import { checkEligibility } from "./core/ai-eligibility";
 import { disableTarget, emptyKillSwitch, enableTarget, grantConsent, killSwitchBlock, normalizeKillSwitch, revokeConsent, type AIKillSwitchData } from "./core/ai-kill-switch";
@@ -151,6 +152,8 @@ const LEARNING_GOALS_DATA = "learning-goals.json";
 const ENTRY_CONTEXTS_DATA = "entry-contexts.json";
 const CONTENT_LIFECYCLES_DATA = "content-lifecycles.json";
 const AI_KILL_SWITCH_DATA = "ai-killswitch.json";
+/** Anki M3：guid 导入台账（幂等重导） */
+const ANKI_LEDGER_DATA = "anki-ledger.json";
 
 export default class LvCardsPlugin extends Plugin {
 
@@ -238,6 +241,8 @@ export default class LvCardsPlugin extends Plugin {
         this.saveSettingsNow();
     }
     private sessionState: SessionState = { date: "", reviewedIDs: [], skippedIDs: [], counters: { new: 0, review: 0, forget: 0, skip: 0 } };
+    /** Anki M3：guid 导入台账（幂等重导） */
+    private ankiLedger: LedgerEntry[] = [];
     /** 最近一次到期数（角标点击行为统一用：>0 开复习，否则开中心） */
     private lastDue = 0;
 
@@ -251,7 +256,7 @@ export default class LvCardsPlugin extends Plugin {
 </symbol>`);
 
         // AQ-1：批量加载以 keys 数组驱动并按位置配对，杜绝「6 项加载只解构 5 项」的错位回归
-        const STORE_KEYS = [SETTINGS_DATA, REVLOG_DATA, SUSPEND_TODAY_DATA, EXAM_PLANS_DATA, AI_BATCHES_DATA, SESSION_STATE_DATA, AI_JOBS_DATA, KNOWLEDGE_OBJECTS_DATA, CARD_RELATIONS_DATA, ERROR_TAGS_DATA, INBOX_DATA, LEARNING_GOALS_DATA, ENTRY_CONTEXTS_DATA, CONTENT_LIFECYCLES_DATA, AI_KILL_SWITCH_DATA] as const;
+        const STORE_KEYS = [SETTINGS_DATA, REVLOG_DATA, SUSPEND_TODAY_DATA, EXAM_PLANS_DATA, AI_BATCHES_DATA, SESSION_STATE_DATA, AI_JOBS_DATA, KNOWLEDGE_OBJECTS_DATA, CARD_RELATIONS_DATA, ERROR_TAGS_DATA, INBOX_DATA, LEARNING_GOALS_DATA, ENTRY_CONTEXTS_DATA, CONTENT_LIFECYCLES_DATA, AI_KILL_SWITCH_DATA, ANKI_LEDGER_DATA] as const;
         const loaded = zipLoaded(STORE_KEYS, await Promise.all(STORE_KEYS.map(key => this.loadData(key))));
         this.settings = normalizeSettings(loaded[SETTINGS_DATA]);
         this.perf.setCold(!this.settings.onboarded); // AT-6：首轮未完成引导=冷启动
@@ -268,6 +273,8 @@ export default class LvCardsPlugin extends Plugin {
         this.learningGoals = normalizeGoals(loaded[LEARNING_GOALS_DATA]);
         this.entryContexts = normalizeEntryContexts(loaded[ENTRY_CONTEXTS_DATA]);
         this.contentLifecycles = normalizeLifecycles(loaded[CONTENT_LIFECYCLES_DATA]);
+        // Anki M3：guid 导入台账（幂等重导）——启动装载进内存，ctx 读写内存副本
+        this.ankiLedger = normalizeLedger(loaded[ANKI_LEDGER_DATA]);
         // AI 批次走 TypedStore 入口（322）：结构清洗 + 兜底，非法条目剔除（526）；复用批量加载结果不再二次读盘
         this.aiBatches = await loadStore(this, {
             key: AI_BATCHES_DATA,
@@ -2398,6 +2405,14 @@ export default class LvCardsPlugin extends Plugin {
                     },
                     exportRevlog: () => this.exportRevlog(),
                     clearRevlog: () => this.clearRevlog(),
+                    // Anki M3：guid 导入台账（幂等重导）——启动已装载，读写内存副本
+                    ankiLedger: {
+                        load: async () => this.ankiLedger,
+                        save: (entries: unknown) => {
+                            this.ankiLedger = normalizeLedger(entries);
+                            return this.persist.save(ANKI_LEDGER_DATA, this.ankiLedger).catch(() => { /* onFail 已记录 */ });
+                        },
+                    },
                     // BU-31：紧急停用/撤销同意（停用即清理待发队列；事件记录不含敏感内容）
                     killswitch: {
                         snapshot: () => this.killSwitch,

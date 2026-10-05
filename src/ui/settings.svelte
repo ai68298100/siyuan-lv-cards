@@ -14,6 +14,13 @@
     import LvSelect from "./kit/LvSelect.svelte";
     import LvInput from "./kit/LvInput.svelte";
     import { PROMPT_TEMPLATES } from "@/core/prompt-templates";
+    // Anki M3：本地 .apkg 导入（docs/39 §3）——宿主适配 + 解析/预览/编排
+    import { detectSqlite, openSqliteFile } from "@/api/anki-host";
+    import { getNotebooks, createNotebook, createDocWithMd, sqlQuery } from "@/api/siyuan";
+    import { createRiffDeck, addRiffCards } from "@/api/riff";
+    import { parseAnkiPackage } from "@/core/anki-package";
+    import { buildImportPreview } from "@/core/anki-preview";
+    import { composeImportMarkdown, pairImportedBlocks, partitionNew, normalizeLedger, mergeLedger } from "@/core/anki-import";
 
     export interface SettingsCtx {
         i18n: any;
@@ -22,6 +29,11 @@
         close: () => void;
         exportRevlog: () => void;
         clearRevlog: () => void;
+        /** Anki M3：guid 导入台账（幂等重导）；可选——旧宿主不传则不持久化 */
+        ankiLedger?: {
+            load: () => Promise<unknown>;
+            save: (entries: unknown) => Promise<void>;
+        };
         /** BU-31：紧急停用/撤销同意（可选——旧宿主不传则不显示该行） */
         killswitch?: {
             snapshot: () => any;
@@ -65,6 +77,71 @@
     // 初值语义：draft 是打开设置时的快照，保存前不随源变化
     // svelte-ignore state_referenced_locally
     let draft: LvCardsSettings = $state(JSON.parse(JSON.stringify(ctx.settings)));
+
+    // Anki M3：本地 .apkg 导入（docs/39 §3）——解析/预览/建文档/配对/制卡/台账，幂等重导
+    let ankiBusy = $state(false);
+    let ankiStatus = $state<{ kind: "info" | "warn" | "error"; text: string } | null>(null);
+    async function importAnki(e: Event) {
+        const input = e.target as HTMLInputElement;
+        const file = input.files?.[0];
+        input.value = "";
+        if (!file || ankiBusy) return;
+        const probe = detectSqlite();
+        if (!probe.available) {
+            ankiStatus = { kind: "error", text: (t.settings.ankiImportNoSqlite ?? "当前宿主不支持本地解析").replace("${r}", probe.reason ?? "") };
+            return;
+        }
+        ankiBusy = true;
+        ankiStatus = { kind: "info", text: t.settings.ankiImportParsing };
+        try {
+            const bytes = new Uint8Array(await file.arrayBuffer());
+            const host = openSqliteFile(bytes);
+            let pkg;
+            try {
+                pkg = parseAnkiPackage(bytes, host.adapter);
+            } finally {
+                host.close();
+            }
+            const preview = buildImportPreview(pkg);
+            const rawLedger = ctx.ankiLedger ? await ctx.ankiLedger.load() : [];
+            const ledger = normalizeLedger(rawLedger);
+            const { fresh, already } = partitionNew(preview.cards, ledger);
+            if (fresh.length === 0) {
+                ankiStatus = { kind: "info", text: t.settings.ankiImportDone.replace("${ok}", "0").replace("${skip}", String(already.length)).replace("${loss}", String(preview.losses.length)) };
+                return;
+            }
+            // 落点笔记本：存在同名即用，缺失创建
+            const nbName = t.settings.ankiNbName || "Anki Import";
+            const boxes = await getNotebooks();
+            let nbId = boxes.find((b) => b.name === nbName)?.id;
+            if (!nbId) nbId = (await createNotebook(nbName)) ?? "";
+            const base = file.name.replace(/\.(apkg|colpkg)$/i, "");
+            const docID = await createDocWithMd(nbId, `Anki/${base} ${new Date().toISOString().slice(0, 10)}`, composeImportMarkdown(fresh));
+            if (!docID) throw new Error("createDocWithMd 返回空");
+            const blockRows = await sqlQuery(`SELECT id, content FROM blocks WHERE root_id='${docID}' AND type='p' ORDER BY sort`);
+            const { byGuid } = pairImportedBlocks(
+                blockRows.map((r) => ({ id: String(r.id), content: String(r.content ?? "") })),
+                fresh,
+                { orderFallback: true },
+            );
+            const blockIDs = fresh.map((c) => byGuid.get(c.guid)).filter((x): x is string => Boolean(x));
+            const deck = await createRiffDeck(`Anki: ${base}`) as any;
+            const deckID = deck?.id ?? deck?.deck?.id ?? "";
+            await addRiffCards(deckID, blockIDs);
+            const now = Date.now();
+            if (ctx.ankiLedger) {
+                await ctx.ankiLedger.save(mergeLedger(rawLedger, fresh.map((c) => ({ guid: c.guid, deckID, blockID: byGuid.get(c.guid) ?? "", importedAt: now }))));
+            }
+            ankiStatus = {
+                kind: "warn",
+                text: t.settings.ankiImportDone.replace("${ok}", String(blockIDs.length)).replace("${skip}", String(already.length)).replace("${loss}", String(preview.losses.length)),
+            };
+        } catch (e) {
+            ankiStatus = { kind: "error", text: (t.settings.ankiImportFail || "导入失败").replace("${m}", e instanceof Error ? e.message : String(e)) };
+        } finally {
+            ankiBusy = false;
+        }
+    }
 
     // T09 三件套（docs/40）：搜索定位——按分组标题+代表字段标签匹配（i18n 值，中英皆可搜）
     let searchQuery = $state("");
@@ -642,6 +719,19 @@
                 <button class="b3-button b3-button--outline" onclick={testAnki}>{t.settings.ankiTest}</button>
             {/snippet}
         </LvRow>
+        <!-- Anki M3：本地 .apkg 导入（docs/39 §3）——解析/预览/建文档/制卡/台账，幂等重导 -->
+        <LvRow label={t.settings.ankiImport} hint={t.settings.ankiImportHint}>
+            {#snippet children()}
+                {#if ankiBusy}<span class="ft__smaller ft__on-surface">{t.settings.ankiImportParsing}</span>{/if}
+                <label class="b3-button b3-button--outline" style="cursor: pointer;{ankiBusy ? ' pointer-events: none; opacity: .6;' : ''}">
+                    <input type="file" accept=".apkg,.colpkg" style="display: none" disabled={ankiBusy} onchange={importAnki} />
+                    {t.settings.ankiImportPick}
+                </label>
+            {/snippet}
+        </LvRow>
+        {#if ankiStatus}
+            <div class="lv-notice {ankiStatus.kind === 'info' ? '' : 'lv-notice--warn'}" style="max-height: 180px; overflow: auto">{ankiStatus.text}</div>
+        {/if}
     </LvSection>
     {/if}
 
