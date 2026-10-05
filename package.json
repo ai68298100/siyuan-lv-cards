@@ -1,6 +1,6 @@
 {
   "name": "siyuan-lv-cards",
-  "version": "0.185.0",
+  "version": "0.185.1",
   "type": "module",
   "description": "Lv Cards (小驴闪卡) - a local-first, full-lifecycle flashcard learning platform for SiYuan, built on the native FSRS scheduler",
   "repository": "https://github.com/ai68298100/siyuan-lv-cards",
@@ -23,7 +23,9 @@
     "release": "run-s release:version check",
     "release:version": "node --no-warnings ./scripts/update_version.js",
     "clean": "node ./scripts/clean.js",
-    "build": "run-s clean build:app build:kernel",
+    "build": "run-s clean build:app build:kernel smoke:dist",
+    "smoke:dist": "node scripts/smoke-dist.mjs",
+    "deploy:device": "node scripts/deploy-device.mjs",
     "build:app": "run-s build:chunk:hub build:chunk:review build:chunk:dialogs build:shell",
     "build:shell": "cross-env NODE_ENV=production VITE_BUILD_TARGET=app vite build",
     "build:chunk:hub": "cross-env NODE_ENV=production VITE_BUILD_TARGET=app VITE_CHUNK=hub vite build",

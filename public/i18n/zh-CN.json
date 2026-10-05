@@ -16,6 +16,8 @@
     "dailyTargetReached": "🎉 今日复习目标已完成！",
     "settingsSaved": "设置已保存",
     "settingsTitle": "小驴闪卡 · 设置",
+    "chunkLoadFailedTitle": "界面模块加载失败",
+    "chunkLoadFailedDetail": "请关闭本页签后重新打开重试；若持续失败，请在闪卡中心 → 设置 → 复制诊断反馈。",
     "badgeDue": "今日到期 ${n} 张",
     "modules": {
         "gateway": "内核网关",

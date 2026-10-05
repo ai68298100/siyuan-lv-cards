@@ -20,15 +20,19 @@ function mountDialogComponent(comp: any, target: HTMLElement, props: Props) {
     return { destroy: () => { void unmount(app); } };
 }
 
-(window as unknown as { __lvChunks: Record<string, unknown> }).__lvChunks = {
-    AIWizard,
-    OcclusionEditor,
-    Onboarding,
-    ChallengeMode,
-    MarkerCards,
-    PairingGame,
-    SettingsPanel,
-    DeckPicker,
-    QuickCard,
+// 按键合并注册（v0.185.1 修复，同 hub.ts；components 子表=shell loadDialogsComp 消费形态）
+const w = window as unknown as { __lvChunks?: Record<string, unknown> };
+(w.__lvChunks ??= {}).dialogs = {
+    components: {
+        AIWizard,
+        OcclusionEditor,
+        Onboarding,
+        ChallengeMode,
+        MarkerCards,
+        PairingGame,
+        SettingsPanel,
+        DeckPicker,
+        QuickCard,
+    },
     mountDialogComponent,
 };

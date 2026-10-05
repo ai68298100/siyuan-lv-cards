@@ -6,7 +6,9 @@
  * shell 注入的 window.__lvSiyuan。CSS 以 <link> 注入（每 chunk 一次）。
  */
 
-const BASE = `plugins/siyuan-lv-cards`;
+// 必须根绝对：桌面端页面位于 /stage/build/app/ 下，相对路径会解析成
+// /stage/build/app/plugins/…（内核 404，v0.185.0 真机空白实证）；内核对 /plugins/* 全端同源服务
+const BASE = `/plugins/siyuan-lv-cards`;
 /** hub/review=挂载器形态 {mount}；dialogs=组件注册表+挂载器安装（形态随 chunk 约定） */
 export type ChunkName = "hub" | "review" | "dialogs";
 

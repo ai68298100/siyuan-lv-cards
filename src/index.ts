@@ -117,6 +117,23 @@ const loadSettingsPanel = process.env.DEV_MODE ? lazyComp(() => import("./ui/set
 const loadDeckPicker = process.env.DEV_MODE ? lazyComp(() => import("./ui/deck-picker.svelte")) : loadDialogsComp("DeckPicker");
 const loadQuickCard = process.env.DEV_MODE ? lazyComp(() => import("./ui/quick-card.svelte")) : loadDialogsComp("QuickCard");
 
+/**
+ * chunk 加载/挂载失败的页签兜底（v0.185.1 真机空白教训：无 .catch 时静默 reject，
+ * 用户只见空白菜单）。loader 失败不驻留缓存，关闭重开页签即自动重试。
+ */
+function mountChunkFallback(el: HTMLElement, i18n: Record<string, any>, err: unknown): void {
+    el.textContent = "";
+    const box = document.createElement("div");
+    box.style.cssText = "height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:24px;text-align:center;color:var(--b3-theme-on-background);";
+    const title = document.createElement("div");
+    title.textContent = `⚠️ ${i18n.chunkLoadFailedTitle}`;
+    const detail = document.createElement("div");
+    detail.style.cssText = "font-size:12px;opacity:.65;word-break:break-all;white-space:pre-line;";
+    detail.textContent = `${i18n.chunkLoadFailedDetail}\n${err instanceof Error ? err.message : String(err)}`;
+    box.append(title, detail);
+    el.appendChild(box);
+}
+
 const TAB_DASHBOARD = "lv-cards-dashboard";
 const TAB_REVIEW = "lv-cards-review";
 const SETTINGS_DATA = "settings.json";
@@ -633,6 +650,8 @@ export default class LvCardsPlugin extends Plugin {
                             },
                         },
                     });
+                }).catch((e: unknown) => {
+                    if (!hubDisposed) mountChunkFallback(div, plugin.i18n, e);
                 });
                 this.element.appendChild(div);
                 // AJ7 + AT-14：销毁回调兼容「尚未加载完成」窗口（先标记放弃，挂载后再卸载）
@@ -799,6 +818,8 @@ export default class LvCardsPlugin extends Plugin {
                     },
                     });
                     this.destroy = () => reviewHandle?.destroy();
+                }).catch((e: unknown) => {
+                    if (div.isConnected) mountChunkFallback(div, plugin.i18n, e);
                 });
             },
         });

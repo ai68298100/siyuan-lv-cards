@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.185.1 2026-10-05 · fix：真机空白屏——chunk 注册契约失配 + BASE 相对路径（AT-17 回归门禁）
+
+* 修复两个自 v0.158.0（AT-17）以来生产构建**必现**的 chunk 加载缺陷（dev 模式走进程内导入不暴露，首个真机生产安装即空白）：① hub/review/dialogs 三个 chunk 整表覆盖 `window.__lvChunks`，而 loader 按 `__lvChunks.<name>` 取模块——恒 undefined，闪卡中心/复习/9 个对话框全数挂载失败；② chunk BASE 为相对路径，桌面端页面位于 `/stage/build/app/` 下，script 解析到 `/stage/build/app/plugins/…` 必 404（内核对 `/plugins/*` 实测 200）。修复：按键合并注册（dialogs 带 `components` 子表，与 shell 消费同形）+ BASE 根绝对
+* 页签挂载失败兜底：hub/review 挂载点补 `.catch` + 可见错误 UI（i18n +2 键，zh/en 对齐），不再静默空白；loader 失败本就不驻留缓存，重开页签即自动重试
+* 回归门禁：新增 chunk-registry-contract 单测（源级契约：按键合并、禁整表覆盖、BASE 根绝对、挂载点必有兜底）+ `scripts/smoke-dist.mjs` 发布包 smoke（build 链尾在 happy-dom 中真实执行 dist 产物，验证 `__lvChunks.<name>` 注册形态与三 chunk 共存），已接入 `pnpm build`
+* 工具：`deploy-device.mjs` 参数化（`LV_DEVICE_PLUGIN_DIR` 环境变量，去除硬编码本机路径，挂 `pnpm deploy:device`）。另核实 pnpm-lock.yaml 双 YAML 文档为 pnpm 12 管理 `packageManager` 的标准结构（重建逐字节一致），非损坏，不动
+
 ## v0.185.0 2026-10-05 · BI-27 返场原因分流（六类六案，绝不统一补齐逾期）
 
 * 新增 core/return-triage.ts 纯模块：六类返场原因（时间不足/目标改变/内容过时/数据故障/压力/单纯离开）各对应**不同**方案（两两不同签名，+5 组单测防「统一方案」退化）——时间不足=小预算+高优先级；目标改变=先重审标准（BI-16/11）；内容过时=来源健康+修订优先（BI-20）；数据故障=先诊断对账再小批量；压力=只读 0 张或休息；单纯离开=正常队列

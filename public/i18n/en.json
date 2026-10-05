@@ -16,6 +16,8 @@
     "dailyTargetReached": "🎉 Daily review goal reached!",
     "settingsSaved": "Settings saved",
     "settingsTitle": "Lv Cards · Settings",
+    "chunkLoadFailedTitle": "Failed to load UI module",
+    "chunkLoadFailedDetail": "Close and reopen this tab to retry. If it keeps failing, copy diagnostics from the hub settings.",
     "badgeDue": "${n} cards due today",
     "modules": {
         "gateway": "Kernel Gateway",

@@ -38,6 +38,9 @@ describe("chunk-loader（AT-17）", () => {
 
     it("onload 路径：返回注册表条目并注入带版本号的 css link", async () => {
         const loadChunk = await freshLoader();
+        // 桌面端回归（v0.185.0 真机空白）：页面不在根路径（/stage/build/app/）时，
+        // 相对 BASE 会解析成 stage 下的 404——BASE 必须根绝对，这里复现桌面端页面路径
+        (window as any).happyDOM?.setURL?.("http://localhost:3000/stage/build/app/index.html");
         (window as any).__lvChunks = { review: { mount: () => ({ destroy() { /* noop */ } }) } };
         preinject("review");
         const mod = await loadChunk("review");
@@ -45,6 +48,8 @@ describe("chunk-loader（AT-17）", () => {
         const css = document.getElementById("lv-chunk-css-review") as HTMLLinkElement;
         expect(css).toBeTruthy();
         expect(css.href).toContain("/plugins/siyuan-lv-cards/chunks/review.css?v=");
+        expect(css.href).toMatch(/\/plugins\//); // 根绝对：不得落在页面路径（/stage/…）下
+        expect(css.href).not.toContain("/stage/build/app/plugins/");
         expect(css.rel).toBe("stylesheet");
     });
 
@@ -57,18 +62,20 @@ describe("chunk-loader（AT-17）", () => {
         expect(err.message).toContain("missing export");
     });
 
-    it("dialogs 形态（组件注册表+挂载器）可整包返回", async () => {
+    it("dialogs 形态（components 子表+挂载器）与 index.ts 消费一致", async () => {
         const loadChunk = await freshLoader();
+        // v0.185.1 契约：dialogs chunk 注册 __lvChunks.dialogs = { components, mountDialogComponent }，
+        // shell 按 m.components[compName] 取组件、m.mountDialogComponent 安装挂载器——三方必须同形
         (window as any).__lvChunks = {
             dialogs: {
-                AIWizard: {}, SettingsPanel: {},
+                components: { AIWizard: {}, SettingsPanel: {} },
                 mountDialogComponent: () => ({ destroy() { /* noop */ } }),
             },
         };
         preinject("dialogs");
         const m = await loadChunk("dialogs");
         expect(typeof m.mountDialogComponent).toBe("function");
-        expect(m.AIWizard).toBeTruthy();
+        expect(m.components?.AIWizard).toBeTruthy();
     });
 
     it("注册表整体缺失 → 同样可诊断报错", async () => {
