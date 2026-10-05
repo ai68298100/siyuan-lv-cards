@@ -21,7 +21,7 @@
     import { recoveryOptions, type RecoveryOption, type RecoverySnapshot } from "@/core/session-recovery";
     import { triageReturn, RETURN_REASONS, type ReturnReason } from "@/core/return-triage";
     import { SESSION_PURPOSES, PURPOSE_PROFILES, type SessionPurpose } from "@/core/session-purpose";
-    import { invalidateDueCache } from "@/api/due-shared";
+    import { invalidateDueCache, dueCache } from "@/api/due-shared";
     import { nextHint, logHint, deriveHintLevels, availableLevels, type HintLevel, type HintLevelsInput } from "@/core/hint-ladder";
     import LvKbd from "./kit/LvKbd.svelte";
     import LvLive from "./kit/LvLive.svelte";
@@ -160,6 +160,14 @@
     let sessionForget = $state(0);
     let sessionSkip = $state(0);
     let sessionDone = $state(false);
+    // T07 结果页（docs/13 §9）：真实剩余到期（共享缓存，完成时读取；null=未取到不显示）
+    let remainingDue = $state<number | null>(null);
+    $effect(() => {
+        if (!sessionDone) return;
+        dueCache.get("")
+            .then((d) => (remainingDue = d.unreviewedCount))
+            .catch(() => (remainingDue = null));
+    });
     let loading = $state(false);
     let errorMsg = $state("");
     let submitting = $state(false); // 评分/跳过提交锁（AJ8：重复点击只产生一次写入）
@@ -1294,6 +1302,10 @@
                     💪 {t.review.doneProgress}
                 {/if}
             </div>
+            {#if remainingDue !== null && remainingDue > 0}
+                <!-- T07 结果页（docs/13 §9）：真实剩余如实呈现——不需要为了清零而继续 -->
+                <div class="lv-done-desc">📦 {t.review.remainingDue.replace("${n}", String(remainingDue))}</div>
+            {/if}
             {#if streakMilestoneText()}
                 <div class="lv-done-milestone">🔥 {streakMilestoneText()}</div>
             {/if}

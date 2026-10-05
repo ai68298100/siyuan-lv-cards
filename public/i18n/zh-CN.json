@@ -217,6 +217,7 @@
         "undoNone": "没有可撤销的步骤",
         "undoTitle": "撤销上一步 (p/q)",
         "undoLast": "撤销最后一评",
+        "remainingDue": "剩余正式到期 ${n} 张——不需要为了清零而继续。",
         "nextTitle": "下一步",
         "nextSkipped": "本场跳过 ${n} 张——可在管理器回看后再定",
         "nextForgotten": "遗忘 ${n} 张已按调度排期，会优先重现",
