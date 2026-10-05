@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.192.0 2026-10-06 · BU-14 审阅策略 + BU-15 双轨 provenance（AI 治理 B7+B8 批，B 轨纯模块收官）
+
+* BU-14 人工审阅策略（core/ai-review-strategy.ts 纯模块）：三档强度（逐卡/抽样/阻断）按因子就高不就低——高风险任务直接阻断；模型未登记（BU-18）/来源未验证/批均分 <70/问题卡占比 >30% 任一命中即升级逐卡；干净低风险走抽样（20%，clamp 3-10 张）；决策留触发因子（可解释）；canCommit 只认 accepted、unreviewedNeverCommits 恒真（未审卡永不入正式队列，验收锚点落测试）
+* BU-15 双轨 provenance（core/ai-provenance.ts 纯模块）：逐卡版本链（ai 候选 ↔ user 编辑，最新在后截 20）+ 生成环境快照（mode/modelId/templateHash FNV-1a，**类型层无 key 字段**）；重生成各带各的快照可对比；latestUserVersion/userVersions 支撑「回到任意人工版本」；**purgeAIOnly 删除 AI 记录不误删用户内容**——纯 ai 轨迹卡整卡清、有 user 版本的卡整链保留（测试锚定）
+* 两模块均为纯逻辑先行（BI-19/BU-13 同模式）：UI 面归 T03 审核扩展批（审阅计划 chip/逐卡版本链 diff）；bundle 零接线增量
+* 质量：627 测试（+11）；check 0/0；i18n 零增量（无用户可见文案，词汇表随 UI 批次入）
+
 ## v0.191.0 2026-10-06 · BU-11 拒答策略 + BU-13 质量评分卡（AI 治理 B5+B6 批）
 
 * BU-11 不确定性与拒答策略（core/ai-refusal.ts 纯模块）：六类拒答（事实不足/来源冲突/过时材料/危险请求/超出能力/格式失败）固定优先级评估，每类**两两不同**的下一步建议（测试防「统一话术」退化）；i18n 全词汇表（6 原因+11 下一步，zh/en）
