@@ -48,6 +48,7 @@ import { acceptVersion, appendVersion, emptyContentVersions, normalizeContentVer
 import { assembleGeneratePrompt } from "./core/ai-pipeline";
 import { checkEligibility } from "./core/ai-eligibility";
 import { disableTarget, emptyKillSwitch, enableTarget, grantConsent, killSwitchBlock, normalizeKillSwitch, revokeConsent, type AIKillSwitchData } from "./core/ai-kill-switch";
+import { addDenyRule, emptyDenyList, isDenied, normalizeDenyList, type DenyListData } from "./core/ai-source-deny";
 import { parseRevlogCsv } from "./core/revlog-csv";
 import { normalizeSessionState, type SessionState } from "./core/session-state";
 import { normalizeExamPlans, daysLeft, examReportStats, type ExamPlan, type ExamPlansData } from "./core/exam";
@@ -158,6 +159,8 @@ const AI_KILL_SWITCH_DATA = "ai-killswitch.json";
 const ANKI_LEDGER_DATA = "anki-ledger.json";
 /** T05：块内容版本快照（每块上限 10） */
 const CONTENT_VERSIONS_DATA = "content-versions.json";
+/** BW-9：来源级 AI 禁止外发规则（笔记本/文档/块 ID，不含内容） */
+const AI_DENY_LIST_DATA = "ai-deny-list.json";
 
 export default class LvCardsPlugin extends Plugin {
 
@@ -249,6 +252,8 @@ export default class LvCardsPlugin extends Plugin {
     private ankiLedger: LedgerEntry[] = [];
     /** T05：块内容版本快照 */
     private contentVersions = emptyContentVersions();
+    /** BW-9：来源级禁止外发规则（笔记本/文档/块 ID；显式登记、显式解除） */
+    private aiDenyList: DenyListData = emptyDenyList();
     /** T05 探针/出口：版本数（诊断用） */
     get contentVersionCount(): number {
         return this.contentVersions.blocks.reduce((n, b) => n + b.versions.length, 0);
@@ -266,7 +271,7 @@ export default class LvCardsPlugin extends Plugin {
 </symbol>`);
 
         // AQ-1：批量加载以 keys 数组驱动并按位置配对，杜绝「6 项加载只解构 5 项」的错位回归
-        const STORE_KEYS = [SETTINGS_DATA, REVLOG_DATA, SUSPEND_TODAY_DATA, EXAM_PLANS_DATA, AI_BATCHES_DATA, SESSION_STATE_DATA, AI_JOBS_DATA, KNOWLEDGE_OBJECTS_DATA, CARD_RELATIONS_DATA, ERROR_TAGS_DATA, INBOX_DATA, LEARNING_GOALS_DATA, ENTRY_CONTEXTS_DATA, CONTENT_LIFECYCLES_DATA, AI_KILL_SWITCH_DATA, ANKI_LEDGER_DATA, CONTENT_VERSIONS_DATA] as const;
+        const STORE_KEYS = [SETTINGS_DATA, REVLOG_DATA, SUSPEND_TODAY_DATA, EXAM_PLANS_DATA, AI_BATCHES_DATA, SESSION_STATE_DATA, AI_JOBS_DATA, KNOWLEDGE_OBJECTS_DATA, CARD_RELATIONS_DATA, ERROR_TAGS_DATA, INBOX_DATA, LEARNING_GOALS_DATA, ENTRY_CONTEXTS_DATA, CONTENT_LIFECYCLES_DATA, AI_KILL_SWITCH_DATA, ANKI_LEDGER_DATA, CONTENT_VERSIONS_DATA, AI_DENY_LIST_DATA] as const;
         const loaded = zipLoaded(STORE_KEYS, await Promise.all(STORE_KEYS.map(key => this.loadData(key))));
         this.settings = normalizeSettings(loaded[SETTINGS_DATA]);
         this.perf.setCold(!this.settings.onboarded); // AT-6：首轮未完成引导=冷启动
@@ -287,6 +292,8 @@ export default class LvCardsPlugin extends Plugin {
         this.ankiLedger = normalizeLedger(loaded[ANKI_LEDGER_DATA]);
         // T05：内容版本快照装载
         this.contentVersions = normalizeContentVersions(loaded[CONTENT_VERSIONS_DATA]);
+        // BW-9：来源级禁止外发规则装载（只存 ID 不存内容；规则不因重开/移动失效）
+        this.aiDenyList = normalizeDenyList(loaded[AI_DENY_LIST_DATA]);
         // AI 批次走 TypedStore 入口（322）：结构清洗 + 兜底，非法条目剔除（526）；复用批量加载结果不再二次读盘
         this.aiBatches = await loadStore(this, {
             key: AI_BATCHES_DATA,
@@ -1929,13 +1936,21 @@ export default class LvCardsPlugin extends Plugin {
                 },
                 // AQ-14：signal 随调用传入——向导关闭/换源/重生取消后，晚到响应不写回、不触发 fallback
                 // ADR-7 第 3 步：生成阶段入账作业生命周期（drafting→generating→reviewing / failed/canceled）
-                generate: async (source: string, cfg: { count: number; language: string; type: "qa" | "cloze" }, opts?: { signal?: AbortSignal }) => {
+                generate: async (source: string, cfg: { count: number; language: string; type: "qa" | "cloze" }, opts?: { signal?: AbortSignal; provenance?: { notebookIds?: string[]; docIds?: string[] } }) => {
+                    // BW-9（v0.190.0）：来源级禁止外发——来源 provenance 任一命中 deny 规则即阻断（组装 prompt 前）
+                    const prov = opts?.provenance;
+                    const denyHit = [
+                        ...(prov?.docIds ?? []).map(docId => ({ docId })),
+                        ...(prov?.notebookIds ?? []).map(notebookId => ({ notebookId })),
+                    ].map(p => isDenied(this.aiDenyList, p)).some(v => v.denied);
                     // BU-33（v0.172.0）：组装 prompt 前的前置检查（阻断+给手工/本地替代；不把环境失败归因模型质量）
                     const elig = checkEligibility({
                         hasMaterial: source.trim().length > 0,
                         // siyuan 模式由内核网关管理视为已配置；custom 模式需端点+密钥
                         aiConfigured: this.settings.aiMode === "siyuan" || Boolean(this.settings.aiEndpoint && this.settings.aiKey),
                         online: typeof navigator !== "undefined" ? navigator.onLine : undefined,
+                        // BW-9：deny 规则 = eligibility sensitive 事实源（BL-5 deny 名单的落地形态）
+                        sensitive: denyHit,
                     });
                     if (!elig.ok) {
                         const e = (this.i18n as any).aiElig;
@@ -2046,6 +2061,17 @@ export default class LvCardsPlugin extends Plugin {
                 getUnfinishedJob: () => this.getUnfinishedAIJob(),
                 onResumeAIJob: (id: string) => this.resumeAIJobCommit(id),
                 onAbandonAIJob: (id: string) => this.abandonAIJob(id),
+                // BW-9：来源级禁止外发——载入前拦截 + 来源条目一键登记（规则落 ai-deny-list.json）
+                isSourceDenied: (kind: "doc" | "notebook", id: string) =>
+                    isDenied(this.aiDenyList, kind === "doc" ? { docId: id } : { notebookId: id }).denied,
+                onDenySource: (kind: "doc" | "notebook", id: string) => {
+                    this.aiDenyList = addDenyRule(this.aiDenyList, kind, id, Date.now());
+                    this.persist.save(AI_DENY_LIST_DATA, this.aiDenyList).catch(() => { /* onFail 已记录 */ });
+                    lvLog("info", `[ai-deny] +${kind}:${id}`);
+                    showMessage((this.i18n as any).aiWizard.deniedToast, 3000, "info");
+                },
+                // BU-8：自定义敏感词（逗号分隔，仅本地）
+                sensitiveTerms: this.settings.aiSensitiveTerms,
                 onClose: () => { /* svelteDialog 自理销毁 */ },
             },
         });

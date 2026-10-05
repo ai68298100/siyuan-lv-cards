@@ -97,6 +97,8 @@ export interface LvCardsSettings {
     aiFallbackEndpoint: string;
     aiFallbackKey: string;
     aiFallbackModel: string;
+    /** BU-8：自定义敏感词（逗号分隔）——发送前扫描提示脱敏，仅本地 */
+    aiSensitiveTerms: string;
     /** Prompt 模板（294）：自定义 system 模板，空=内置默认；支持 ${count}/${language}/${type} 占位符 */
     aiPromptTemplate: string;
     /** 快速制卡/标记制卡落盘笔记本（605）：id，空=第一个打开的笔记本 */
@@ -191,6 +193,7 @@ export function defaultSettings(): LvCardsSettings {
         aiFallbackEndpoint: "",
         aiFallbackKey: "",
         aiFallbackModel: "",
+        aiSensitiveTerms: "",
         aiPromptTemplate: "",
         targetNotebookId: "",
         dailyTipEnabled: true,
@@ -237,7 +240,7 @@ const BOOL_FIELDS: (keyof LvCardsSettings)[] = [
 ];
 const STR_FIELDS: (keyof LvCardsSettings)[] = [
     "gatewayState", "ttsVoice", "aiEndpoint", "aiKey", "aiModel", "aiFallbackEndpoint", "aiFallbackKey",
-    "aiFallbackModel", "aiPromptTemplate", "targetNotebookId", "ankiClientKey", "lastHubTab", "lastReviewScope", "lastManagerView",
+    "aiFallbackModel", "aiSensitiveTerms", "aiPromptTemplate", "targetNotebookId", "ankiClientKey", "lastHubTab", "lastReviewScope", "lastManagerView",
 ];
 
 export function normalizeSettings(raw: unknown): LvCardsSettings {

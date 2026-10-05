@@ -628,7 +628,9 @@
         "aiModelPreset": "常用模型（在册）",
         "aiModelCtx": "已登记：上下文窗口约 {n} tokens；价格估算仅供参考",
         "aiModelStale": "该模型在注册表中已标记失效，不再出现在推荐列表，建议更换",
-        "aiModelUnknown": "未在注册表登记：按保守默认预算执行，能力以实际请求为准"
+        "aiModelUnknown": "未在注册表登记：按保守默认预算执行，能力以实际请求为准",
+        "aiSensitiveTerms": "自定义敏感词",
+        "aiSensitiveTermsHint": "逗号分隔；AI 发送前扫描材料，命中时提示可一键脱敏（仅本地检测，不自动拦截）"
     },
     "hubTabOverview": "总览",
     "hubTabError": "该子页出现错误，已隔离在边界内",
@@ -758,7 +760,16 @@
         "previewConfirm": "确认发送",
         "noSelection": "未检测到选中的文字",
         "loadNotebook": "载入笔记本内容",
-        "noNotebook": "请先选择笔记本"
+        "noNotebook": "请先选择笔记本",
+        "srcDenied": "该文档已登记「禁止外发」，材料未载入；可在删除规则后重试",
+        "srcDeniedNb": "该笔记本已登记「禁止外发」，材料未载入",
+        "denySource": "禁止此来源外发（登记规则并移除）",
+        "deniedToast": "已登记禁止外发，并从材料中移除该来源",
+        "sensTitle": "检测到可能的敏感内容",
+        "sensNote": "命中项仅显示打码样本；可选择「脱敏后继续」（替换为占位符，返回编辑区可核对），或「仍发送原文」，或返回修改材料",
+        "sensMask": "脱敏后继续",
+        "sensOverride": "仍发送原文",
+        "sensCustom": "自定义词"
     },
     "aiSystemPrompt": "你是记忆卡片专家。根据用户提供的材料生成闪卡。只输出 JSON 数组，格式为 [{\"q\":\"问题\",\"a\":\"答案\",\"d\":1}]，不要输出任何其他内容。d 为难度标注（1=易，2=中，3=难）。要求：问题具体、可主动回忆；答案简洁准确；难度按材料对普通学习者的实际难度评估。",
     "aiUserPrompt": "材料：\n${source}\n\n请生成 ${count} 张${language}闪卡。题型要求：${type}。",
@@ -1187,5 +1198,16 @@
     "aiDegrad": {
         "usedFallback": "主端点失败，已自动切换备用端点",
         "mayCost": "备用请求可能产生额外费用"
+    },
+    "aiSens": {
+        "secret-assignment": "密钥/口令字段",
+        "openai-key": "OpenAI 风格密钥",
+        "github-token": "GitHub 令牌",
+        "aws-key": "AWS 访问密钥",
+        "private-key-block": "私钥块",
+        "jwt": "JWT 令牌",
+        "cn-mobile": "手机号",
+        "email": "邮箱",
+        "cn-id": "身份证号（已验证校验位）"
     }
 }

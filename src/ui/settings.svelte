@@ -645,10 +645,10 @@
                 />
             {/snippet}
         </LvRow>
-        {#if draft.aiMode === "custom"}
-            <LvRow label={t.settings.aiEndpoint}>
-            <LvInput bind:value={draft.aiEndpoint} placeholder="https://api.example.com/v1" width="200px" />
-            </LvRow>
+            {#if draft.aiMode === "custom"}
+                <LvRow label={t.settings.aiEndpoint}>
+                <LvInput bind:value={draft.aiEndpoint} placeholder="https://api.example.com/v1" width="200px" />
+                </LvRow>
             <LvRow label={t.settings.aiModel} hint={modelRegistryHint()}>
                 {#snippet children()}
                     <div class="fn__flex" style="gap: 6px; align-items: center; flex-wrap: wrap">
@@ -733,6 +733,10 @@
                 </LvRow>
             {/if}
         {/if}
+        <!-- BU-8：自定义敏感词（发送前扫描提示脱敏，仅本地；思源内置 AI 与自定义端点都生效） -->
+        <LvRow label={t.settings.aiSensitiveTerms} hint={t.settings.aiSensitiveTermsHint}>
+            <LvInput bind:value={draft.aiSensitiveTerms} placeholder="projectblue, 项目代号" width="200px" />
+        </LvRow>
     </LvSection>
     {/if}
 

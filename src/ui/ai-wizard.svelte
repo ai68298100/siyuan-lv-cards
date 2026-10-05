@@ -5,15 +5,16 @@
     import { getRiffDecks, createRiffDeck, type RiffDeck } from "@/api/riff";
     import { isAICanceled } from "@/api/ai";
     import { lintAICards } from "@/core/ai-lint";
+    import { maskSensitive, scanSensitive, type SensitiveHit } from "@/core/ai-sensitive";
     import LvChip from "./kit/LvChip.svelte";
     import LvSteps from "./kit/LvSteps.svelte";
 
-    let { i18n, initialSource = "", loadCurrentDoc, loadNotebookMaterial, generate, onCreate, onClose, getUnfinishedJob, onResumeAIJob, onAbandonAIJob, openDocById }: {
+    let { i18n, initialSource = "", loadCurrentDoc, loadNotebookMaterial, generate, onCreate, onClose, getUnfinishedJob, onResumeAIJob, onAbandonAIJob, openDocById, isSourceDenied, onDenySource, sensitiveTerms = "" }: {
         i18n: any;
         /** 预填材料（leech 改写联动） */
         initialSource?: string;
-        /** 调用方实现：构造 prompt → 调 AI → 解析卡片（ADR-7：返回 cards + jobId 供断点续传）；第三参为取消信号（AQ-14） */
-        generate: (source: string, cfg: { count: number; language: string; type: "qa" | "cloze" }, opts?: { signal?: AbortSignal }) => Promise<{ cards: { q: string; a: string; d?: number }[]; jobId: string }>;
+        /** 调用方实现：构造 prompt → 调 AI → 解析卡片（ADR-7：返回 cards + jobId 供断点续传）；第三参为取消信号（AQ-14）+ 来源 provenance（BW-9 禁止外发判定） */
+        generate: (source: string, cfg: { count: number; language: string; type: "qa" | "cloze" }, opts?: { signal?: AbortSignal; provenance?: { notebookIds?: string[]; docIds?: string[] } }) => Promise<{ cards: { q: string; a: string; d?: number }[]; jobId: string }>;
         /** ADR-7：逐卡提交——卡片携带 origIndex 指向作业 candidates 原位（✕ 移除后仍正确） */
         onCreate: (cards: { q: string; a: string; origIndex: number }[], deckID: string, deckName: string, jobId: string) => Promise<void>;
         onClose: () => void;
@@ -23,6 +24,12 @@
         loadNotebookMaterial?: (nbId: string) => Promise<string>;
         /** T02 来源清单：按文档 ID 回源跳转（可选——旧宿主不传则不显示回源按钮） */
         openDocById?: (docId: string) => void;
+        /** BW-9：来源是否已登记禁止外发（可选——旧宿主不传则不做载入前拦截，generate 侧仍硬阻断） */
+        isSourceDenied?: (kind: "doc" | "notebook", id: string) => boolean;
+        /** BW-9：登记禁止外发规则（宿主落盘 + 提示；向导侧移除该来源条目） */
+        onDenySource?: (kind: "doc" | "notebook", id: string) => void;
+        /** BU-8：自定义敏感词（逗号分隔；空=只用内置模式） */
+        sensitiveTerms?: string;
         /** 未完成的 AI 导入（ADR-7 恢复入口）；null=无；failed=失败明细供导出 */
         getUnfinishedJob?: () => { id: string; done: number; total: number; failed: { index: number; q: string; error: string }[] } | null;
         onResumeAIJob?: (id: string) => Promise<void>;
@@ -36,12 +43,22 @@
         label: string;
         content: string;
         docId?: string;
+        nbId?: string;
     }
     let sourceSeq = 0;
     let sources = $state<WizardSource[]>([]);
 
-    function addSource(label: string, content: string, docId?: string): void {
-        sources = [...sources, { id: `src-${++sourceSeq}`, label, content, docId }];
+    function addSource(label: string, content: string, docId?: string, nbId?: string): void {
+        // BW-9：已登记禁止外发的来源在载入前拦截（generate 侧另有硬阻断兜底）
+        if (docId && isSourceDenied?.("doc", docId)) {
+            errorMsg = t.aiWizard.srcDenied;
+            return;
+        }
+        if (nbId && isSourceDenied?.("notebook", nbId)) {
+            errorMsg = t.aiWizard.srcDeniedNb;
+            return;
+        }
+        sources = [...sources, { id: `src-${++sourceSeq}`, label, content, docId, nbId }];
         source = source ? `${source}\n\n${content}` : content;
     }
 
@@ -53,6 +70,23 @@
             source = (source.slice(0, idx) + source.slice(idx + entry.content.length)).replace(/^\n+/, "").replace(/\n{3,}/g, "\n\n").trim();
         }
         sources = sources.filter((s) => s.id !== id);
+    }
+
+    /** BW-9：登记禁止外发（宿主落盘）并移除该来源条目——本会话不再载入（addSource 有拦截） */
+    function denySource(src: WizardSource) {
+        if (src.docId) {
+            onDenySource?.("doc", src.docId);
+        } else if (src.nbId) {
+            onDenySource?.("notebook", src.nbId);
+        }
+        removeSource(src.id);
+    }
+
+    /** BW-9：本次发送的来源 provenance（载入清单去重；生成侧据此判 deny 规则） */
+    function provenance(): { notebookIds: string[]; docIds: string[] } {
+        const nb = [...new Set(sources.map(s => s.nbId).filter(Boolean))] as string[];
+        const doc = [...new Set(sources.map(s => s.docId).filter(Boolean))] as string[];
+        return { notebookIds: nb, docIds: doc };
     }
 
     /** ADR-7 恢复入口：打开时检查未完成导入 */
@@ -104,6 +138,26 @@
     let sourceOpen = $state(false);
     let previewIdx = $state<number | null>(null);
 
+    /** BU-8：发送前敏感扫描（预览打开时随材料响应式重算；命中只显示打码样本，处置权在用户） */
+    let sensOverride = $state(false);
+    let sensHits: SensitiveHit[] = $derived(previewOpen ? scanSensitive(source, parseTerms(sensitiveTerms)) : []);
+    function parseTerms(raw: string): string[] {
+        return (raw ?? "").split(/[,，;；]/).map(s => s.trim()).filter(Boolean);
+    }
+    function sensLabel(id: string): string {
+        const dict = (t as any).aiSens as Record<string, string> | undefined;
+        if (id.startsWith("custom:")) {
+            return `${t.aiWizard.sensCustom}:${id.slice("custom:".length)}`;
+        }
+        return dict?.[id] ?? id;
+    }
+    /** 脱敏后继续：材料原地替换为脱敏文本（用户可在编辑区再核对），命中随之清零 */
+    function maskAndContinue() {
+        const r = maskSensitive(source, parseTerms(sensitiveTerms));
+        source = r.masked;
+        sensOverride = false;
+    }
+
     // 笔记本范围源（M2·FR6 扩展）
     let nbOptions = $state<{ id: string; name: string }[]>([]);
     let nbId = $state("");
@@ -117,7 +171,7 @@
         try {
             const material = await loadNotebookMaterial(nbId);
             if (material) {
-                addSource(nbOptions.find((n) => n.id === nbId)?.name ?? t.aiWizard.loadNotebook, material);
+                addSource(nbOptions.find((n) => n.id === nbId)?.name ?? t.aiWizard.loadNotebook, material, undefined, nbId);
                 errorMsg = "";
             } else {
                 errorMsg = t.aiWizard.noDoc;
@@ -245,7 +299,8 @@
         busy = true;
         errorMsg = "";
         try {
-            const { cards, jobId } = await generate(source.trim(), { count, language, type: cardType }, { signal: myCtrl.signal });
+            // BW-9：随请求携带来源 provenance（generate 侧判 deny 规则——UI 拦截不可绕过的硬门）
+            const { cards, jobId } = await generate(source.trim(), { count, language, type: cardType }, { signal: myCtrl.signal, provenance: provenance() });
             if (seq !== genSeq) {
                 return; // 旧请求：候选与步骤不写回
             }
@@ -394,6 +449,10 @@
                                     {#if src.docId && openDocById}
                                         <button class="b3-button b3-button--small" style="border: none; background: transparent; padding: 0 2px; min-height: auto" title={t.aiWizard.openSource} onclick={() => openDocById?.(src.docId!)}>📂</button>
                                     {/if}
+                                    {#if (src.docId || src.nbId) && onDenySource}
+                                        <!-- BW-9：一键登记禁止外发（落盘规则 + 移除该来源） -->
+                                        <button class="b3-button b3-button--small" style="border: none; background: transparent; padding: 0 2px; min-height: auto" title={t.aiWizard.denySource} onclick={() => denySource(src)}>🚫</button>
+                                    {/if}
                                     <button class="b3-button b3-button--small" style="border: none; background: transparent; padding: 0 2px; min-height: auto" title={t.aiWizard.srcRemove} onclick={() => removeSource(src.id)}>✕</button>
                                 </div>
                                 {#if viewSrc === src.id}
@@ -452,9 +511,25 @@
                         · ≈ {Math.ceil(source.trim().length / 4)} tokens {t.aiWizard.previewTokens}
                     </div>
                     <div class="ft__smaller ft__on-surface">{t.aiWizard.previewEndpoint}</div>
+                    {#if sensHits.length > 0 && !sensOverride}
+                        <!-- BU-8：发送前敏感扫描——命中打码样本展示，处置权在用户 -->
+                        <div style="border: 1px solid var(--b3-theme-warning); border-radius: 6px; padding: 8px; display: flex; flex-direction: column; gap: 6px">
+                            <div class="ft__smaller" style="font-weight: 600">{t.aiWizard.sensTitle}</div>
+                            <div class="fn__flex fn__flex-wrap" style="gap: 6px">
+                                {#each sensHits as h (h.id)}
+                                    <span class="ft__smaller" style="border: 1px solid var(--lv-border); border-radius: 4px; padding: 1px 6px">{sensLabel(h.id)} ×{h.count}（{h.sample}）</span>
+                                {/each}
+                            </div>
+                            <div class="ft__smaller ft__on-surface">{t.aiWizard.sensNote}</div>
+                            <div class="fn__flex" style="gap: var(--lv-sp-2); justify-content: flex-end">
+                                <button class="b3-button b3-button--small" onclick={maskAndContinue}>{t.aiWizard.sensMask}</button>
+                                <button class="b3-button b3-button--small" onclick={() => (sensOverride = true)}>{t.aiWizard.sensOverride}</button>
+                            </div>
+                        </div>
+                    {/if}
                     <div class="fn__flex" style="justify-content: flex-end; gap: var(--lv-sp-2)">
-                        <button class="b3-button b3-button--small" onclick={() => (previewOpen = false)}>{t.aiWizard.previewBack}</button>
-                        <button class="b3-button lv-btn-primary" disabled={busy} onclick={() => { previewOpen = false; run(); }}>
+                        <button class="b3-button b3-button--small" onclick={() => { previewOpen = false; sensOverride = false; }}>{t.aiWizard.previewBack}</button>
+                        <button class="b3-button lv-btn-primary" disabled={busy || (sensHits.length > 0 && !sensOverride)} onclick={() => { previewOpen = false; sensOverride = false; run(); }}>
                             {busy ? t.aiWizard.generating : t.aiWizard.previewConfirm}
                         </button>
                     </div>

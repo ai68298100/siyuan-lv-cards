@@ -628,7 +628,9 @@
         "aiModelPreset": "Common models (registry)",
         "aiModelCtx": "Registered: context window ≈ {n} tokens; price estimates are indicative only",
         "aiModelStale": "This model is marked stale in the registry and no longer listed; consider switching",
-        "aiModelUnknown": "Not in registry: conservative default budget applies; verify capabilities with real requests"
+        "aiModelUnknown": "Not in registry: conservative default budget applies; verify capabilities with real requests",
+        "aiSensitiveTerms": "Custom sensitive terms",
+        "aiSensitiveTermsHint": "Comma-separated; materials are scanned locally before sending, with a one-click masking option (local detection only, never auto-blocks)"
     },
     "hubTabOverview": "Overview",
     "hubTabError": "This tab hit an error (contained by the boundary)",
@@ -758,7 +760,16 @@
         "previewConfirm": "Confirm & send",
         "noSelection": "No selected text found",
         "loadNotebook": "Load notebook",
-        "noNotebook": "Pick a notebook first"
+        "noNotebook": "Pick a notebook first",
+        "srcDenied": "This document is on the deny-outbound list — material not loaded; remove the rule to retry",
+        "srcDeniedNb": "This notebook is on the deny-outbound list — material not loaded",
+        "denySource": "Deny outbound for this source (add rule and remove)",
+        "deniedToast": "Deny rule added; source removed from material",
+        "sensTitle": "Possible sensitive content detected",
+        "sensNote": "Only masked samples are shown. Continue masked (replaced with placeholders, reviewable in the editor), send the original anyway, or go back to revise",
+        "sensMask": "Mask and continue",
+        "sensOverride": "Send original anyway",
+        "sensCustom": "Custom term"
     },
     "aiSystemPrompt": "You are a flashcard expert. Generate flashcards from the user material. Output ONLY a JSON array in the form [{\"q\":\"question\",\"a\":\"answer\",\"d\":1}] with no other text. d is a difficulty tag (1=easy, 2=medium, 3=hard). Questions must be specific and actively recallable; answers concise and accurate; difficulty reflects how hard an average learner would find it.",
     "aiUserPrompt": "Material:\n${source}\n\nGenerate ${count} flashcards in ${language}. Card style: ${type}.",
@@ -1187,5 +1198,16 @@
     "aiDegrad": {
         "usedFallback": "Primary endpoint failed — switched to the fallback endpoint",
         "mayCost": "Fallback requests may incur extra cost"
+    },
+    "aiSens": {
+        "secret-assignment": "Secret/password field",
+        "openai-key": "OpenAI-style key",
+        "github-token": "GitHub token",
+        "aws-key": "AWS access key",
+        "private-key-block": "Private key block",
+        "jwt": "JWT token",
+        "cn-mobile": "Mobile number",
+        "email": "Email",
+        "cn-id": "CN national ID (checksum verified)"
     }
 }
