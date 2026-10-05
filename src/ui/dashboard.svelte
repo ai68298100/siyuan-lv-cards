@@ -249,7 +249,7 @@
             // hero 统计（到期数等）的渲染；快路径先行呈现，慢面板就绪后渐进补齐
             const docCovPromise: Promise<{ docs: { docID: string; title: string; seen: number }[]; unattributed: number } | null> =
                 ctx.getDocCoverage ? ctx.getDocCoverage().catch(() => null) : Promise.resolve(null);
-            const v2StatsPromise: Promise<Record<string, string>[]> = ctx.getV2Status()
+            const v2StatsPromise: Promise<any[]> = ctx.getV2Status()
                 ? getFlashcardStatistics({}).catch(() => [])
                 : Promise.resolve([]);
             const [deckList, due] = await Promise.all([
