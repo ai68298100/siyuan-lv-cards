@@ -89,16 +89,43 @@ const ws = path.join(os.tmpdir(), `siyuan-lvcards-e2e-${Date.now()}`);
 const port = await freePort();
 fs.mkdirSync(ws, { recursive: true });
 
-// 1. 启动无头内核（detached：脚本退出内核仍在，--keep 模式供 UI 走查续用）
+// 1. 部署插件（必须在内核启动前！内核只在工作区初始化时扫描插件目录；
+//    先启动后部署时 setPetalEnabled 会假成功但 loadPetals 恒空，petal 断言假通过——2026-10-06 实测）
 console.log(`[e2e] workspace: ${ws}`);
 console.log(`[e2e] kernel port: ${port}`);
+const dst = path.join(ws, "data", "plugins", PLUGIN_ID);
+fs.mkdirSync(dst, { recursive: true });
+for (const f of ["index.js", "index.css", "plugin.json"]) {
+    fs.copyFileSync(path.join(DIST, f), path.join(dst, f));
+}
+if (fs.existsSync(path.join(DIST, "i18n"))) {
+    fs.mkdirSync(path.join(dst, "i18n"), { recursive: true });
+    for (const f of fs.readdirSync(path.join(DIST, "i18n"))) {
+        fs.copyFileSync(path.join(DIST, "i18n", f), path.join(dst, "i18n", f));
+    }
+}
+// AT-17：UI chunks（hub/review 独立 IIFE + css）——缺失=复习/闪卡中心页签挂载失败
+const chunksSrc = path.join(DIST, "chunks");
+if (fs.existsSync(chunksSrc)) {
+    fs.mkdirSync(path.join(dst, "chunks"), { recursive: true });
+    for (const f of fs.readdirSync(chunksSrc)) {
+        fs.copyFileSync(path.join(chunksSrc, f), path.join(dst, "chunks", f));
+    }
+}
+for (const f of ["icon.png"]) {
+    if (fs.existsSync(path.join(DIST, f))) fs.copyFileSync(path.join(DIST, f), path.join(dst, f));
+}
+const manifest = JSON.parse(fs.readFileSync(path.join(dst, "plugin.json"), "utf8"));
+check("插件部署", manifest.version?.length > 0, `v${manifest.version}`);
+
+// 2. 启动无头内核（detached：脚本退出内核仍在，--keep 模式供 UI 走查续用）
 const kproc = spawn(KERNEL, ["--workspace", ws, "serve", "--wd", RESOURCES, "--port", String(port)], {
     detached: true, stdio: "ignore", windowsHide: true,
 });
 kproc.unref();
 fs.writeFileSync(path.join(ws, "e2e-kernel.pid"), String(kproc.pid));
 
-// 2. 等内核就绪并取 token
+// 3. 等内核就绪并取 token
 let token = "";
 let up = false;
 for (let i = 0; i < 40; i++) {
@@ -141,32 +168,6 @@ if (!token) {
 }
 check("内核鉴权（conf token）", !!token, token ? `token=${token.slice(0, 4)}…` : "未取到");
 
-// 3. 部署插件
-const dst = path.join(ws, "data", "plugins", PLUGIN_ID);
-fs.mkdirSync(dst, { recursive: true });
-for (const f of ["index.js", "index.css", "plugin.json"]) {
-    fs.copyFileSync(path.join(DIST, f), path.join(dst, f));
-}
-if (fs.existsSync(path.join(DIST, "i18n"))) {
-    fs.mkdirSync(path.join(dst, "i18n"), { recursive: true });
-    for (const f of fs.readdirSync(path.join(DIST, "i18n"))) {
-        fs.copyFileSync(path.join(DIST, "i18n", f), path.join(dst, "i18n", f));
-    }
-}
-// AT-17：UI chunks（hub/review 独立 IIFE + css）——缺失=复习/闪卡中心页签挂载失败
-const chunksSrc = path.join(DIST, "chunks");
-if (fs.existsSync(chunksSrc)) {
-    fs.mkdirSync(path.join(dst, "chunks"), { recursive: true });
-    for (const f of fs.readdirSync(chunksSrc)) {
-        fs.copyFileSync(path.join(chunksSrc, f), path.join(dst, "chunks", f));
-    }
-}
-for (const f of ["icon.png"]) {
-    if (fs.existsSync(path.join(DIST, f))) fs.copyFileSync(path.join(DIST, f), path.join(dst, f));
-}
-const manifest = JSON.parse(fs.readFileSync(path.join(dst, "plugin.json"), "utf8"));
-check("插件部署", manifest.version?.length > 0, `v${manifest.version}`);
-
 // 4. 插件静态资源可取（前端加载路径的代理断言）
 const asset = await getRaw(port, token, `/plugins/${PLUGIN_ID}/index.js`);
 check("插件资源可服务", asset.status === 200 && asset.size > 10000, `GET /plugins/.../index.js → ${asset.status}, ${asset.size}B`);
@@ -176,18 +177,18 @@ for (const c of ["chunks/hub.js", "chunks/review.js", "chunks/dialogs.js", "chun
     check(`chunk 可服务 ${c}`, cr.status === 200 && cr.size > 500, `→ ${cr.status}, ${cr.size}B`);
 }
 
-// 5. 启用 petal 并核验
+// 5. 启用 petal。
+// 已知限制（2026-10-06 阳性对照实测）：无头内核 loadPetals 对所有插件恒返回 []（正常工作的
+// glean 插件同样为空）——petal 真实生效需前端会话，UI 挂载断言不在无头范围；此处只验证
+// setPetalEnabled 调用成功，petal/loadPetals 语义留待上游核对。
 let enabled = false;
-let petals = null;
 for (const ep of ["/api/petal/setPetalEnabled"]) {
     try {
         const r = await api(port, token, ep, { frontend: FRONTEND, packageName: PLUGIN_ID, enabled: true });
         if (r.code === 0) { enabled = true; break; }
     } catch { /* 试下一个 */ }
 }
-petals = await api(port, token, "/api/petal/loadPetals", { frontend: FRONTEND });
-const mine = petals?.data?.petals?.find(p => p.pkg === PLUGIN_ID) ?? petals?.data?.find?.(p => p.pkg === PLUGIN_ID);
-check("petal 启用", enabled || mine?.enabled === true, JSON.stringify(mine ? { pkg: mine.pkg, enabled: mine.enabled } : petals).slice(0, 120));
+check("petal 启用（setPetalEnabled）", enabled, `frontend=${FRONTEND}`);
 
 // 6. 内核 riff 回环：建笔记本→文档→卡包→卡→到期
 const nb = await api(port, token, "/api/notebook/createNotebook", { name: "e2e-isolated" });
