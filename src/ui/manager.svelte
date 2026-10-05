@@ -21,6 +21,9 @@
         app: any;
         savedFilters: () => { name: string; filter: string }[];
         saveFilter: (name: string, filter: string) => void;
+        /** T05 分面（docs/40）：块学习记录与关联疑问（可选——旧宿主不传则分面显示空态） */
+        getBlockHistory?: (blockID: string) => { rating: number; ts: number; dur: number | null }[];
+        getBlockIssues?: (blockID: string) => { addedAt: number; status: string }[];
         deleteFilter: (name: string) => void;
         getLeechCards: () => { blockID: string; lapses: number }[];
         /** 状态过滤（M6·FR2）：新卡=本地 revlog 无记录 */
@@ -387,6 +390,8 @@
         {t}
         onOpenDoc={() => openDoc(detail!)}
         onClose={() => (detail = null)}
+        historyEntries={ctx.getBlockHistory?.(detail!.id) ?? []}
+        issues={ctx.getBlockIssues?.(detail!.id) ?? []}
         lcCtx={ctx.lc ? {
             snapshot: detailLc,
             onopen: () => {                ctx.lc!.open(detail!.id);

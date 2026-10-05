@@ -14,6 +14,17 @@
     "menuManager": "闪卡管理器",
     "menuSettings": "设置",
     "cmdOpenDashboard": "打开闪卡中心",
+    "detail": {
+        "facetContent": "内容",
+        "facetSource": "来源",
+        "facetHistory": "学习记录",
+        "facetIssues": "问题",
+        "histEmpty": "暂无学习记录（此块尚未正式评分）",
+        "histSummary": "正式评分 ${r} 次 · 遗忘 ${f} 次",
+        "issuesEmpty": "暂无关联疑问",
+        "issueStatus": "状态",
+        "issuesHint": "可在闪卡中心 → 收件箱页签统一处理疑问。"
+    },
     "cmdDrill": "修卡演练（独立样例）",
     "drillTitle": "修卡演练",
     "drillBadge": "演练数据",

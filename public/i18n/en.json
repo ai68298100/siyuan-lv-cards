@@ -14,6 +14,17 @@
     "menuManager": "Card Manager",
     "menuSettings": "Settings",
     "cmdOpenDashboard": "Open Card Hub",
+    "detail": {
+        "facetContent": "Content",
+        "facetSource": "Source",
+        "facetHistory": "History",
+        "facetIssues": "Issues",
+        "histEmpty": "No review history yet (never formally rated)",
+        "histSummary": "${r} formal reviews · ${f} lapses",
+        "issuesEmpty": "No linked issues",
+        "issueStatus": "Status",
+        "issuesHint": "Handle inbox items together in Card Hub → Inbox."
+    },
     "cmdDrill": "Card repair drill (sample)",
     "drillTitle": "Card repair drill",
     "drillBadge": "Practice data",

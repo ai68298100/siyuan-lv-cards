@@ -11,11 +11,14 @@
     import type { ContentState } from "@/core/content-lifecycle";
     import type { NextAction } from "@/core/next-action";
 
-    let { block, t, onOpenDoc, onClose, relationsCtx, koCtx, lcCtx, editorCtx }: {
+    let { block, t, onOpenDoc, onClose, relationsCtx, koCtx, lcCtx, editorCtx, historyEntries = [], issues = [] }: {
         block: SearchBlock;
         t: any;
         onOpenDoc: () => void;
         onClose: () => void;
+        /** T05 分面（docs/40）：块学习记录与关联疑问（可选——旧宿主不传则分面显示空态） */
+        historyEntries?: { rating: number; ts: number; dur: number | null }[];
+        issues?: { addedAt: number; status: string }[];
         /** BI-5/6/7：内容状态面板数据与操作（宿主注入；缺省=不显示内容状态区） */
         lcCtx?: {
             snapshot: LcSnapshot | null;
@@ -47,6 +50,22 @@
 
     let html = $state("");
     let loadSeq = 0;
+    // T05 分面（docs/40）：内容/来源/学习记录/问题
+    type Facet = "content" | "source" | "history" | "issues";
+    let facet = $state<Facet>("content");
+    const facetTabs = $derived([
+        { id: "content" as Facet, label: t.detail.facetContent },
+        { id: "source" as Facet, label: t.detail.facetSource },
+        { id: "history" as Facet, label: t.detail.facetHistory },
+        { id: "issues" as Facet, label: t.detail.facetIssues },
+    ]);
+    const ratingLabel = (r: number) => (r === 1 ? t.review.unknown : r === 2 ? t.review.vague : r === 3 ? t.review.know : r === 4 ? t.review.easy : "—");
+    const histSummary = $derived.by(() => {
+        const reviews = historyEntries.filter((e) => e.rating > 0);
+        const forgets = historyEntries.filter((e) => e.rating === 1).length;
+        const last = reviews.reduce((m, e) => Math.max(m, e.ts), 0);
+        return { reviews: reviews.length, forgets, last };
+    });
     // BX-2 W2：编辑态（原文加载成功才进入；保存成功回读预览）
     let editing = $state(false);
     let editorMd = $state("");
@@ -100,24 +119,68 @@
         {/if}
         <button class="b3-button b3-button--small" onclick={onOpenDoc}>{t.manager.openDoc}</button>
     {/snippet}
-    <div class="lv-detail-preview">{@html html || (block.content ?? "")}</div>
-    <div class="lv-detail-meta ft__smaller ft__on-surface">
-        <div>{t.manager.detailBlockId}: {block.id}</div>
-        {#if block.hPath}<div>{block.hPath}</div>{/if}
+    <!-- T05 分面导航（docs/40）：内容 / 来源 / 学习记录 / 问题 -->
+    <div class="lv-facets" role="tablist">
+        {#each facetTabs as f (f.id)}
+            <button
+                class="lv-facet"
+                role="tab"
+                aria-selected={facet === f.id}
+                class:lv-facet-active={facet === f.id}
+                onclick={() => (facet = f.id)}
+            >{f.label}</button>
+        {/each}
     </div>
-    {#if editing}
-        <CardEditor t={t} original={editorMd} onsave={saveEdit} oncancel={() => (editing = false)} />
-    {:else if editorLoadFail}
-        <div class="ft__smaller ft__on-surface">{t.editor.loadFail}</div>
-    {/if}
-    {#if lcCtx}
-        <LifecyclePanel
-            t={t}
-            snapshot={lcCtx.snapshot}
-            onopen={lcCtx.onopen}
-            ontransition={lcCtx.ontransition}
-            onaction={lcCtx.onaction}
-        />
+    {#if facet === "content"}
+        <div class="lv-detail-preview">{@html html || (block.content ?? "")}</div>
+        {#if editing}
+            <CardEditor t={t} original={editorMd} onsave={saveEdit} oncancel={() => (editing = false)} />
+        {:else if editorLoadFail}
+            <div class="ft__smaller ft__on-surface">{t.editor.loadFail}</div>
+        {/if}
+        {#if lcCtx}
+            <LifecyclePanel
+                t={t}
+                snapshot={lcCtx.snapshot}
+                onopen={lcCtx.onopen}
+                ontransition={lcCtx.ontransition}
+                onaction={lcCtx.onaction}
+            />
+        {/if}
+    {:else if facet === "source"}
+        <div class="lv-detail-meta ft__smaller ft__on-surface">
+            <div>{t.manager.detailBlockId}: {block.id}</div>
+            {#if block.hPath}<div>{block.hPath}</div>{/if}
+        </div>
+        <button class="b3-button b3-button--outline" style="margin-top: var(--lv-sp-2)" onclick={onOpenDoc}>{t.manager.openDoc}</button>
+    {:else if facet === "history"}
+        {#if historyEntries.length === 0}
+            <div class="lv-hint">{t.detail.histEmpty}</div>
+        {:else}
+            <div class="ft__smaller ft__on-surface" style="margin-bottom: var(--lv-sp-2)">
+                {t.detail.histSummary.replace("${r}", String(histSummary.reviews)).replace("${f}", String(histSummary.forgets))}
+            </div>
+            <div class="lv-hist-list">
+                {#each [...historyEntries].reverse() as e (e.ts)}
+                    <div class="lv-todo-row">
+                        <span>{new Date(e.ts).toLocaleString()}</span>
+                        <span class="ft__smaller ft__on-surface">{ratingLabel(e.rating)}{e.dur ? ` · ${Math.round(e.dur / 1000)}s` : ""}</span>
+                    </div>
+                {/each}
+            </div>
+        {/if}
+    {:else}
+        {#if issues.length === 0}
+            <div class="lv-hint">{t.detail.issuesEmpty}</div>
+        {:else}
+            {#each issues as it (it.addedAt)}
+                <div class="lv-todo-row">
+                    <span>{new Date(it.addedAt).toLocaleDateString()}</span>
+                    <span class="ft__smaller ft__on-surface">{t.detail.issueStatus}: {it.status}</span>
+                </div>
+            {/each}
+            <div class="ft__smaller ft__on-surface" style="margin-top: var(--lv-sp-2)">{t.detail.issuesHint}</div>
+        {/if}
     {/if}
     {#if koCtx}
         {#if koCtx.snapshot.registered}
@@ -150,4 +213,33 @@
 <style>
     .lv-detail-preview { margin-bottom: var(--lv-sp-4); }
     .lv-detail-meta div { padding: 2px 0; }
+
+    /* T05 分面导航（R52 segmented 同构） */
+    .lv-facets {
+        display: flex;
+        gap: 2px;
+        padding: 3px;
+        border: 1px solid var(--lv-border);
+        border-radius: var(--lv-r-s);
+        background: color-mix(in srgb, var(--b3-theme-on-background) 5%, transparent);
+        margin-bottom: var(--lv-sp-4);
+    }
+    .lv-facet {
+        flex: 1;
+        border: none;
+        background: transparent;
+        color: var(--b3-theme-on-surface);
+        font-size: 12px;
+        padding: 4px 8px;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: background var(--lv-dur-1) var(--lv-ease), color var(--lv-dur-1) var(--lv-ease);
+    }
+    .lv-facet-active {
+        background: var(--b3-theme-surface);
+        color: var(--b3-theme-primary);
+        font-weight: 600;
+        box-shadow: var(--lv-shadow-1);
+    }
+    .lv-hist-list { max-height: 320px; overflow: auto; }
 </style>

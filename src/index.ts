@@ -457,6 +457,15 @@ export default class LvCardsPlugin extends Plugin {
                                 }
                                 return map;
                             },
+                            // T05 分面（docs/40）：块学习记录与关联疑问
+                            getBlockHistory: (blockID: string) =>
+                                plugin.revlog.entries
+                                    .filter((e) => e.blockID === blockID)
+                                    .map((e) => ({ rating: e.rating, ts: e.ts, dur: e.dur ?? null })),
+                            getBlockIssues: (blockID: string) =>
+                                plugin.inbox.items
+                                    .filter((i) => i.blockID === blockID && i.status !== "dismissed")
+                                    .map((i) => ({ addedAt: i.addedAt, status: i.status })),
                             getDueBlockIDs: async () => {
                                 try {
                                     // AT-4 收尾（v0.110.3）：管理器去重预检走共享缓存，与 badge/总览等合并请求
