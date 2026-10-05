@@ -604,9 +604,7 @@
         border-radius: 6px;
         background: color-mix(in srgb, var(--b3-theme-on-background) 4%, transparent);
     }
-    .lv-wb-chip-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    /* T02：来源条目标签 = 查看原文按钮 */
-    .lv-wb-view {
+    /* T02：来源条目标签 = 查看原文按钮 */    .lv-wb-view {
         flex: 1;
         min-width: 0;
         overflow: hidden;
