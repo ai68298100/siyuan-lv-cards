@@ -245,6 +245,13 @@
         loading = true;
         errorMsg = "";
         try {
+            // 性能（docs/40 收尾）：三个异步源并行——文档归属/V2 统计的 SQL 不再串行阻塞
+            // hero 统计（到期数等）的渲染；快路径先行呈现，慢面板就绪后渐进补齐
+            const docCovPromise: Promise<{ docs: { docID: string; title: string; seen: number }[]; unattributed: number } | null> =
+                ctx.getDocCoverage ? ctx.getDocCoverage().catch(() => null) : Promise.resolve(null);
+            const v2StatsPromise: Promise<Record<string, string>[]> = ctx.getV2Status()
+                ? getFlashcardStatistics({}).catch(() => [])
+                : Promise.resolve([]);
             const [deckList, due] = await Promise.all([
                 getRiffDecks(),
                 dueCache.get(""), // AT-4：与 badge/挑战/配对等并发读取共享缓存，评分后经 invalidate 拉新
@@ -263,14 +270,10 @@
             todayStudyMinutes = Math.round(studySecondsOn(revlog, localDate(Date.now())) / 60);
             coverage = coverageStats(revlog, totalCards || undefined);
             deckCov = deckCoverage(revlog, deckList.map(d => ({ id: d.id, size: d.size })));
-            docCov = ctx.getDocCoverage ? await ctx.getDocCoverage() : null;
             unfinishedAI = ctx.getUnfinishedAIJob?.() ?? null;
             // BJ-1：能力分布（可选 ctx；无实例返回空数组→区块隐藏）
             koStats = ctx.getCapabilityShare?.() ?? null;
             errStats = ctx.getErrorReasonStats?.() ?? null;
-            if (seq !== refreshSeq) {
-                return; // 文档归属查询期间用户已刷新（AR-6 generation 守卫）
-            }
             dueCount = due.unreviewedCount;
             newCount = due.unreviewedNewCardCount;
             const sess = ctx.getSessionState?.();
@@ -304,11 +307,16 @@
             leech = ctx.getLeechCards().slice(0, 8);
             examChip = ctx.getExamCountdown();
             targets = ctx.getDailyTargets();
+            // 快路径完成：hero 与统计立即可见（慢面板就绪后渐进补齐）
+            loading = false;
+            docCov = await docCovPromise;
+            if (seq !== refreshSeq) {
+                return; // 文档归属查询期间用户已刷新（AR-6 generation 守卫）
+            }
             // 内核 V2（3.9.0）激活时，顺带拉取官方统计摘要（宽容解析，失败静默）
-            const v2 = ctx.getV2Status();
-            if (v2) {
+            if (ctx.getV2Status()) {
                 try {
-                    const stats = await getFlashcardStatistics({});
+                    const stats = await v2StatsPromise;
                     if (seq === refreshSeq) {
                         v2Stats = summarizeStatistics(stats);
                     }
