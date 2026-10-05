@@ -1232,5 +1232,61 @@
             "split-task": "Split the large task into smaller batches",
             "retry-once": "Retry once (models occasionally return empty responses)"
         }
+    },
+    "aiScore": {
+        "title": "Quality scorecard",
+        "dim": {
+            "atomicity": "Atomicity",
+            "answer-leak": "Answer leak",
+            "source-coverage": "Source coverage",
+            "duplicate": "Duplicate",
+            "ambiguity": "Ambiguity",
+            "difficulty": "Difficulty",
+            "cognitive": "Cognitive level",
+            "naturalness": "Naturalness"
+        },
+        "level": {
+            "remember": "Remember",
+            "understand": "Understand",
+            "apply": "Apply"
+        },
+        "note": {
+            "atomicity.1": "Question has parallel structure — may contain multiple facts",
+            "atomicity.2": "Question contains semicolons — multiple questions in one card",
+            "answer-leak.2": "The answer appears in the question; active recall is impossible",
+            "source-coverage.1": "Answer not found in the source — please verify",
+            "duplicate.2": "Exact duplicate of another card in this batch",
+            "ambiguity.1": "Question opens with a pronoun; the referent may be unclear",
+            "difficulty.1": "Answer is long; recall burden is high",
+            "difficulty.2": "Answer is too long — consider splitting or trimming",
+            "naturalness.1": "Markup residue found — consider cleaning up"
+        },
+        "fix": {
+            "atomicity": "Suggestion: split into single-fact cards",
+            "answer-leak": "Suggestion: rewrite the question to hide the answer",
+            "source-coverage": "Suggestion: verify the source or use a source-backed fact",
+            "duplicate": "Suggestion: remove one or rewrite from another angle",
+            "ambiguity": "Suggestion: spell out the referent",
+            "naturalness": "Suggestion: clean up markup/placeholders"
+        },
+        "versions": "Version history",
+        "viaAI": "AI generated",
+        "viaUser": "User edited",
+        "restore": "Restore"
+    },
+    "aiReview": {
+        "plan": {
+            "per-card": "Per-card review recommended",
+            "sample": "Sampling review OK: focus on the first ${n} cards",
+            "block": "Blocked: switch tasks or use the manual path"
+        },
+        "factor": {
+            "modelTrust": "Model not registered",
+            "sourceTrust": "Source unverified",
+            "avgComposite": "Low batch average",
+            "problemRatio": "Many problem cards",
+            "taskRisk": "Task risk"
+        },
+        "sampleHint": "Skim the rest before accepting"
     }
 }

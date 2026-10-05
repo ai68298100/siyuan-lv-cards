@@ -6,15 +6,18 @@
     import { isAICanceled } from "@/api/ai";
     import { lintAICards } from "@/core/ai-lint";
     import { maskSensitive, scanSensitive, type SensitiveHit } from "@/core/ai-sensitive";
+    import { scoreBatch, type Scorecard } from "@/core/ai-quality-scorecard";
+    import { planReview, type ReviewPlan } from "@/core/ai-review-strategy";
+    import { appendVersion, type CardProvenance, type ProvenanceVersion } from "@/core/ai-provenance";
     import LvChip from "./kit/LvChip.svelte";
     import LvSteps from "./kit/LvSteps.svelte";
 
-    let { i18n, initialSource = "", loadCurrentDoc, loadNotebookMaterial, generate, onCreate, onClose, getUnfinishedJob, onResumeAIJob, onAbandonAIJob, openDocById, isSourceDenied, onDenySource, sensitiveTerms = "" }: {
+    let { i18n, initialSource = "", loadCurrentDoc, loadNotebookMaterial, generate, onCreate, onClose, getUnfinishedJob, onResumeAIJob, onAbandonAIJob, openDocById, isSourceDenied, onDenySource, sensitiveTerms = "", modelTrustKnown }: {
         i18n: any;
         /** 预填材料（leech 改写联动） */
         initialSource?: string;
-        /** 调用方实现：构造 prompt → 调 AI → 解析卡片（ADR-7：返回 cards + jobId 供断点续传）；第三参为取消信号（AQ-14）+ 来源 provenance（BW-9 禁止外发判定） */
-        generate: (source: string, cfg: { count: number; language: string; type: "qa" | "cloze" }, opts?: { signal?: AbortSignal; provenance?: { notebookIds?: string[]; docIds?: string[] } }) => Promise<{ cards: { q: string; a: string; d?: number }[]; jobId: string }>;
+        /** 调用方实现：构造 prompt → 调 AI → 解析卡片（ADR-7：返回 cards + jobId 供断点续传）；第三参为取消信号（AQ-14）+ 来源 provenance（BW-9 禁止外发判定）；gen 为生成环境快照（BU-15） */
+        generate: (source: string, cfg: { count: number; language: string; type: "qa" | "cloze" }, opts?: { signal?: AbortSignal; provenance?: { notebookIds?: string[]; docIds?: string[] } }) => Promise<{ cards: { q: string; a: string; d?: number }[]; jobId: string; gen?: { mode: "siyuan" | "custom"; modelId: string | null; templateHash: string } }>;
         /** ADR-7：逐卡提交——卡片携带 origIndex 指向作业 candidates 原位（✕ 移除后仍正确） */
         onCreate: (cards: { q: string; a: string; origIndex: number }[], deckID: string, deckName: string, jobId: string) => Promise<void>;
         onClose: () => void;
@@ -30,6 +33,8 @@
         onDenySource?: (kind: "doc" | "notebook", id: string) => void;
         /** BU-8：自定义敏感词（逗号分隔；空=只用内置模式） */
         sensitiveTerms?: string;
+        /** BU-14：模型是否可信（登记 active 或内核网关）；不传=按未登记从严 */
+        modelTrustKnown?: () => boolean;
         /** 未完成的 AI 导入（ADR-7 恢复入口）；null=无；failed=失败明细供导出 */
         getUnfinishedJob?: () => { id: string; done: number; total: number; failed: { index: number; q: string; error: string }[] } | null;
         onResumeAIJob?: (id: string) => Promise<void>;
@@ -44,6 +49,8 @@
         content: string;
         docId?: string;
         nbId?: string;
+        /** 剪贴板/粘贴来源=未验证（BU-14 审阅计划因子） */
+        unverified?: boolean;
     }
     let sourceSeq = 0;
     let sources = $state<WizardSource[]>([]);
@@ -115,6 +122,9 @@
         }
     }
     function setReview(i: number, review: "accepted" | "verified" | "pending") {
+        if (review === "accepted") {
+            recordUserVersion(i); // BU-15：接受即留痕用户当前文本（编辑后接受=用户版本）
+        }
         candidates[i] = { ...candidates[i], review };
         candidates = [...candidates];
     }
@@ -123,6 +133,54 @@
     }
     /** AQ-16 预览 lint：随 candidates（含编辑）响应式重算（批内重复/过长/过短） */
     let lintWarnings: string[][] = $derived.by(() => lintAICards(candidates.map(c => ({ q: c.q, a: c.a }))));
+    /** BU-13 质量评分卡：随候选（含编辑）响应式重算；综合分仅审阅提示 */
+    let scorecards: Scorecard[] = $derived(scoreBatch(candidates.map(c => ({ q: c.q, a: c.a }))));
+    /** BU-14 审阅计划：按因子就高不就低（模型登记/来源可信/批量均分/问题卡占比） */
+    let reviewPlan: ReviewPlan | null = $derived.by(() => {
+        if (candidates.length === 0) {
+            return null;
+        }
+        const comps = scorecards.map(s => s.composite);
+        const avg = comps.reduce((a, b) => a + b, 0) / comps.length;
+        const problemRatio = comps.filter(c => c < 70).length / comps.length;
+        return planReview({
+            taskRisk: "low", // 当前在册任务仅制卡（低风险）；扩展任务登记时随任务声明
+            modelTrust: modelTrustKnown?.() === false ? "unknown" : "known",
+            sourceTrust: sources.some(s => s.unverified) ? "unverified" : "trusted",
+            avgComposite: avg,
+            problemRatio,
+            totalCards: candidates.length,
+        });
+    });
+    /** BU-15 版本链（会话内）：生成记 ai 版（带 gen 快照）、接受/重生前记 user 版 */
+    let prov: CardProvenance[] = $state([]);
+
+    function provOf(i: number): CardProvenance {
+        return prov[i] ?? { index: i, versions: [] };
+    }
+    /** 记 user 版本（与链尾同文则跳过——防重复留痕） */
+    function recordUserVersion(i: number) {
+        const c = candidates[i];
+        if (!c) {
+            return;
+        }
+        const last = provOf(i).versions[provOf(i).versions.length - 1];
+        if (last && last.q === c.q && last.a === c.a) {
+            return;
+        }
+        prov[i] = appendVersion(provOf(i), { at: Date.now(), via: "user", q: c.q, a: c.a });
+        prov = [...prov];
+    }
+    /** 记 ai 版本（生成快照必带——gen 缺失时 appendVersion 会整条剔除，此处兜底不发） */
+    function recordAIVersion(i: number, card: { q: string; a: string }, gen: { mode: "siyuan" | "custom"; modelId: string | null; templateHash: string }) {
+        prov[i] = appendVersion(provOf(i), { at: Date.now(), via: "ai", q: card.q, a: card.a, gen });
+        prov = [...prov];
+    }
+    /** BU-15：回到某历史版本（置回待审——内容变更须重新核对） */
+    function restoreVersion(i: number, v: ProvenanceVersion) {
+        candidates[i] = { ...candidates[i], q: v.q, a: v.a, review: "pending" };
+        candidates = [...candidates];
+    }
     /** ADR-7：当前预览对应的作业 ID（导入按 candidates 下标断点记账；重生替换内容不换绑定） */
     let currentJobId = $state("");
     let busy = $state(false);
@@ -156,6 +214,35 @@
         const r = maskSensitive(source, parseTerms(sensitiveTerms));
         source = r.masked;
         sensOverride = false;
+    }
+
+    /** BU-13/14 标签映射：维度/层级/说明/建议 i18n（缺键回退机器键，不阻塞显示） */
+    function dimLabel(key: string): string {
+        return (t.aiScore?.dim as any)?.[key] ?? key;
+    }
+    function levelLabel(level: string): string {
+        return (t.aiScore?.level as any)?.[level] ?? level;
+    }
+    function noteText(noteKey?: string): string {
+        if (!noteKey) { return ""; }
+        return (t.aiScore?.note as any)?.[noteKey.replace("aiScore.note.", "")] ?? "";
+    }
+    function fixText(fixKey?: string): string {
+        if (!fixKey) { return ""; }
+        return (t.aiScore?.fix as any)?.[fixKey.replace("aiScore.fix.", "")] ?? "";
+    }
+    /** BU-14 因子标签（planReview factors 形如 "modelTrust:unknown"） */
+    function factorLabel(factor: string): string {
+        const key = factor.split(":")[0];
+        return (t.aiReview?.factor as any)?.[key] ?? factor;
+    }
+    function planText(plan: ReviewPlan): string {
+        const dict = t.aiReview?.plan as any;
+        if (!dict) { return plan.decision; }
+        if (plan.decision === "sample" && plan.sampleSize) {
+            return dict.sample.replace("${n}", String(plan.sampleSize));
+        }
+        return dict[plan.decision] ?? plan.decision;
     }
 
     // 笔记本范围源（M2·FR6 扩展）
@@ -217,12 +304,14 @@
         }
     }
 
-    /** 剪贴板导入（298）：粘贴字幕/讲义直通向导（权限拒绝时降级提示） */
+    /** 剪贴板导入（298）：粘贴字幕/讲义直通向导（权限拒绝时降级提示）；剪贴板来源=未验证（BU-14 审阅强度因子） */
     async function loadClipboard() {
         try {
             const text = (await navigator.clipboard.readText()).trim();
             if (text) {
                 addSource(t.aiWizard.srcClipboard, text);
+                sources[sources.length - 1] = { ...sources[sources.length - 1], unverified: true };
+                sources = [...sources];
                 errorMsg = "";
             } else {
                 errorMsg = t.aiWizard.noClipboard;
@@ -298,9 +387,10 @@
         const myCtrl = genCtrl;
         busy = true;
         errorMsg = "";
+        prov = []; // 新一轮生成：版本链重置（BU-15 会话内生命周期随生成批次）
         try {
             // BW-9：随请求携带来源 provenance（generate 侧判 deny 规则——UI 拦截不可绕过的硬门）
-            const { cards, jobId } = await generate(source.trim(), { count, language, type: cardType }, { signal: myCtrl.signal, provenance: provenance() });
+            const { cards, jobId, gen } = await generate(source.trim(), { count, language, type: cardType }, { signal: myCtrl.signal, provenance: provenance() });
             if (seq !== genSeq) {
                 return; // 旧请求：候选与步骤不写回
             }
@@ -308,6 +398,10 @@
                 throw new Error(t.aiWizard.emptyResult);
             }
             candidates = cards.map((c, i) => ({ ...c, keep: true, origIndex: i, review: "pending" }));
+            // BU-15：生成候选记 ai 版本（gen 缺失=旧宿主，不留痕不阻塞）
+            if (gen) {
+                cards.forEach((c, i) => recordAIVersion(i, c, gen));
+            }
             // ADR-7：绑定本次作业，导入时按候选下标断点记账
             currentJobId = jobId;
             step = 2;
@@ -335,9 +429,10 @@
         const myCtrl = genCtrl;
         regenBusy = i;
         errorMsg = "";
+        recordUserVersion(i); // BU-15：重生前留痕当前文本（用户改过未接受也不丢）
         try {
             // 重生成仅替换候选内容：currentJobId 保持原绑定（下标对位不变；作业记录中该卡为旧文本，已知边界）
-            const { cards } = await generate(source.trim(), { count: 1, language, type: cardType }, { signal: myCtrl.signal });
+            const { cards, gen } = await generate(source.trim(), { count: 1, language, type: cardType }, { signal: myCtrl.signal, provenance: provenance() });
             if (seq !== genSeq) {
                 return;
             }
@@ -346,6 +441,9 @@
                 // 重生成仅替换内容：保持 origIndex 与作业 candidates 对位（内容为新生成，已知边界）
                 candidates[i] = { ...cards[0], keep, origIndex: i, review: "pending" };
                 candidates = [...candidates];
+                if (gen) {
+                    recordAIVersion(i, cards[0], gen); // BU-15：重生成记新 ai 版（链上可对比新旧）
+                }
             } else {
                 errorMsg = t.aiWizard.emptyResult;
             }
@@ -555,6 +653,18 @@
                 <!-- T03：来源依据折叠（审核时可对照，不离开本屏） -->
                 <button class="b3-button b3-button--small" onclick={() => (sourceOpen = !sourceOpen)}>{t.aiWizard.sourceFold} {sourceOpen ? "▴" : "▾"}</button>
             </div>
+            {#if reviewPlan}
+                <!-- BU-14 审阅计划：按因子就高不就低；建议性横幅，不代审不阻断（block 档在制卡任务不会出现） -->
+                <div class="lv-notice" style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: var(--lv-sp-2); padding: 6px 10px">
+                    <span class="ft__smaller" style="font-weight: 600">{planText(reviewPlan)}</span>
+                    {#each reviewPlan.factors as f (f)}
+                        <span class="ft__smaller" style="border: 1px solid var(--lv-border); border-radius: 4px; padding: 0 6px">{factorLabel(f)}</span>
+                    {/each}
+                    {#if reviewPlan.decision === "sample" && reviewPlan.sampleSize}
+                        <span class="ft__smaller ft__on-surface">{t.aiReview.sampleHint}</span>
+                    {/if}
+                </div>
+            {/if}
             {#if sourceOpen}
                 <div class="lv-card2" style="margin-bottom: var(--lv-sp-2)">
                     <div class="lv-eyebrow">{t.aiWizard.sourceFold}</div>
@@ -572,6 +682,12 @@
                             {/if}
                             {#each lintWarnings[i] ?? [] as warn (warn)}
                                 <LvChip tone="warn">{warn === "duplicate" ? t.aiWizard.lintDup : warn === "overlong" ? t.aiWizard.lintLong : warn === "tooshort" ? t.aiWizard.lintShort : warn}</LvChip>
+                            {/each}
+                            {#each scorecards[i]?.dimensions ?? [] as dim (dim.key)}
+                                {#if dim.score >= 1 && dim.key !== "cognitive" && dim.key !== "difficulty"}
+                                    <!-- BU-13：问题维度 chip（1=提示 warn / 2=问题 error），点「卡面预览」看说明与建议 -->
+                                    <LvChip tone={dim.score >= 2 ? "error" : "warn"}>{dimLabel(dim.key)} · {dim.score}</LvChip>
+                                {/if}
                             {/each}
                             <div class="fn__flex-1"></div>
                             {#if c.review === "accepted"}<LvChip tone="primary">{t.aiWizard.reviewAccepted}</LvChip>{:else if c.review === "verified"}<LvChip tone="warn">{t.aiWizard.reviewVerified}</LvChip>{/if}
@@ -596,6 +712,45 @@
                                     <div class="lv-eyebrow">{t.aiWizard.previewALabel}</div>
                                     <div style="margin-top: 6px; line-height: 1.65">{c.a || "—"}</div>
                                 </div>
+                                {#if scorecards[i]}
+                                    <!-- BU-13：八维度评分卡（可解释问题 + 修复建议；综合分仅审阅提示，不入库资格由「已接受」决定） -->
+                                    <div style="border-top: 1px solid var(--lv-border); padding-top: 12px; margin-top: 12px">
+                                        <div class="lv-eyebrow">{t.aiScore.title} · {scorecards[i].composite}</div>
+                                        <div style="margin-top: 6px; display: flex; flex-direction: column; gap: 4px">
+                                            {#each scorecards[i].dimensions as dim (dim.key)}
+                                                <div class="fn__flex" style="gap: 8px; align-items: baseline">
+                                                    <span class="ft__smaller" style="min-width: 88px">{dimLabel(dim.key)}</span>
+                                                    {#if dim.level}
+                                                        <LvChip tone="default">{levelLabel(dim.level)}</LvChip>
+                                                    {/if}
+                                                    {#if dim.score > 0}
+                                                        <span class="ft__smaller" style="color: var(--b3-theme-warning)">{noteText(dim.noteKey)}</span>
+                                                    {/if}
+                                                    {#if dim.suggestKey}
+                                                        <span class="ft__smaller ft__on-surface">{fixText(dim.suggestKey)}</span>
+                                                    {/if}
+                                                </div>
+                                            {/each}
+                                        </div>
+                                    </div>
+                                {/if}
+                                {#if (prov[i]?.versions.length ?? 0) > 0}
+                                    <!-- BU-15：版本链（ai 生成/user 编辑双轨；回到任意历史版本） -->
+                                    <div style="border-top: 1px solid var(--lv-border); padding-top: 12px; margin-top: 12px">
+                                        <div class="lv-eyebrow">{t.aiScore.versions} · {prov[i].versions.length}</div>
+                                        <div style="margin-top: 6px; display: flex; flex-direction: column; gap: 4px">
+                                            {#each [...prov[i].versions].reverse() as v, vi (prov[i].versions.length - 1 - vi)}
+                                                <div class="fn__flex" style="gap: 8px; align-items: center">
+                                                    <LvChip tone={v.via === "ai" ? "default" : "primary"}>{v.via === "ai" ? t.aiScore.viaAI : t.aiScore.viaUser}</LvChip>
+                                                    <span class="ft__smaller" style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{(v.via === "ai" ? "⚙ " : "✎ ") + v.q.slice(0, 40)}</span>
+                                                    {#if v.q !== c.q || v.a !== c.a}
+                                                        <button class="b3-button b3-button--small" onclick={() => restoreVersion(prov[i].versions.length - 1 - vi, v)}>{t.aiScore.restore}</button>
+                                                    {/if}
+                                                </div>
+                                            {/each}
+                                        </div>
+                                    </div>
+                                {/if}
                             </div>
                         {/if}
                     </div>

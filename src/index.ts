@@ -50,6 +50,8 @@ import { checkEligibility } from "./core/ai-eligibility";
 import { disableTarget, emptyKillSwitch, enableTarget, grantConsent, killSwitchBlock, normalizeKillSwitch, revokeConsent, type AIKillSwitchData } from "./core/ai-kill-switch";
 import { addDenyRule, emptyDenyList, isDenied, normalizeDenyList, type DenyListData } from "./core/ai-source-deny";
 import { evaluateRefusal } from "./core/ai-refusal";
+import { fnv1a } from "./core/ai-provenance";
+import { isSelectableModel } from "./core/ai-model-registry";
 import { parseRevlogCsv } from "./core/revlog-csv";
 import { normalizeSessionState, type SessionState } from "./core/session-state";
 import { normalizeExamPlans, daysLeft, examReportStats, type ExamPlan, type ExamPlansData } from "./core/exam";
@@ -2044,7 +2046,16 @@ export default class LvCardsPlugin extends Plugin {
                             this.aiBatches.batches = this.aiBatches.batches.slice(-200);
                         }
                         this.persist.save(AI_BATCHES_DATA, this.aiBatches).catch(() => { /* onFail 已记录 */ });
-                        return { cards: parsed, jobId };
+                        // BU-15：生成环境快照随结果返回（mode/modelId/templateHash；不含 key），向导记入版本链
+                        return {
+                            cards: parsed,
+                            jobId,
+                            gen: {
+                                mode: this.settings.aiMode,
+                                modelId: assembled.audit.modelId,
+                                templateHash: fnv1a(system),
+                            },
+                        };
                     } catch (e) {
                         // 取消与失败都落账：取消记 CANCEL，失败记 GENERATE_FAIL——重开向导可续传
                         job = transitionJob(job, isAICanceled(e)
@@ -2080,6 +2091,8 @@ export default class LvCardsPlugin extends Plugin {
                 },
                 // BU-8：自定义敏感词（逗号分隔，仅本地）
                 sensitiveTerms: this.settings.aiSensitiveTerms,
+                // BU-14：模型可信度——siyuan 内核网关视为已配置；custom 模式按注册表登记状态
+                modelTrustKnown: () => this.settings.aiMode === "siyuan" || isSelectableModel(this.settings.aiModel),
                 onClose: () => { /* svelteDialog 自理销毁 */ },
             },
         });

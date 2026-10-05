@@ -1232,5 +1232,61 @@
             "split-task": "把大任务拆成更小的制卡批次",
             "retry-once": "可重试一次（模型偶发空响应）"
         }
+    },
+    "aiScore": {
+        "title": "质量评分卡",
+        "dim": {
+            "atomicity": "原子性",
+            "answer-leak": "答案泄漏",
+            "source-coverage": "来源覆盖",
+            "duplicate": "重复",
+            "ambiguity": "歧义",
+            "difficulty": "难度",
+            "cognitive": "认知层级",
+            "naturalness": "语言自然度"
+        },
+        "level": {
+            "remember": "记忆",
+            "understand": "理解",
+            "apply": "应用"
+        },
+        "note": {
+            "atomicity.1": "题面含并列结构，可能一卡多事实",
+            "atomicity.2": "题面含分号——多个问题混在一卡",
+            "answer-leak.2": "答案内容出现在题面，无法主动回忆",
+            "source-coverage.1": "答案在来源中未找到依据，请核对",
+            "duplicate.2": "与本批另一张卡完全重复",
+            "ambiguity.1": "题面以指代词开头，指代可能不明",
+            "difficulty.1": "答案偏长，回忆负担较大",
+            "difficulty.2": "答案过长，建议拆分或精简",
+            "naturalness.1": "文本残留标记符号，建议清理"
+        },
+        "fix": {
+            "atomicity": "建议：拆成多张单事实卡",
+            "answer-leak": "建议：改写题面，隐去答案内容",
+            "source-coverage": "建议：核对来源或改用来源内事实",
+            "duplicate": "建议：删除其一或改写角度",
+            "ambiguity": "建议：补全指代对象",
+            "naturalness": "建议：清理标记/占位符"
+        },
+        "versions": "版本历史",
+        "viaAI": "AI 生成",
+        "viaUser": "用户编辑",
+        "restore": "回到此版"
+    },
+    "aiReview": {
+        "plan": {
+            "per-card": "建议逐卡审阅",
+            "sample": "可抽样审阅：重点核对前 ${n} 张",
+            "block": "已阻断：建议更换任务或走人工路径"
+        },
+        "factor": {
+            "modelTrust": "模型未在册",
+            "sourceTrust": "来源未验证",
+            "avgComposite": "批量均分偏低",
+            "problemRatio": "问题卡较多",
+            "taskRisk": "任务风险"
+        },
+        "sampleHint": "其余卡片接受前至少快速浏览一遍"
     }
 }
