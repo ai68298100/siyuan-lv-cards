@@ -456,7 +456,10 @@
         "statusAll": "Status: All",
         "statusNew": "Status: New",
         "statusReview": "Status: Reviewed",
-        "statusDue": "Status: Due today"
+        "statusDue": "Status: Due today",
+        "obExport": "Export Obsidian SR",
+        "obExportHint": "Export as Obsidian Spaced Repetition markdown (Q&A → \"Q :: A\", multi-cloze kept as-is); re-importable by this plugin",
+        "obExportDone": "Exported ${n} Q&A + ${c} cloze cards (.md)"
     },
     "settings": {
         "answerTimeCap": "Per-card time cap",

@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.204.0 2026-10-06 · Obsidian SR 导出（互通对称闭环）
+
+* 管理器选中卡新增「导出 Obsidian SR」：qa 块（`front ==back==` 尾部闭合且 front 无其他标记）→「问 :: 答 #flashcards」；多挖空/尾部有内容/无标记 → cloze 原样降级（不强行拆问答——多标记块在 Obsidian SR 本就是 cloze，诚实口径）
+* 实现细节：中段惰性匹配（贪婪会吞掉尾部多挖空标记误判 qa，测试锚定）；导出文件可被本插件导入器原样回导（往返闭环有测试）；toast 汇总问答/挖空张数
+* i18n +3 键（zh/en 对齐 1199）；668 测试（+3）
+
 ## v0.203.0 2026-10-06 · Obsidian SR 导入 W2：分卡组落库 + 台账幂等重导
 
 * deckHint 分卡组：`#flashcards/子路径` 每个路径一个卡组（「Obsidian: 文件名/子路径」，根路径落「Obsidian: 文件名」）；同名牌组复用（先查 getRiffDecks 再缺失创建，避免重复导入堆同名组）；blockID 按全局序归组，与一卡一段落对位约定一致

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
     parseSrFileBlocks, planObsidianImport, composeObsidianImportMarkdown,
     deckNameFor, groupByDeckHint, normalizeObLedger, mergeObLedger, partitionByLedger,
+    srExportLine, composeSrExport,
 } from "../src/core/obsidian-import";
 
 // Obsidian SR 导入编排：块级解析（多行/单行/挖空混排）、文件内去重、一卡一段落可对位
@@ -118,5 +119,33 @@ describe("obsidian-import W2（分组与台账）", () => {
         const { fresh, already } = partitionByLedger(plan.cards, normalizeObLedger([{ fingerprint: plan.cards[1].fingerprint, blockID: "bx", importedAt: 9 }]));
         expect(already.map(c => c.markdown)).toEqual(["B ==2=="]);
         expect(fresh).toHaveLength(2);
+    });
+});
+
+// W3：导出回 Obsidian SR（qa 识别/cloze 降级/往返闭环）
+describe("obsidian-import W3（SR 导出）", () => {
+    it("快速问答块（front ==back==）→ qa 行；带子路径 tag", () => {
+        expect(srExportLine("什么是熵 ==系统无序度的度量==")).toEqual({ kind: "qa", line: "什么是熵 :: 系统无序度的度量 #flashcards" });
+        expect(srExportLine("Q ==A==", { deckHint: "物理/" }).line).toBe("Q :: A #flashcards/物理");
+    });
+
+    it("多挖空/尾部有内容/无标记 → cloze 原样降级（不强行拆问答）", () => {
+        expect(srExportLine("TCP 的 ==三次握手== 与 ==四次挥手==").kind).toBe("cloze");
+        expect(srExportLine("前缀 ==答案== 还有后缀").kind).toBe("cloze");
+        expect(srExportLine("纯文本卡面没有标记").kind).toBe("cloze");
+        expect(srExportLine("纯文本卡面没有标记").line).toBe("纯文本卡面没有标记 #flashcards");
+    });
+
+    it("往返闭环：导出行可被块级解析器原样解析回同文卡", () => {
+        const exported = composeSrExport([
+            srExportLine("什么是熵 ==系统无序度的度量=="),
+            srExportLine("TCP 的 ==三次握手== 与 ==四次挥手=="),
+        ]);
+        const blocks = exported.split("\n\n");
+        expect(blocks[0]).toBe("什么是熵 :: 系统无序度的度量 #flashcards");
+        expect(blocks[1].endsWith("#flashcards")).toBe(true);
+        const reparsed = parseSrFileBlocks(exported);
+        expect(reparsed[0]).toMatchObject({ kind: "qa", front: "什么是熵", back: "系统无序度的度量" });
+        expect(reparsed[1].kind).toBe("cloze");
     });
 });

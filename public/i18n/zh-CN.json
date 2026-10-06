@@ -456,7 +456,10 @@
         "statusAll": "状态：全部",
         "statusNew": "状态：新卡",
         "statusReview": "状态：已复习",
-        "statusDue": "状态：今日到期"
+        "statusDue": "状态：今日到期",
+        "obExport": "导出 Obsidian SR",
+        "obExportHint": "导出为 Obsidian Spaced Repetition markdown（问答→「问 :: 答」，多挖空→原样），可用本插件导入器回导",
+        "obExportDone": "已导出 ${n} 张问答 + ${c} 张挖空（.md）"
     },
     "settings": {
         "answerTimeCap": "单卡作答计时上限",

@@ -197,3 +197,38 @@ export function partitionByLedger(cards: ObsidianImportCard[], ledger: ObLedgerE
     }
     return { fresh, already };
 }
+
+// ---------- W3：导出回 Obsidian SR markdown（与导入对称闭环） ----------
+
+export interface SrExportLine {
+    kind: "qa" | "cloze";
+    /** 单行 SR 卡（含 #flashcards 标签；一卡一段落由 compose 保证） */
+    line: string;
+}
+
+/**
+ * 块内容 → SR 导出行：
+ * - 「front ==back==」（尾部闭合、front 无其他 ==）→ qa：`front :: back #flashcards`
+ * - 其余（多挖空/尾部有内容/无标记）→ cloze 原样 + 标签
+ * 口径：挖空多标记块在 Obsidian SR 本就是 cloze，不强行拆问答（诚实降级）。
+ */
+export function srExportLine(content: string, opts: { deckTag?: string; deckHint?: string } = {}): SrExportLine {
+    const deckTag = opts.deckTag ?? "#flashcards";
+    const tag = opts.deckHint ? `${deckTag}/${opts.deckHint.replace(/^\/+|\/+$/g, "")}` : deckTag;
+    const text = (content ?? "").trim();
+    // 中段惰性：back 停在第一个闭合 ==（贪婪会吞掉尾部多挖空标记，误判 qa）
+    const m = text.match(/^([\s\S]*?)==([\s\S]+?)==([\s\S]*)$/);
+    if (m && !m[3].trim() && !m[1].includes("==")) {
+        const front = m[1].trim();
+        const back = m[2].trim();
+        if (front && back) {
+            return { kind: "qa", line: `${front} :: ${back} ${tag}` };
+        }
+    }
+    return { kind: "cloze", line: `${text} ${tag}` };
+}
+
+/** 导出组合：一卡一空行分段（可用我们的导入器原样回导——往返闭环） */
+export function composeSrExport(lines: SrExportLine[]): string {
+    return lines.map(l => l.line).join("\n\n");
+}

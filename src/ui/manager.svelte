@@ -5,6 +5,7 @@
     import { invalidateDueCache } from "@/api/due-shared";
     import { confirmDialog } from "@/libs/dialog";
     import { parseManagerView } from "@/core/settings";
+    import { srExportLine, composeSrExport } from "@/core/obsidian-import";
     import CardDetail from "./card-detail.svelte";
     import LvPage from "./kit/LvPage.svelte";
     import LvEmpty from "./kit/LvEmpty.svelte";
@@ -198,6 +199,22 @@
         setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
 
+    /** W3：选中卡导出 Obsidian SR markdown（qa→「问 :: 答 #flashcards」；多挖空/无标记→cloze 原样） */
+    function exportObsidianSr() {
+        if (selected.length === 0) { return; }
+        const picked = blocks.filter(b => selected.includes(b.id));
+        const lines = picked.map(b => srExportLine(stripHtml(b.content)));
+        const md = composeSrExport(lines);
+        const blob = new Blob([md], { type: "text/markdown" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `lv-cards-obsidian-${new Date().toISOString().slice(0, 10)}.md`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        showMessage(t.manager.obExportDone.replace("${n}", String(lines.filter(l => l.kind === "qa").length)).replace("${c}", String(lines.filter(l => l.kind === "cloze").length)), 2500, "info");
+    }
+
     function batchRemove() {
         if (selected.length === 0) return;
         confirmDialog({
@@ -334,6 +351,8 @@
             <div class="fn__flex-1"></div>
             {#if ctx.uiMode !== "simple"}
                 <button class="b3-button b3-button--outline" onclick={exportSelected}>{t.manager.exportCsv}</button>
+                <!-- W3：导出 Obsidian SR markdown（qa/挖空自动分型；可用我们的导入器回导） -->
+                <button class="b3-button b3-button--outline" title={t.manager.obExportHint} onclick={exportObsidianSr}>{t.manager.obExport}</button>
                 <button class="b3-button b3-button--outline" onclick={batchReset}>{t.manager.batchReset}</button>
             {/if}
             <button class="b3-button b3-button--outline" onclick={batchRemove}>{t.manager.batchRemove}</button>
