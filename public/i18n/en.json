@@ -639,7 +639,16 @@
         "clearCostLedger": "Clear ledger",
         "clearCostLedgerConfirm": "Clearing resets this month's usage and budget to zero; created cards and batch records are unaffected.",
         "backupExport": "Backup & restore (export / import restore)",
-        "backupHint": "Exports all plugin data as a single snapshot file (includes review log and card version history — kept locally by you, never uploaded); restore previews the diff and asks for confirmation first — export your current state beforehand so you can roll back"
+        "backupHint": "Exports all plugin data as a single snapshot file (includes review log and card version history — kept locally by you, never uploaded); restore previews the diff and asks for confirmation first — export your current state beforehand so you can roll back",
+        "obImportLabel": "Obsidian SR import (.md)",
+        "obImportPick": "Choose Markdown file",
+        "obImportHint": "Recognizes Obsidian Spaced Repetition syntax: #flashcards tags, single-line \"Q :: A\", multi-line ? blocks, ==cloze==; reversed cards import as forward-only; in-file duplicates skipped (no cross-run ledger — re-importing creates duplicates)",
+        "obImportConfirm": "Parsed ${n} cards: Q&A ${qa} (reversed-as-forward ${rev}) · cloze ${cloze} · in-file duplicates skipped ${dup}. Imports into a new deck \"${deck}\" and the \"Obsidian SR Import\" notebook.",
+        "obImportNone": "No flashcards found: needs #flashcards tags, single-line \"::\" Q&A, multi-line ? blocks, or ==cloze== syntax",
+        "obImportDone": "Imported ${ok} cards (in-file duplicates ${dup})",
+        "obImportFail": "Import failed: ${m}",
+        "obImportMismatch": "Block count (${a}) does not match card count (${b}) — aborted to prevent misalignment",
+        "obImportNbName": "Obsidian SR Import"
     },
     "hubTabOverview": "Overview",
     "hubTabError": "This tab hit an error (contained by the boundary)",

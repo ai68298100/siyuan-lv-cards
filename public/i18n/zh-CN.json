@@ -639,7 +639,16 @@
         "clearCostLedger": "清空账本",
         "clearCostLedgerConfirm": "清空后本月用量与预算从零重计；不影响已创建的卡片与批次记录。",
         "backupExport": "备份与恢复（导出 / 导入恢复）",
-        "backupHint": "导出全部插件数据为单文件快照（含复习日志/卡面版本等内容，请自行保管，不上传）；恢复前会先预览差异并二次确认——建议恢复前先导出一份当前状态用于回滚"
+        "backupHint": "导出全部插件数据为单文件快照（含复习日志/卡面版本等内容，请自行保管，不上传）；恢复前会先预览差异并二次确认——建议恢复前先导出一份当前状态用于回滚",
+        "obImportLabel": "Obsidian SR 导入（.md）",
+        "obImportPick": "选择 Markdown 文件",
+        "obImportHint": "识别 Obsidian Spaced Repetition 语法：#flashcards 标签、单行「问 :: 答」、多行 ? 块、==挖空==；双向卡（:::/??）按正向导入；文件内重复自动跳过（无跨运行台账，重复导入会重复建卡）",
+        "obImportConfirm": "解析到 ${n} 张卡：问答 ${qa}（其中双向按正向 ${rev}）· 挖空 ${cloze} · 文件内去重跳过 ${dup}。将导入到新卡组「${deck}」与「Obsidian SR Import」笔记本。",
+        "obImportNone": "未发现闪卡：需要 #flashcards 标签、单行「::」问答、多行 ? 块或 ==挖空== 语法",
+        "obImportDone": "已导入 ${ok} 张卡（文件内去重 ${dup}）",
+        "obImportFail": "导入失败：${m}",
+        "obImportMismatch": "落块数（${a}）与卡数（${b}）不一致，已中止以防错位",
+        "obImportNbName": "Obsidian SR Import"
     },
     "hubTabOverview": "总览",
     "hubTabError": "该子页出现错误，已隔离在边界内",

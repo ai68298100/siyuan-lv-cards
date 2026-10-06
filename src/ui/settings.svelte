@@ -3,7 +3,7 @@
     import { showMessage } from "siyuan";
     import { MODULE_DEFS } from "@/core/modules";
     import { PERSONA_PRESETS, type PersonaPreset } from "@/core/personas";
-    import { confirmDialog } from "@/libs/dialog";
+    import { confirmDialog, confirmDialogBool } from "@/libs/dialog";
     import type { LvCardsSettings } from "@/core/settings";
     import LvSection from "./kit/LvSection.svelte";
     import LvRow from "./kit/LvRow.svelte";
@@ -23,6 +23,8 @@
     import { parseAnkiPackage } from "@/core/anki-package";
     import { buildImportPreview } from "@/core/anki-preview";
     import { composeImportMarkdown, pairImportedBlocks, partitionNew, normalizeLedger, mergeLedger } from "@/core/anki-import";
+    // Obsidian SR 导入（v0.202.0）：块级解析 → 计划（去重/剥 tag）→ 一卡一段落落库 → 按序对位
+    import { planObsidianImport, composeObsidianImportMarkdown } from "@/core/obsidian-import";
 
     export interface SettingsCtx {
         i18n: any;
@@ -96,8 +98,62 @@
     let ankiStatus = $state<{ kind: "info" | "warn" | "error"; text: string } | null>(null);
     // Anki M3：损失明细（导入完成时可一键复制）
     let ankiLosses = $state<string[]>([]);
-    async function importAnki(e: Event) {
+    /** Obsidian SR 导入（v0.202.0）：解析计划 → 确认 → 建文档（一卡一段落）→ 按序对位入新卡组。
+     * 数量不符即中止（防错位）；双向卡按正向导入（诚实计数）；无跨运行台账（无稳定 ID，重复导入会重复建卡）。 */
+    let obBusy = $state(false);
+    let obStatus = $state<{ kind: "info" | "warn"; text: string } | null>(null);
+    async function importObsidian(e: Event) {
         const input = e.target as HTMLInputElement;
+        const file = input.files?.[0];
+        input.value = "";
+        if (!file || obBusy) { return; }
+        obBusy = true;
+        obStatus = null;
+        try {
+            const plan = planObsidianImport(await file.text());
+            if (plan.cards.length === 0) {
+                obStatus = { kind: "info", text: t.settings.obImportNone };
+                return;
+            }
+            const base = file.name.replace(/\.(md|markdown)$/i, "");
+            const summary = (t.settings.obImportConfirm || "")
+                .replace("${n}", String(plan.cards.length))
+                .replace("${qa}", String(plan.cards.filter(c => c.kind === "qa").length))
+                .replace("${cloze}", String(plan.cards.filter(c => c.kind === "cloze").length))
+                .replace("${rev}", String(plan.reversed))
+                .replace("${dup}", String(plan.duplicates))
+                .replace("${deck}", `Obsidian: ${base}`);
+            const ok = await confirmDialogBool({
+                title: t.settings.obImportLabel,
+                content: `<div class="b3-typography">${summary}</div>`,
+            });
+            if (!ok) { return; }
+            // 落点笔记本：存在同名即用，缺失创建（与 Anki 导入同模式）
+            const nbName = t.settings.obImportNbName || "Obsidian SR Import";
+            const boxes = await getNotebooks();
+            let nbId = boxes.find((b) => b.name === nbName)?.id;
+            if (!nbId) { nbId = (await createNotebook(nbName)) ?? ""; }
+            const docID = await createDocWithMd(nbId, `Obsidian SR/${base} ${new Date().toISOString().slice(0, 10)}`, composeObsidianImportMarkdown(plan.cards));
+            if (!docID) { throw new Error("createDocWithMd 返回空"); }
+            // 一卡一段落对位：数量不符中止（防错位，诚实失败）
+            const blockRows = await sqlQuery(`SELECT id FROM blocks WHERE root_id='${docID}' AND type IN ('p','h','u','o') ORDER BY sort`);
+            if (blockRows.length !== plan.cards.length) {
+                throw new Error((t.settings.obImportMismatch || "落块数 ${a} 与卡数 ${b} 不一致，已中止")
+                    .replace("${a}", String(blockRows.length)).replace("${b}", String(plan.cards.length)));
+            }
+            const blockIDs = blockRows.map((r) => String(r.id));
+            const deck = await createRiffDeck(`Obsidian: ${base}`) as any;
+            const deckID = deck?.id ?? deck?.deck?.id ?? "";
+            await addRiffCards(deckID, blockIDs);
+            obStatus = { kind: "info", text: (t.settings.obImportDone || "已导入 ${ok} 张（去重 ${dup}）").replace("${ok}", String(blockIDs.length)).replace("${dup}", String(plan.duplicates)) };
+        } catch (e: any) {
+            obStatus = { kind: "warn", text: (t.settings.obImportFail || "导入失败：${m}").replace("${m}", e?.message ?? String(e)) };
+        } finally {
+            obBusy = false;
+        }
+    }
+
+    async function importAnki(e: Event) {        const input = e.target as HTMLInputElement;
         const file = input.files?.[0];
         input.value = "";
         if (!file || ankiBusy) return;
@@ -841,6 +897,21 @@
                         >{t.settings.ankiLossCopy}</button>
                     {/if}
                 </div>
+            </div>
+        {/if}
+        <!-- Obsidian SR 导入（v0.202.0）：#flashcards/::/:::/==挖空== md → 一卡一段落落库 → 按序对位入新卡组 -->
+        <LvRow label={t.settings.obImportLabel} hint={t.settings.obImportHint}>
+            {#snippet children()}
+                {#if obBusy}<span class="ft__smaller ft__on-surface">{t.settings.ankiImportParsing}</span>{/if}
+                <label class="b3-button b3-button--outline" style="cursor: pointer;{obBusy ? ' pointer-events: none; opacity: .6;' : ''}">
+                    <input type="file" accept=".md,.markdown,text/markdown" style="display: none" disabled={obBusy} onchange={importObsidian} />
+                    {t.settings.obImportPick}
+                </label>
+            {/snippet}
+        </LvRow>
+        {#if obStatus}
+            <div class="lv-notice {obStatus.kind === 'info' ? '' : 'lv-notice--warn'}">
+                <span>{obStatus.text}</span>
             </div>
         {/if}
     </LvSection>
