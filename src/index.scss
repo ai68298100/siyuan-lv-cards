@@ -127,13 +127,12 @@
     &--good { background: var(--lv-good-soft); color: var(--b3-theme-success, var(--b3-theme-primary)); border-color: transparent; }
 }
 
-// 卡片：微渐变面 + 派生边框 + 双档海拔 + 顶部发丝高光（质感细节）
+// 卡片：微渐变面 + 派生边框（R52 .panel：扁平 1px 描边分层，无静态阴影；hover 才升起）
 .lv-card2 {
     background: var(--lv-surface-grad);
     border: 1px solid var(--lv-border);
     border-radius: var(--lv-r-l);
-    box-shadow: var(--lv-shadow-1), inset 0 1px 0 color-mix(in srgb, white 5%, transparent);
-    padding: var(--lv-sp-4);
+    padding: 20px;
     transition: box-shadow var(--lv-dur-2) var(--lv-ease), transform var(--lv-dur-2) var(--lv-ease),
         border-color var(--lv-dur-2) var(--lv-ease);
 }
@@ -184,18 +183,14 @@
     .lv-anim-glow { animation: lv-glow var(--lv-dur-3) var(--lv-ease) both; }
 }
 
-// 展示数字：主色渐变文字 + 表格数字
+// 展示数字（R52 .stat .num）：ink 实色、29px/650、-.035em、表格数字——不用主色渐变（原型口径）
 .lv-hero-num {
-    font-size: 30px;
-    font-weight: 700;
-    line-height: 1.15;
+    font-size: 29px;
+    font-weight: 650;
+    line-height: 1.35;
     font-variant-numeric: tabular-nums;
-    letter-spacing: -0.02em;
-    background: linear-gradient(135deg, var(--b3-theme-primary),
-            color-mix(in srgb, var(--b3-theme-primary) 55%, var(--b3-theme-warning)));
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+    letter-spacing: -0.035em;
+    color: var(--b3-theme-on-background);
 }
 
 // 区块标题行（R52 .panel h3：15px/650）
@@ -268,32 +263,38 @@
     &::-webkit-scrollbar-track { background: transparent; }
 }
 
-// ---- 二级页签（闪卡中心子导航，LvTabs） ----
+// ---- 中心导航页签（R52 .app-tabs：文字 tab + 2px 主色底线，非分段胶囊） ----
 .lv-tabs {
-    display: inline-flex;
-    gap: 4px;
-    padding: 3px;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--b3-theme-on-background) 6%, transparent);
+    display: flex;
+    align-items: stretch;
+    gap: 2px;
+    border-bottom: 1px solid var(--lv-border);
+    margin-bottom: var(--lv-sp-4);
 
     .lv-tab {
         border: none;
         background: transparent;
         color: var(--b3-theme-on-surface);
         font-size: 13px;
-        padding: 5px 14px;
-        border-radius: 999px;
+        padding: 9px 16px;
+        border-radius: 0;
+        position: relative;
         cursor: pointer;
-        transition: background var(--lv-dur-2) var(--lv-ease),
-            color var(--lv-dur-2) var(--lv-ease), box-shadow var(--lv-dur-2) var(--lv-ease);
+        transition: color var(--lv-dur-2) var(--lv-ease);
 
         &:hover { color: var(--b3-theme-on-background); }
 
-        &.lv-tab-active {
-            background: var(--b3-theme-surface);
-            color: var(--b3-theme-on-background);
-            font-weight: 600;
-            box-shadow: var(--lv-shadow-1);
+        &.lv-tab-active { color: var(--b3-theme-on-background); font-weight: 650; }
+
+        // 2px 主色底线（R52 .app-tabs button.active:after，左右 16px 内缩）
+        &.lv-tab-active::after {
+            content: "";
+            position: absolute;
+            height: 2px;
+            background: var(--b3-theme-primary);
+            bottom: -1px;
+            left: 16px;
+            right: 16px;
         }
     }
 }
@@ -418,6 +419,12 @@
     display: flex;
 
     > * { flex: 1; }
+
+    // R52 .stat：radius 12 + 19/20 留白（嵌套时外大内小）
+    .lv-card2 {
+        border-radius: var(--lv-r-m);
+        padding: 19px 20px;
+    }
 }
 
 // T01 今日行动 hero（R52 .hero）：brand-soft 面、30px 留白、徽章行 + 24px 题 + muted 描述 + CTA 行

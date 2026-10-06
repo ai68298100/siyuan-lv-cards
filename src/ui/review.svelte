@@ -2080,21 +2080,14 @@
                 grid-template-columns: 1fr 1fr;
                 .lv-btn-rate { max-width: none; }
             }
-            .lv-b1 {
-                background: var(--lv-danger-soft); color: var(--b3-theme-error);
-                &:hover { background: color-mix(in srgb, var(--b3-theme-error) 18%, transparent); }
-            }
-            .lv-b2 {
-                background: var(--lv-warn-soft); color: var(--b3-theme-warning);
-                &:hover { background: color-mix(in srgb, var(--b3-theme-warning) 20%, transparent); }
-            }
-            .lv-b3 {
-                background: var(--lv-primary-soft); color: var(--b3-theme-primary);
-                &:hover { background: color-mix(in srgb, var(--b3-theme-primary) 18%, transparent); }
-            }
-            .lv-b4 {
-                background: var(--lv-primary-soft); color: var(--b3-theme-primary);
-                &:hover { background: color-mix(in srgb, var(--b3-theme-primary) 18%, transparent); }
+            // R52 .rating button：白面 1px 描边、ink 标签、muted 间隔——不做彩色底（对齐原型）
+            .lv-b1, .lv-b2, .lv-b3, .lv-b4 {
+                background: var(--b3-theme-surface);
+                color: var(--b3-theme-on-background);
+                &:hover {
+                    background: color-mix(in srgb, var(--b3-theme-on-background) 4%, transparent);
+                    border-color: var(--lv-border-strong);
+                }
             }
         }
 

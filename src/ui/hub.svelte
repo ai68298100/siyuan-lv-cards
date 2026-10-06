@@ -162,13 +162,20 @@
         active = id;
         onTabChange?.(id);
     }
+
+    // T01 页头日期（R52 .page-head 的 eyebrow 口径）：本地日期 YYYY.MM.DD，跨天自检翻转
+    const todayLabel = $derived.by(() => {
+        const d = new Date();
+        return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
+    });
 </script>
 
 <div class="lv-hub">
     <!-- T01 页头语义（R52 .page-head）：eyebrow + 页题 + 副题，页签栏之上 -->
     <div class="lv-pagehead">
         <div>
-            <div class="lv-eyebrow">{i18n.topbarTitle}</div>
+            <!-- T01 页头语义（R52 .page-head）：TODAY/日期 eyebrow（日期每分钟自检翻转） -->
+            <div class="lv-eyebrow">TODAY / {todayLabel}</div>
             <div class="lv-pagehead-title">{i18n.menuDashboard}</div>
             <p class="lv-pagehead-sub">{i18n.hubTagline}</p>
         </div>

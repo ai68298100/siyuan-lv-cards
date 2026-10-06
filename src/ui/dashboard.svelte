@@ -823,8 +823,11 @@
         justify-content: space-between;
         gap: var(--lv-sp-2);
         font-size: 13px;
-        padding: var(--lv-sp-1) 0;
+        /* R52 .row：16px 行距 + 发丝分隔线（末行无线） */
+        padding: var(--lv-sp-4) 0;
+        border-bottom: 1px solid var(--lv-border);
     }
+    .lv-todo-row:last-child { border-bottom: none; }
     .lv-unfinished-ai {
         display: block;
         width: 100%;
