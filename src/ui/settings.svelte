@@ -19,12 +19,12 @@
     // Anki M3：本地 .apkg 导入（docs/39 §3）——宿主适配 + 解析/预览/编排
     import { detectSqlite, openSqliteFile } from "@/api/anki-host";
     import { getNotebooks, createNotebook, createDocWithMd, sqlQuery } from "@/api/siyuan";
-    import { createRiffDeck, addRiffCards } from "@/api/riff";
+    import { createRiffDeck, addRiffCards, getRiffDecks } from "@/api/riff";
     import { parseAnkiPackage } from "@/core/anki-package";
     import { buildImportPreview } from "@/core/anki-preview";
     import { composeImportMarkdown, pairImportedBlocks, partitionNew, normalizeLedger, mergeLedger } from "@/core/anki-import";
     // Obsidian SR 导入（v0.202.0）：块级解析 → 计划（去重/剥 tag）→ 一卡一段落落库 → 按序对位
-    import { planObsidianImport, composeObsidianImportMarkdown } from "@/core/obsidian-import";
+    import { planObsidianImport, composeObsidianImportMarkdown, deckNameFor, groupByDeckHint, partitionByLedger, normalizeObLedger, mergeObLedger, type ObLedgerEntry } from "@/core/obsidian-import";
 
     export interface SettingsCtx {
         i18n: any;
@@ -46,6 +46,11 @@
         };
         /** Anki M3：guid 导入台账（幂等重导）；可选——旧宿主不传则不持久化 */
         ankiLedger?: {
+            load: () => Promise<unknown>;
+            save: (entries: unknown) => Promise<void>;
+        };
+        /** Obsidian SR 导入弱台账（指纹幂等重导）；可选——旧宿主不传则不持久化 */
+        obLedger?: {
             load: () => Promise<unknown>;
             save: (entries: unknown) => Promise<void>;
         };
@@ -98,8 +103,8 @@
     let ankiStatus = $state<{ kind: "info" | "warn" | "error"; text: string } | null>(null);
     // Anki M3：损失明细（导入完成时可一键复制）
     let ankiLosses = $state<string[]>([]);
-    /** Obsidian SR 导入（v0.202.0）：解析计划 → 确认 → 建文档（一卡一段落）→ 按序对位入新卡组。
-     * 数量不符即中止（防错位）；双向卡按正向导入（诚实计数）；无跨运行台账（无稳定 ID，重复导入会重复建卡）。 */
+    /** Obsidian SR 导入（W2）：台账幂等分区 → 确认 → 建文档（一卡一段落）→ 按序对位 → deckHint 分卡组入组。
+     * 数量不符即中止（防错位）；双向卡按正向导入（诚实计数）。 */
     let obBusy = $state(false);
     let obStatus = $state<{ kind: "info" | "warn"; text: string } | null>(null);
     async function importObsidian(e: Event) {
@@ -115,37 +120,69 @@
                 obStatus = { kind: "info", text: t.settings.obImportNone };
                 return;
             }
+            const rawLedger = ctx.obLedger ? await ctx.obLedger.load() : [];
+            const ledger = normalizeObLedger(rawLedger);
+            const { fresh, already } = partitionByLedger(plan.cards, ledger);
+            if (fresh.length === 0) {
+                obStatus = { kind: "info", text: (t.settings.obImportDone || "已导入 ${ok} 张（文件内去重 ${dup}）").replace("${ok}", "0").replace("${dup}", String(plan.duplicates)).replace("${skip}", String(already.length)) };
+                return;
+            }
             const base = file.name.replace(/\.(md|markdown)$/i, "");
             const summary = (t.settings.obImportConfirm || "")
                 .replace("${n}", String(plan.cards.length))
-                .replace("${qa}", String(plan.cards.filter(c => c.kind === "qa").length))
-                .replace("${cloze}", String(plan.cards.filter(c => c.kind === "cloze").length))
+                .replace("${qa}", String(fresh.filter(c => c.kind === "qa").length))
+                .replace("${cloze}", String(fresh.filter(c => c.kind === "cloze").length))
                 .replace("${rev}", String(plan.reversed))
-                .replace("${dup}", String(plan.duplicates))
-                .replace("${deck}", `Obsidian: ${base}`);
-            const ok = await confirmDialogBool({
+                .replace("${dup}", String(plan.duplicates + already.length))
+                .replace("${skip}", String(already.length))
+                .replace("${deck}", deckNameFor(base, ""));
+            const okGo = await confirmDialogBool({
                 title: t.settings.obImportLabel,
                 content: `<div class="b3-typography">${summary}</div>`,
             });
-            if (!ok) { return; }
+            if (!okGo) { return; }
             // 落点笔记本：存在同名即用，缺失创建（与 Anki 导入同模式）
             const nbName = t.settings.obImportNbName || "Obsidian SR Import";
             const boxes = await getNotebooks();
             let nbId = boxes.find((b) => b.name === nbName)?.id;
             if (!nbId) { nbId = (await createNotebook(nbName)) ?? ""; }
-            const docID = await createDocWithMd(nbId, `Obsidian SR/${base} ${new Date().toISOString().slice(0, 10)}`, composeObsidianImportMarkdown(plan.cards));
+            const docID = await createDocWithMd(nbId, `Obsidian SR/${base} ${new Date().toISOString().slice(0, 10)}`, composeObsidianImportMarkdown(fresh));
             if (!docID) { throw new Error("createDocWithMd 返回空"); }
             // 一卡一段落对位：数量不符中止（防错位，诚实失败）
             const blockRows = await sqlQuery(`SELECT id FROM blocks WHERE root_id='${docID}' AND type IN ('p','h','u','o') ORDER BY sort`);
-            if (blockRows.length !== plan.cards.length) {
+            if (blockRows.length !== fresh.length) {
                 throw new Error((t.settings.obImportMismatch || "落块数 ${a} 与卡数 ${b} 不一致，已中止")
-                    .replace("${a}", String(blockRows.length)).replace("${b}", String(plan.cards.length)));
+                    .replace("${a}", String(blockRows.length)).replace("${b}", String(fresh.length)));
             }
             const blockIDs = blockRows.map((r) => String(r.id));
-            const deck = await createRiffDeck(`Obsidian: ${base}`) as any;
-            const deckID = deck?.id ?? deck?.deck?.id ?? "";
-            await addRiffCards(deckID, blockIDs);
-            obStatus = { kind: "info", text: (t.settings.obImportDone || "已导入 ${ok} 张（去重 ${dup}）").replace("${ok}", String(blockIDs.length)).replace("${dup}", String(plan.duplicates)) };
+            // deckHint 分卡组：同名牌组复用，缺失创建；blockID 按全局序归组
+            const existingDecks = await getRiffDecks();
+            const deckIdByName = new Map<string, string>();
+            for (const d of existingDecks) {
+                deckIdByName.set(d.name, d.id);
+            }
+            const now = Date.now();
+            const ledgerAdditions: ObLedgerEntry[] = [];
+            let cursor = 0;
+            let added = 0;
+            for (const group of groupByDeckHint(fresh)) {
+                const name = deckNameFor(base, group.hint);
+                let deckID = deckIdByName.get(name) ?? "";
+                if (!deckID) {
+                    const deck = await createRiffDeck(name) as any;
+                    deckID = deck?.id ?? deck?.deck?.id ?? "";
+                    deckIdByName.set(name, deckID);
+                }
+                const groupBlocks = blockIDs.slice(cursor, cursor + group.cards.length);
+                cursor += group.cards.length;
+                await addRiffCards(deckID, groupBlocks);
+                added += groupBlocks.length;
+                group.cards.forEach((c, i) => ledgerAdditions.push({ fingerprint: c.fingerprint, deckID, blockID: groupBlocks[i] ?? "", importedAt: now }));
+            }
+            if (ctx.obLedger) {
+                await ctx.obLedger.save(mergeObLedger(normalizeObLedger(rawLedger), ledgerAdditions));
+            }
+            obStatus = { kind: "info", text: (t.settings.obImportDone || "已导入 ${ok} 张（文件内去重 ${dup}）").replace("${ok}", String(added)).replace("${dup}", String(plan.duplicates)).replace("${skip}", String(already.length)) };
         } catch (e: any) {
             obStatus = { kind: "warn", text: (t.settings.obImportFail || "导入失败：${m}").replace("${m}", e?.message ?? String(e)) };
         } finally {

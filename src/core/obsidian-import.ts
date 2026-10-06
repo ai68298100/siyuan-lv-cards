@@ -126,3 +126,74 @@ export function planObsidianImport(md: string, opts: SrParseOptions = {}): Obsid
 export function composeObsidianImportMarkdown(cards: ObsidianImportCard[]): string {
     return cards.map(c => c.markdown).join("\n\n");
 }
+
+// ---------- W2：deckHint 分组落库 + 跨运行弱台账（幂等重导） ----------
+
+/** 卡组命名：根 → 「Obsidian: <base>」；子路径 → 「Obsidian: <base>/<hint>」（riff 卡组名为扁平字符串） */
+export function deckNameFor(base: string, hint: string): string {
+    return hint ? `Obsidian: ${base}/${hint}` : `Obsidian: ${base}`;
+}
+
+/** 按 deckHint 分组（保持计划内首次出现顺序） */
+export function groupByDeckHint(cards: ObsidianImportCard[]): { hint: string; cards: ObsidianImportCard[] }[] {
+    const order: string[] = [];
+    const map = new Map<string, ObsidianImportCard[]>();
+    for (const c of cards) {
+        const hint = c.deckHint;
+        if (!map.has(hint)) {
+            map.set(hint, []);
+            order.push(hint);
+        }
+        map.get(hint)!.push(c);
+    }
+    return order.map(hint => ({ hint, cards: map.get(hint)! }));
+}
+
+/** 弱台账条目：指纹 → 落点（无 Obsidian 稳定 ID，指纹即幂等键；不含卡片原文） */
+export interface ObLedgerEntry {
+    fingerprint: string;
+    deckID: string;
+    blockID: string;
+    importedAt: number;
+}
+
+const OB_LEDGER_CAP = 50000;
+
+/** 台账清洗：fingerprint/blockID 必须非空、指纹去重（保留最新 importedAt）、限量 */
+export function normalizeObLedger(raw: unknown, cap = OB_LEDGER_CAP): ObLedgerEntry[] {
+    const list = Array.isArray(raw) ? raw : [];
+    const byFp = new Map<string, ObLedgerEntry>();
+    for (const item of list) {
+        const e = item as Partial<ObLedgerEntry>;
+        if (typeof e?.fingerprint !== "string" || !e.fingerprint || typeof e?.blockID !== "string" || !e.blockID) {
+            continue;
+        }
+        const prev = byFp.get(e.fingerprint);
+        const at = typeof e.importedAt === "number" && e.importedAt > 0 ? e.importedAt : 0;
+        if (!prev || (prev.importedAt <= at && at > 0)) {
+            byFp.set(e.fingerprint, {
+                fingerprint: e.fingerprint,
+                deckID: typeof e.deckID === "string" ? e.deckID : "",
+                blockID: e.blockID,
+                importedAt: at,
+            });
+        }
+    }
+    return [...byFp.values()].slice(-cap);
+}
+
+/** 台账合并：新条目覆盖同指纹旧条目（幂等重导更新落点） */
+export function mergeObLedger(current: ObLedgerEntry[], additions: ObLedgerEntry[], cap = OB_LEDGER_CAP): ObLedgerEntry[] {
+    return normalizeObLedger([...current, ...additions], cap);
+}
+
+/** 计划分区：fresh=待导入；already=台账已有指纹（幂等跳过） */
+export function partitionByLedger(cards: ObsidianImportCard[], ledger: ObLedgerEntry[]): { fresh: ObsidianImportCard[]; already: ObsidianImportCard[] } {
+    const known = new Set(ledger.map(e => e.fingerprint));
+    const fresh: ObsidianImportCard[] = [];
+    const already: ObsidianImportCard[] = [];
+    for (const c of cards) {
+        (known.has(c.fingerprint) ? already : fresh).push(c);
+    }
+    return { fresh, already };
+}

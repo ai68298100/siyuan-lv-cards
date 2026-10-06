@@ -642,10 +642,10 @@
         "backupHint": "Exports all plugin data as a single snapshot file (includes review log and card version history — kept locally by you, never uploaded); restore previews the diff and asks for confirmation first — export your current state beforehand so you can roll back",
         "obImportLabel": "Obsidian SR import (.md)",
         "obImportPick": "Choose Markdown file",
-        "obImportHint": "Recognizes Obsidian Spaced Repetition syntax: #flashcards tags, single-line \"Q :: A\", multi-line ? blocks, ==cloze==; reversed cards import as forward-only; in-file duplicates skipped (no cross-run ledger — re-importing creates duplicates)",
-        "obImportConfirm": "Parsed ${n} cards: Q&A ${qa} (reversed-as-forward ${rev}) · cloze ${cloze} · in-file duplicates skipped ${dup}. Imports into a new deck \"${deck}\" and the \"Obsidian SR Import\" notebook.",
+        "obImportHint": "Recognizes Obsidian Spaced Repetition syntax: #flashcards tags, single-line \"Q :: A\", multi-line ? blocks, ==cloze==; reversed cards import as forward-only; in-file dedupe + idempotent re-import via ledger (identical content is skipped)",
+        "obImportConfirm": "Parsed ${n} cards: importing ${qa} Q&A (reversed-as-forward ${rev}) · ${cloze} cloze; in-file duplicates ${dup}, ledger-skip ${skip}. Imports into deck \"${deck}\" (#flashcards sub-paths become separate decks) and the \"Obsidian SR Import\" notebook.",
         "obImportNone": "No flashcards found: needs #flashcards tags, single-line \"::\" Q&A, multi-line ? blocks, or ==cloze== syntax",
-        "obImportDone": "Imported ${ok} cards (in-file duplicates ${dup})",
+        "obImportDone": "Imported ${ok} cards (in-file duplicates ${dup}, ledger-skipped ${skip})",
         "obImportFail": "Import failed: ${m}",
         "obImportMismatch": "Block count (${a}) does not match card count (${b}) — aborted to prevent misalignment",
         "obImportNbName": "Obsidian SR Import"

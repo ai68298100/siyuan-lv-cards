@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { parseSrFileBlocks, planObsidianImport, composeObsidianImportMarkdown } from "../src/core/obsidian-import";
+import {
+    parseSrFileBlocks, planObsidianImport, composeObsidianImportMarkdown,
+    deckNameFor, groupByDeckHint, normalizeObLedger, mergeObLedger, partitionByLedger,
+} from "../src/core/obsidian-import";
 
 // Obsidian SR 导入编排：块级解析（多行/单行/挖空混排）、文件内去重、一卡一段落可对位
 describe("obsidian-import（导入编排）", () => {
@@ -72,5 +75,48 @@ describe("obsidian-import（导入编排）", () => {
     it("空文件/无闪卡内容回空计划", () => {
         expect(planObsidianImport("").cards).toEqual([]);
         expect(planObsidianImport("普通笔记段落，没有闪卡语法。").cards).toEqual([]);
+    });
+});
+
+// W2：deckHint 分组落库 + 跨运行弱台账（幂等重导）
+describe("obsidian-import W2（分组与台账）", () => {
+    it("deckNameFor：根与子路径两种命名", () => {
+        expect(deckNameFor("笔记", "")).toBe("Obsidian: 笔记");
+        expect(deckNameFor("笔记", "物理/光学")).toBe("Obsidian: 笔记/物理/光学");
+    });
+
+    it("groupByDeckHint：按首现顺序分组，根组跟随其首现位置", () => {
+        const plan = planObsidianImport("A :: 1 #flashcards/物理\n\nB :: 2\n\nC :: 3 #flashcards/物理");
+        const groups = groupByDeckHint(plan.cards);
+        expect(groups.map(g => g.hint)).toEqual(["物理", ""]);
+        expect(groups[0].cards).toHaveLength(2);
+        expect(groups[1].cards).toHaveLength(1);
+    });
+
+    it("台账清洗：坏条目剔除、同指纹保留最新、限量", () => {
+        const raw = [
+            { fingerprint: "f1", deckID: "d1", blockID: "b1", importedAt: 100 },
+            { fingerprint: "f1", deckID: "d2", blockID: "b2", importedAt: 200 }, // 更新落点
+            { fingerprint: "", blockID: "b3", importedAt: 300 },          // 剔除
+            { fingerprint: "f4", deckID: "d", blockID: "", importedAt: 400 }, // 剔除
+            { fingerprint: "f5", blockID: "b5" },                          // importedAt 缺省 0
+        ];
+        const ledger = normalizeObLedger(raw);
+        expect(ledger).toHaveLength(2);
+        expect(ledger.find(e => e.fingerprint === "f1")?.deckID).toBe("d2");
+        const many = Array.from({ length: 60000 }, (_, i) => ({ fingerprint: `f${i}`, blockID: `b${i}`, importedAt: i }));
+        expect(normalizeObLedger(many)).toHaveLength(50000);
+    });
+
+    it("merge 覆盖同指纹；partition：台账已有指纹进 already、其余 fresh", () => {
+        const current = normalizeObLedger([{ fingerprint: "f1", deckID: "d0", blockID: "b0", importedAt: 1 }]);
+        const merged = mergeObLedger(current, [{ fingerprint: "f1", deckID: "d1", blockID: "b1", importedAt: 2 }, { fingerprint: "f2", blockID: "b2", importedAt: 2 }]);
+        expect(merged).toHaveLength(2);
+        expect(merged.find(e => e.fingerprint === "f1")?.blockID).toBe("b1");
+
+        const plan = planObsidianImport("A :: 1\n\nB :: 2\n\nC :: 3");
+        const { fresh, already } = partitionByLedger(plan.cards, normalizeObLedger([{ fingerprint: plan.cards[1].fingerprint, blockID: "bx", importedAt: 9 }]));
+        expect(already.map(c => c.markdown)).toEqual(["B ==2=="]);
+        expect(fresh).toHaveLength(2);
     });
 });
