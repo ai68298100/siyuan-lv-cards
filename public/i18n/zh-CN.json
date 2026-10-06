@@ -637,7 +637,9 @@
         "aiCostUsed": "本月已用 ${n} tokens",
         "exportCostLedger": "AI 用量账本（导出 / 清空）",
         "clearCostLedger": "清空账本",
-        "clearCostLedgerConfirm": "清空后本月用量与预算从零重计；不影响已创建的卡片与批次记录。"
+        "clearCostLedgerConfirm": "清空后本月用量与预算从零重计；不影响已创建的卡片与批次记录。",
+        "backupExport": "备份与恢复（导出 / 导入恢复）",
+        "backupHint": "导出全部插件数据为单文件快照（含复习日志/卡面版本等内容，请自行保管，不上传）；恢复前会先预览差异并二次确认——建议恢复前先导出一份当前状态用于回滚"
     },
     "hubTabOverview": "总览",
     "hubTabError": "该子页出现错误，已隔离在边界内",
@@ -1341,5 +1343,15 @@
             "repair-drill": "本入口从不使用 AI，也不访问网络",
             "no-ai": "所有核心功能（复习、调度、统计、导入导出）无需 AI 即可完整使用"
         }
+    },
+    "backup": {
+        "restoreTitle": "确认恢复备份",
+        "restoreWarn": "备份创建于 ${created}。恢复将覆盖 ${r} 项、新增 ${a} 项、保持 ${u} 项不变：",
+        "actReplace": "覆盖",
+        "actAdd": "新增",
+        "actUnchanged": "保持",
+        "restoreDone": "备份已恢复，数据已重载",
+        "badBundle": "备份文件校验未通过",
+        "badJson": "文件不是有效的 JSON"
     }
 }

@@ -54,6 +54,7 @@ import { fnv1a } from "./core/ai-provenance";
 import { isSelectableModel, estimateCallCostUsd } from "./core/ai-model-registry";
 import { budgetState, emptyCostLedger, normalizeCostLedger, recordEntry, aggregateByModel, aggregateByDay, type CostLedgerData } from "./core/ai-cost-ledger";
 import { MODEL_PRICE_SNAPSHOT } from "./core/ai-model-registry";
+import { buildBackupBundle, previewRestore } from "./core/backup";
 import { parseRevlogCsv } from "./core/revlog-csv";
 import { normalizeSessionState, type SessionState } from "./core/session-state";
 import { normalizeExamPlans, daysLeft, examReportStats, type ExamPlan, type ExamPlansData } from "./core/exam";
@@ -2671,6 +2672,11 @@ export default class LvCardsPlugin extends Plugin {
                         clear: () => this.clearCostLedger(),
                         monthUsed: () => budgetState(this.costLedger, { enabled: false, monthlyTokenCap: 0 }).monthUsed,
                     },
+                    // 备份与恢复中心（docs/38 P2）：导出 bundle / 从文件恢复（预览→确认→应用）
+                    backup: {
+                        export: () => this.exportBackup(),
+                        restore: (text: string) => this.restoreBackupFromFile(text),
+                    },
                     // Anki M3：guid 导入台账（幂等重导）——启动已装载，读写内存副本
                     ankiLedger: {
                         load: async () => this.ankiLedger,
@@ -2825,6 +2831,62 @@ export default class LvCardsPlugin extends Plugin {
         this.costLedger = emptyCostLedger();
         this.persist.save(AI_COST_LEDGER_DATA, this.costLedger).catch(() => { /* onFail 已记录 */ });
         showMessage(this.i18n.settingsSaved, 2000, "info");
+    }
+
+    /** 备份与恢复中心：导出全部私有存储为单文件 bundle（manifest 含校验和；含用户内容，用户自管） */
+    private exportBackup() {
+        void (async () => {
+            const files = await this.readAllStores();
+            const bundle = buildBackupBundle(files);
+            const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `lv-cards-backup-${localDate(Date.now())}.json`;
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        })();
+    }
+
+    /** 备份与恢复中心：导入恢复——预览（校验+逐 key 对比）→ 确认 → 队列落盘 → 内存重载。
+     * 预览失败直接抛可读原因（不改任何状态）；确认前当前状态不受影响（可先导出回滚）。 */
+    private async restoreBackupFromFile(text: string) {
+        let parsed: unknown;
+        try {
+            parsed = JSON.parse(text);
+        } catch {
+            throw new Error((this.i18n as any).backup?.badJson ?? "invalid JSON");
+        }
+        const current = await this.readAllStores();
+        const preview = previewRestore(parsed, current, [...LvCardsPlugin.STORE_KEYS]);
+        const dict = (this.i18n as any).backup ?? {};
+        if (!preview.ok) {
+            throw new Error(`${dict.badBundle ?? "backup rejected"}: ${preview.errors.slice(0, 3).join("; ")}`);
+        }
+        const actLabel = { replace: dict.actReplace ?? "overwrite", add: dict.actAdd ?? "add", unchanged: dict.actUnchanged ?? "keep" } as const;
+        const rows = preview.perKey
+            .slice(0, 12)
+            .map(k => `<li>${actLabel[k.action]} · ${k.key}</li>`)
+            .join("") + (preview.perKey.length > 12 ? `<li>… +${preview.perKey.length - 12}</li>` : "");
+        const created = preview.createdAt ? new Date(preview.createdAt).toLocaleString() : "—";
+        const ok = await confirmDialogBool({
+            title: dict.restoreTitle ?? "Restore backup",
+            content: `<div class="b3-typography"><p>${(dict.restoreWarn ?? "").replace("${created}", created)
+                .replace("${r}", String(preview.summary.replace))
+                .replace("${a}", String(preview.summary.add))
+                .replace("${u}", String(preview.summary.unchanged))}</p><ul>${rows}</ul></div>`,
+        });
+        if (!ok) {
+            return;
+        }
+        for (const key of Object.keys(preview.files)) {
+            await this.persist.save(key, preview.files[key]);
+        }
+        // 内存态与磁盘对齐（重载走与 onload 同一装配路径）
+        await this.applyLoadedStores(await this.readAllStores());
+        this.refreshDueBadge();
+        showMessage(dict.restoreDone ?? "restored", 2500, "info");
+        lvLog("info", `[backup] restored ${Object.keys(preview.files).length} files (replace=${preview.summary.replace} add=${preview.summary.add})`);
     }
 
     /** 学习报告写入思源文档（M5·FR6 深化） */

@@ -637,7 +637,9 @@
         "aiCostUsed": "Used ${n} tokens this month",
         "exportCostLedger": "AI usage ledger (export / clear)",
         "clearCostLedger": "Clear ledger",
-        "clearCostLedgerConfirm": "Clearing resets this month's usage and budget to zero; created cards and batch records are unaffected."
+        "clearCostLedgerConfirm": "Clearing resets this month's usage and budget to zero; created cards and batch records are unaffected.",
+        "backupExport": "Backup & restore (export / import restore)",
+        "backupHint": "Exports all plugin data as a single snapshot file (includes review log and card version history — kept locally by you, never uploaded); restore previews the diff and asks for confirmation first — export your current state beforehand so you can roll back"
     },
     "hubTabOverview": "Overview",
     "hubTabError": "This tab hit an error (contained by the boundary)",
@@ -1341,5 +1343,15 @@
             "repair-drill": "This entry never uses AI and never touches the network",
             "no-ai": "All core features (review, scheduling, stats, import/export) work fully without AI"
         }
+    },
+    "backup": {
+        "restoreTitle": "Confirm backup restore",
+        "restoreWarn": "Backup created at ${created}. Restoring will overwrite ${r}, add ${a}, keep ${u} unchanged:",
+        "actReplace": "overwrite",
+        "actAdd": "add",
+        "actUnchanged": "keep",
+        "restoreDone": "Backup restored and data reloaded",
+        "badBundle": "Backup failed validation",
+        "badJson": "File is not valid JSON"
     }
 }

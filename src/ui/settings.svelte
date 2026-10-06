@@ -31,6 +31,11 @@
         close: () => void;
         exportRevlog: () => void;
         clearRevlog: () => void;
+        /** 备份与恢复中心（可选——旧宿主不传则不显示） */
+        backup?: {
+            export: () => void;
+            restore: (text: string) => Promise<void>;
+        };
         /** BU-24/25：AI 用量账本（可选——旧宿主不传则不显示相关行） */
         costLedger?: {
             export: () => void;
@@ -341,6 +346,30 @@
             }
             input.value = "";
         });
+    }
+
+    /** 备份与恢复中心：从 bundle 文件恢复（宿主内预览→确认→应用；失败 toast 可读原因） */
+    let backupBusy = $state(false);
+    async function restoreBackup(ev: Event) {
+        const input = ev.target as HTMLInputElement;
+        const file = input.files?.[0];
+        input.value = "";
+        if (!file || !ctx.backup || backupBusy) {
+            return;
+        }
+        if (file.size > 20 * 1024 * 1024) {
+            showMessage(t.settings.importTooLarge, 3000, "error");
+            return;
+        }
+        backupBusy = true;
+        try {
+            const text = await file.text();
+            await ctx.backup.restore(text);
+        } catch (e: any) {
+            showMessage(e?.message ?? String(e), 4000, "error");
+        } finally {
+            backupBusy = false;
+        }
     }
 
     function importMerge(ev: Event) {
@@ -881,6 +910,16 @@
                 <input class="b3-button b3-button--outline" type="file" accept=".csv,text/csv" onchange={importCsv} />
             {/snippet}
         </LvRow>
+        {#if ctx.backup}
+            <!-- 备份与恢复中心（docs/38 P2）：导出 bundle 快照 / 从文件恢复（预览→确认→应用） -->
+            <LvRow label={t.settings.backupExport} hint={t.settings.backupHint}>
+                {#snippet children()}
+                    <button class="b3-button b3-button--outline" onclick={ctx.backup.export}>JSON</button>
+                    <input class="b3-button b3-button--outline" type="file" accept=".json,application/json" disabled={backupBusy} onchange={restoreBackup} />
+                    <span class="ft__smaller ft__on-surface">{backupBusy ? "…" : ""}</span>
+                {/snippet}
+            </LvRow>
+        {/if}
         <div class="lv-storage">
             <div class="fn__flex lv-st-head ft__smaller ft__on-surface">
                 <span>file</span><div class="fn__flex-1"></div><span>{t.settings.storageLastWrite}</span>
