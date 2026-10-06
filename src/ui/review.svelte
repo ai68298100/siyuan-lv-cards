@@ -17,6 +17,7 @@
     import { isLongReturn, returnCheck, type ReturnCheckFacts } from "@/core/return-check";
     import { avgSecPerCard, budgetLeftSec, BUDGET_PRESETS, clampBudgetMinutes, estimateCompletable, estimateLeftover, isBudgetExpired } from "@/core/session-budget";
     import { nominateVariant } from "@/core/question-rotation";
+    import { analyzeFaceRichness, faceHintKeys, hasRichContent } from "@/core/card-face";
     import { loadReliefChoices, type LoadChoice } from "@/core/load-relief";
     import { recoveryOptions, type RecoveryOption, type RecoverySnapshot } from "@/core/session-recovery";
     import { triageReturn, RETURN_REASONS, type ReturnReason } from "@/core/return-triage";
@@ -147,6 +148,15 @@
     let errTagCardID = $state("");
     let errTagged = $state(false);
     let cardHtml = $state("");
+    /** AS-3：卡面加载失败占位（区别于队列级 errorMsg——队列保持可用，占位可重试） */
+    let faceError = $state("");
+    /** AS-3：富内容特征提示（随卡面派生） */
+    let faceRich = $derived(cardHtml ? analyzeFaceRichness(cardHtml) : null);
+    let faceHints = $derived(faceRich && hasRichContent(faceRich) ? faceHintKeys(faceRich) : []);
+    function faceHintText(key: string): string {
+        const [, , name] = key.split(".");
+        return (t as any).aiFace?.hint?.[name] ?? key;
+    }
     // 复习范围（M3·FR1）：all | deck:<id> | notebook:<id>
     // 初值语义：范围仅经命令/考试入口传入一次，运行时由用户切换
     // svelte-ignore state_referenced_locally
@@ -335,6 +345,7 @@
                 return; // 已切到新卡，丢弃旧响应
             }
             cardHtml = dom;
+            faceError = "";
             // 打字题期望答案 = 高亮（mark）文本合集；无 mark 则退化为全文
             const holder = document.createElement("div");
             holder.innerHTML = cardHtml;
@@ -359,13 +370,22 @@
                 return;
             }
             if (!cardHtml) {
-                // 新卡首载失败：给出可重试错误态（旧卡面本就不存在）
-                errorMsg = friendlyError(e, t);
+                // AS-3：新卡首载失败 → 卡面占位+可重试（不再整页切错误视图，队列保持可用）
+                faceError = friendlyError(e, t);
             } else {
                 // 刷新失败（已有卡面）：保留旧内容，仅记诊断
                 lvLog("warn", "card DOM refresh failed: " + (e instanceof Error ? e.message : e));
             }
         }
+    }
+
+    /** AS-3：卡面加载失败占位的重试 */
+    async function retryFace() {
+        if (!current || !faceError) {
+            return;
+        }
+        faceError = "";
+        await loadBlockDOM(current.blockID);
     }
 
     function positionOcclusion() {
@@ -555,6 +575,8 @@
         occl = null;
         occlBox = null;
         occlHidden = [];
+        cardHtml = ""; // AS-3：切卡先清卡面——新卡加载失败显示占位而非上一张的残留内容
+        faceError = "";
         cardShownAt = Date.now(); // AQ-13：题面呈现即作答计时起点（与内核「题面到评分」口径一致）
         await loadBlockDOM(card.blockID);
         if (card !== current) {
@@ -1423,7 +1445,25 @@
             <button class="b3-button b3-button--small" onclick={skip}>{t.review.skip}</button>
         </div>
         <div class="lv-card b3-typography" class:lv-anim-glow={showAnswer} bind:this={cardEl} style={`max-width:${eff().cardMaxWidth}px; width:100%; margin:0 auto;`}>
-            <div class="lv-card-content" class:lv-masked={!showAnswer} style={`font-size:${eff().cardFontScale || 1}em`}>{@html cardHtml}</div>
+            {#if !cardHtml && faceError}
+                <!-- AS-3：卡面加载失败占位（不白屏；重试不丢队列位置） -->
+                <div class="lv-center" style="display: flex; flex-direction: column; gap: 10px; align-items: center; justify-content: center; min-height: 220px" role="status">
+                    <span style="font-size: 28px" aria-hidden="true">⚠️</span>
+                    <span class="ft__smaller ft__on-surface" style="text-align: center">{faceError}</span>
+                    <button class="b3-button b3-button--outline b3-button--small" onclick={retryFace}>{t.dashboard.refresh}</button>
+                </div>
+            {:else}
+                <div class="lv-card-content" class:lv-masked={!showAnswer} style={`font-size:${eff().cardFontScale || 1}em`}>{@html cardHtml}</div>
+            {/if}
+            {#if faceHints.length > 0 && !faceError}
+                <!-- AS-3：富内容提示行（特征告知 + 窄屏横滚提示；只读不遮挡） -->
+                <div class="fn__flex fn__flex-wrap ft__smaller ft__on-surface" style="gap: 6px; margin-top: var(--lv-sp-2)" role="note">
+                    {#each faceHints as hintKey (hintKey)}
+                        <span class="b3-chip">{faceHintText(hintKey)}</span>
+                    {/each}
+                    <span class="ft__on-surface">{t.aiFace.scrollHint}</span>
+                </div>
+            {/if}
             {#if occl && occlBox}
                 <!-- 遮罩 overlay：问题态实心（点击逐框显隐），答案态半透明全显 -->
                 <svg
@@ -1878,6 +1918,12 @@
             .lv-occl-overlay {
                 position: absolute;
                 z-index: 1;
+            }
+
+            // AS-3：富内容窄屏横向滚动（表格/长链不撑破卡面）
+            .lv-card-content {
+                overflow-x: auto;
+                max-width: 100%;
             }
 
             .lv-tts-row { display: flex; justify-content: flex-end; margin-top: var(--lv-sp-2); }

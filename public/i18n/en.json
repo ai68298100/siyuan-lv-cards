@@ -1305,5 +1305,41 @@
     },
     "aiCost": {
         "warn": "AI usage reached 80% of the monthly budget"
+    },
+    "aiFace": {
+        "hint": {
+            "formula": "Formula",
+            "image": "Image",
+            "embed": "Embed",
+            "code": "Code",
+            "table": "Table",
+            "longLink": "Long link"
+        },
+        "scrollHint": "Wide content scrolls horizontally inside the card"
+    },
+    "aiEquiv": {
+        "entry": {
+            "cards-generate": "AI card wizard",
+            "leech-rewrite": "Leech AI rewrite",
+            "repair-drill": "Repair drill (zero AI)",
+            "no-ai": "No AI at all"
+        },
+        "alt": {
+            "cards-generate": [
+                "Quick Q&A cards: hand-write each card, saved instantly",
+                "Marker cards: write \"term::definition\" or \"?\" lines in notes, batch-import",
+                "Anki import: migrate an existing Anki deck in bulk"
+            ],
+            "leech-rewrite": [
+                "Manual rewrite: open the card source and rewrite the question yourself (see the repair drill for the method)",
+                "Delete and recreate: remove the leech card and redo it with quick-card"
+            ]
+        },
+        "loss": {
+            "cards-generate": "The alternatives require extracting Q&A yourself and take longer; AI batch extraction and rephrasing have no substitute",
+            "leech-rewrite": "The alternatives lack AI rewrite suggestions, but keep the full review history (formal scheduling is unaffected)",
+            "repair-drill": "This entry never uses AI and never touches the network",
+            "no-ai": "All core features (review, scheduling, stats, import/export) work fully without AI"
+        }
     }
 }
