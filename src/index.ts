@@ -1674,7 +1674,12 @@ export default class LvCardsPlugin extends Plugin {
     }
 
     /** 示例工作区（476）：创建 5 张不同形态的示例卡（普通/公式/挖空/列表/问答）并入「示例卡组」 */
+    private sampleWsBusy = false;
     private async createSampleWorkspace() {
+        if (this.sampleWsBusy) {
+            return; // AR-4：并发双击防重入
+        }
+        this.sampleWsBusy = true;
         try {
             const nb = await this.targetNotebook();
             if (!nb) {
@@ -1692,6 +1697,14 @@ export default class LvCardsPlugin extends Plugin {
             if (!docID) {
                 throw new Error(this.i18n.quickCardFail);
             }
+            // AR-4：已存在示例块则跳过创建（重试/重复点击不重复建卡）
+            const escapedDoc = docID.replace(/'/g, "''");
+            const existing = await sqlQuery(`SELECT id FROM blocks WHERE root_id='${escapedDoc}' AND content LIKE '示例 %'`);
+            if (existing.length > 0) {
+                showMessage((this.i18n as any).sampleExists ?? this.i18n.sampleDone.replace("${n}", "0"), 2500, "info");
+                openTab({ app: this.app, doc: { id: docID } });
+                return;
+            }
             const samples = (await import("./help")).sampleCards();
             const ids: string[] = [];
             for (const md of samples) {
@@ -1707,6 +1720,8 @@ export default class LvCardsPlugin extends Plugin {
             openTab({ app: this.app, doc: { id: docID } });
         } catch (e: any) {
             showMessage(e?.message ?? String(e), 3000, "error");
+        } finally {
+            this.sampleWsBusy = false;
         }
     }
 
@@ -1923,10 +1938,22 @@ export default class LvCardsPlugin extends Plugin {
         }
         this.sampleBusy = true;
         try {
-            const deck = await createRiffDeck(this.i18n.onboardingDeckName);
+            // AR-4：卡组按名复用（重试不重复建组）
+            const deckName = String(this.i18n.onboardingDeckName ?? "示例卡组");
+            const decks = await getRiffDecks();
+            let deck = decks.find(d => d.name === deckName);
+            if (!deck) {
+                deck = await createRiffDeck(deckName) as any;
+            }
             const docID = await createDocWithMd(nbId, "小驴闪卡/示例卡", "");
             if (!docID) {
                 throw new Error(this.i18n.quickCardFail);
+            }
+            // AR-4：文档已有示例块则跳过（重试/重复点击不重复建卡）
+            const escapedDoc = docID.replace(/'/g, "''");
+            const existing = await sqlQuery(`SELECT id FROM blocks WHERE root_id='${escapedDoc}' AND type IN ('p','h','u','o')`);
+            if (existing.length > 0) {
+                return;
             }
             const ids1 = await appendBlock("markdown", this.i18n.onboardingSample1, docID);
             const ids2 = await appendBlock("markdown", this.i18n.onboardingSample2, docID);

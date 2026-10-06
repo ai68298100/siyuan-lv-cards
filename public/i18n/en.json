@@ -1365,5 +1365,6 @@
         "restoreDone": "Backup restored and data reloaded",
         "badBundle": "Backup failed validation",
         "badJson": "File is not valid JSON"
-    }
+    },
+    "sampleExists": "Sample cards already exist — skipped duplicate creation"
 }

@@ -1365,5 +1365,6 @@
         "restoreDone": "备份已恢复，数据已重载",
         "badBundle": "备份文件校验未通过",
         "badJson": "文件不是有效的 JSON"
-    }
+    },
+    "sampleExists": "示例卡已存在，跳过重复创建"
 }
