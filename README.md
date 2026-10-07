@@ -166,4 +166,3 @@ pnpm release      # 交互式同步版本并运行检查；不等于发布到外
 构建于思源官方 [plugin-sample-vite-svelte](https://github.com/siyuan-note/plugin-sample-vite-svelte) 模板之上，使用思源内核的原生 FSRS 调度。能力研究参照 Anki、RemNote、Quizlet、Mochi、Obsidian Spaced Repetition、语言与阅读工具，以及思源社区的相关插件；调研与定位分析见[docs/41](./docs/41-竞品调研与定位强化.md)。
 
 [MIT](./LICENSE) © ai68298100
-
