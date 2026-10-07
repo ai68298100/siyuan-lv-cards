@@ -19,7 +19,7 @@ The full-lifecycle flashcard learning platform for SiYuan — local-first, nativ
 
 > **Note**: The primary README and all design docs are in Chinese. This page covers the essentials; see [docs/](./docs/README.md) for full design material.
 
-Lv Cards turns every block worth remembering in your notes into traceable flashcards, scheduled by the kernel's native FSRS algorithm, accelerated by auditable AI — all local-first, all portable. The current baseline is **v0.207.0**, featuring the Starline R53 design system, a ⌘K command palette, a learning calendar with load forecasting, a deck dashboard, weekly reports, and share-pack export. 716 unit tests and isolated E2E pass; the 390px narrow-screen structural walkthrough is recorded, while the full Android SiYuan host matrix remains pending.
+Lv Cards turns every block worth remembering in your notes into traceable flashcards, scheduled by the kernel's native FSRS algorithm, accelerated by auditable AI — all local-first, all portable. The current baseline is **v0.207.1**, featuring the Starline R53 design system, a ⌘K command palette, a learning calendar with load forecasting, a deck dashboard, weekly reports, and share-pack export. 716 unit tests and isolated E2E pass; the 390px narrow-screen structural walkthrough is recorded, while the full Android SiYuan host matrix remains pending.
 
 ## ✨ Features
 
@@ -76,3 +76,4 @@ Full design docs in [docs/](./docs/README.md) (Chinese). Key references: [produc
 ## License
 
 [MIT](./LICENSE) © ai68298100
+

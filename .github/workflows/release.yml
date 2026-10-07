@@ -82,6 +82,7 @@ jobs:
             echo "Unexpected asset directory in release archive"
             exit 1
           fi
+          sha256sum package.zip > package.zip.sha256
 
       - name: Release
         # v1.21.0; keep the SHA pin and let Dependabot update it.
@@ -89,6 +90,6 @@ jobs:
         with:
           allowUpdates: true
           artifactErrorsFailBuild: true
-          artifacts: "package.zip"
+          artifacts: "package.zip,package.zip.sha256"
           token: ${{ secrets.GITHUB_TOKEN }}
           prerelease: false

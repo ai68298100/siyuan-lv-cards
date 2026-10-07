@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.207.1 2026-10-07 · 依赖升级与发布治理收口
+
+* 升级 `@types/node` 26.6.4、`js-yaml` 5.4.2、Svelte 5.57.1、Sass 1.105.1、Vite 8.3.2（含 Rolldown/PostCSS 依赖），逐项通过主分支 CI。
+* 新增当前文档事实门禁 `pnpm check:docs-facts`，防止版本、快捷键、日历实现状态和 AI 降级说明回退。
+* GitHub 治理完善：Dependabot、安全修复、私密漏洞报告、CODEOWNERS、分支保护和发布包校验保持生效。
+* 本地验证：716/716 测试、`pnpm check`、i18n 1248 key、治理校验、Vite 多 target 构建和发布包 smoke 全部通过。
 ## v0.207.0 2026-10-07 · R53 设计体系 + P0/P1 全落地（里程碑发版）
 
 > 本版是一个里程碑：docs/41 竞品调研与定位锐化 → docs/42 Starline R53 设计规范 → starline-r53 全页原型 → P0/P1 六个功能全部落地 + 三轮真机走查修复。详细分解见以下各版记录。
@@ -1830,3 +1836,4 @@
 ## v0.7.0 2026-10-02 · 图片遮挡卡型（M4·FR4 v1）
 
 * 块菜单「制作遮挡卡」→ SVG 拖拽编辑器 → 块属性 lv-occlusion → 复习态 overlay
+
