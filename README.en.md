@@ -19,7 +19,7 @@ The full-lifecycle flashcard learning platform for SiYuan — local-first, nativ
 
 > **Note**: The primary README and all design docs are in Chinese. This page covers the essentials; see [docs/](./docs/README.md) for full design material.
 
-Lv Cards turns every block worth remembering in your notes into traceable flashcards, scheduled by the kernel's native FSRS algorithm, accelerated by auditable AI — all local-first, all portable. The current baseline is **v0.207.1**, featuring the Starline R53 design system, a ⌘K command palette, a learning calendar with load forecasting, a deck dashboard, weekly reports, and share-pack export. 716 unit tests and isolated E2E pass; the 390px narrow-screen structural walkthrough is recorded, while the full Android SiYuan host matrix remains pending.
+Lv Cards turns every block worth remembering in your notes into traceable flashcards, scheduled by the kernel's native FSRS algorithm, accelerated by auditable AI — all local-first, all portable. The current baseline is **v0.207.2**, featuring the Starline R53 design system, a ⌘K command palette, a learning calendar with load forecasting, a deck dashboard, weekly reports, and share-pack export. 720 unit tests and isolated E2E pass; the 390px narrow-screen structural walkthrough is recorded, while the full Android SiYuan host matrix remains pending.
 
 ## ✨ Features
 
@@ -31,7 +31,7 @@ Lv Cards turns every block worth remembering in your notes into traceable flashc
 | 📊 **Stats & diagnostics** | Heatmap · **study calendar with load forecast** · **deck dashboard** (per-deck due/retention/leech ranking) · streak · retention curve · capability share · error reasons · AI batch quality |
 | 🗂 **Manage** | Paged browsing with search & filters · card detail drawer (content/source/learning record/issues — four facets + version tracking) · batch operations · export CSV / Obsidian SR · maintenance debt queue |
 | 🎓 **Exam** | Daily targets from deadline · cram mode · post-exam report |
-| 📦 **Share & migrate** | Obsidian SR import/export with deck mapping & fingerprint dedup · Anki `.apkg` import · deck-level share pack export · JSON/CSV review log export & import |
+| 📦 **Share & migrate** | Obsidian SR import/export with deck mapping & fingerprint dedup · Anki `.apkg` import when the host provides `node:sqlite` · deck-level share pack export · JSON/CSV review log export & import |
 | ⌨ **⌘K palette** | Actions + navigation, keyboard-first access to every entry point |
 | 📅 **Weekly report** | Auto-write last week's review summary to a SiYuan document (opt-in) |
 | 🛡 **AI safety** | Preflight checks · prompt-injection isolation · context budget planner · emergency kill switch |

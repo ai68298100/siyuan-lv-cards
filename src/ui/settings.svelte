@@ -100,6 +100,7 @@
 
     // Anki M3：本地 .apkg 导入（docs/39 §3）——解析/预览/建文档/配对/制卡/台账，幂等重导
     let ankiBusy = $state(false);
+    const ankiHost = detectSqlite();
     let ankiStatus = $state<{ kind: "info" | "warn" | "error"; text: string } | null>(null);
     // Anki M3：损失明细（导入完成时可一键复制）
     let ankiLosses = $state<string[]>([]);
@@ -917,10 +918,16 @@
         <LvRow label={t.settings.ankiImport} hint={t.settings.ankiImportHint}>
             {#snippet children()}
                 {#if ankiBusy}<span class="ft__smaller ft__on-surface">{t.settings.ankiImportParsing}</span>{/if}
-                <label class="b3-button b3-button--outline" style="cursor: pointer;{ankiBusy ? ' pointer-events: none; opacity: .6;' : ''}">
-                    <input type="file" accept=".apkg,.colpkg" style="display: none" disabled={ankiBusy} onchange={importAnki} />
-                    {t.settings.ankiImportPick}
-                </label>
+                {#if ankiHost.available}
+                    <label class="b3-button b3-button--outline" style="cursor: pointer;{ankiBusy ? ' pointer-events: none; opacity: .6;' : ''}">
+                        <input type="file" accept=".apkg,.colpkg" style="display: none" disabled={ankiBusy} onchange={importAnki} />
+                        {t.settings.ankiImportPick}
+                    </label>
+                {:else}
+                    <span class="lv-notice lv-notice--warn" role="status">
+                        {(t.settings.ankiImportNoSqlite ?? "当前宿主不支持本地解析：${r}").replace("${r}", ankiHost.reason ?? "")}
+                    </span>
+                {/if}
             {/snippet}
         </LvRow>
         {#if ankiStatus}

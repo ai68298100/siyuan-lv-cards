@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.207.2 2026-10-07 · Anki 宿主能力门禁与构建兼容性收口
+
+* 设置页 Anki 本地导入入口按宿主 `node:sqlite` 能力显示：不支持的移动端、浏览器或旧桌面宿主直接给出原因，不再暴露不可用的文件选择器；实际导入路径继续保留运行时能力校验。
+* 新增 Anki 宿主探测测试，覆盖无 Node `require`、缺少 `DatabaseSync` 和可用 `DatabaseSync` 三种情况。
+* Vite 8 单文件配置迁移到 `output.codeSplitting: false`，消除已废弃选项警告；Anki 浏览器路径触发的 `node:zlib` externalized 警告仍作为宿主能力待办记录。
+* 本地验证：720/720 测试、`pnpm check`、文档事实门禁、治理校验、生产构建和隔离 E2E 18/18 全部通过；主包 gzip 52.88KB。
 ## v0.207.1 2026-10-07 · 依赖升级与发布治理收口
 
 * 升级 `@types/node` 26.6.4、`js-yaml` 5.4.2、Svelte 5.57.1、Sass 1.105.1、Vite 8.3.2（含 Rolldown/PostCSS 依赖），逐项通过主分支 CI。
