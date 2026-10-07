@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { deflateRawSync, inflateRawSync } from "node:zlib";
+import { describe, expect, it, vi } from "vitest";
 import { parseAnkiPackage, parseMediaManifest, readZipEntries } from "../src/core/anki-package";
-import { buildAnki2DbBytes, buildApkg, bytesOf, makeZip, nodeSqliteAdapter } from "./helpers/anki-fixture";
+import { buildAnki2DbBytes, buildApkg, bytesOf, crc32, makeZip, nodeSqliteAdapter } from "./helpers/anki-fixture";
 
 /**
  * Anki M1 解析器全链验证：node:sqlite 构造真实 anki2 库 + STORED zip 写入器
@@ -15,6 +16,42 @@ const NOTES_AB_CARDS = [
     { nid: 1700000000001 },
 ];
 
+function makeDeflateZip(name: string, data: Uint8Array): Uint8Array {
+    const enc = new TextEncoder();
+    const nameBytes = enc.encode(name);
+    const compressed = new Uint8Array(deflateRawSync(data));
+    const crc = crc32(data);
+    const local = new Uint8Array(30 + nameBytes.length);
+    const lv = new DataView(local.buffer);
+    lv.setUint32(0, 0x04034b50, true);
+    lv.setUint16(8, 8, true);
+    lv.setUint32(18, compressed.length, true);
+    lv.setUint32(22, data.length, true);
+    lv.setUint16(26, nameBytes.length, true);
+    local.set(nameBytes, 30);
+    const central = new Uint8Array(46 + nameBytes.length);
+    const cv = new DataView(central.buffer);
+    cv.setUint32(0, 0x02014b50, true);
+    cv.setUint16(10, 8, true);
+    cv.setUint32(16, crc, true);
+    cv.setUint32(20, compressed.length, true);
+    cv.setUint32(24, data.length, true);
+    cv.setUint16(28, nameBytes.length, true);
+    cv.setUint32(42, 0, true);
+    central.set(nameBytes, 46);
+    const eocd = new Uint8Array(22);
+    const ev = new DataView(eocd.buffer);
+    ev.setUint32(0, 0x06054b50, true);
+    ev.setUint16(8, 1, true);
+    ev.setUint16(10, 1, true);
+    ev.setUint32(12, central.length, true);
+    ev.setUint32(16, local.length + compressed.length, true);
+    const out = new Uint8Array(local.length + compressed.length + central.length + eocd.length);
+    let offset = 0;
+    for (const part of [local, compressed, central, eocd]) { out.set(part, offset); offset += part.length; }
+    return out;
+}
+
 describe("readZipEntries", () => {
     it("读出全部条目（STORED）", () => {
         const { entries, unsupported } = readZipEntries(buildApkg(buildAnki2DbBytes([NOTE_A, NOTE_B], NOTES_AB_CARDS), { "0": "a.png" }, [{ name: "0", data: new Uint8Array([1, 2, 3]) }]));
@@ -25,6 +62,28 @@ describe("readZipEntries", () => {
 
     it("非 zip 输入 → 明确报错", () => {
         expect(() => readZipEntries(enc("hello, not a zip"))).toThrow(/EOCD|ZIP/);
+    });
+
+    it("桌面宿主通过 require 解压 deflate 条目", () => {
+        const data = enc("deflate payload");
+        vi.stubGlobal("require", (name: string) => name === "node:zlib" ? { inflateRawSync } : {});
+        try {
+            const { entries, unsupported } = readZipEntries(makeDeflateZip("payload.txt", data));
+            expect(unsupported).toEqual([]);
+            expect(entries[0]).toMatchObject({ name: "payload.txt", data });
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it("无 Node require 时给出宿主能力错误", () => {
+        vi.stubGlobal("require", undefined);
+        try {
+            expect(() => readZipEntries(makeDeflateZip("payload.txt", enc("payload"))))
+                .toThrow(/不支持 deflate|需要思源桌面版/);
+        } finally {
+            vi.unstubAllGlobals();
+        }
     });
 });
 

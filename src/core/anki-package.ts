@@ -8,7 +8,25 @@
  * 原则（docs/38 P2-1）：解析损失如实记入 issues（损失报告素材），绝不静默丢弃；
  * 调度历史（revlog）只读取计数，导入的历史展示不冒充本插件调度记录（ADR-3）。
  */
-import { inflateRawSync } from "node:zlib";
+/**
+ * Anki 导入只在可提供 Node 能力的思源桌面宿主中启用。
+ * 这里不能静态 import node:zlib：Vite 会把 Node 内置模块替换为空对象，
+ * 导致浏览器构建虽然能加载，但遇到常见的 deflate ZIP 条目时才在运行期崩溃。
+ * 通过宿主注入的 require 延迟获取 zlib，浏览器包仍可安全加载，桌面端保持同步解析。
+ */
+function inflateRaw(bytes: Uint8Array): Uint8Array {
+    const req = (globalThis as Record<string, unknown>).require;
+    if (typeof req !== "function") {
+        throw new Error("apkg: 当前环境不支持 deflate 解压（需要思源桌面版）");
+    }
+    const zlib = (req as (name: string) => unknown)("node:zlib") as {
+        inflateRawSync?: (input: Uint8Array) => Uint8Array;
+    };
+    if (typeof zlib?.inflateRawSync !== "function") {
+        throw new Error("apkg: 宿主缺少 node:zlib.inflateRawSync");
+    }
+    return new Uint8Array(zlib.inflateRawSync(bytes));
+}
 
 // ---------- ZIP 读取 ----------
 
@@ -48,7 +66,7 @@ export function readZipEntries(bytes: Uint8Array): { entries: ZipEntry[]; unsupp
         if (method === 0) {
             entries.push({ name, data: bytes.slice(dataStart, dataStart + compSize) });
         } else if (method === 8) {
-            entries.push({ name, data: new Uint8Array(inflateRawSync(bytes.subarray(dataStart, dataStart + compSize))) });
+            entries.push({ name, data: inflateRaw(bytes.subarray(dataStart, dataStart + compSize)) });
         } else {
             unsupported.push(name);
         }

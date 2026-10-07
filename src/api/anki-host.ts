@@ -1,6 +1,6 @@
 /**
  * Anki 导入宿主适配层（M3 UI 接线）。
- * 职责：探测渲染端 node:sqlite 可用性（不可用给出可读原因），并提供打开临时库的适配器。
+ * 职责：探测渲染端 node:sqlite 与 node:zlib 可用性（不可用给出可读原因），并提供打开临时库的适配器。
  * 全部经 globalThis.require 动态取用——打包器不静态分析，缺失环境不炸（调用方降级提示）。
  * 无 Node require（移动端/纯浏览器）→ 不可用，导入入口隐藏。
  */
@@ -22,9 +22,13 @@ export function detectSqlite(): HostSqliteProbe {
         if (!hasDb) {
             return { available: false, reason: "宿主 Node 缺少 node:sqlite（需较新思源桌面版）" };
         }
+        const zlib = (req as (m: string) => unknown)("node:zlib") as { inflateRawSync?: unknown };
+        if (typeof zlib?.inflateRawSync !== "function") {
+            return { available: false, reason: "宿主 Node 缺少 node:zlib.inflateRawSync（无法解压 Anki 包）" };
+        }
         return { available: true };
     } catch (e) {
-        return { available: false, reason: `node:sqlite 加载失败：${String(e).slice(0, 80)}` };
+        return { available: false, reason: `Anki 宿主能力加载失败：${String(e).slice(0, 80)}` };
     }
 }
 

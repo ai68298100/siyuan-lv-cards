@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.207.3 2026-10-07 · Anki 压缩包宿主兼容性修复与发布门禁强化
+
+* 修复 Anki `.apkg/.colpkg` 的 deflate ZIP 解压：移除静态 `node:zlib` 导入，改为桌面宿主动态加载，避免浏览器构建把模块替换为空对象后在真实导入时崩溃。
+* Anki 设置入口现在同时检查 `node:sqlite.DatabaseSync` 与 `node:zlib.inflateRawSync`；不完整宿主会在选择文件前显示明确原因。
+* 增加 deflate/无 Node 宿主回归测试，并把完整测试、文档事实、治理校验和 tag 来源校验纳入 Release 工作流。
+* 更新真机验收清单：明确 v0.207.3 当前基线、Android 真机证据边界和可复制的环境记录模板。
+
+验证：Anki 聚焦测试、`pnpm check`、生产构建与发布包 smoke 通过；完整测试将由 tag Release 工作流再次执行，隔离 E2E 已在本地/CI 之前通过。
 ## v0.207.2 2026-10-07 · Anki 宿主能力门禁与构建兼容性收口
 
 * 设置页 Anki 本地导入入口按宿主 `node:sqlite` 能力显示：不支持的移动端、浏览器或旧桌面宿主直接给出原因，不再暴露不可用的文件选择器；实际导入路径继续保留运行时能力校验。

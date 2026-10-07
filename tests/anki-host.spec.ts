@@ -19,8 +19,13 @@ describe("Anki 导入宿主能力探测", () => {
     });
 
     it("存在 DatabaseSync 时允许本地导入", () => {
-        vi.stubGlobal("require", (name: string) => name === "node:sqlite" ? { DatabaseSync: class {} } : {});
+        vi.stubGlobal("require", (name: string) => name === "node:sqlite" ? { DatabaseSync: class {} } : { inflateRawSync: () => new Uint8Array() });
         expect(detectSqlite()).toEqual({ available: true });
+    });
+
+    it("缺少 zlib 解压能力时报告原因", () => {
+        vi.stubGlobal("require", (name: string) => name === "node:sqlite" ? { DatabaseSync: class {} } : {});
+        expect(detectSqlite()).toEqual({ available: false, reason: "宿主 Node 缺少 node:zlib.inflateRawSync（无法解压 Anki 包）" });
     });
 
     it("设置页只在宿主可用时显示文件选择器", () => {
