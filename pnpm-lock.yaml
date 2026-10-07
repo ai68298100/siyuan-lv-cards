@@ -168,10 +168,10 @@ importers:
     devDependencies:
       '@sveltejs/vite-plugin-svelte':
         specifier: ^7.3.0
-        version: 7.3.0(svelte@5.57.0)(vite@8.2.2(@types/node@26.4.0)(sass@1.103.1))
+        version: 7.3.0(svelte@5.57.0)(vite@8.2.2(@types/node@26.6.4)(sass@1.103.1))
       '@testing-library/svelte':
         specifier: ^5.4.2
-        version: 5.4.2(svelte@5.57.0)(vite@8.2.2(@types/node@26.4.0)(sass@1.103.1))(vitest@5.0.3(@types/node@26.4.0)(happy-dom@20.14.5)(vite@8.2.2(@types/node@26.4.0)(sass@1.103.1)))
+        version: 5.4.2(svelte@5.57.0)(vite@8.2.2(@types/node@26.6.4)(sass@1.103.1))(vitest@5.0.3(@types/node@26.6.4)(happy-dom@20.14.5)(vite@8.2.2(@types/node@26.6.4)(sass@1.103.1)))
       '@tsconfig/svelte':
         specifier: ^5.0.8
         version: 5.0.8
@@ -182,8 +182,8 @@ importers:
         specifier: ^1.2.5
         version: 1.2.5
       '@types/node':
-        specifier: ^26.4.0
-        version: 26.4.0
+        specifier: ^26.6.4
+        version: 26.6.4
       cross-env:
         specifier: ^10.1.0
         version: 10.1.0
@@ -222,22 +222,22 @@ importers:
         version: 4.7.6(picomatch@4.0.7)(svelte@5.57.0)(typescript@6.0.3)
       ts-node:
         specifier: ^10.9.2
-        version: 10.9.2(@types/node@26.4.0)(typescript@6.0.3)
+        version: 10.9.2(@types/node@26.6.4)(typescript@6.0.3)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vite:
         specifier: ^8.2.2
-        version: 8.2.2(@types/node@26.4.0)(sass@1.103.1)
+        version: 8.2.2(@types/node@26.6.4)(sass@1.103.1)
       vite-plugin-static-copy:
         specifier: ^4.1.1
-        version: 4.1.1(vite@8.2.2(@types/node@26.4.0)(sass@1.103.1))
+        version: 4.1.1(vite@8.2.2(@types/node@26.6.4)(sass@1.103.1))
       vite-plugin-zip-pack:
         specifier: ^1.2.4
-        version: 1.2.4(vite@8.2.2(@types/node@26.4.0)(sass@1.103.1))
+        version: 1.2.4(vite@8.2.2(@types/node@26.6.4)(sass@1.103.1))
       vitest:
         specifier: ^5.0.3
-        version: 5.0.3(@types/node@26.4.0)(happy-dom@20.14.5)(vite@8.2.2(@types/node@26.4.0)(sass@1.103.1))
+        version: 5.0.3(@types/node@26.6.4)(happy-dom@20.14.5)(vite@8.2.2(@types/node@26.6.4)(sass@1.103.1))
 
 packages:
 
@@ -561,8 +561,8 @@ packages:
   '@types/minimist@1.2.5':
     resolution: {integrity: sha512-hov8bUuiLiyFPGyFPE1lwWhmzYbirOXQNNo40+y3zow8aFVTeyn3VWL0VFFfdNddA8S4Vf0Tc062rzyNr7Paag==}
 
-  '@types/node@26.4.0':
-    resolution: {integrity: sha512-faiGnoIrLH/V8cibOMEAZ8pMw6oXqSukl29ra4mN8GdaB2ZewzeaLj+INpV5N+Z1eKWzY+IzaIZH2EIR6YZRNQ==}
+  '@types/node@26.6.4':
+    resolution: {integrity: sha512-ldVPDCzj7fsaGZrLB0NuHuTvJcsNasysBAqMolr/cgxrLd1xbqxIr3XJiPnHHJUCxj5sNF1vnRj9aWnrVh5Jcg==}
 
   '@types/whatwg-mimetype@3.0.2':
     resolution: {integrity: sha512-c2AKvDT8ToxLIOUlN51gTiHXflsfIFisS4pO7pDPoKouJCESkhZnEy623gwP9laCy5lnLDAw1vAzu2vM2YLOrA==}
@@ -1597,8 +1597,8 @@ packages:
     resolution: {integrity: sha512-nWJ91DjeOkej/TA8pXQ3myruKpKEYgqvpw9lz4OPHj/NWFNluYrjbz9j01CJ8yKQd2g4jFoOkINCTW2I5LEEyw==}
     engines: {node: '>= 0.4'}
 
-  undici-types@8.3.0:
-    resolution: {integrity: sha512-j375ScV60dom+YkPFIfTLcOiPxkN/buHz5GobjLhixFuANaNs3C9l4GmrWqejgXWJ7BbJcFYpTEUkS1Ge8bpZQ==}
+  undici-types@8.9.0:
+    resolution: {integrity: sha512-KTDyRTYX8sWmKXAikPHHSyc63CRPETMctyjKFupcC6OBLXT3xsN0e9aF7m+mIXutFWpUXuedtowG7iLOzp0kQg==}
 
   util-deprecate@1.0.2:
     resolution: {integrity: sha512-EPD5q1uXyFxJpCrLnCc1nHnq3gOa6DZBocAIiI2TaSCA7VCJ1UJDMagCzIkXNsUYfD1daK//LTEQ8xiIbrHtcw==}
@@ -1959,14 +1959,14 @@ snapshots:
 
   '@sveltejs/load-config@0.2.3': {}
 
-  '@sveltejs/vite-plugin-svelte@7.3.0(svelte@5.57.0)(vite@8.2.2(@types/node@26.4.0)(sass@1.103.1))':
+  '@sveltejs/vite-plugin-svelte@7.3.0(svelte@5.57.0)(vite@8.2.2(@types/node@26.6.4)(sass@1.103.1))':
     dependencies:
       deepmerge: 4.3.1
       magic-string: 1.2.3
       obug: 2.1.4
       svelte: 5.57.0
-      vite: 8.2.2(@types/node@26.4.0)(sass@1.103.1)
-      vitefu: 1.1.3(vite@8.2.2(@types/node@26.4.0)(sass@1.103.1))
+      vite: 8.2.2(@types/node@26.6.4)(sass@1.103.1)
+      vitefu: 1.1.3(vite@8.2.2(@types/node@26.6.4)(sass@1.103.1))
 
   '@testing-library/dom@10.4.2':
     dependencies:
@@ -1983,14 +1983,14 @@ snapshots:
     dependencies:
       svelte: 5.57.0
 
-  '@testing-library/svelte@5.4.2(svelte@5.57.0)(vite@8.2.2(@types/node@26.4.0)(sass@1.103.1))(vitest@5.0.3(@types/node@26.4.0)(happy-dom@20.14.5)(vite@8.2.2(@types/node@26.4.0)(sass@1.103.1)))':
+  '@testing-library/svelte@5.4.2(svelte@5.57.0)(vite@8.2.2(@types/node@26.6.4)(sass@1.103.1))(vitest@5.0.3(@types/node@26.6.4)(happy-dom@20.14.5)(vite@8.2.2(@types/node@26.6.4)(sass@1.103.1)))':
     dependencies:
       '@testing-library/dom': 10.4.2
       '@testing-library/svelte-core': 1.1.3(svelte@5.57.0)
       svelte: 5.57.0
     optionalDependencies:
-      vite: 8.2.2(@types/node@26.4.0)(sass@1.103.1)
-      vitest: 5.0.3(@types/node@26.4.0)(happy-dom@20.14.5)(vite@8.2.2(@types/node@26.4.0)(sass@1.103.1))
+      vite: 8.2.2(@types/node@26.6.4)(sass@1.103.1)
+      vitest: 5.0.3(@types/node@26.6.4)(happy-dom@20.14.5)(vite@8.2.2(@types/node@26.6.4)(sass@1.103.1))
 
   '@tsconfig/node10@1.0.13': {}
 
@@ -2019,24 +2019,24 @@ snapshots:
 
   '@types/minimist@1.2.5': {}
 
-  '@types/node@26.4.0':
+  '@types/node@26.6.4':
     dependencies:
-      undici-types: 8.3.0
+      undici-types: 8.9.0
 
   '@types/whatwg-mimetype@3.0.2': {}
 
   '@types/ws@8.18.1':
     dependencies:
-      '@types/node': 26.4.0
+      '@types/node': 26.6.4
 
-  '@vitest/mocker@5.0.3(vite@8.2.2(@types/node@26.4.0)(sass@1.103.1))':
+  '@vitest/mocker@5.0.3(vite@8.2.2(@types/node@26.6.4)(sass@1.103.1))':
     dependencies:
       '@jridgewell/trace-mapping': 0.3.31
       '@vitest/spy': 5.0.3
       estree-walker: 3.0.3
       magic-string: 1.2.3
     optionalDependencies:
-      vite: 8.2.2(@types/node@26.4.0)(sass@1.103.1)
+      vite: 8.2.2(@types/node@26.6.4)(sass@1.103.1)
 
   '@vitest/spy@5.0.3': {}
 
@@ -2115,7 +2115,7 @@ snapshots:
 
   buffer-image-size@0.6.4:
     dependencies:
-      '@types/node': 26.4.0
+      '@types/node': 26.6.4
 
   call-bind-apply-helpers@1.0.2:
     dependencies:
@@ -2443,7 +2443,7 @@ snapshots:
 
   happy-dom@20.14.5:
     dependencies:
-      '@types/node': 26.4.0
+      '@types/node': 26.6.4
       '@types/whatwg-mimetype': 3.0.2
       '@types/ws': 8.18.1
       buffer-image-size: 0.6.4
@@ -3138,14 +3138,14 @@ snapshots:
     dependencies:
       is-number: 7.0.0
 
-  ts-node@10.9.2(@types/node@26.4.0)(typescript@6.0.3):
+  ts-node@10.9.2(@types/node@26.6.4)(typescript@6.0.3):
     dependencies:
       '@cspotcode/source-map-support': 0.8.1
       '@tsconfig/node10': 1.0.13
       '@tsconfig/node12': 1.0.7
       '@tsconfig/node14': 1.0.0
       '@tsconfig/node16': 1.0.2
-      '@types/node': 26.4.0
+      '@types/node': 26.6.4
       acorn: 8.18.0
       acorn-walk: 8.3.5
       arg: 4.1.3
@@ -3198,7 +3198,7 @@ snapshots:
       has-symbols: 1.1.0
       which-boxed-primitive: 1.1.1
 
-  undici-types@8.3.0: {}
+  undici-types@8.9.0: {}
 
   util-deprecate@1.0.2: {}
 
@@ -3209,20 +3209,20 @@ snapshots:
       spdx-correct: 3.2.0
       spdx-expression-parse: 3.0.0
 
-  vite-plugin-static-copy@4.1.1(vite@8.2.2(@types/node@26.4.0)(sass@1.103.1)):
+  vite-plugin-static-copy@4.1.1(vite@8.2.2(@types/node@26.6.4)(sass@1.103.1)):
     dependencies:
       chokidar: 3.6.0
       p-map: 7.0.7
       picocolors: 1.1.1
       tinyglobby: 0.2.17
-      vite: 8.2.2(@types/node@26.4.0)(sass@1.103.1)
+      vite: 8.2.2(@types/node@26.6.4)(sass@1.103.1)
 
-  vite-plugin-zip-pack@1.2.4(vite@8.2.2(@types/node@26.4.0)(sass@1.103.1)):
+  vite-plugin-zip-pack@1.2.4(vite@8.2.2(@types/node@26.6.4)(sass@1.103.1)):
     dependencies:
       jszip: 3.10.1
-      vite: 8.2.2(@types/node@26.4.0)(sass@1.103.1)
+      vite: 8.2.2(@types/node@26.6.4)(sass@1.103.1)
 
-  vite@8.2.2(@types/node@26.4.0)(sass@1.103.1):
+  vite@8.2.2(@types/node@26.6.4)(sass@1.103.1):
     dependencies:
       lightningcss: 1.33.0
       picomatch: 4.0.7
@@ -3230,18 +3230,18 @@ snapshots:
       rolldown: 1.2.6
       tinyglobby: 0.2.17
     optionalDependencies:
-      '@types/node': 26.4.0
+      '@types/node': 26.6.4
       fsevents: 2.3.3
       sass: 1.103.1
 
-  vitefu@1.1.3(vite@8.2.2(@types/node@26.4.0)(sass@1.103.1)):
+  vitefu@1.1.3(vite@8.2.2(@types/node@26.6.4)(sass@1.103.1)):
     optionalDependencies:
-      vite: 8.2.2(@types/node@26.4.0)(sass@1.103.1)
+      vite: 8.2.2(@types/node@26.6.4)(sass@1.103.1)
 
-  vitest@5.0.3(@types/node@26.4.0)(happy-dom@20.14.5)(vite@8.2.2(@types/node@26.4.0)(sass@1.103.1)):
+  vitest@5.0.3(@types/node@26.6.4)(happy-dom@20.14.5)(vite@8.2.2(@types/node@26.6.4)(sass@1.103.1)):
     dependencies:
       '@types/chai': 5.2.3
-      '@vitest/mocker': 5.0.3(vite@8.2.2(@types/node@26.4.0)(sass@1.103.1))
+      '@vitest/mocker': 5.0.3(vite@8.2.2(@types/node@26.6.4)(sass@1.103.1))
       chai: 6.2.2
       es-module-lexer: 2.3.2
       expect-type: 1.4.0
@@ -3252,10 +3252,10 @@ snapshots:
       tinybench: 6.2.0
       tinyexec: 1.3.1
       tinyglobby: 0.2.17
-      vite: 8.2.2(@types/node@26.4.0)(sass@1.103.1)
+      vite: 8.2.2(@types/node@26.6.4)(sass@1.103.1)
       why-is-node-running: 3.2.1
     optionalDependencies:
-      '@types/node': 26.4.0
+      '@types/node': 26.6.4
       happy-dom: 20.14.5
     transitivePeerDependencies:
       - msw
