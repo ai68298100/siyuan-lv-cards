@@ -1,10 +1,12 @@
 # Why a Kernel Plugin is a service
 
+> **Repository status:** this document is an architecture reference, not a feature inventory. The capture service and `src/kernel-capture/*` paths below are illustrative examples from the upstream template and are not implemented in this repository. The current `src/kernel.ts` only binds the `echo` RPC for lifecycle verification; exam countdown broadcasts and multi-device shared state remain planned work.
+
 A frontend plugin belongs to the SiYuan user interface. A Kernel Plugin belongs to the running SiYuan kernel.
 
 This difference matters when a feature must keep one state and one lifecycle without depending on a dialog, dock, editor, or browser tab. The Kernel Plugin owns that feature as a service. Frontends and trusted external programs become clients of the service.
 
-To run the template's concrete example, follow [Run the capture service without its UI](./kernel-capture-demo.md). For complete API coverage, use the official [plugin-sample v0.5.0](https://github.com/siyuan-note/plugin-sample/tree/v0.5.0).
+To study the upstream template's concrete example, follow [Run the capture service without its UI](./kernel-capture-demo.md). That example is not part of this repository. For complete API coverage, use the official [plugin-sample v0.5.0](https://github.com/siyuan-note/plugin-sample/tree/v0.5.0).
 
 ## The service owns work that does not belong to a UI
 
@@ -41,7 +43,7 @@ SiYuan loads `index.js` in the frontend plugin environment. It loads `kernel.js`
 
 The two parts become ready independently. A frontend must observe `kernel-plugin-state-change` before it assumes that Kernel RPC methods are available.
 
-The template makes the two lifecycles visible:
+The upstream template makes the two lifecycles visible:
 
 - The Capture Service panel shows when the Kernel service started.
 - The panel also shows when the current Svelte component opened.
@@ -89,7 +91,7 @@ The capability list does not decide the architecture. Put a feature in the Kerne
 
 ## The capture endpoint is private, not public
 
-The template registers these routes:
+The upstream template registers these illustrative routes:
 
 ```text
 GET  /plugin/private/<plugin-name>/capture
@@ -107,9 +109,9 @@ The workspace API token is an administrator credential. It is not limited to the
 
 The Svelte panel reads the current server address, operating system, and API token from `window.siyuan.config`. It displays a redacted command. Only the explicit **Copy runnable command with token** action writes the real token to the clipboard.
 
-## The template keeps protocol details behind one feature
+## The upstream template keeps protocol details behind one feature
 
-The capture example uses several Kernel APIs, but the GUI does not present an API playground.
+The upstream capture example uses several Kernel APIs, but the GUI does not present an API playground.
 
 `src/kernel-capture/kernel-service.ts` owns:
 

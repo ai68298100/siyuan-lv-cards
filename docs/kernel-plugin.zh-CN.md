@@ -1,10 +1,12 @@
 # 为什么 Kernel Plugin 是一项服务
 
+> **本仓库状态：** 本文是架构参考，不是功能清单。下文的摘录服务和 `src/kernel-capture/*` 路径来自上游模板的示例，本仓库没有实现这些路径。当前 `src/kernel.ts` 只为生命周期验证注册 `echo` RPC；考试倒计时广播和多设备共享状态仍是规划项。
+
 Frontend plugin 属于思源用户界面。Kernel Plugin 属于正在运行的思源 Kernel。
 
 当一项功能需要独立于 Dialog、Dock、编辑器或浏览器 tab 持有状态和生命周期时，这个区别很重要。Kernel Plugin 以服务的形式持有该功能。Frontend 和可信外部程序是这项服务的 client。
 
-要运行本模板的具体案例，请阅读[在没有 UI 时运行摘录服务](./kernel-capture-demo.zh-CN.md)。完整 API 请查看官方 [plugin-sample v0.5.0](https://github.com/siyuan-note/plugin-sample/tree/v0.5.0)。
+要研究上游模板的具体案例，请阅读[在没有 UI 时运行摘录服务](./kernel-capture-demo.zh-CN.md)。该案例不属于本仓库的实现。完整 API 请查看官方 [plugin-sample v0.5.0](https://github.com/siyuan-note/plugin-sample/tree/v0.5.0)。
 
 ## 服务持有不属于 UI 的工作
 
@@ -41,7 +43,7 @@ CLI、阅读工具或 frontend
 
 两部分分别进入 ready 状态。Frontend 必须观察 `kernel-plugin-state-change`，不能假设 Kernel RPC method 已经可用。
 
-本模板直接展示两个生命周期：
+上游模板直接展示两个生命周期；本仓库当前只有 `src/kernel.ts` 的 echo 占位：
 
 - 摘录服务面板显示 Kernel 服务的启动时间。
 - 面板同时显示当前 Svelte component 的打开时间。
@@ -89,7 +91,7 @@ API 列表不能决定架构。只有当功能需要 Kernel 持有的状态、Ke
 
 ## 摘录端点是 private API，不是 public API
 
-模板注册以下 route：
+上游模板示例注册以下 route：
 
 ```text
 GET  /plugin/private/<plugin-name>/capture
@@ -107,9 +109,9 @@ Workspace API token 是管理员凭据。它的权限不限于摘录端点。该
 
 Svelte 面板从 `window.siyuan.config` 读取当前 server address、操作系统和 API token。页面只显示脱敏命令。只有用户明确点击 **复制包含 token 的可运行命令** 时，页面才把真实 token 写入剪贴板。
 
-## 模板把协议细节藏在一个功能后面
+## 上游模板把协议细节藏在一个功能后面
 
-摘录案例使用多个 Kernel API，但 GUI 不是 API playground。
+上游摘录案例使用多个 Kernel API，但 GUI 不是 API playground。
 
 `src/kernel-capture/kernel-service.ts` 持有以下职责：
 
