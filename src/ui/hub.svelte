@@ -197,11 +197,18 @@
         </div>
     </div>
     <div class="lv-hub-bar">
-        <LvTabs {tabs} active={active} onchange={switchTab} />
+        <LvTabs {tabs} active={active} onchange={switchTab} panelId="lv-hub-panel" />
     </div>
     <div class="lv-hub-body">
         <!-- 错误边界（450）：{#key} 使边界随页签重建，单子页崩溃不拖垮中心，切换自愈 -->
         {#key active}
+            <div
+                id="lv-hub-panel"
+                class="lv-hub-panel"
+                role="tabpanel"
+                aria-labelledby={`lv-tab-${active}`}
+                tabindex="0"
+            >
             <svelte:boundary onerror={(e) => console.warn("[lv-cards] tab error", e)}>
                 {#snippet failed(error: unknown, reset)}
                     <div style="padding: var(--lv-sp-5)">
@@ -277,6 +284,7 @@
                     {/if}
                 {/if}
             </svelte:boundary>
+            </div>
         {/key}
     </div>
 </div>

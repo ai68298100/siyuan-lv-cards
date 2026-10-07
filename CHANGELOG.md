@@ -29,8 +29,8 @@
 * 详情抽屉三处崩溃修复（v0.206.12）：versionsOf 防御 / t.ko 路径 / t.relations Proxy 视图
 
 ### 统计
-* 699 单测 / 0 svelte-check 错误 / i18n 1245 键中英对齐 / 7 页签 × 亮暗 × 390px 真机走查通过
-* 主包 gzip ≈43KB；hub/review/dialogs chunk 按需加载
+* 716 单测 / 0 svelte-check 错误 / i18n 1248 键中英对齐；390px 窄屏结构化走查记录完成，Android 思源真机完整矩阵待执行
+* Vite 报告主包 gzip ≈52.89KB（治理门禁按 KiB 计约 51KB，≤55KB）；hub/review/dialogs chunk 分别约 61.24/36.52/58.98KB，按需加载
 
 
 ## v0.206.12 2026-10-07 · 详情抽屉三处崩溃修复 + R53 视觉对齐（真机走查）

@@ -1,37 +1,50 @@
 <script lang="ts">
     import type { Snippet } from "svelte";
     import { fade } from "svelte/transition";
+    import { trapFocus, type FocusTrap } from "@/libs/focus-trap";
 
-    /** 抽屉（Kit）：右侧滑出面板，Esc 关闭，遮罩点击关闭 */
-    let { open = false, title = "", width = "min(480px, 92vw)", children, actions, onclose }: {
+    /** 抽屉（Kit）：右侧滑出面板，焦点限制在面板内，遮罩点击关闭 */
+    let { open = false, title = "", width = "min(480px, 92vw)", closeLabel = "close", children, actions, onclose }: {
         open: boolean;
         title?: string;
         width?: string;
+        /** 关闭按钮的可访问名称，由宿主按当前语言传入。 */
+        closeLabel?: string;
         children?: Snippet;
         /** 头部操作区（关闭按钮左侧） */
         actions?: Snippet;
         onclose: () => void;
     } = $props();
 
-    function onKeydown(e: KeyboardEvent) {
-        if (open && e.key === "Escape") {
-            e.stopPropagation();
-            onclose();
-        }
-    }
-</script>
+    let drawerEl = $state<HTMLElement | null>(null);
 
-<svelte:window on:keydown={onKeydown} />
+    // 抽屉打开后把焦点移入并限制 Tab 循环；销毁时由 focus-trap 归还原焦点。
+    $effect(() => {
+        if (!open || !drawerEl) return;
+        const trap: FocusTrap = trapFocus(drawerEl, { onEscape: onclose });
+        return () => trap.release();
+    });
+</script>
 
 {#if open}
     <div class="lv-drawer-mask" transition:fade={{ duration: 120 }} onclick={onclose} role="presentation"></div>
-    <!-- AS-1：非模态层显式声明 aria-modal="false"（不劫持页面其余部分），标题经 aria-label 关联 -->
-    <div class="lv-drawer b3-typography" style={`width:${width}`} transition:fade={{ duration: 150 }} role="dialog" aria-modal="false" aria-label={title || undefined}>
+    <!-- AS-1：焦点由 focus-trap 限制在模态抽屉内，标题通过 labelledby 关联。 -->
+    <div
+        class="lv-drawer b3-typography"
+        style={`width:${width}`}
+        transition:fade={{ duration: 150 }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={title ? "lv-drawer-title" : undefined}
+        aria-label={title ? undefined : "Drawer"}
+        tabindex="-1"
+        bind:this={drawerEl}
+    >
         <div class="lv-drawer-head">
-            <span class="lv-drawer-title">{title}</span>
+            <span id="lv-drawer-title" class="lv-drawer-title">{title}</span>
             <span class="lv-drawer-actions">
                 {#if actions}{@render actions()}{/if}
-                <button class="b3-button b3-button--small" onclick={onclose} aria-label="close">✕</button>
+                <button class="b3-button b3-button--small" onclick={onclose} aria-label={closeLabel}>✕</button>
             </span>
         </div>
         <div class="lv-drawer-body">

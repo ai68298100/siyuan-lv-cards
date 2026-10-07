@@ -90,7 +90,7 @@
             <div class="ft__smaller" style="color: var(--b3-theme-error)">{errorMsg}</div>
         {/if}
         <div class="b3-dialog__action">
-            <button class="b3-button b3-button--cancel" onclick={onClose}>✕</button>
+            <button class="b3-button b3-button--cancel" aria-label={window.siyuan.languages.cancel} onclick={onClose}>✕</button>
             <div class="fn__space"></div>
             <button class="b3-button b3-button--text lv-btn-primary" disabled={busy} onclick={confirm}>{confirmLabel} ↵</button>
         </div>

@@ -17,5 +17,8 @@
     {disabled}
     {title}
     aria-label={ariaLabel || undefined}
-    onchange={(e) => onchange?.((e.target as HTMLInputElement).checked)}
+    onchange={(e) => {
+        checked = (e.target as HTMLInputElement).checked;
+        onchange?.(checked);
+    }}
 />

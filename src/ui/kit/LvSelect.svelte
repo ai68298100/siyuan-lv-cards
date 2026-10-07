@@ -18,7 +18,10 @@
     {disabled}
     {value}
     aria-label={ariaLabel || undefined}
-    onchange={(e) => onchange?.((e.target as HTMLSelectElement).value)}
+    onchange={(e) => {
+        value = (e.target as HTMLSelectElement).value;
+        onchange?.(value);
+    }}
 >
     {#each options as o (o.value)}
         <option value={o.value}>{o.label}</option>

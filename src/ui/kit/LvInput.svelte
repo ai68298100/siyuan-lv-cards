@@ -27,5 +27,8 @@
     {step}
     {value}
     aria-label={ariaLabel || undefined}
-    oninput={(e) => oninput?.((e.target as HTMLInputElement).value)}
+    oninput={(e) => {
+        value = (e.target as HTMLInputElement).value;
+        oninput?.(value);
+    }}
 />

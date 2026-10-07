@@ -3,6 +3,7 @@ import { render, fireEvent } from "@testing-library/svelte";
 import LvSlider from "../src/ui/kit/LvSlider.svelte";
 import LvInput from "../src/ui/kit/LvInput.svelte";
 import LvSelect from "../src/ui/kit/LvSelect.svelte";
+import LvBindableHost from "./helpers/LvBindableHost.svelte";
 
 // Kit 组件 smoke 测试（组件测试基建第六批，v0.98.0）：可绑定包装组件的输入契约（最后一批可测）
 
@@ -61,5 +62,26 @@ describe("LvSelect", () => {
     it("disabled 透传", () => {
         const { container } = render(LvSelect, { value: "a", options, disabled: true });
         expect((container.querySelector("select") as HTMLSelectElement).disabled).toBe(true);
+    });
+});
+
+describe("bindable kit values", () => {
+    it("原生事件会回写父级 bind:value/bind:checked 状态", async () => {
+        const { container } = render(LvBindableHost);
+        const checkbox = container.querySelector("input[type=checkbox]") as HTMLInputElement;
+        const text = container.querySelector("input[type=text]") as HTMLInputElement;
+        const select = container.querySelector("select") as HTMLSelectElement;
+
+        checkbox.checked = true;
+        await fireEvent.change(checkbox);
+        expect(container.querySelector("[data-testid=switch-value]")?.textContent).toBe("true");
+
+        text.value = "abc";
+        await fireEvent.input(text);
+        expect(container.querySelector("[data-testid=input-value]")?.textContent).toBe("abc");
+
+        select.value = "two";
+        await fireEvent.change(select);
+        expect(container.querySelector("[data-testid=select-value]")?.textContent).toBe("two");
     });
 });

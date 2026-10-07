@@ -1,0 +1,6 @@
+# Default reviewer for source, documentation, and workflow changes.
+# Keep this as the maintainer account until a team is configured.
+* @ai68298100
+
+# CI and release changes need explicit maintainer review.
+/.github/ @ai68298100

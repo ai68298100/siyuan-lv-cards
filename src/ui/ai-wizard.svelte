@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { onMount } from "svelte";
+    import { onDestroy, onMount } from "svelte";
     import { fade } from "svelte/transition";
     import { showMessage } from "siyuan";
     import { getRiffDecks, createRiffDeck, type RiffDeck } from "@/api/riff";
@@ -201,6 +201,8 @@
     let errorMsg = $state("");
 
     let loadDocBusy = $state(false);
+    // 异步来源/牌组请求在宿主销毁后可能迟到；生命周期标记阻断状态写回。
+    let disposed = false;
     // T02：生成前预览确认（docs/13 §4）——确认后才真正外发
     let previewOpen = $state(false);
     /** BU-36：打开预览时的分层预算报告（随打开时点计算一次；关闭即清） */
@@ -273,19 +275,28 @@
             errorMsg = t.aiWizard.noNotebook;
             return;
         }
+        const requestNbId = nbId;
         loadDocBusy = true;
         try {
-            const material = await loadNotebookMaterial(nbId);
+            const material = await loadNotebookMaterial(requestNbId);
+            if (disposed || requestNbId !== nbId) {
+                return;
+            }
             if (material) {
-                addSource(nbOptions.find((n) => n.id === nbId)?.name ?? t.aiWizard.loadNotebook, material, undefined, nbId);
+                addSource(nbOptions.find((n) => n.id === requestNbId)?.name ?? t.aiWizard.loadNotebook, material, undefined, requestNbId);
                 errorMsg = "";
             } else {
                 errorMsg = t.aiWizard.noDoc;
             }
         } catch (e: any) {
+            if (disposed) {
+                return;
+            }
             errorMsg = e?.message ?? String(e);
         } finally {
-            loadDocBusy = false;
+            if (!disposed) {
+                loadDocBusy = false;
+            }
         }
     }
 
@@ -296,15 +307,23 @@
         loadDocBusy = true;
         try {
             const doc = await loadCurrentDoc();
+            if (disposed) {
+                return;
+            }
             if (doc?.content) {
                 addSource(doc.name || t.aiWizard.loadDoc, doc.content, doc.docId);
             } else {
                 errorMsg = t.aiWizard.noDoc;
             }
         } catch (e: any) {
+            if (disposed) {
+                return;
+            }
             errorMsg = e?.message ?? String(e);
         } finally {
-            loadDocBusy = false;
+            if (!disposed) {
+                loadDocBusy = false;
+            }
         }
     }
 
@@ -327,6 +346,9 @@
     async function loadClipboard() {
         try {
             const text = (await navigator.clipboard.readText()).trim();
+            if (disposed) {
+                return;
+            }
             if (text) {
                 addSource(t.aiWizard.srcClipboard, text);
                 sources[sources.length - 1] = { ...sources[sources.length - 1], unverified: true };
@@ -336,6 +358,9 @@
                 errorMsg = t.aiWizard.noClipboard;
             }
         } catch {
+            if (disposed) {
+                return;
+            }
             errorMsg = t.aiWizard.noClipboardPerm;
         }
     }
@@ -349,10 +374,16 @@
         }
         try {
             decks = await getRiffDecks();
+            if (disposed) {
+                return;
+            }
             if (decks.length > 0) {
                 selected = decks[0].id;
             }
         } catch (e: any) {
+            if (disposed) {
+                return;
+            }
             errorMsg = e?.message ?? String(e);
         }
     });
@@ -364,11 +395,19 @@
         resumeBusy = true;
         try {
             await onResumeAIJob(resume.id);
+            if (disposed) {
+                return;
+            }
             resume = getUnfinishedJob?.() ?? null;
         } catch (e: any) {
+            if (disposed) {
+                return;
+            }
             errorMsg = e?.message ?? String(e);
         } finally {
-            resumeBusy = false;
+            if (!disposed) {
+                resumeBusy = false;
+            }
         }
     }
 
@@ -390,6 +429,14 @@
         genCtrl = null;
         busy = false;
     }
+
+    onDestroy(() => {
+        disposed = true;
+        // 外部销毁（宿主关闭对话框/插件卸载）也必须取消在途 AI 请求。
+        genSeq += 1;
+        genCtrl?.abort();
+        genCtrl = null;
+    });
 
     /** 关闭向导：先取消在途请求再回调宿主（取消不触发 fallback、不写回已关闭向导） */
     function closeWizard() {
@@ -443,6 +490,10 @@
         if (regenBusy !== null || busy) {
             return;
         }
+        const targetOrigIndex = candidates[i]?.origIndex;
+        if (targetOrigIndex === undefined) {
+            return;
+        }
         const seq = ++genSeq;
         genCtrl = new AbortController();
         const myCtrl = genCtrl;
@@ -456,12 +507,17 @@
                 return;
             }
             if (cards.length > 0) {
-                const keep = candidates[i].keep;
+                // 列表允许在请求期间删除/重排其他卡；用稳定 origIndex 找回目标，避免迟到响应覆盖错卡。
+                const targetIndex = candidates.findIndex((c) => c.origIndex === targetOrigIndex);
+                if (targetIndex < 0) {
+                    return;
+                }
+                const keep = candidates[targetIndex].keep;
                 // 重生成仅替换内容：保持 origIndex 与作业 candidates 对位（内容为新生成，已知边界）
-                candidates[i] = { ...cards[0], keep, origIndex: i, review: "pending" };
+                candidates[targetIndex] = { ...cards[0], keep, origIndex: targetOrigIndex, review: "pending" };
                 candidates = [...candidates];
                 if (gen) {
-                    recordAIVersion(i, cards[0], gen); // BU-15：重生成记新 ai 版（链上可对比新旧）
+                    recordAIVersion(targetIndex, cards[0], gen); // BU-15：重生成记新 ai 版（链上可对比新旧）
                 }
             } else {
                 errorMsg = t.aiWizard.emptyResult;
@@ -475,7 +531,9 @@
             if (seq === genSeq) {
                 genCtrl = null;
             }
-            regenBusy = null;
+            if (!disposed) {
+                regenBusy = null;
+            }
         }
     }
 
@@ -501,11 +559,19 @@
                 return;
             }
             await onCreate(picked.map(c => ({ q: c.q, a: c.a, origIndex: c.origIndex })), deckID, deckName, currentJobId);
+            if (disposed) {
+                return;
+            }
             closeWizard();
         } catch (e: any) {
+            if (disposed) {
+                return;
+            }
             errorMsg = e?.message ?? String(e);
         } finally {
-            creating = false;
+            if (!disposed) {
+                creating = false;
+            }
         }
     }
 </script>
@@ -535,7 +601,7 @@
     <div class="lv-ob-head">
         <LvSteps steps={[t.aiWizard.stepCfg, t.aiWizard.stepPreview]} current={step - 1} />
         <div class="fn__flex-1"></div>
-                <button class="b3-button b3-button--small" onclick={closeWizard}>✕</button>
+                <button class="b3-button b3-button--small" aria-label={window.siyuan.languages.cancel} onclick={closeWizard}>✕</button>
     </div>
 
     {#if step === 1}

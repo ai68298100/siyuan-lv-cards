@@ -91,6 +91,21 @@
         { id: "history" as Facet, label: t.detail.facetHistory },
         { id: "issues" as Facet, label: t.detail.facetIssues },
     ]);
+    function onFacetKeydown(e: KeyboardEvent) {
+        const focused = (e.target as HTMLElement | null)?.closest<HTMLElement>("[role=tab]");
+        const focusedId = focused?.id.startsWith("lv-facet-tab-") ? focused.id.slice("lv-facet-tab-".length) : "";
+        const idx = facetTabs.findIndex((f) => f.id === (focusedId || facet));
+        if (idx < 0) return;
+        let next: number | null = null;
+        if (e.key === "ArrowRight") next = (idx + 1) % facetTabs.length;
+        else if (e.key === "ArrowLeft") next = (idx - 1 + facetTabs.length) % facetTabs.length;
+        else if (e.key === "Home") next = 0;
+        else if (e.key === "End") next = facetTabs.length - 1;
+        if (next === null) return;
+        e.preventDefault();
+        facet = facetTabs[next].id;
+        document.getElementById(`lv-facet-tab-${facetTabs[next].id}`)?.focus();
+    }
     const ratingLabel = (r: number) => (r === 1 ? t.review.unknown : r === 2 ? t.review.vague : r === 3 ? t.review.know : r === 4 ? t.review.easy : "—");
     const histSummary = $derived.by(() => {
         const reviews = historyEntries.filter((e) => e.rating > 0);
@@ -144,7 +159,7 @@
     }
 </script>
 
-<LvDrawer open title={t.manager.detailTitle} width="min(560px, 92vw)" onclose={onClose}>
+<LvDrawer open title={t.manager.detailTitle} closeLabel={t.manager.close} width="min(560px, 92vw)" onclose={onClose}>
     {#snippet actions()}
         {#if editorCtx && !editing}
             <button class="b3-button b3-button--small" onclick={startEdit}>{t.editor.edit}</button>
@@ -152,17 +167,28 @@
         <button class="b3-button b3-button--small" onclick={onOpenDoc}>{t.manager.openDoc}</button>
     {/snippet}
     <!-- T05 分面导航（docs/40）：内容 / 来源 / 学习记录 / 问题 -->
-    <div class="lv-facets" role="tablist">
-        {#each facetTabs as f (f.id)}
+    <div class="lv-facets" role="tablist" aria-orientation="horizontal" tabindex="-1" onkeydown={onFacetKeydown}>
+        {#each facetTabs as f, i (f.id)}
             <button
+                type="button"
                 class="lv-facet"
                 role="tab"
+                id={`lv-facet-tab-${f.id}`}
                 aria-selected={facet === f.id}
+                aria-controls="lv-facet-panel"
+                tabindex={facet === f.id || (i === 0 && !facetTabs.some((tab) => tab.id === facet)) ? 0 : -1}
                 class:lv-facet-active={facet === f.id}
                 onclick={() => (facet = f.id)}
             >{f.label}</button>
         {/each}
     </div>
+    <div
+        id="lv-facet-panel"
+        class="lv-facet-panel"
+        role="tabpanel"
+        aria-labelledby={`lv-facet-tab-${facet}`}
+        tabindex="0"
+    >
     {#if facet === "content"}
         <!-- T05 内容版本（docs/40）：保存即留快照；可展开回看历史内容 -->
         {#if versions.length > 0}
@@ -249,6 +275,7 @@
             <div class="ft__smaller ft__on-surface" style="margin-top: var(--lv-sp-2)">{t.detail.issuesHint}</div>
         {/if}
     {/if}
+    </div>
     {#if koCtx}
         {#if koCtx.snapshot.registered}
             <KoPanel

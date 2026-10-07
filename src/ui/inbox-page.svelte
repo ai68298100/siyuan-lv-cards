@@ -221,21 +221,22 @@
         {/if}
         <div class="lv-list">
             {#each visible as item (item.blockID)}
-                <div class="lv-row" role="presentation" onclick={() => toggle(item.blockID)}>
+                <div class="lv-row">
                     <input
                         type="checkbox"
                         class="lv-check"
+                        aria-label={t.selectItem}
                         checked={checked.includes(item.blockID)}
                         onclick={(e: Event) => { e.stopPropagation(); toggle(item.blockID); }}
                     />
-                    <div class="lv-content">
+                    <button type="button" class="lv-content" onclick={() => toggle(item.blockID)}>
                         {#if titles.has(item.blockID)}
                             <div class="lv-text" title={titleOf(item)}>{snippetOf(item)}</div>
                         {:else}
                             <div class="lv-text"><LvSkeleton shape="row" count={1} height={14} /></div>
                         {/if}
                         <div class="lv-meta ft__smaller ft__on-surface">{new Date(item.addedAt).toLocaleString()}</div>
-                    </div>
+                    </button>
                     <button class="b3-button b3-button--small" title={t.openSource} onclick={(e: Event) => { e.stopPropagation(); inbox.openSource(item.blockID); }}>📄</button>
                 </div>
             {/each}
@@ -274,7 +275,7 @@
             border-color var(--lv-dur-2) var(--lv-ease),
             box-shadow var(--lv-dur-2) var(--lv-ease);
         position: relative;
-        cursor: pointer;
+        cursor: default;
     }
     .lv-row:hover {
         transform: translateY(-1px);
@@ -282,7 +283,22 @@
         box-shadow: var(--lv-shadow-2);
     }
     .lv-check { cursor: pointer; }
-    .lv-content { flex: 1; min-width: 0; }
+    .lv-content {
+        flex: 1;
+        min-width: 0;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
+    }
+    .lv-content:focus-visible {
+        outline: 2px solid var(--b3-theme-primary);
+        outline-offset: 2px;
+        border-radius: var(--lv-r-s);
+    }
     .lv-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .lv-meta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 </style>

@@ -5,13 +5,28 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   check-and-build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout
+        # v7.0.1; keep the SHA pin and let Dependabot update it.
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Install pnpm
+        # v6.1.0; supports pnpm 12 and keeps packageManager authoritative.
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
+        with:
+          run_install: false
+      - name: Install Node.js
+        # v7.0.0; runs on the current Node 24 action runtime.
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: 24
           cache: pnpm
@@ -23,7 +38,7 @@ jobs:
       - name: Governance consistency (docs/17 ↔ docs/31)
         run: node scripts/check-governance.mjs
       - name: Unit tests
-        run: pnpm test
+        run: pnpm test -- --run
       - name: Build (app + kernel)
         run: pnpm build
       # AT-14 主包体积门禁单一事实源：预算值在 check-governance.mjs 内维护

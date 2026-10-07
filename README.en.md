@@ -19,7 +19,7 @@ The full-lifecycle flashcard learning platform for SiYuan — local-first, nativ
 
 > **Note**: The primary README and all design docs are in Chinese. This page covers the essentials; see [docs/](./docs/README.md) for full design material.
 
-Lv Cards turns every block worth remembering in your notes into traceable flashcards, scheduled by the kernel's native FSRS algorithm, accelerated by auditable AI — all local-first, all portable. The current baseline is **v0.207.0**, featuring the Starline R53 design system, a ⌘K command palette, a learning calendar with load forecasting, a deck dashboard, weekly reports, and share-pack export. 699 unit tests and isolated E2E pass; all 7 tabs verified on real machine in light/dark themes at 390px.
+Lv Cards turns every block worth remembering in your notes into traceable flashcards, scheduled by the kernel's native FSRS algorithm, accelerated by auditable AI — all local-first, all portable. The current baseline is **v0.207.0**, featuring the Starline R53 design system, a ⌘K command palette, a learning calendar with load forecasting, a deck dashboard, weekly reports, and share-pack export. 716 unit tests and isolated E2E pass; the 390px narrow-screen structural walkthrough is recorded, while the full Android SiYuan host matrix remains pending.
 
 ## ✨ Features
 
@@ -38,7 +38,7 @@ Lv Cards turns every block worth remembering in your notes into traceable flashc
 
 ## 🚀 Install
 
-SiYuan ≥ 3.8.0. Desktop is the core experience; mobile and browser are narrow-screen adapted (390px verified).
+SiYuan ≥ 3.8.0. Desktop is the core experience; mobile and browser are narrow-screen adapted (390px structural walkthrough recorded), while the full Android SiYuan host matrix remains pending.
 
 1. Download `package.zip` from the [latest release](https://github.com/ai68298100/siyuan-lv-cards/releases/latest) (do **not** unzip)
 2. SiYuan → Settings → Marketplace → Download → "Import package" → pick the zip
@@ -52,7 +52,7 @@ SiYuan ≥ 3.8.0. Desktop is the core experience; mobile and browser are narrow-
 
 ## 📚 Docs
 
-Full design docs in [docs/](./docs/README.md) (Chinese). Key references: [product positioning](./docs/41-竞品调研与定位强化.md) · [R53 design spec](./docs/42-UI设计规范-R53.md) · [interactive prototype](./docs/prototypes/starline-r53.html) · [user guide](./docs/21-用户上手指南.md) · [FAQ](./docs/20-FAQ与故障排查.md) · [privacy](./docs/PRIVACY.md)
+Full design docs in [docs/](./docs/README.md) (Chinese). Key references: [product positioning](./docs/41-竞品调研与定位强化.md) · [R53 design spec](./docs/42-UI设计规范-R53.md) · [interactive prototype](./docs/prototypes/starline-r53.html) · [user guide](./docs/21-用户上手指南.md) · [FAQ](./docs/20-FAQ与故障排查.md) · [privacy](./docs/PRIVACY.md). For development, see [CONTRIBUTING](./CONTRIBUTING.md); report bugs through [Issues](https://github.com/ai68298100/siyuan-lv-cards/issues) and security problems through [SECURITY](./SECURITY.md).
 
 ## 🗺 Roadmap
 
@@ -63,7 +63,8 @@ Full design docs in [docs/](./docs/README.md) (Chinese). Key references: [produc
 | P1 | Weekly report | ✅ v0.206.7 |
 | P1 | Deck dashboard | ✅ v0.206.8 |
 | P1 | Share pack (deck-level Obsidian SR export) | ✅ v0.206.9 |
-| P2 | Mobile walkthrough gate | ✅ v0.206.10 |
+| P2 | 390px narrow-screen structural walkthrough | ✅ v0.206.10 |
+| P2 | Full Android SiYuan host matrix | Pending |
 | P2 | Templates & fields | Deferred |
 
 ## 🙏 Credits

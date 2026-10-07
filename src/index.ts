@@ -184,7 +184,11 @@ export default class LvCardsPlugin extends Plugin {
     /** 内核闪卡 V2 状态（null = 当前内核 < 3.9.0，无 V2 API） */
     private flashcardV2: MigrationStatus | null = null;
     private topBarElement: HTMLElement | null = null;
+    /** 生命周期清理：保存顶栏右键监听，避免禁用/重载后重复菜单。 */
+    private topBarContextMenuHandler: ((evt: MouseEvent) => void) | null = null;
     private badgeTimer: ReturnType<typeof setInterval> | null = null;
+    /** 首次布局后的引导延迟句柄，卸载时必须取消。 */
+    private onboardingTimer: ReturnType<typeof setTimeout> | null = null;
     private settingsSaveTimer: ReturnType<typeof setTimeout> | null = null;
     private suspendToday: SuspendTodayData = { date: "", cardIDs: [] };
     /** BU-31：AI 紧急停用/撤销同意状态（ai-killswitch.json） */
@@ -331,7 +335,17 @@ export default class LvCardsPlugin extends Plugin {
     }
 
     private async readAllStores(): Promise<Record<string, unknown>> {
-        return zipLoaded(LvCardsPlugin.STORE_KEYS, await Promise.all(LvCardsPlugin.STORE_KEYS.map(key => this.loadData(key))));
+        // 单个损坏/暂不可读的槽位不能阻断整个插件启动；normalize 层会为该槽位提供默认值，
+        // 同时保留可观测日志，便于后续诊断和恢复，而不是静默吞掉坏数据。
+        const values = await Promise.all(LvCardsPlugin.STORE_KEYS.map(async key => {
+            try {
+                return await this.loadData(key);
+            } catch (e) {
+                lvLog("error", `load ${key} failed: ${e instanceof Error ? e.message : String(e)}`);
+                return undefined;
+            }
+        }));
+        return zipLoaded(LvCardsPlugin.STORE_KEYS, values);
     }
 
     private async applyLoadedStores(loaded: Record<string, unknown>) {
@@ -1096,10 +1110,11 @@ export default class LvCardsPlugin extends Plugin {
             },
         });
         this.topBarElement.style.position = "relative";
-        this.topBarElement.addEventListener("contextmenu", (evt: MouseEvent) => {
+        this.topBarContextMenuHandler = (evt: MouseEvent) => {
             evt.preventDefault();
             this.showTopbarMenu(evt);
-        });
+        };
+        this.topBarElement.addEventListener("contextmenu", this.topBarContextMenuHandler);
         // 面包屑「复习本文档」按钮（M2·FR2，官方 API 3.8.2+；旧版静默跳过）
         if (typeof (this as any).addBreadcrumbButton === "function" && this.settings.modules.review) {
             (this as any).addBreadcrumbButton({
@@ -1122,7 +1137,10 @@ export default class LvCardsPlugin extends Plugin {
         this.setupBadgeTimer();
         // Onboarding 首启自动弹出（M12：!onboarded 时延迟 2s 弹出，避免与布局渲染竞争）
         if (!this.settings.onboarded) {
-            setTimeout(() => this.openOnboarding(), 2000);
+            this.onboardingTimer = setTimeout(() => {
+                this.onboardingTimer = null;
+                void this.openOnboarding();
+            }, 2000);
         }
     }
 
@@ -1241,6 +1259,14 @@ export default class LvCardsPlugin extends Plugin {
         const unloadStart = Date.now();
         this.eventBus.off("click-flashcard-action", this.onNativeCardAction);
         this.eventBus.off("click-blockicon", this.onBlockIcon);
+        if (this.topBarElement && this.topBarContextMenuHandler) {
+            this.topBarElement.removeEventListener("contextmenu", this.topBarContextMenuHandler);
+            this.topBarContextMenuHandler = null;
+        }
+        if (this.onboardingTimer) {
+            clearTimeout(this.onboardingTimer);
+            this.onboardingTimer = null;
+        }
         // AT-1：取消挂起中的同步重载（卸载后不再触发读盘）
         if (this.reloadTimer) {
             clearTimeout(this.reloadTimer);
@@ -2774,7 +2800,7 @@ export default class LvCardsPlugin extends Plugin {
                     close: () => close(),
                     save: async (s: LvCardsSettings) => {
                         this.settings = s;
-                        await this.saveData(SETTINGS_DATA, s);
+                        await this.saveSettingsNow();
                         showMessage(this.i18n.settingsSaved, 2000, "info");
                     },
                     exportRevlog: () => this.exportRevlog(),

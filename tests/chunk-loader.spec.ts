@@ -21,12 +21,34 @@ describe("chunk-loader（AT-17）", () => {
         vi.resetModules();
         document.head.innerHTML = "";
         (window as any).__lvChunks = undefined;
+        // CSS link 注入只验证节点/地址/幂等性；让 happy-dom 将禁用的外部加载视为成功，
+        // 避免单测为不存在的 localhost:3000 资源创建网络请求和错误噪声。
+        const settings = (window as any).happyDOM?.settings;
+        if (settings) {
+            settings.disableCSSFileLoading = true;
+            settings.handleDisabledFileLoadingAsSuccess = true;
+        }
     });
 
-    it("onerror（真实加载失败）→ 拒绝、移除节点；重试路径可恢复", async () => {
+    it("onerror（失败事件）→ 拒绝、移除节点；重试路径可恢复", async () => {
         const loadChunk = await freshLoader();
-        const promise = loadChunk("hub").catch(e => e);
-        const err = await promise as Error;
+        // 失败分支只需验证 loader 的 onerror/清理/重试语义；不让 happy-dom
+        // 为这个故意失败的 script 真的触发外部资源加载。
+        const appendChild = Node.prototype.appendChild;
+        const appendSpy = vi.spyOn(document.head, "appendChild").mockImplementation(function (node) {
+            if (node instanceof HTMLScriptElement && node.getAttribute("src")) {
+                queueMicrotask(() => node.dispatchEvent(new Event("error")));
+                return node;
+            }
+            return appendChild.call(this, node);
+        });
+        let err: Error;
+        try {
+            const promise = loadChunk("hub").catch(e => e);
+            err = await promise as Error;
+        } finally {
+            appendSpy.mockRestore();
+        }
         expect(err.message).toContain("chunk load failed");
         expect(document.getElementById("lv-chunk-js-hub")).toBeNull();
         // 重试：预插占位 + 注册表就位 → 成功
@@ -60,6 +82,11 @@ describe("chunk-loader（AT-17）", () => {
         const err = await loadChunk("review").catch(e => e);
         await flush();
         expect(err.message).toContain("missing export");
+        // 缺注册表时清理旧 script，后续部署修复后可真正重新加载。
+        expect(document.getElementById("lv-chunk-js-review")).toBeNull();
+        (window as any).__lvChunks = { review: { mount: () => ({ destroy() { /* noop */ } }) } };
+        preinject("review");
+        expect(typeof (await loadChunk("review")).mount).toBe("function");
     });
 
     it("dialogs 形态（components 子表+挂载器）与 index.ts 消费一致", async () => {

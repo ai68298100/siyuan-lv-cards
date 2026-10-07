@@ -45,6 +45,15 @@ describe("LvTabs", () => {
         expect(els.map(e => e.getAttribute("tabindex"))).toEqual(["-1", "0", "-1"]);
     });
 
+    it("AS-9：宿主提供单一活动面板时，所有页签关联同一现存面板", () => {
+        const { container } = render(LvTabs, { tabs, active: "manage", onchange: () => {}, panelId: "hub-panel" });
+        const list = container.querySelector("[role=tablist]")!;
+        expect(list.getAttribute("aria-orientation")).toBe("horizontal");
+        expect([...container.querySelectorAll("[role=tab]")].map((e) => e.getAttribute("aria-controls"))).toEqual([
+            "hub-panel", "hub-panel", "hub-panel",
+        ]);
+    });
+
     it("AS-9：ArrowRight 移动并激活下一页签，Home/End 跳转首尾", async () => {
         const onchange = vi.fn();
         const { container } = render(LvTabs, { tabs, active: "manage", onchange });

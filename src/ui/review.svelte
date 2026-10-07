@@ -22,6 +22,7 @@
     import { recoveryOptions, type RecoveryOption, type RecoverySnapshot } from "@/core/session-recovery";
     import { triageReturn, RETURN_REASONS, type ReturnReason } from "@/core/return-triage";
     import { SESSION_PURPOSES, PURPOSE_PROFILES, type SessionPurpose } from "@/core/session-purpose";
+    import { reviewSwipeAction } from "@/core/review-gesture";
     import { invalidateDueCache, dueCache } from "@/api/due-shared";
     import { nextHint, logHint, deriveHintLevels, availableLevels, type HintLevel, type HintLevelsInput } from "@/core/hint-ladder";
     import LvKbd from "./kit/LvKbd.svelte";
@@ -1164,11 +1165,11 @@
         if (el.closest("input,textarea,select,button,a,[contenteditable]")) return;
         const dx = e.changedTouches[0].clientX - touchStartX;
         const dy = e.changedTouches[0].clientY - touchStartY;
-        if (Math.abs(dx) < 60 && Math.abs(dy) < 60) return;
-        if (!current || showAnswer) return;
-        if (dx > 60 && Math.abs(dy) < 60) { rate(3); }
-        else if (dx < -60 && Math.abs(dy) < 60) { rate(1); }
-        else if (dy < -60 && Math.abs(dx) < 60) { showAnswer = true; }
+        if (!current) return;
+        const action = reviewSwipeAction(showAnswer, dx, dy);
+        if (action === "good") { rate(3); }
+        else if (action === "again") { rate(1); }
+        else if (action === "reveal") { showAnswer = true; }
     }
 
     function onContainerClick(e: MouseEvent) {
@@ -1727,7 +1728,7 @@
             <div class="lv-help-head">
                 <span>{t.review.helpTitle}</span>
                 <div class="fn__flex-1"></div>
-                <button class="b3-button b3-button--small" onclick={() => (helpOpen = false)}>✕</button>
+                <button class="b3-button b3-button--small" aria-label={window.siyuan.languages.cancel} onclick={() => (helpOpen = false)}>✕</button>
             </div>
             <div class="lv-help-body">
                 {#each [
@@ -1757,7 +1758,7 @@
             <div class="lv-peek-head">
                 <span>{t.review.peekTitle}</span>
                 <div class="fn__flex-1"></div>
-                <button class="b3-button b3-button--small" onclick={togglePeek}>✕</button>
+                <button class="b3-button b3-button--small" aria-label={window.siyuan.languages.cancel} onclick={togglePeek}>✕</button>
             </div>
             <div class="lv-peek-body b3-typography">{@html peek.html}</div>
         </div>

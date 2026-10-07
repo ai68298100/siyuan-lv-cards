@@ -22,21 +22,43 @@ const pending: Partial<Record<ChunkName, Promise<ChunkMount>>> = {};
 /** 注入 <link>（幂等）；CSS 加载失败不阻断 JS（组件仍可用，仅裸样式） */
 function injectCss(name: ChunkName, version: string): void {
     const id = `lv-chunk-css-${name}`;
-    if (document.getElementById(id)) return;
+    const href = `${BASE}/chunks/${name}.css?v=${version}`;
+    const existing = document.getElementById(id) as HTMLLinkElement | null;
+    if (existing) {
+        const currentHref = existing.getAttribute("href");
+        // 开发测试会预插无 href 占位；生产节点带版本号时，版本变化必须替换旧 CSS。
+        if (!currentHref || new URL(currentHref, document.baseURI).href === new URL(href, document.baseURI).href) {
+            return;
+        }
+        existing.remove();
+    }
     const link = document.createElement("link");
     link.id = id;
     link.rel = "stylesheet";
-    link.href = `${BASE}/chunks/${name}.css?v=${version}`;
+    link.href = href;
     document.head.appendChild(link);
 }
 
 function injectScript(name: ChunkName, version: string): Promise<void> {
     return new Promise((resolve, reject) => {
         const id = `lv-chunk-js-${name}`;
-        if (document.getElementById(id)) return resolve();
+        const src = `${BASE}/chunks/${name}.js?v=${version}`;
+        const existing = document.getElementById(id) as HTMLScriptElement | null;
+        if (existing) {
+            const currentSrc = existing.getAttribute("src");
+            // 保留无 src 预插占位（测试/宿主预加载）；生产旧版本节点必须移除后再请求。
+            if (!currentSrc || new URL(currentSrc, document.baseURI).href === new URL(src, document.baseURI).href) {
+                return resolve();
+            }
+            existing.remove();
+            const reg = (window as any).__lvChunks as Record<string, unknown> | undefined;
+            if (reg) {
+                delete reg[name];
+            }
+        }
         const s = document.createElement("script");
         s.id = id;
-        s.src = `${BASE}/chunks/${name}.js?v=${version}`;
+        s.src = src;
         s.async = false;
         s.onload = () => resolve();
         s.onerror = () => {
@@ -56,6 +78,10 @@ export function loadChunk(name: ChunkName): Promise<Record<string, any>> {
         const reg = (window as any).__lvChunks as Record<string, any> | undefined;
         const mod = reg?.[name];
         if (!mod || typeof mod !== "object") {
+            // 脚本已执行但未注册模块时，移除占位节点，确保后续重试会真正
+            // 重新请求脚本；仅删除 pending 会被同 id 的旧节点短路，永远无法恢复。
+            document.getElementById(`lv-chunk-js-${name}`)?.remove();
+            document.getElementById(`lv-chunk-css-${name}`)?.remove();
             throw new Error(`lv chunk missing export: ${name}`);
         }
         return mod;

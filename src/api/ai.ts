@@ -8,6 +8,7 @@
 import { fetchSyncPost } from "siyuan";
 import { AICanceledError, isAICanceled, isRecoverableAIError } from "./ai-errors";
 import { classifyAiFailure, nextLadderStep, type LadderStep } from "../core/ai-degradation";
+import { withTimeout } from "../libs/timeout";
 
 // 错误分类从零依赖模块再导出（单测不经 siyuan 包解析；调用方仍从 @/api/ai 引入）
 export { AICanceledError, isAICanceled, isRecoverableAIError };
@@ -40,6 +41,11 @@ export interface AICallOptions {
 const normalizeEndpoint = (url: string) => url.trim().replace(/\/+$/, "");
 
 export async function aiChat(cfg: AIConfig, system: string, user: string, opts: AICallOptions = {}): Promise<string> {
+    // AbortSignal 可能在调用前已触发；必须在创建 fetch/回退链前立即短路。
+    // 否则 chatCompletions 只监听未来 abort 事件，会把已取消请求发送出去。
+    if (opts.signal?.aborted) {
+        throw new AICanceledError();
+    }
     if (cfg.mode === "custom") {
         if (!cfg.endpoint) {
             throw new Error("custom endpoint is empty");
@@ -62,6 +68,11 @@ export async function aiChat(cfg: AIConfig, system: string, user: string, opts: 
                     opts.onDegradation?.(step);
                     return text;
                 } catch (e2) {
+                    // 取消可能发生在主请求失败、备用请求开始或备用请求进行中；
+                    // 保留取消错误，不能把它包装成可恢复的组合失败。
+                    if (opts.signal?.aborted || isAICanceled(e2)) {
+                        throw new AICanceledError();
+                    }
                     throw new Error(
                         `AI fail: primary (${describe(e)}) | fallback (${describe(e2)})`,
                     );
@@ -74,12 +85,16 @@ export async function aiChat(cfg: AIConfig, system: string, user: string, opts: 
     if (opts.signal?.aborted) {
         throw new AICanceledError();
     }
-    const resp = await fetchSyncPost("/api/ai/chatGPT", {
+    const timeoutMs = opts.timeoutMs ?? 15000;
+    const request = fetchSyncPost("/api/ai/chatGPT", {
         messages: [
             { role: "system", content: system },
             { role: "user", content: user },
         ],
     });
+    const resp = timeoutMs > 0
+        ? await withTimeout(request, timeoutMs, "/api/ai/chatGPT")
+        : await request;
     if (opts.signal?.aborted) {
         throw new AICanceledError();
     }
@@ -95,6 +110,11 @@ function describe(e: unknown): string {
 }
 
 async function chatCompletions(cfg: AIConfig, system: string, user: string, opts: AICallOptions): Promise<string> {
+    // 回退链可能在主请求失败与切换之间观察到取消；再次检查，避免已取消的
+    // fallback 请求绕过已注册的 abort 监听而实际发出网络请求。
+    if (opts.signal?.aborted) {
+        throw new AICanceledError();
+    }
     const timeoutMs = opts.timeoutMs ?? 15000;
     const ctrl = new AbortController();
     const onOuterAbort = () => ctrl.abort();

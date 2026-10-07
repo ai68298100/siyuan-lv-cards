@@ -8,8 +8,7 @@
 
 中文 ｜ [English](./README.en.md)
 
-[![Release](https://img.sh://img.shields.io/github/v/release/ai68298100/siyuan-lv-cards)](https://github.com/ai68298100/siyuan-lv-cards/releases)
-[![CI](https://img.shields.io/github/v/release/ai68298100/siyuan-lv-cards)](https://github.com/ai68298100/siyuan-lv-cards/releases)
+[![Release](https://img.shields.io/github/v/release/ai68298100/siyuan-lv-cards)](https://github.com/ai68298100/siyuan-lv-cards/releases)
 [![CI](https://github.com/ai68298100/siyuan-lv-cards/actions/workflows/ci.yml/badge.svg)](https://github.com/ai68298100/siyuan-lv-cards/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
 [![SiYuan >= 3.8.0](https://img.shields.io/badge/%E6%80%9D%E6%BA%90-%3E%3D%203.8.0-blue)](https://b3log.org/siyuan/)
@@ -20,7 +19,7 @@
 
 小驴闪卡的定位是**思源笔记里的全生命周期记忆引擎**：让笔记里每一段值得记的内容，都能可回源地变成卡片，用内核原生 FSRS 科学排期，用可审计的 AI 提效；数据本地优先，带得走。
 
-当前开发基线为 **v0.207.0**。相比上一大版本（v0.185），本版完成了 Starline R53 视觉体系（docs/42）、两个 P0 新功能（⌘K 命令面板、学习日历与负载预测）、三个 P1 功能（每周学习报告、卡组仪表盘、分享包导出）、以及一轮真机走查修复（详情抽屉崩溃、按钮语义基线、工具栏重排、移动端适配）。699 项单元测试与隔离 E2E 全绿；7 个页签在亮/暗主题、390px 窄屏下真机走查通过。
+当前开发基线为 **v0.207.0**。相比上一大版本（v0.185），本版完成了 Starline R53 视觉体系（docs/42）、两个 P0 新功能（⌘K 命令面板、学习日历与负载预测）、三个 P1 功能（每周学习报告、卡组仪表盘、分享包导出）、以及一轮真机走查修复（详情抽屉崩溃、按钮语义基线、工具栏重排、移动端适配）。716 项单元测试与隔离 E2E 全绿；390px 窄屏结构化走查通过，Android 思源真机完整矩阵仍待执行。
 
 ## 它适合怎样的学习
 
@@ -87,7 +86,7 @@
 
 ## 安装
 
-最低声明为 **思源 3.8.0**。桌面端为核心体验；移动端与浏览器端已做窄屏适配（390px 走查通过），具体功能差异仍需按设备验证。
+最低声明为 **思源 3.8.0**。桌面端为核心体验；移动端与浏览器端已做窄屏适配（390px 结构化走查通过），Android 思源真机完整矩阵仍待执行，具体功能差异仍需按设备验证。
 
 1. 到 [GitHub Releases](https://github.com/ai68298100/siyuan-lv-cards/releases/latest) 下载 `package.zip`。
 2. 在思源 **设置 → 集市 → 下载** 中使用"导入安装包"，选择该 ZIP，无需解压。
@@ -116,7 +115,7 @@
 
 </details>
 
-需要更详细的操作，见[上手指南](./docs/21-用户上手指南.md)与[FAQ](./docs/20-FAQ与故障排查.md)。反馈问题可到 [Issues](https://github.com/ai68298100/siyuan-lv-cards/issues)。
+需要更详细的操作，见[上手指南](./docs/21-用户上手指南.md)与[FAQ](./docs/20-FAQ与故障排查.md)。反馈问题可到 [Issues](https://github.com/ai68298100/siyuan-lv-cards/issues)，安全问题请按 [SECURITY](./SECURITY.md) 的私密渠道报告。
 
 ## 路线图
 
@@ -127,8 +126,8 @@
 | P1 | 每周学习报告 | ✅ v0.206.7 |
 | P1 | 卡组仪表盘 | ✅ v0.206.8 |
 | P1 | 分享包（Obsidian SR 整组导出） | ✅ v0.206.9 |
-| P1 | 每周报告 | ✅ v0.206.7 |
-| P2 | 移动端走查门禁 | ✅ v0.206.10 |
+| P2 | 390px 窄屏结构化走查 | ✅ v0.206.10 |
+| P2 | Android 思源真机完整矩阵 | 待执行 |
 | P2 | 模板与字段 | 等核心闭环稳定后开启 |
 
 完整方向见[产品使命](./docs/27-产品使命与全功能战略.md)、[竞品调研与定位](./docs/41-竞品调研与定位强化.md)和[分层路线图](./docs/04-路线图.md)。
@@ -152,13 +151,13 @@ pnpm install
 pnpm make-link    # 将 dist/ 链接到本机思源工作区，具体配置见 CONTRIBUTING
 pnpm dev          # 监听构建，开发环境需运行思源
 pnpm check        # 类型、Svelte 与版本检查
-pnpm test         # 单元测试（699+）
+pnpm test         # 单元测试（716+）
 pnpm build        # 生产构建（含 hub/review/dialogs 三个 UI chunk）
 node scripts/e2e-isolated.mjs   # 隔离式后台 e2e（临时工作区+无头内核，18 项断言）
 pnpm release      # 交互式同步版本并运行检查；不等于发布到外部平台
 ```
 
-启动体积按 chunk 分治：主包 gzip ≈43KB（≤55KB CI 门禁），闪卡中心/复习/对话框三个重组件按需加载。正式调度以思源内核为准。工程细节见[架构决策](./docs/24-架构决策记录.md)与[扩展契约](./docs/14-扩展架构与数据契约.md)。
+启动体积按 chunk 分治：Vite 报告主包 gzip ≈52.89KB（治理门禁按 KiB 计约 51KB，≤55KB），闪卡中心/复习/对话框 chunk 分别约 61.24/36.52/58.98KB，按需加载。正式调度以思源内核为准。工程细节见[架构决策](./docs/24-架构决策记录.md)与[扩展契约](./docs/14-扩展架构与数据契约.md)。
 
 </details>
 

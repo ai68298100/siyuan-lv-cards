@@ -62,7 +62,7 @@
         <LvSteps steps={stepLabels} current={step - 1} />
         <div class="fn__flex-1"></div>
         <span class="lv-tag lv-tag--brand">{t.drillBadge}</span>
-        <button class="b3-button b3-button--small" onclick={onClose}>✕</button>
+        <button class="b3-button b3-button--small" aria-label={window.siyuan.languages.cancel} onclick={onClose}>✕</button>
     </div>
 
     <!-- 样例选择器（T10 扩容） -->

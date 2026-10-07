@@ -129,7 +129,7 @@ export default defineConfig(buildTarget === "kernel" ? {
                 { src: "./docs/22-*.md", dest: "./docs", rename: { stripBase: true } },
                 { src: "./docs/23-*.md", dest: "./docs", rename: { stripBase: true } },
                 { src: "./docs/P*.md", dest: "./docs", rename: { stripBase: true } },
-                { src: "./asset/*", dest: "./asset", rename: { stripBase: true } },
+                // 发布包只携带运行时需要的文件；asset/ 下的截图和靶场素材不得进入 package.zip。
                 { src: "./plugin.json", dest: "./" },
             ],
         }),

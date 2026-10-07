@@ -262,11 +262,7 @@
         });
     }
 
-    function onRowClick(e: MouseEvent, b: SearchBlock) {
-        const el = e.target as HTMLElement;
-        if (el.closest("input,button,a,select")) {
-            return;
-        }
+    function openDetail(b: SearchBlock) {
         detail = b;
         // BK-2：详情打开时载入该块的关系视图（本地镜像，增删后经 ctx 刷新）
         detailRelations = ctx.relationsOfBlock?.(b.id) ?? [];
@@ -398,29 +394,21 @@
             {#each filteredBlocks as b (b.id)}
                 <div
                     class="lv-row"
-                    role="button"
-                    tabindex="0"
-                    onclick={(e: MouseEvent) => onRowClick(e, b)}
-                    onkeydown={(e: KeyboardEvent) => {
-                        // docs/38 P1-B：操作不依赖 hover/指针——Enter/Space 程序化点击等价打开详情
-                        if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            if ((e.target as HTMLElement).closest("input,button,a,select")) return;
-                            (e.currentTarget as HTMLElement).click();
-                        }
-                    }}
                 >
                     <input
                         type="checkbox"
                         class="lv-check"
+                        aria-label={(t.manager.selectCard ?? "Select card ${id}").replace("${id}", b.id)}
                         checked={selected.includes(b.id)}
                         onclick={(e: Event) => { e.stopPropagation(); toggleSelect(b.id); }}
                     />
-                    <div class="lv-content">
-                        <div class="lv-text">{stripHtml(b.content) || b.id}</div>
-                        <div class="lv-meta ft__smaller ft__on-surface">{b.hPath ?? ""} {b.name ? "· " + b.name : ""}</div>
-                    </div>
-                    <span class="lv-arrow" aria-hidden="true">›</span>
+                    <button type="button" class="lv-row-main" onclick={() => openDetail(b)}>
+                        <span class="lv-content">
+                            <span class="lv-text">{stripHtml(b.content) || b.id}</span>
+                            <span class="lv-meta ft__smaller ft__on-surface">{b.hPath ?? ""} {b.name ? "· " + b.name : ""}</span>
+                        </span>
+                        <span class="lv-arrow" aria-hidden="true">›</span>
+                    </button>
                     <button class="b3-button b3-button--small" onclick={(e: Event) => { e.stopPropagation(); openDoc(b); }}>{t.manager.openDoc}</button>
                 </div>
             {/each}
@@ -594,6 +582,27 @@
                 box-shadow: var(--lv-shadow-2);
                 &::before { opacity: 1; }
                 .lv-arrow { opacity: 1; transform: translateX(0); }
+            }
+
+            .lv-row-main {
+                display: flex;
+                align-items: center;
+                gap: var(--lv-sp-3);
+                flex: 1;
+                min-width: 0;
+                margin: calc(var(--lv-sp-3) * -1) 0;
+                padding: var(--lv-sp-3) 0;
+                border: 0;
+                background: transparent;
+                color: inherit;
+                text-align: left;
+                cursor: pointer;
+
+                &:focus-visible {
+                    outline: 2px solid var(--b3-theme-primary);
+                    outline-offset: 2px;
+                    border-radius: var(--lv-r-s);
+                }
             }
 
             .lv-content { flex: 1; min-width: 0; }
