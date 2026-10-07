@@ -261,8 +261,9 @@
                 onderive={koCtx.onderive}
             />
         {:else}
+            <!-- ko 文案在 i18n 的 review.ko 组（与 ko-panel 同源）；t.ko 顶层不存在（v0.124 起的潜伏笔误） -->
             <button class="b3-button b3-button--text" onclick={koCtx.onregister}>
-                {t.ko.register}
+                {t.review?.ko?.register ?? t.ko?.register ?? ""}
             </button>
         {/if}
     {/if}

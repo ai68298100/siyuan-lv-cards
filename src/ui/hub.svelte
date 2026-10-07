@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { onDestroy, onMount } from "svelte";
     import LvTabs from "./kit/LvTabs.svelte";
     import Dashboard from "./dashboard.svelte";
     import Manager from "./manager.svelte";
@@ -163,6 +164,21 @@
         onTabChange?.(id);
     }
 
+    // T13/openTabOf 去重（docs/40）：外部（顶栏/命令面板）复用既有中心页签时，
+    // 经根元素派发 lv-switch-tab 事件切换子页——避免每次入口都新开一个中心
+    let hubRoot = $state<HTMLElement | null>(null);
+    let onSwitchTab: ((e: Event) => void) | null = null;
+    onMount(() => {
+        onSwitchTab = (e: Event) => {
+            const id = (e as CustomEvent<string>).detail;
+            if (typeof id === "string" && tabs.some(t => t.id === id)) switchTab(id);
+        };
+        hubRoot?.addEventListener("lv-switch-tab", onSwitchTab);
+    });
+    onDestroy(() => {
+        hubRoot?.removeEventListener("lv-switch-tab", onSwitchTab ?? (() => {}));
+    });
+
     // T01 页头日期（R52 .page-head 的 eyebrow 口径）：本地日期 YYYY.MM.DD，跨天自检翻转
     const todayLabel = $derived.by(() => {
         const d = new Date();
@@ -170,7 +186,7 @@
     });
 </script>
 
-<div class="lv-hub">
+<div class="lv-hub" bind:this={hubRoot}>
     <!-- T01 页头语义（R52 .page-head）：eyebrow + 页题 + 副题，页签栏之上 -->
     <div class="lv-pagehead">
         <div>

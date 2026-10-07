@@ -65,6 +65,17 @@
 
     let { ctx }: { ctx: ManagerCtx } = $props();
     const t = $derived(ctx.i18n);
+    // 详情面板 i18n 视图矫正（v0.206.12）：relations 实际在 review.relations（v0.11x 起的组路径漂移），
+    // 面板内 34 处 t.relations/t.lc/t.editor 直读不改——在此构造兼容视图，缺组回落顶层
+    const detailT = $derived.by(() => {
+        const i = ctx.i18n as any;
+        return new Proxy(i, {
+            get(target, key: string) {
+                if (key === "relations" && !target.relations) return target.review?.relations;
+                return target[key];
+            },
+        });
+    });
 
     const PAGE_SIZE = 20;
     let loading = $state(true);
@@ -143,7 +154,13 @@
             if (seq !== loadSeq) {
                 return; // 旧页响应不覆盖筛选、页码与选择
             }
-            blocks = cards.blocks ?? [];
+            // 同一块可同时属于内置卡组与自定义卡组（Svelte each 键不可重复）——按块 ID 去重，一行一内容
+            const seen = new Set<string>();
+            blocks = (cards.blocks ?? []).filter(b => {
+                if (!b.id || seen.has(b.id)) return false;
+                seen.add(b.id);
+                return true;
+            });
             selected = [];
             total = cards.total;
             pageCount = Math.max(1, cards.pageCount);
@@ -312,14 +329,21 @@
 <LvPage title={t.manager.title} subtitle={`${t.manager.total}: ${total}`}>
     {#snippet actions()}
         <input class="b3-text-field lv-filter" type="text" placeholder={t.manager.filterPlaceholder} bind:value={filterText} />
-        <button class="b3-button b3-button--small" title={t.manager.saveFilter} disabled={!filterText} onclick={saveCurrent}>★</button>
-        {#if savedList.length > 0}
+        <button class="b3-button b3-button--outline" onclick={load}>{t.dashboard.refresh}</button>
+    {/snippet}
+
+    <!-- T-管理器 R53 工具行：排序/筛选/保存独立于页头搜索 -->
+    <div class="lv-mgr-toolbar">
+        {#if filterText}
+            <button class="b3-button b3-button--small lv-btn-ghost" title={t.manager.saveFilter} onclick={saveCurrent}>★ {t.manager.saveFilter}</button>
+        {/if}
+        {#if savedList.length > 0 || filterText}
             <select class="b3-select lv-sort" bind:value={pickedSaved} onchange={applySaved}>
                 <option value="" disabled>★ {t.manager.savedFilters}</option>
                 {#each savedList as f (f.name)}<option value={f.name}>{f.name}</option>{/each}
             </select>
             {#if pickedSaved}
-                <button class="b3-button b3-button--small" title={t.manager.deleteSaved} onclick={deleteSaved}>🗑</button>
+                <button class="b3-button b3-button--small lv-btn-ghost" title={t.manager.deleteSaved} onclick={deleteSaved}>🗑</button>
             {/if}
         {/if}
         <select class="b3-select lv-sort" bind:value={sortMode} title={t.manager.sortLabel}>
@@ -339,11 +363,8 @@
                 {t.manager.leechFilter}
             </button>
         {/if}
-        <button class="b3-button b3-button--outline" disabled={page <= 1} onclick={() => goto(page - 1)}>{t.manager.prev}</button>
-        <span class="lv-pager">{page} / {pageCount}</span>
-        <button class="b3-button b3-button--outline" disabled={page >= pageCount} onclick={() => goto(page + 1)}>{t.manager.next}</button>
-        <button class="b3-button b3-button--outline" onclick={load}>{t.dashboard.refresh}</button>
-    {/snippet}
+        <span class="hint" style="margin-left:auto">{t.manager.total}: {total}</span>
+    </div>
 
     {#if selected.length > 0}
         <div class="lv-glass lv-batchbar">
@@ -404,13 +425,21 @@
                 </div>
             {/each}
         </div>
+        <!-- T-管理器 R53：分页在列表底部 -->
+        {#if pageCount > 1}
+            <div class="lv-mgr-pager">
+                <button class="b3-button b3-button--outline b3-button--small" disabled={page <= 1} onclick={() => goto(page - 1)}>{t.manager.prev}</button>
+                <span class="lv-pager">{page} / {pageCount}</span>
+                <button class="b3-button b3-button--outline b3-button--small" disabled={page >= pageCount} onclick={() => goto(page + 1)}>{t.manager.next}</button>
+            </div>
+        {/if}
     {/if}
 </LvPage>
 
 {#if detail}
     <CardDetail
         block={detail}
-        {t}
+        t={detailT}
         onOpenDoc={() => openDoc(detail!)}
         onClose={() => (detail = null)}
         historyEntries={ctx.getBlockHistory?.(detail!.id) ?? []}
@@ -509,6 +538,29 @@
     }
     .lv-check { cursor: pointer; }
 
+    /* T-管理器 R53 工具行：排序/筛选独立于页头（与 .lv-list 同级） */
+    .lv-mgr-toolbar {
+        display: flex;
+        align-items: center;
+        gap: var(--lv-sp-2);
+        flex-wrap: wrap;
+        margin-bottom: var(--lv-sp-3);
+
+        .lv-sort { max-width: 140px; font-size: 12px; padding: 3px 8px; }
+    }
+
+    /* T-管理器 R53 分页：列表底部居中（与 .lv-list 同级） */
+    .lv-mgr-pager {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: var(--lv-sp-3);
+        margin-top: var(--lv-sp-4);
+        padding-top: var(--lv-sp-3);
+        border-top: 1px solid var(--lv-border);
+        .lv-pager { font-size: 12px; color: var(--b3-theme-on-surface); font-variant-numeric: tabular-nums; }
+    }
+
     .lv-list {
         display: flex;
         flex-direction: column;
@@ -517,10 +569,9 @@
         .lv-row {
             display: flex; align-items: center; gap: var(--lv-sp-3);
             padding: var(--lv-sp-3) var(--lv-sp-4);
-            background: var(--lv-surface-grad);
+            background: var(--b3-theme-surface);
             border: 1px solid var(--lv-border);
             border-radius: var(--lv-r-m);
-            box-shadow: var(--lv-shadow-1);
             transition: transform var(--lv-dur-2) var(--lv-ease),
                 border-color var(--lv-dur-2) var(--lv-ease),
                 box-shadow var(--lv-dur-2) var(--lv-ease);

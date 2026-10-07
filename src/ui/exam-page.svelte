@@ -147,7 +147,7 @@
         <LvError message={t.exam.loadFailed} onretry={load} retryLabel={t.dashboard.refresh} />
     {/if}
     <div class="fn__flex" style="justify-content: flex-end; margin-bottom: var(--lv-sp-3)">
-        <button class="b3-button b3-button--text lv-btn-primary" onclick={() => (editing = newPlan())}>
+        <button class="b3-button b3-button--outline" onclick={() => (editing = newPlan())}>
             + {t.exam.newPlan}
         </button>
     </div>
@@ -167,7 +167,7 @@
             {@const target = plan.enabled ? targetFor(plan) : null}
             <div class="lv-card2 lv-plan" class:lv-plan-cram={cram}>
                 <div class="fn__flex lv-plan-head">
-                    <span class="lv-plan-name">🎓 {plan.name || t.exam.untitled}</span>
+                    <span class="lv-plan-name">{plan.name || t.exam.untitled}</span>
                     {#if cram}
                         <LvChip tone="error">{t.exam.cramOn}</LvChip>
                     {:else if left !== null && left <= 30}
@@ -175,11 +175,11 @@
                     {/if}
                     <div class="fn__flex-1"></div>
                     {#if plan.enabled}
-                        <button class="b3-button b3-button--text" onclick={() => onReviewScope(plan.scopeKind, plan.scopeId, cram, plan.id)}>
+                        <button class="b3-button lv-btn-primary" onclick={() => onReviewScope(plan.scopeKind, plan.scopeId, cram, plan.id)}>
                             {t.exam.startToday}
                         </button>
                     {:else}
-                        <button class="b3-button b3-button--text" onclick={() => onSavePlan({ ...plan, enabled: true })}>
+                        <button class="b3-button b3-button--outline" onclick={() => onSavePlan({ ...plan, enabled: true })}>
                             {t.exam.resume}
                         </button>
                     {/if}
@@ -207,29 +207,29 @@
                         {:else if adv.advice.capacityUnknown}
                             <span>{t.exam.adviceCapacityUnknown.replace("${observed}", String(adv.advice.observed))}</span>
                         {:else if adv.advice.todayTarget !== null}
-                            <span>📅 {t.exam.adviceToday.replace("${n}", String(adv.advice.todayTarget))}</span>
+                            <span>{t.exam.adviceToday.replace("${n}", String(adv.advice.todayTarget))}</span>
                             {#if adv.advice.behind > 0}
                                 <span> · {t.exam.adviceBehind.replace("${n}", String(adv.advice.behind))}</span>
                             {/if}
                             {#if adv.advice.infeasible === "over-capacity" && adv.advice.daysNeededAtCap !== null}
-                                <span> · ⚠️ {t.exam.adviceOverCap.replace("${n}", String(adv.advice.daysNeededAtCap))}</span>
+                                <span class="lv-plan-advice-warn"> · {t.exam.adviceOverCap.replace("${n}", String(adv.advice.daysNeededAtCap))}</span>
                             {/if}
                             <span style="opacity:.65">{t.exam.advicePreview}</span>
                         {/if}
                     </div>
                 {/if}
                 <div class="fn__flex lv-plan-actions">
-                    <button class="b3-button b3-button--small" onclick={() => (editing = { ...plan })}>{t.exam.edit}</button>
-                    <button class="b3-button b3-button--small" onclick={() => onReport(plan)}>{t.exam.report}</button>
+                    <button class="b3-button b3-button--small lv-btn-ghost" onclick={() => (editing = { ...plan })}>{t.exam.edit}</button>
+                    <button class="b3-button b3-button--small lv-btn-ghost" onclick={() => onReport(plan)}>{t.exam.report}</button>
                     <!-- AR-5：写入中禁点，失败 toast 给原因（文档写入失败可重试） -->
-                    <button class="b3-button b3-button--small" disabled={reportBusyId === plan.id} onclick={() => writeDoc(plan)}>
+                    <button class="b3-button b3-button--small lv-btn-ghost" disabled={reportBusyId === plan.id} onclick={() => writeDoc(plan)}>
                         {reportBusyId === plan.id ? "…" : t.exam.writeDoc}
                     </button>
-                    <button class="b3-button b3-button--small" onclick={() => onSavePlan({ ...plan, archived: true, enabled: false })}>{t.exam.archive}</button>
-                    <button class="b3-button b3-button--small" onclick={() => onSavePlan({ ...plan, enabled: !plan.enabled, archived: false })}>
+                    <button class="b3-button b3-button--small lv-btn-ghost" onclick={() => onSavePlan({ ...plan, archived: true, enabled: false })}>{t.exam.archive}</button>
+                    <button class="b3-button b3-button--small lv-btn-ghost" onclick={() => onSavePlan({ ...plan, enabled: !plan.enabled, archived: false })}>
                         {plan.enabled ? t.exam.pause : t.exam.enable}
                     </button>
-                    <button class="b3-button b3-button--small" onclick={() => onDeletePlan(plan.id)}>{t.exam.delete}</button>
+                    <button class="b3-button b3-button--small lv-btn-ghost" onclick={() => onDeletePlan(plan.id)}>{t.exam.delete}</button>
                 </div>
             </div>
         {/each}
@@ -306,7 +306,8 @@
         display: flex; flex-wrap: wrap; gap: 4px; align-items: baseline;
         margin: var(--lv-sp-1) 0 0;
     }
-    .lv-plan-actions { gap: var(--lv-sp-2); }
+    .lv-plan-actions { gap: var(--lv-sp-1); }
+    .lv-plan-advice-warn { color: var(--b3-theme-warning); }
     .lv-editmask {
         position: fixed; inset: 0; z-index: 40;
         background: color-mix(in srgb, black 32%, transparent);

@@ -1,10 +1,13 @@
 <script lang="ts">
     import { onMount } from "svelte";
-    import { getRiffDecks, type RiffDeck } from "@/api/riff";
+    import { getRiffDecks, getRiffCards, getRiffDueCards, type RiffDeck } from "@/api/riff";
     import { dueCache } from "@/api/due-shared";
+    import { buildDeckDashboard, type DeckDashboardRow } from "@/core/deck-dashboard";
+    import { srExportLine, composeSrExport } from "@/core/obsidian-import";
     import { getFlashcardStatistics, summarizeStatistics, type MigrationStatus } from "@/api/flashcardV2";
     import { calcStreak, lastNDays, localDate, studySecondsOn, coverageStats, deckCoverage, computeRetention, computeRetentionCurve, reviewStatsFor, weekCompare, calcMilestones, calcXp, type RevlogData, type RetentionResult, type CurvePoint, type WeekDelta, type Milestones, type XpResult, type CoverageStats, type DeckCoverage } from "@/core/revlog";
-    import { openTab } from "siyuan";
+    import { buildForecast, buildMonthGrid, dueMapFromForecast, type ForecastResult, type CalendarCell } from "@/core/forecast";
+    import { openTab, showMessage } from "siyuan";
     import LvPage from "./kit/LvPage.svelte";
     import LvSection from "./kit/LvSection.svelte";
     import LvStat from "./kit/LvStat.svelte";
@@ -12,6 +15,7 @@
     import LvChip from "./kit/LvChip.svelte";
     import LvEmpty from "./kit/LvEmpty.svelte";
     import LvError from "./kit/LvError.svelte";
+    import LvCalendar from "./kit/LvCalendar.svelte";
 
     export interface DashboardCtx {
         i18n: any;
@@ -246,6 +250,117 @@
         return Math.min(100, Math.round((todayReview / target) * 100));
     }
 
+    /** R53 统计瓦片走势（docs/42 §3.4）：近 7 天正式复习量——只喂真实数据，无记录不补 0 走势 */
+    function studySpark(): number[] {
+        return heat.slice(-7).map(h => h.stat.review);
+    }
+
+    // ---- T14 学习日历与负载预测（docs/41 P0 · docs/42 §4）：深度统计区内懒加载，预测只读不改调度 ----
+    let calForecast = $state<ForecastResult | null>(null);
+    let calCells = $state<CalendarCell[]>([]);
+    let calLoading = $state(false);
+    let calLoadedOnce = $state(false);
+
+    // 首次展开深度统计时拉取一次；此后随 refresh() 的 heat 更新不再自动重拉（预测是旁路增强）
+    $effect(() => {
+        if (deepOpen && !calLoadedOnce && !calLoading) void loadForecast();
+        if (deepOpen && !ddLoadedOnce && !ddLoading && decks.length > 0) void loadDeckDashboard();
+    });
+
+    // T-卡组仪表盘（docs/41 P1）：近 30 天本地日志按卡组聚合；到期/新卡来自内核实时（每卡组一次，上限 12 组）
+    let ddRows = $state<DeckDashboardRow[]>([]);
+    let ddLoading = $state(false);
+    let ddLoadedOnce = $state(false);
+
+    function ddStripHtml(html: string): string {
+        const div = document.createElement("div");
+        div.innerHTML = html ?? "";
+        return (div.textContent ?? "").trim();
+    }
+
+    /** T-分享包（docs/41 P1）：整卡组导出为 Obsidian SR markdown——可用本插件导入器回导（卡组同名映射） */
+    let ddExportBusy = $state(false);
+    async function exportDeckShare(deckID: string, deckName: string) {
+        if (ddExportBusy) return;
+        ddExportBusy = true;
+        try {
+            const lines: ReturnType<typeof srExportLine>[] = [];
+            let page = 1;
+            let pageCount = 1;
+            do {
+                const r = await getRiffCards(deckID, page, 100);
+                pageCount = Number(r.pageCount ?? 1);
+                for (const b of r.blocks ?? []) lines.push(srExportLine(ddStripHtml(b.content), { deckHint: deckName }));
+                page += 1;
+            } while (page <= pageCount && page <= 20);
+            if (lines.length === 0) {
+                showMessage(t.dashboard.ddShareEmpty, 2000, "info");
+                return;
+            }
+            const md = composeSrExport(lines);
+            const blob = new Blob([md], { type: "text/markdown" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `分享包-${deckName}-${new Date().toISOString().slice(0, 10)}.md`;
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+            showMessage(t.dashboard.ddShareDone
+                .replace("${qa}", String(lines.filter(l => l.kind === "qa").length))
+                .replace("${c}", String(lines.filter(l => l.kind === "cloze").length)), 2500, "info");
+        } finally {
+            ddExportBusy = false;
+        }
+    }
+
+    async function loadDeckDashboard() {
+        if (ddLoading || decks.length === 0) return;
+        ddLoading = true;
+        try {
+            const dueByDeck = new Map<string, { due: number; newCards: number }>();
+            const top = [...decks].sort((a, b) => (b.size ?? 0) - (a.size ?? 0)).slice(0, 12);
+            for (const d of top) {
+                try {
+                    const due = await getRiffDueCards(d.id, []);
+                    dueByDeck.set(d.id, { due: due.unreviewedOldCardCount ?? 0, newCards: due.unreviewedNewCardCount ?? 0 });
+                } catch { /* 单卡组失败按 0 处理，不影响其余行 */ }
+            }
+            ddRows = buildDeckDashboard(ctx.getRevlog().entries, decks.map(d => d.id), dueByDeck, { now: new Date() });
+            ddLoadedOnce = true;
+        } finally {
+            ddLoading = false;
+        }
+    }
+
+    async function loadForecast() {
+        if (calLoading) return;
+        calLoading = true;
+        try {
+            const now = new Date();
+            const cards: { due: string; state: number }[] = [];
+            // 分页拉全量（上限 20 页 × 100）：页脚标注覆盖面，超出部分不进预测
+            let page = 1;
+            let pageCount = 1;
+            do {
+                const r = await getRiffCards("", page, 100);
+                pageCount = Number(r.pageCount ?? 1);
+                for (const b of r.blocks ?? []) {
+                    const rc = (b as any).riffCard ?? (b as any).RiffCard;
+                    if (rc) cards.push({ due: String(rc.due ?? ""), state: Number(rc.state ?? 0) });
+                }
+                page += 1;
+            } while (page <= pageCount && page <= 20);
+            calForecast = buildForecast(cards, { today: now, horizonDays: 14, dailyNewTarget: targets.new });
+            const dueByDate = dueMapFromForecast(calForecast.days);
+            const reviewsByDate = new Map(heat.map(h => [h.date, h.stat.review]));
+            calCells = buildMonthGrid(now.getFullYear(), now.getMonth() + 1, now, reviewsByDate, dueByDate);
+            calLoadedOnce = true;
+        } catch { /* 日历失败静默：预测是旁路增强，不打断统计区 */ }
+        finally {
+            calLoading = false;
+        }
+    }
+
     /** AR-6：刷新 generation——手动刷新/session-finished/reviewed 并发时旧响应不覆盖新状态 */
     let refreshSeq = 0;
     let reviewedTimer: ReturnType<typeof setTimeout> | null = null;
@@ -468,6 +583,20 @@
                     <span class="lv-hero-remaining">{t.dashboard.todayDue} {dueCount}{#if targets.review > 0} · {targetPct()}%{/if}</span>
                 </div>
             </div>
+            <!-- R53 hero 目标环（docs/42 §4 T01）：今日目标完成度，无目标时不渲染 -->
+            {#if targetPct() >= 0}
+                <div class="lv-hero-ring" aria-hidden="true">
+                    <svg viewBox="0 0 92 92">
+                        <circle class="lv-hero-ring-track" cx="46" cy="46" r="40"></circle>
+                        <circle
+                            class="lv-hero-ring-fill"
+                            cx="46" cy="46" r="40"
+                            stroke-dasharray={`${(2 * Math.PI * 40 * Math.min(100, targetPct()) / 100).toFixed(1)} ${(2 * Math.PI * 40).toFixed(1)}`}
+                        ></circle>
+                    </svg>
+                    <b>{targetPct()}%<i>{t.dashboard.heroRingLabel}</i></b>
+                </div>
+            {/if}
         </div>
 
         {#if totalCards === 0 && !errorMsg}
@@ -492,6 +621,7 @@
                     denom={targets.review > 0 ? String(targets.review) : ""}
                     tone="primary"
                     progress={targetPct()}
+                    spark={studySpark()}
                 />
             </div>
             <div class="lv-stat-cell">
@@ -575,6 +705,62 @@
         {#if deepOpen}
         <LvSection title={t.dashboard.heatmap} sub={revlogNote ? `${t.dashboard.since} ${revlogNote}` : ""}>
             <LvHeatmap days={heat} />
+        </LvSection>
+
+        <!-- T14 学习日历与负载预测（docs/41 P0）：过去=复习热力，未来=到期负载；首次展开拉取，只读不改调度 -->
+        <LvSection title={t.dashboard.calTitle} sub={t.dashboard.calSub}>
+            <LvCalendar
+                monthLabel={`${new Date().getFullYear()} ${t.dashboard.calMonth} ${new Date().getMonth() + 1}`}
+                cells={calCells}
+                forecast={calForecast?.days ?? []}
+                loading={calLoading && !calLoadedOnce}
+                labels={{
+                    few: t.dashboard.calFew,
+                    many: t.dashboard.calMany,
+                    note: t.dashboard.calNote,
+                    forecastTitle: t.dashboard.calForecastTitle,
+                    empty: t.dashboard.calEmpty,
+                }}
+                caption={calForecast
+                    ? t.dashboard.calCoverage.replace("${c}", String(calForecast.coveredTotal)).replace("${t}", String(calForecast.coveredTotal + calForecast.skippedTotal))
+                        + (calForecast.skippedTotal > 0 ? " · " + t.dashboard.calSkipped.replace("${n}", String(calForecast.skippedTotal)) : "")
+                    : ""}
+            />
+        </LvSection>
+
+        <!-- T-卡组仪表盘（docs/41 P1）：近 30 天本地日志按卡组聚合的排行表 -->
+        <LvSection title={t.dashboard.ddTitle} sub={t.dashboard.ddSub}>
+            {#if ddRows.length === 0}
+                <div class="hint">{ddLoading ? t.dashboard.loading : t.dashboard.ddEmpty}</div>
+            {:else}
+                <table class="lv-table">
+                    <thead>
+                        <tr>
+                            <th>{t.dashboard.ddDeck}</th>
+                            <th style="text-align:right">{t.dashboard.ddDue}</th>
+                            <th style="text-align:right">{t.dashboard.ddNew}</th>
+                            <th style="text-align:right">{t.dashboard.ddReviews7}</th>
+                            <th style="text-align:right">{t.dashboard.ddRetention}</th>
+                            <th style="text-align:right">{t.dashboard.ddLeeches}</th>
+                            <th style="text-align:right">{t.dashboard.ddShare}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {#each ddRows as row (row.deckID)}
+                            <tr>
+                                <td>{decks.find(d => d.id === row.deckID)?.name ?? row.deckID}</td>
+                                <td style="text-align:right;font-variant-numeric:tabular-nums">{row.dueToday}</td>
+                                <td style="text-align:right;font-variant-numeric:tabular-nums">{row.newCount}</td>
+                                <td style="text-align:right;font-variant-numeric:tabular-nums">{row.reviews7}</td>
+                                <td style="text-align:right;font-variant-numeric:tabular-nums">{row.retention === null ? t.dashboard.unknown : row.retention + "%"}</td>
+                                <td style="text-align:right;font-variant-numeric:tabular-nums">{row.leeches}</td>
+                                <td style="text-align:right"><button class="b3-button b3-button--small lv-btn-ghost" disabled={ddExportBusy} onclick={() => exportDeckShare(row.deckID, decks.find(d => d.id === row.deckID)?.name ?? row.deckID)}>{t.dashboard.ddShare}</button></td>
+                            </tr>
+                        {/each}
+                    </tbody>
+                </table>
+                <p class="tiny" style="margin:8px 0 0">{t.dashboard.ddNote}</p>
+            {/if}
         </LvSection>
 
         <LvSection title={t.weekcmp.title} sub={t.weekcmp.sub}>

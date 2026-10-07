@@ -1,7 +1,7 @@
 <script lang="ts">
     import LvProgress from "./LvProgress.svelte";
 
-    let { label, value, denom = "", tone = "primary", progress = -1, animate = false }: {
+    let { label, value, denom = "", tone = "primary", progress = -1, animate = false, spark = null }: {
         label: string;
         value: number | string;
         /** 分母（如目标值），空则不显示 */
@@ -12,6 +12,8 @@
         progress?: number;
         /** 数字滚动动画（reduced-motion 时直落） */
         animate?: boolean;
+        /** R53 迷你走势（真实近期数据才传；null 不渲染） */
+        spark?: number[] | null;
     } = $props();
 
     const toneColor = {
@@ -20,6 +22,16 @@
         warn: "var(--b3-theme-warning)",
         neutral: "var(--b3-theme-on-surface)",
     };
+
+    /** R53 sparkline（§3.4）：面积 8% 主色 + 30% ink 描边 + 末点 primary 实心 */
+    const sparkPts = $derived.by(() => {
+        if (!spark || spark.length < 2) return null;
+        const w = 76, h = 24;
+        const max = Math.max(...spark, 1);
+        const xy = spark.map((v, i) => `${(i / (spark.length - 1) * w).toFixed(1)},${(h - 4 - v / max * (h - 8)).toFixed(1)}`).join(" ");
+        const last = xy.split(" ").pop()!.split(",");
+        return { xy, last, w, h };
+    });
 
     // 刻意捕获初值：animate 只对首次挂载的数值做滚动，后续由 $effect 跟随更新
     // svelte-ignore state_referenced_locally
@@ -57,6 +69,13 @@
     {#if progress >= 0}
         <div class="lv-stat-progress"><LvProgress value={progress} /></div>
     {/if}
+    {#if sparkPts}
+        <svg class="lv-stat-spark" width={sparkPts.w} height={sparkPts.h} viewBox={`0 0 ${sparkPts.w} ${sparkPts.h}`} aria-hidden="true">
+            <polygon points={`0,${sparkPts.h} ${sparkPts.xy} ${sparkPts.w},${sparkPts.h}`} fill="color-mix(in srgb, var(--b3-theme-primary) 8%, transparent)" stroke="none"></polygon>
+            <polyline points={sparkPts.xy} fill="none" stroke="color-mix(in srgb, var(--b3-theme-on-background) 30%, transparent)" stroke-width="1.5" stroke-linejoin="round"></polyline>
+            <circle cx={sparkPts.last[0]} cy={sparkPts.last[1]} r="2.6" fill="var(--b3-theme-primary)"></circle>
+        </svg>
+    {/if}
 </div>
 
 <style>
@@ -79,4 +98,5 @@
         margin-left: 4px;
     }
     .lv-stat .lv-stat-progress { margin-top: var(--lv-sp-2); }
+    .lv-stat .lv-stat-spark { display: block; margin-top: var(--lv-sp-1); }
 </style>

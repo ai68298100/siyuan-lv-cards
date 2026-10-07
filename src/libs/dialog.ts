@@ -213,6 +213,8 @@ export const svelteDialog = (args: {
         }
     });
     dialogHandle = dialog;
+    // 样式作用域（R52）：插件对话框挂 lv-dialog，供 index.scss 做按钮语义中性化与滚动条
+    dialog.element.classList.add("lv-dialog");
     // AS-1：焦点捕获（Esc→closeOnce 一次性；归还走既有 restoreFocus）
     focusTrap = trapFocus(dialog.element, { onEscape: closeOnce, restoreOnRelease: false });
 

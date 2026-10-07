@@ -114,15 +114,31 @@ export const skipReviewRiffCard = (deckID: string, cardID: string) =>
 
 // ---- 浏览 / 管理 ----
 
-/** 全局/文档/笔记本三种粒度的卡片浏览；id 为空时全局。 */
-export const getRiffCards = (id = "", page = 1, pageSize = 20) =>
-    riff<RiffCardsData>("getRiffCards", { id, page, pageSize });
+/** 块去重（v0.206.10 修复 each_key_duplicate）：同一块可同时属于内置卡组与自定义卡组，内核会返回重复条目 */
+function dedupBlocks(blocks: SearchBlock[]): SearchBlock[] {
+    const seen = new Set<string>();
+    return blocks.filter(b => {
+        if (!b.id || seen.has(b.id)) return false;
+        seen.add(b.id);
+        return true;
+    });
+}
 
-export const getTreeRiffCards = (id: string, page = 1, pageSize = 20) =>
-    riff<RiffCardsData>("getTreeRiffCards", { id, page, pageSize });
+/** 全局/文档/笔记本三种粒度的卡片浏览；id 为空时全局。块按 ID 去重（防 Svelte each 重复键）。 */
+export const getRiffCards = async (id = "", page = 1, pageSize = 20): Promise<RiffCardsData> => {
+    const data = await riff<RiffCardsData>("getRiffCards", { id, page, pageSize });
+    return { ...data, blocks: dedupBlocks(data.blocks) };
+};
 
-export const getNotebookRiffCards = (id: string, page = 1, pageSize = 20) =>
-    riff<RiffCardsData>("getNotebookRiffCards", { id, page, pageSize });
+export const getTreeRiffCards = async (id: string, page = 1, pageSize = 20): Promise<RiffCardsData> => {
+    const data = await riff<RiffCardsData>("getTreeRiffCards", { id, page, pageSize });
+    return { ...data, blocks: dedupBlocks(data.blocks) };
+};
+
+export const getNotebookRiffCards = async (id: string, page = 1, pageSize = 20): Promise<RiffCardsData> => {
+    const data = await riff<RiffCardsData>("getNotebookRiffCards", { id, page, pageSize });
+    return { ...data, blocks: dedupBlocks(data.blocks) };
+};
 
 export const getRiffCardsByBlockIDs = (blockIDs: string[]) =>
     riff<{ blocks: SearchBlock[] }>("getRiffCardsByBlockIDs", { blockIDs });

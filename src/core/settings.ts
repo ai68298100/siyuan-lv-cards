@@ -72,6 +72,10 @@ export interface LvCardsSettings {
     reminderEnabled: boolean;
     /** 提醒时间 HH:mm */
     reminderTime: string;
+    /** 每周学习报告（上周结束后自动写入「小驴闪卡/学习周报」文档） */
+    weeklyReportEnabled: boolean;
+    /** 幂等键：最后写入的周报对应的上周一（本地 ISO）；空 = 从未写过 */
+    weeklyReportLast: string;
     /** 积压预警阈值（天） */
     backlogDays: number;
     /** 评分音效（Web Audio 合成，无文件依赖） */
@@ -181,6 +185,8 @@ export function defaultSettings(): LvCardsSettings {
         quietEnd: "08:00",
         reminderEnabled: true,
         reminderTime: "20:00",
+        weeklyReportEnabled: false,
+        weeklyReportLast: "",
         backlogDays: 3,
         sfxEnabled: false,
         sfxStyle: "chime",
@@ -242,9 +248,10 @@ const BOOL_FIELDS: (keyof LvCardsSettings)[] = [
     "deepStatsOpen",
     "randomOrder", "typingEnabled", "typingStrict", "dictationEnabled", "choiceEnabled", "mixedRotation", "requeueAgain",
     "xpEnabled", "markerEnabled", "hideMetaUntilAnswer", "reverseOrder", "ttsEnabled", "reminderEnabled",
-    "sfxEnabled", "examEnabled", "dailyTipEnabled", "onboarded", "aiCostBudgetEnabled",
+    "sfxEnabled", "examEnabled", "dailyTipEnabled", "onboarded", "aiCostBudgetEnabled", "weeklyReportEnabled",
 ];
 const STR_FIELDS: (keyof LvCardsSettings)[] = [
+    "weeklyReportLast",
     "gatewayState", "ttsVoice", "aiEndpoint", "aiKey", "aiModel", "aiFallbackEndpoint", "aiFallbackKey",
     "aiFallbackModel", "aiSensitiveTerms", "aiPromptTemplate", "targetNotebookId", "ankiClientKey", "lastHubTab", "lastReviewScope", "lastManagerView",
 ];

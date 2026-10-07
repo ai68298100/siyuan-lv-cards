@@ -1,7 +1,7 @@
 import "./index.scss";
 
 import { mount, unmount } from "svelte";
-import { Plugin, Menu, getAllEditor, showMessage, openTab } from "siyuan";
+import { Plugin, Menu, getAllEditor, showMessage, openTab, getAllTabs } from "siyuan";
 import * as siyuanNamespace from "siyuan";
 
 import { loadChunk, type ChunkMount } from "./libs/chunk-loader";
@@ -18,12 +18,14 @@ import { defaultSettings, normalizeSettings, type LvCardsSettings } from "./core
 import { PERSONA_PRESETS } from "./core/personas";
 import { normalizeNativeCardAction, NativeEventDeduper } from "./core/native-events";
 import { parseSrLine, parseSrMultiline, stripSrMarkers } from "./core/obsidian-sr";
+import type { PaletteCommand } from "./core/palette";
+import { buildWeeklyReport, decideWeeklyReport } from "./core/weekly-report";
 import {
     normalizeAIJobs, emptyAIJobs, createJob, transitionJob, pruneJobs, firstPendingIndex,
     type AIJobsData, type AIJob,
 } from "./core/ai-jobs";
 import {
-    appendRevlog, calcStreak, emptyRevlog, leechCards, localDate, normalizeRevlog, revlogToCsv, mergeRevlog, docCoverage,
+    appendRevlog, calcStreak, emptyRevlog, leechCards, localDate, normalizeRevlog, revlogToCsv, mergeRevlog, docCoverage, weekCompare, computeRetention,
     type RevlogData, type RevlogEntry,
 } from "./core/revlog";
 import { detectFlashcardV2, type MigrationStatus } from "./api/flashcardV2";
@@ -127,6 +129,7 @@ const loadSettingsPanel = process.env.DEV_MODE ? lazyComp(() => import("./ui/set
 const loadDeckPicker = process.env.DEV_MODE ? lazyComp(() => import("./ui/deck-picker.svelte")) : loadDialogsComp("DeckPicker");
 const loadQuickCard = process.env.DEV_MODE ? lazyComp(() => import("./ui/quick-card.svelte")) : loadDialogsComp("QuickCard");
 const loadRepairDrill = process.env.DEV_MODE ? lazyComp(() => import("./ui/repair-drill.svelte")) : loadDialogsComp("Drill"); // T10 修卡演练
+const loadPalette = process.env.DEV_MODE ? lazyComp(() => import("./ui/kit/LvPalette.svelte")) : loadDialogsComp("LvPalette"); // T13 ⌘K 命令面板
 
 /**
  * chunk 加载/挂载失败的页签兜底（v0.185.1 真机空白教训：无 .catch 时静默 reject，
@@ -385,6 +388,13 @@ export default class LvCardsPlugin extends Plugin {
         this.perf.setCold(!this.settings.onboarded); // AT-6：首轮未完成引导=冷启动
         if (rollDateIfNeeded(this.suspendToday)) {
             await this.persist.save(SUSPEND_TODAY_DATA, this.suspendToday);
+        }
+        // T-周报（docs/41 P1）：上周已结束且未写过周报 → 自动写入「小驴闪卡/学习周报」文档
+        // 旁路增强：失败只记日志（周报可下周随本周一起补，幂等键不推进）；默认关闭，设置开启
+        if (this.settings.weeklyReportEnabled) {
+            void this.maybeWriteWeeklyReport().catch((e) => {
+                lvLog("error", `[weekly-report] ${e instanceof Error ? e.message : String(e)}`);
+            });
         }
 
         // AT-3：启动探测不阻塞插件初始化——探测异步进行，完成后再落库；
@@ -999,6 +1009,13 @@ export default class LvCardsPlugin extends Plugin {
             langText: this.i18n.cmdDrill,
             hotkey: "",
             callback: () => this.openRepairDrill(),
+        });
+        // T13 ⌘K 命令面板（docs/41 P0 · docs/42 §3.10）：动作+导航键盘直达
+        this.addCommand({
+            langKey: "palette",
+            langText: this.i18n.cmdPalette,
+            hotkey: "Ctrl+K",
+            callback: () => this.openPalette(),
         });
         this.addCommand({
             langKey: "openExam",
@@ -2029,6 +2046,55 @@ export default class LvCardsPlugin extends Plugin {
         });
     }
 
+    /** T13 ⌘K 命令面板（docs/41 P0 · docs/42 §3.10）：动作 + 导航键盘直达；范围随模块开关，不做隐藏入口的命令 */
+    private async openPalette() {
+        const Palette = await loadPalette();
+        const s = this.settings;
+        const commands: PaletteCommand[] = [
+            // i18n 运行时为嵌套对象（类型声明是扁平 string），嵌套取值经 any 断言
+            { id: "review", group: "actions", label: (this.i18n as any).dashboard.openReview },
+            { id: "wizard", group: "actions", label: this.i18n.aiWizardTitle },
+            { id: "quick", group: "actions", label: this.i18n.cmdQuickCard },
+            { id: "drill", group: "actions", label: this.i18n.drillTitle },
+            { id: "settings", group: "actions", label: this.i18n.settingsTitle },
+            { id: "overview", group: "nav", label: this.i18n.hubTabOverview },
+            { id: "manage", group: "nav", label: this.i18n.hubTabManage },
+            { id: "authoring", group: "nav", label: this.i18n.hubTabAuthoring },
+            { id: "goals", group: "nav", label: this.i18n.hubTabGoals },
+            ...(s.modules.inbox ? [{ id: "inbox", group: "nav", label: this.i18n.hubTabInbox }] : []),
+            ...(s.modules.exam && s.uiMode !== "simple" ? [{ id: "exam", group: "nav", label: this.i18n.hubTabExam }] : []),
+            ...(s.uiMode !== "simple" ? [{ id: "maintenance", group: "nav", label: this.i18n.hubTabMaintenance }] : []),
+        ];
+        const runners: Record<string, () => void> = {
+            review: () => this.openTabOf(TAB_REVIEW),
+            wizard: () => this.openAIWizard(),
+            quick: () => this.openQuickCard(),
+            drill: () => this.openRepairDrill(),
+            settings: () => this.openSettingsDialog(),
+            overview: () => this.openTabOf(TAB_DASHBOARD),
+            manage: () => this.openTabOf(TAB_DASHBOARD, { tab: "manage" }),
+            authoring: () => this.openTabOf(TAB_DASHBOARD, { tab: "authoring" }),
+            goals: () => this.openTabOf(TAB_DASHBOARD, { tab: "goals" }),
+            inbox: () => this.openTabOf(TAB_DASHBOARD, { tab: "inbox" }),
+            exam: () => this.openTabOf(TAB_DASHBOARD, { tab: "exam" }),
+            maintenance: () => this.openTabOf(TAB_DASHBOARD, { tab: "maintenance" }),
+        };
+        svelteDialog({
+            title: this.i18n.cmdPalette,
+            component: Palette,
+            width: "min(560px, 94vw)",
+            props: {
+                commands,
+                placeholder: this.i18n.palettePlaceholder,
+                groupNames: { actions: this.i18n.paletteGroupActions, nav: this.i18n.paletteGroupNav },
+                labels: { empty: this.i18n.paletteEmpty, foot: this.i18n.paletteFoot },
+                // svelteDialog 只包装已存在的 onClose（AR-2 关闭一次性）——必须显式占位
+                onClose: () => { /* 关闭销毁由 svelteDialog 自理 */ },
+                onrun: (cmd: PaletteCommand) => runners[cmd.id]?.(),
+            },
+        });
+    }
+
     private async openAIWizard(initialSource = "", onCreated?: () => void) {
         const AIWizard = await loadAIWizard();
         svelteDialog({
@@ -2624,6 +2690,19 @@ export default class LvCardsPlugin extends Plugin {
         // "this.openTab is not a function"。改用模块级 openTab + custom 页签契约。
         // 注意 id 必须与 addTab 注册键一致：bundle 中 addTab 以 this.name + type「无分隔符」
         // 登记 models（source: common.js addTab 实现），带 "-" 会查不到模型导致页签空白。
+        // T13 去重（docs/40 UX 待办收敛）：中心/复习为单实例工作面——已存在同型页签时激活复用，
+        // 不再新开（连点顶栏/命令面板反复入不再堆重复页签）；带 data 的定点打开（scope/cram/子页）
+        // 对中心走 lv-switch-tab 事件切换子页，对复习保持新开（有意进入特定状态）。
+        const existing = getAllTabs(`${this.name}${type}`)[0];
+        if (existing) {
+            existing.headElement.click();
+            if (type === TAB_DASHBOARD && data?.tab && typeof data.tab === "string") {
+                existing.panelElement
+                    ?.querySelector(".lv-hub")
+                    ?.dispatchEvent(new CustomEvent("lv-switch-tab", { detail: data.tab }));
+            }
+            return;
+        }
         openTab({
             app: this.app,
             custom: {
@@ -2944,5 +3023,48 @@ export default class LvCardsPlugin extends Plugin {
         // AR-5：成功回显路径并打开文档（失败由调用方 catch 展示，报告可重试）
         showMessage((this.i18n as any).dashboard?.reportWritten ?? docID, 2500, "info");
         openTab({ app: this.app, doc: { id: docID } });
+    }
+
+    /** T-周报（docs/41 P1）：自动把上周复盘写入「小驴闪卡/学习周报」文档——静默写入，不自动打开（区别于手动报告） */
+    private async maybeWriteWeeklyReport() {
+        const decision = decideWeeklyReport(new Date(), this.settings.weeklyReportLast, this.settings.weeklyReportEnabled);
+        if (!decision.write) return;
+        const week = weekCompare(this.revlog);
+        const retention = computeRetention(this.revlog);
+        // i18n 为扁平键（weeklyReport_*），组装成排版所需的 labels 对象
+        const wr = this.i18n as any;
+        const md = buildWeeklyReport(
+            {
+                reviewed: week.thisWeek.review,
+                reviewedPrev: week.lastWeek.review > 0 ? week.lastWeek.review : null,
+                newCards: week.thisWeek.new,
+                forgotten: week.thisWeek.forget,
+                streak: calcStreak(this.revlog),
+                retention: retention.mature.reviews > 0 ? Math.round((retention.mature.rate ?? 0) * 100) : null,
+            },
+            {
+                title: wr.weeklyReport_title,
+                reviewed: wr.weeklyReport_reviewed,
+                newCards: wr.weeklyReport_newCards,
+                forgotten: wr.weeklyReport_forgotten,
+                streak: wr.weeklyReport_streak,
+                retention: wr.weeklyReport_retention,
+                unknown: wr.weeklyReport_unknown,
+                lastWeek: wr.weeklyReport_lastWeek,
+                footer: wr.weeklyReport_footer,
+            },
+        );
+        const nb = await this.targetNotebook();
+        if (!nb) {
+            throw new Error(this.i18n.onboardingNoNotebook);
+        }
+        const docID = await createDocWithMd(nb.id, `小驴闪卡/学习周报/${decision.rangeStart} ~ ${decision.rangeEnd}`, md);
+        if (!docID) {
+            throw new Error(this.i18n.quickCardFail);
+        }
+        // 幂等键推进（仅在写入成功后；失败下周随本周一起补）
+        this.settings.weeklyReportLast = decision.weekKey;
+        this.saveSettingsSoon();
+        showMessage((this.i18n as any).weeklyReport_written ?? docID, 2500, "info");
     }
 }

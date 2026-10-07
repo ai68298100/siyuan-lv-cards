@@ -740,6 +740,12 @@
         <LvRow label={t.settings.reminderEnabled}>
             <LvSwitch bind:checked={draft.reminderEnabled} />
         </LvRow>
+        {#if draft.weeklyReportEnabled}
+            <p class="hint" style="margin: 0 0 8px">{t.settings.weeklyReportHint}</p>
+        {/if}
+        <LvRow label={t.settings.weeklyReportEnabled}>
+            <LvSwitch bind:checked={draft.weeklyReportEnabled} />
+        </LvRow>
         {#if draft.reminderEnabled}
             <LvRow label={t.settings.reminderTime}>
                 <input class="b3-text-field fn__size-60" type="time" bind:value={draft.reminderTime} />

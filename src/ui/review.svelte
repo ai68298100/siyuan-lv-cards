@@ -318,6 +318,20 @@
         return mergeSessionPrefs(ctx.settings() as unknown as Record<string, unknown>, sessionOverride) as unknown as ReviewSettings;
     }
     const hasOverrides = $derived(Object.keys(sessionOverride).length > 0);
+    /** R52 review 面 eyebrow：当前卡的卡组名优先，退回所选范围文案（不暴露原始 deckID） */
+    const headScopeLabel = $derived.by(() => {
+        const deckName = decks.find(d => d.id === current?.deckID)?.name;
+        if (deckName) return deckName;
+        if (scopeKey === "new") return t.review.scopeNew;
+        if (scopeKey === "old") return t.review.scopeOld;
+        const sep = scopeKey.indexOf(":");
+        if (sep > 0) {
+            const kind = scopeKey.slice(0, sep), id = scopeKey.slice(sep + 1);
+            if (kind === "deck") return decks.find(d => d.id === id)?.name ?? t.review.scopeAll;
+            if (kind === "notebook") return notebooks.find(n => n.id === id)?.name ?? t.review.scopeAll;
+        }
+        return t.review.scopeAll;
+    });
     /** BX-3：设置本场覆盖项（与全局同值时自动摘除，保持覆盖面最小；超时相关变更即时重启计时器） */
     function setOverride(key: keyof ReviewSettings, value: unknown) {
         const next = pruneSessionPrefs(ctx.settings() as unknown as Record<string, unknown>, { ...sessionOverride, [key]: value }) as Partial<ReviewSettings>;
@@ -1261,6 +1275,7 @@
                 <button
                     class="b3-button b3-button--small"
                     class:b3-button--outline={opt.branch !== "resume"}
+                    class:lv-btn-primary={opt.branch === "resume"}
                     disabled={!opt.enabled}
                     title={opt.enabled ? "" : (t.recovery[opt.disabledWhyKey?.replace("recovery.", "")] ?? opt.disabledWhyKey ?? "")}
                     onclick={() => recoveryAct(opt.branch)}
@@ -1299,150 +1314,162 @@
         </div>
     {:else if sessionDone || !current}
         <div class="lv-center lv-done">
-            <div class="lv-done-badge" aria-hidden="true">✓</div>
-            <div class="lv-done-title">{t.review.done}</div>
-            <div class="lv-done-desc">
-                {t.review.doneNew} {sessionNew} · {t.review.doneReview} {sessionReview} · {t.review.doneForget} {sessionForget} · {t.review.doneSkip} {sessionSkip}
-            </div>
-            <div class="lv-done-desc">
-                ⏱ {sessionDurationText()}{#if targetProgressText()} · {targetProgressText()}{/if}
-            </div>
-            {#if budgetExpired || budgetMin > 0}
-                <!-- BI-12：预算中性提示（到点收工不算失败；未完成项真实保留） -->
-                <div class="lv-done-desc">
-                    ⏳ {budgetExpired ? t.review.budgetDoneTip : t.review.budgetOn}
-                </div>
-            {/if}
-            <!-- BI-8：会话收工建议（buildSummary 推导） -->
-            <div class="lv-done-desc">
-                <!-- BI-2：评分口径随目的——formal 庆祝每日目标，informal 只给鼓励不占目标 -->
-                {#if PURPOSE_PROFILES[purpose].grading === "informal"}
-                    💪 {t.purpose[purpose].end} · {t.review.purposeInformal}
-                {:else if (sessionNew + sessionReview) >= eff().dailyReviewTarget && eff().dailyReviewTarget > 0}
-                    🎉 {t.review.dailyTargetReached}
-                {:else if (sessionNew + sessionReview) > 0}
-                    💪 {t.review.doneProgress}
-                {/if}
-            </div>
-            {#if remainingDue !== null && remainingDue > 0}
-                <!-- T07 结果页（docs/13 §9）：真实剩余如实呈现——不需要为了清零而继续 -->
-                <div class="lv-done-desc">📦 {t.review.remainingDue.replace("${n}", String(remainingDue))}</div>
-            {/if}
-            {#if streakMilestoneText()}
-                <div class="lv-done-milestone">🔥 {streakMilestoneText()}</div>
-            {/if}
-            {#if dailyTip()}
-                <div class="lv-done-tip">💡 {dailyTip()}</div>
-            {/if}
-            <!-- BI-8：收工原因收集（可跳过；写当日现场，返场时恢复横幅/分流可读） -->
-            <div class="lv-done-end" role="group" aria-label={t.endReason.title}>
-                <span class="ft__smaller ft__on-surface">{t.endReason.title}</span>
-                {#each END_REASONS as r (r)}
-                    <button class="b3-button b3-button--small" class:lv-btn-primary={endPicked === r}
-                        aria-pressed={endPicked === r}
-                        onclick={() => pickEnd(r)}>{t.endReason[r]}</button>
-                {/each}
-            </div>
-            {#if sessionSkip > 0 || sessionForget > 0}
-                <!-- T07 下一步建议（docs/40）：本场数据推导，本地口径、可忽略——"把疑问留下，也把下一步留下" -->
-                <div class="lv-done-next">
-                    <div class="lv-eyebrow">{t.review.nextTitle}</div>
-                    {#if sessionSkip > 0}
-                        <div class="lv-next-row">
-                            <span>{t.review.nextSkipped.replace("${n}", String(sessionSkip))}</span>
-                            <button class="b3-button b3-button--small" onclick={ctx.openDashboard}>{t.review.nextAct}</button>
+            <!-- T07 结果面（R52 results）：单面板 + check 徽 + 大数字统计 + 行式补充 + NEXT 软面板 -->
+            <div class="lv-done-panel">
+                <div class="lv-done-head">
+                    <span class="check lv-done-check" aria-hidden="true">✓</span>
+                    <div class="lv-done-headtext">
+                        <div class="lv-done-title">{t.review.done}</div>
+                        <div class="lv-done-sub">
+                            {t.review.doneNew} {sessionNew} · {t.review.doneReview} {sessionReview} · {t.review.doneForget} {sessionForget} · {t.review.doneSkip} {sessionSkip}
                         </div>
-                    {/if}
-                    {#if sessionForget > 0}
-                        <div class="lv-next-row"><span>{t.review.nextForgotten.replace("${n}", String(sessionForget))}</span></div>
-                    {/if}
+                    </div>
                 </div>
-            {/if}
-            <div class="fn__flex lv-done-actions">
-                <button class="b3-button b3-button--text" onclick={loadQueue}>{t.review.again}</button>
-                <button class="b3-button b3-button--outline" onclick={undoHistory}>{t.review.undoLast}</button>
-                <button class="b3-button b3-button--outline" onclick={ctx.openDashboard}>{t.review.viewStats}</button>
+                <div class="lv-done-stats">
+                    <div class="lv-done-stat">
+                        <span class="lv-done-stat-label">{t.review.doneReview} · {t.review.doneNew}</span>
+                        <span class="lv-hero-num">{sessionNew + sessionReview}</span>
+                        <p>{PURPOSE_PROFILES[purpose].grading === "informal" ? t.review.purposeInformal : t.review.doneConfirm}</p>
+                    </div>
+                    <div class="lv-done-stat">
+                        <span class="lv-done-stat-label">{t.review.doneSkip}</span>
+                        <span class="lv-hero-num">{sessionSkip}</span>
+                        <p>{t.review.skipNotRated}</p>
+                    </div>
+                    <div class="lv-done-stat">
+                        <span class="lv-done-stat-label">{t.review.sessionTime}</span>
+                        <span class="lv-hero-num">{sessionDurationText()}</span>
+                        <p>{targetProgressText()}</p>
+                    </div>
+                </div>
+                {#if budgetMin > 0}
+                    <!-- BI-12：预算中性提示（到点收工不算失败；未完成项真实保留） -->
+                    <div class="lv-notice">{budgetExpired ? t.review.budgetDoneTip : t.review.budgetOn}</div>
+                {/if}
+                {#if remainingDue !== null && remainingDue > 0}
+                    <!-- T07 结果页（docs/13 §9）：真实剩余如实呈现——不需要为了清零而继续 -->
+                    <div class="lv-notice">{t.review.remainingDue.replace("${n}", String(remainingDue))}</div>
+                {/if}
+                {#if streakMilestoneText()}
+                    <div class="lv-done-milestone">{streakMilestoneText()}</div>
+                {/if}
+                {#if dailyTip()}
+                    <div class="lv-done-tip">{dailyTip()}</div>
+                {/if}
+                <!-- BI-8：收工原因收集（可跳过；写当日现场，返场时恢复横幅/分流可读） -->
+                <div class="lv-done-end" role="group" aria-label={t.endReason.title}>
+                    <span class="ft__smaller ft__on-surface">{t.endReason.title}</span>
+                    {#each END_REASONS as r (r)}
+                        <button class="b3-button b3-button--small lv-btn-ghost" class:lv-btn-primary={endPicked === r}
+                            aria-pressed={endPicked === r}
+                            onclick={() => pickEnd(r)}>{t.endReason[r]}</button>
+                    {/each}
+                </div>
+                {#if sessionSkip > 0 || sessionForget > 0}
+                    <!-- T07 下一步建议（docs/40）：本场数据推导，本地口径、可忽略——"把疑问留下，也把下一步留下" -->
+                    <div class="lv-done-next">
+                        <div class="lv-eyebrow">{t.review.nextTitle}</div>
+                        {#if sessionSkip > 0}
+                            <div class="lv-next-row">
+                                <span>{t.review.nextSkipped.replace("${n}", String(sessionSkip))}</span>
+                                <button class="b3-button b3-button--small" onclick={ctx.openDashboard}>{t.review.nextAct}</button>
+                            </div>
+                        {/if}
+                        {#if sessionForget > 0}
+                            <div class="lv-next-row"><span>{t.review.nextForgotten.replace("${n}", String(sessionForget))}</span></div>
+                        {/if}
+                    </div>
+                {/if}
+                <div class="fn__flex lv-done-actions">
+                    <button class="b3-button b3-button--text" onclick={loadQueue}>{t.review.again}</button>
+                    <button class="b3-button b3-button--outline" onclick={undoHistory}>{t.review.undoLast}</button>
+                    <button class="b3-button lv-btn-primary" onclick={ctx.openDashboard}>{t.review.viewStats}</button>
+                </div>
             </div>
         </div>
     {:else}
         <div class="lv-head">
-            <select class="b3-select lv-scope" bind:this={scopeEl} bind:value={scopeKey} onchange={() => { ctx.onScopePersist(scopeKey); recovery = null; loadQueue(); }} title={t.review.scopeTitle}>
-                <option value="all">{t.review.scopeAll}</option>
-                <option value="new">{t.review.scopeNew}</option>
-                <option value="old">{t.review.scopeOld}</option>
-                {#if decks.length > 0}
-                    <optgroup label={t.dashboard.decks}>
-                        {#each decks as d (d.id)}
-                            <option value={`deck:${d.id}`}>{d.name}</option>
-                        {/each}
-                    </optgroup>
+            <!-- R52 review 面三行结构：①身份+状态 ②进度条 ③范围/目的控制 + 工具 -->
+            <div class="lv-head-row">
+                <span class="lv-eyebrow">REVIEW / {headScopeLabel}</span>
+                {#if entryCtx}
+                    <!-- BI-3：入口上下文条（来源保留；取消/重开不丢，仅 × 显式清除） -->
+                    <span class="lv-entry" title={t.entry.title}>
+                        <span class="lv-entry-from ft__smaller">{t.entry.title}·{t.entry.kind[entryCtx.entryKind] || entryCtx.entryKind}</span>
+                        {#if ctx.returnToEntry && entryCtx.returnPoint}
+                            <button class="b3-button b3-button--text b3-button--small" onclick={() => ctx.returnToEntry!(entryCtx!.returnPoint)}>{t.entry.return}</button>
+                        {/if}
+                        {#if ctx.dismissEntry}
+                            <button class="b3-button b3-button--text b3-button--small" aria-label={t.entry.dismiss} title={t.entry.dismiss} onclick={() => { ctx.dismissEntry!(entryCtx!.entryKind, entryCtx!.sourceID); entryCtx = null; }}>×</button>
+                        {/if}
+                    </span>
                 {/if}
-                {#if notebooks.length > 0}
-                    <optgroup label={t.review.scopeNotebooks}>
-                        {#each notebooks as n (n.id)}
-                            <option value={`notebook:${n.id}`}>{n.name}</option>
-                        {/each}
-                    </optgroup>
-                {/if}
-            </select>
-            <!-- BI-2：本次会话目的（结束条件随目的显示；informal 不计入每日目标） -->
-            <select class="b3-select lv-scope" bind:value={purpose} title={t.review.purposeTitle}>
-                {#each SESSION_PURPOSES as p (p)}
-                    <option value={p}>{t.purpose[p].name}</option>
-                {/each}
-            </select>
-            <span class="lv-chip2" class:lv-chip2--primary={PURPOSE_PROFILES[purpose].grading === "formal"} title={PURPOSE_PROFILES[purpose].grading === "formal" ? t.review.purposeFormal : t.review.purposeInformal}>
-                {t.purpose[purpose].end}
-            </span>
-            {#if entryCtx}
-                <!-- BI-3：入口上下文条（来源保留；取消/重开不丢，仅 × 显式清除） -->
-                <span class="lv-entry" title={t.entry.title}>
-                    <span class="lv-entry-from ft__smaller">{t.entry.title}·{t.entry.kind[entryCtx.entryKind] || entryCtx.entryKind}</span>
-                    {#if ctx.returnToEntry && entryCtx.returnPoint}
-                        <button class="b3-button b3-button--text b3-button--small" onclick={() => ctx.returnToEntry!(entryCtx!.returnPoint)}>{t.entry.return}</button>
+                <div class="fn__flex-1"></div>
+                {#if cramActive}<span class="b3-chip b3-chip--error">{t.exam.cramOn}</span>{/if}
+                {#if budgetMin > 0}
+                    <!-- BI-12：预算倒计时；到点转为中性提示（不自动结束、不算失败） -->
+                    {#if budgetExpired}
+                        <span class="lv-chip2 lv-chip2--default" title={t.review.budgetDoneTip}>{t.review.budgetDone}</span>
+                    {:else}
+                        <span class="lv-timeout" title={t.review.budgetLabel}>⏳ {budgetClockText()}</span>
                     {/if}
-                    {#if ctx.dismissEntry}
-                        <button class="b3-button b3-button--text b3-button--small" aria-label={t.entry.dismiss} title={t.entry.dismiss} onclick={() => { ctx.dismissEntry!(entryCtx!.entryKind, entryCtx!.sourceID); entryCtx = null; }}>×</button>
+                {/if}
+                {#if current.lvRequeue}<span class="lv-chip2 lv-chip2--warn" title={t.review.requeueTip}>{t.review.requeueChip}</span>{/if}
+                {#if eff().timeoutMode !== "off" && !showAnswer}
+                    <span class="lv-timeout" class:lv-timeout-low={timeoutLeft <= 10}>⏱ {timeoutText()}</span>
+                {/if}
+                <span class="lv-tags">
+                    {#if !(eff().hideMetaUntilAnswer && !showAnswer)}
+                        {#if current.state === 0}<span class="lv-chip2 lv-chip2--primary">{t.review.tagNew}</span>{/if}
+                        <span class="lv-chip2 lv-chip2--default">{t.review.reps} {current.reps} · {t.review.lapses} {current.lapses}</span>
                     {/if}
                 </span>
-            {/if}
-            <span class="lv-progress">{reviewedIDs.length + 1} / {reviewedIDs.length + queue.length}</span>
+                <span class="lv-progress">{reviewedIDs.length + 1} / {reviewedIDs.length + queue.length}</span>
+            </div>
             <div class="lv-progress-bar">
                 <div class="lv-progress-fill" style={`width:${reviewedIDs.length / Math.max(1, reviewedIDs.length + queue.length) * 100}%`}></div>
             </div>
-            {#if cramActive}<span class="b3-chip b3-chip--error">{t.exam.cramOn}</span>{/if}
-            {#if budgetMin > 0}
-                <!-- BI-12：预算倒计时；到点转为中性提示（不自动结束、不算失败） -->
-                {#if budgetExpired}
-                    <span class="lv-chip2 lv-chip2--default" title={t.review.budgetDoneTip}>{t.review.budgetDone}</span>
-                {:else}
-                    <span class="lv-timeout" title={t.review.budgetLabel}>⏳ {budgetClockText()}</span>
-                {/if}
-            {/if}
-            {#if current.lvRequeue}<span class="lv-chip2 lv-chip2--warn" title={t.review.requeueTip}>{t.review.requeueChip}</span>{/if}
-            {#if eff().timeoutMode !== "off" && !showAnswer}
-                <span class="lv-timeout" class:lv-timeout-low={timeoutLeft <= 10}>⏱ {timeoutText()}</span>
-            {/if}
-            <span class="lv-tags">
-                {#if !(eff().hideMetaUntilAnswer && !showAnswer)}
-                    {#if current.state === 0}<span class="lv-chip2 lv-chip2--primary">{t.review.tagNew}</span>{/if}
-                    <span class="lv-chip2 lv-chip2--default">{t.review.reps} {current.reps} · {t.review.lapses} {current.lapses}</span>
-                {/if}
-            </span>
-            {#if current.deckID && !(eff().hideMetaUntilAnswer && !showAnswer)}
-                <span class="ft__smaller ft__on-surface" style="opacity:.7">{current.deckID}</span>
-            {/if}
-            <div class="fn__flex-1"></div>
-            <!-- docs/13 §4：图标可读、操作不依赖 hover——工具栏一律可读文字按钮（P1 批 1） -->
-            <button class="b3-button b3-button--small" title={t.review.ctxToggle} aria-label={t.review.ctxToggle} class:lv-btn-primary={ctxOpen} onclick={toggleContext}>{t.review.tbCtx}</button>
-            <button class="b3-button b3-button--small" title={t.review.prefsTitle} aria-label={t.review.prefsTitle} class:lv-btn-primary={prefsOpen || hasOverrides} onclick={() => (prefsOpen = !prefsOpen)}>{t.review.tbPrefs}{hasOverrides ? " ●" : ""}</button>
-            <button class="b3-button b3-button--small" title={t.review.refreshCard} aria-label={t.review.refreshCard} onclick={refreshCard}>{t.review.tbRefresh}</button>
-            <button class="b3-button b3-button--small" title={t.review.helpTitle} aria-label={t.review.helpTitle} onclick={() => (helpOpen = true)}>{t.review.tbHelp}</button>
-            <button class="b3-button b3-button--small" title={t.review.undoTitle} aria-label={t.review.undoTitle} onclick={undoHistory}>{t.review.tbUndo}</button>
-            <button class="b3-button b3-button--small" title={t.review.peekPrev} aria-label={t.review.peekPrev} onclick={togglePeek}>{t.review.peekPrev.slice(0, 2)}</button>
-            <button class="b3-button b3-button--small" title={t.review.openInEditor} onclick={openInEditor}>{t.review.open}</button>
-            <button class="b3-button b3-button--small" title={t.review.suspendToday} aria-label={t.review.suspendToday} onclick={suspendToday}>{t.review.tbSuspend}</button>
-            <button class="b3-button b3-button--small" onclick={skip}>{t.review.skip}</button>
+            <div class="lv-head-row lv-head-tools">
+                <select class="b3-select lv-scope" bind:this={scopeEl} bind:value={scopeKey} onchange={() => { ctx.onScopePersist(scopeKey); recovery = null; loadQueue(); }} title={t.review.scopeTitle}>
+                    <option value="all">{t.review.scopeAll}</option>
+                    <option value="new">{t.review.scopeNew}</option>
+                    <option value="old">{t.review.scopeOld}</option>
+                    {#if decks.length > 0}
+                        <optgroup label={t.dashboard.decks}>
+                            {#each decks as d (d.id)}
+                                <option value={`deck:${d.id}`}>{d.name}</option>
+                            {/each}
+                        </optgroup>
+                    {/if}
+                    {#if notebooks.length > 0}
+                        <optgroup label={t.review.scopeNotebooks}>
+                            {#each notebooks as n (n.id)}
+                                <option value={`notebook:${n.id}`}>{n.name}</option>
+                            {/each}
+                        </optgroup>
+                    {/if}
+                </select>
+                <!-- BI-2：本次会话目的（结束条件随目的显示；informal 不计入每日目标） -->
+                <select class="b3-select lv-scope" bind:value={purpose} title={t.review.purposeTitle}>
+                    {#each SESSION_PURPOSES as p (p)}
+                        <option value={p}>{t.purpose[p].name}</option>
+                    {/each}
+                </select>
+                <span class="lv-chip2" class:lv-chip2--primary={PURPOSE_PROFILES[purpose].grading === "formal"} title={PURPOSE_PROFILES[purpose].grading === "formal" ? t.review.purposeFormal : t.review.purposeInformal}>
+                    {t.purpose[purpose].end}
+                </span>
+                <div class="fn__flex-1"></div>
+                <!-- docs/13 §4：图标可读、操作不依赖 hover；R52 口径中性动作全部 ghost（主色只给激活态） -->
+                <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.ctxToggle} aria-label={t.review.ctxToggle} class:lv-btn-primary={ctxOpen} onclick={toggleContext}>{t.review.tbCtx}</button>
+                <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.prefsTitle} aria-label={t.review.prefsTitle} class:lv-btn-primary={prefsOpen || hasOverrides} onclick={() => (prefsOpen = !prefsOpen)}>{t.review.tbPrefs}{hasOverrides ? " ●" : ""}</button>
+                <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.refreshCard} aria-label={t.review.refreshCard} onclick={refreshCard}>{t.review.tbRefresh}</button>
+                <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.helpTitle} aria-label={t.review.helpTitle} onclick={() => (helpOpen = true)}>{t.review.tbHelp}</button>
+                <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.undoTitle} aria-label={t.review.undoTitle} onclick={undoHistory}>{t.review.tbUndo}</button>
+                <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.peekPrev} aria-label={t.review.peekPrev} onclick={togglePeek}>{t.review.peekPrev.slice(0, 2)}</button>
+                <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.openInEditor} onclick={openInEditor}>{t.review.open}</button>
+                <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.suspendToday} aria-label={t.review.suspendToday} onclick={suspendToday}>{t.review.tbSuspend}</button>
+                <button class="b3-button b3-button--small lv-btn-ghost" onclick={skip}>{t.review.skip}</button>
+            </div>
         </div>
         <div class="lv-card b3-typography" class:lv-anim-glow={showAnswer} bind:this={cardEl} style={`max-width:${eff().cardMaxWidth}px; width:100%; margin:0 auto;`}>
             {#if !cardHtml && faceError}
@@ -1550,7 +1577,7 @@
                 <!-- AQ-2：显示答案按钮补 onclick——此前覆盖层按钮无处理器且容器点击跳过 button，鼠标点击翻面失效 -->
                 <div class="fn__flex" style="gap: var(--lv-sp-2); justify-content: center; align-items: center;">
                     {#if !showAnswer}
-                        <button class="b3-button b3-button--small" onclick={advanceHint}>💡 {t.review.hintBtn}</button>
+                        <button class="b3-button b3-button--small lv-btn-ghost" onclick={advanceHint}>{t.review.hintBtn}</button>
                     {/if}
                     <button class="b3-button b3-button--text lv-reveal" onclick={() => (showAnswer = true)}>{t.review.showAnswer}</button>
                 </div>
@@ -1570,7 +1597,7 @@
                 </div>
             {:else if showAnswer && eff().ttsEnabled}
                 <div class="lv-tts-row">
-                    <button class="b3-button b3-button--small" title={t.review.speak} onclick={speakAnswer}>🔊 {t.review.speak}</button>
+                    <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.speak} onclick={speakAnswer}>{t.review.speak}</button>
                 </div>
             {/if}
         </div>
@@ -1663,7 +1690,7 @@
             {/if}
             <div class="lv-actions" class:lv-actions-compact={eff().ratingDensity === "compact"}>
             {#if !showAnswer}
-                <button class="b3-button b3-button--text lv-btn-wide" onclick={() => (showAnswer = true)}>{t.review.showAnswer}</button>
+                <button class="b3-button lv-btn-primary lv-btn-wide" onclick={() => (showAnswer = true)}>{t.review.showAnswer}<span class="lv-btn-wide-kbd">Space</span></button>
             {:else if eff().ratingStyle === "three"}
                 <button class="b3-button lv-btn-rate lv-b1" onclick={() => rate(1)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.unknown}</span><LvKbd k="1" /></span><small>{dueText("1")}</small></button>
                 <button class="b3-button lv-btn-rate lv-b2" onclick={() => rate(2)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.vague}</span><LvKbd k="2" /></span><small>{dueText("2")}</small></button>
@@ -1755,7 +1782,55 @@
         .lv-center { margin: auto; color: var(--b3-theme-on-surface); }
         .lv-error-wrap { width: min(560px, 92vw); }
 
-        .lv-done-title { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; margin: var(--lv-sp-3) 0 var(--lv-sp-1); }
+        /* T07 结果面板（R52 .panel）：白面 1px 边框居中，内容左对齐 */
+        .lv-done-panel {
+            width: min(620px, 100%);
+            background: var(--b3-theme-surface);
+            border: 1px solid var(--lv-border);
+            border-radius: var(--lv-r-l);
+            padding: var(--lv-sp-5);
+            text-align: left;
+        }
+        .lv-done-head {
+            display: flex; align-items: center; gap: var(--lv-sp-3);
+            margin-bottom: var(--lv-sp-4);
+        }
+        .lv-done-check {
+            width: 30px; height: 30px; border-radius: 50%;
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: 16px; flex: none;
+            background: var(--lv-good-soft);
+            color: var(--b3-theme-success, var(--b3-theme-primary));
+        }
+        .lv-done-title { font-size: 24px; font-weight: 650; letter-spacing: -0.03em; line-height: 1.4; }
+        .lv-done-sub { font-size: 13px; color: var(--b3-theme-on-surface); font-variant-numeric: tabular-nums; margin-top: 2px; }
+        .lv-done-stats {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--lv-sp-4);
+            padding: var(--lv-sp-3) 0 var(--lv-sp-2);
+            border-top: 1px solid var(--lv-border);
+        }
+        .lv-done-stat {
+            display: flex; flex-direction: column; gap: 2px; min-width: 0;
+            .lv-done-stat-label { font-size: 11px; color: var(--b3-theme-on-surface); }
+            .lv-hero-num { font-size: 24px; }
+            p { margin: 0; font-size: 11px; color: var(--b3-theme-on-surface); opacity: .85; }
+        }
+        .lv-done-milestone { color: var(--b3-theme-warning); font-weight: 600; font-size: 13px; }
+        .lv-done-tip {
+            color: var(--b3-theme-on-surface);
+            font-size: 12px;
+            opacity: 0.85;
+            line-height: 1.6;
+        }
+        /* BI-8：收工原因 chips（可跳过，不占完成屏视觉重心；中性 ghost，选中才亮主色） */
+        .lv-done-end {
+            display: flex; flex-wrap: wrap; gap: var(--lv-sp-1); align-items: center;
+            margin-top: var(--lv-sp-3);
+            padding-top: var(--lv-sp-3);
+            border-top: 1px solid var(--lv-border);
+            font-size: 12px;
+        }
+        .lv-done-actions { gap: var(--lv-sp-2); justify-content: flex-end; margin-top: var(--lv-sp-4); padding-top: var(--lv-sp-4); border-top: 1px solid var(--lv-border); }
 
         /* BI-9：恢复分支横幅 */
         .lv-recover {
@@ -1792,7 +1867,6 @@
             color: var(--b3-theme-on-surface);
             margin-right: var(--lv-sp-1);
         }
-        .lv-done-desc { color: var(--b3-theme-on-surface); font-variant-numeric: tabular-nums; }
         .lv-done-milestone { color: var(--b3-theme-warning); font-weight: 600; }
         .lv-done-tip {
             max-width: 420px;
@@ -1801,14 +1875,6 @@
             opacity: 0.85;
             line-height: 1.6;
         }
-        /* BI-8：收工原因 chips（可跳过，不占完成屏视觉重心） */
-        .lv-done-end {
-            display: flex; flex-wrap: wrap; gap: var(--lv-sp-1); align-items: center; justify-content: center;
-            max-width: 460px;
-            font-size: 12px;
-        }
-        .lv-done-actions { gap: var(--lv-sp-2); justify-content: center; margin-top: var(--lv-sp-4); }
-
         /* T07 下一步建议（docs/40）：软面板 + 行式布局 */
         .lv-done-next {
             margin-top: var(--lv-sp-4);
@@ -1817,7 +1883,6 @@
             border: 1px solid var(--lv-border);
             border-radius: var(--lv-r-m);
             text-align: left;
-            max-width: 420px;
         }
         .lv-next-row {
             display: flex; align-items: center; justify-content: space-between; gap: var(--lv-sp-2);
@@ -1831,19 +1896,14 @@
             from { opacity: 0; transform: translateY(4px); }
         }
 
-        .lv-done-badge {
-            width: 56px; height: 56px;
-            border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 26px; font-weight: 700;
-            color: var(--b3-theme-on-primary);
-            background: linear-gradient(135deg, var(--b3-theme-primary),
-                    color-mix(in srgb, var(--b3-theme-primary) 55%, var(--b3-theme-warning)));
-            box-shadow: var(--lv-shadow-2);
-        }
-
         .lv-head {
-            display: flex; align-items: center; gap: var(--lv-sp-2);
+            /* R52 review 面：三行结构（身份行 / 进度条 / 控制行），行距 8px、条底 1px 分隔 */
+            display: flex; flex-direction: column; gap: var(--lv-sp-2);
+            max-width: 760px; margin: 0 auto; width: 100%;
+            .lv-head-row {
+                display: flex; align-items: center; gap: var(--lv-sp-2);
+                min-width: 0; flex-wrap: wrap;
+            }
             .lv-scope { max-width: 200px; font-size: 12px; padding: 4px 8px; }
             /* BI-3：入口上下文条（窄屏换行不挤压进度） */
             .lv-entry {
@@ -1858,16 +1918,15 @@
                 border-radius: 999px;
                 padding: 2px 10px;
                 font-variant-numeric: tabular-nums;
+                white-space: nowrap;
             }
             .lv-progress-bar {
                 width: 100%; height: 3px; border-radius: 2px;
                 background: color-mix(in srgb, var(--b3-theme-on-background) 8%, transparent);
                 overflow: hidden;
-                margin-top: 2px;
                 .lv-progress-fill {
                     height: 100%; border-radius: 2px;
-                    background: linear-gradient(90deg, var(--b3-theme-primary),
-                        color-mix(in srgb, var(--b3-theme-primary) 55%, var(--b3-theme-warning)));
+                    background: var(--b3-theme-primary);
                     transition: width var(--lv-dur-3) var(--lv-ease);
                 }
             }
@@ -1890,10 +1949,11 @@
             flex: 1;
             position: relative;
             overflow: auto;
-            background: var(--lv-surface-grad);
+            background: var(--b3-theme-surface);
             border: 1px solid var(--lv-border);
             border-radius: var(--lv-r-l);
-            box-shadow: var(--lv-shadow-2);
+            /* R52 .study-card：静态浅阴影（5% ink 单层），不随主题翻转 */
+            box-shadow: 0 8px 28px color-mix(in srgb, black 5%, transparent);
             /* R52 卡面规范（starline .study-card）：48/44 内边距、min-height 300，窄屏收窄 */
             padding: 48px 44px;
             min-height: 300px;
@@ -2048,9 +2108,20 @@
 
         .lv-actions {
             display: flex; gap: var(--lv-sp-3); justify-content: center;
+            max-width: 760px; width: 100%; margin: 0 auto;
             /* 紧凑密度（441）：评分按钮收窄高度与内边距 */
             &.lv-actions-compact { gap: var(--lv-sp-2); .lv-btn-rate { max-width: 150px; padding: 10px 14px; min-height: 56px; } }
-            .lv-btn-wide { flex: 1; }
+            .lv-btn-wide {
+                flex: 1;
+                min-height: 48px;
+                font-weight: 600;
+                .lv-btn-wide-kbd {
+                    margin-left: 10px;
+                    font-size: 11px;
+                    opacity: .75;
+                    font-weight: 400;
+                }
+            }
             .lv-btn-rate {
                 flex: 1;
                 max-width: 180px;

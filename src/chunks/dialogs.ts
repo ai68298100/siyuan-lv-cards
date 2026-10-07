@@ -13,6 +13,7 @@ import SettingsPanel from "@/ui/settings.svelte";
 import DeckPicker from "@/ui/deck-picker.svelte";
 import QuickCard from "@/ui/quick-card.svelte";
 import Drill from "@/ui/repair-drill.svelte"; // T10 修卡演练
+import LvPalette from "@/ui/kit/LvPalette.svelte"; // T13 ⌘K 命令面板（docs/41 P0）
 
 type Props = Record<string, any>;
 
@@ -35,6 +36,7 @@ const w = window as unknown as { __lvChunks?: Record<string, unknown> };
         DeckPicker,
         QuickCard,
     Drill,
+    LvPalette,
     },
     mountDialogComponent,
 };

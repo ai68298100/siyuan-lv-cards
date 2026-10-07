@@ -64,13 +64,14 @@
     box-sizing: border-box;
 }
 
-// 页头：eyebrow + 题 + 副题 + 动作组（R52 .page-head：两端对齐、题 24/-0.03em、副 13px muted）
+// 页头：eyebrow + 题 + 副题 + 动作组（R53 .page-head：两端对齐、题 22/-0.02em、副 13px muted）
 .lv-pagehead {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
     gap: var(--lv-sp-4);
     margin-bottom: var(--lv-sp-5);
+    min-width: 0;
 
     .lv-pagehead-title {
         // docs/13 §1.3：页题 24/650（R52 口径），字距与行高对齐原型
@@ -84,7 +85,14 @@
     .lv-pagehead-sub {
         margin: 0;
         font-size: 13px;
-        color: var(--b3-theme-on-surface);
+    }
+
+    // R53 窄屏：页头纵向堆叠，动作组换行
+    @media (max-width: 740px) {
+        flex-direction: column;
+        gap: var(--lv-sp-2);
+
+        .lv-pagehead-title { font-size: 22px; }
     }
 }
 
@@ -127,14 +135,20 @@
     &--good { background: var(--lv-good-soft); color: var(--b3-theme-success, var(--b3-theme-primary)); border-color: transparent; }
 }
 
-// 卡片：微渐变面 + 派生边框（R52 .panel：扁平 1px 描边分层，无静态阴影；hover 才升起）
+// 卡片：白工作面 + 1px 派生边框（R53 .panel：扁平分层，无静态阴影；hover 才升起）
 .lv-card2 {
-    background: var(--lv-surface-grad);
+    background: var(--b3-theme-surface);
     border: 1px solid var(--lv-border);
     border-radius: var(--lv-r-l);
     padding: 20px;
+    min-width: 0;
     transition: box-shadow var(--lv-dur-2) var(--lv-ease), transform var(--lv-dur-2) var(--lv-ease),
         border-color var(--lv-dur-2) var(--lv-ease);
+
+    // R53 窄屏：宽内容（热力图/日历/表格）在卡片内横滚，不撑破页宽
+    @media (max-width: 740px) {
+        overflow-x: auto;
+    }
 }
 
 .lv-card2--hover:hover {
@@ -236,6 +250,29 @@
     &:active { transform: scale(0.98); }
 }
 
+// ghost 按钮（R52 button.ghost）：无底无框 muted，悬浮软底——中性次要动作（思源 .b3-button 基类是实心主色，必须显式中性化）
+.lv-btn-ghost {
+    background: transparent;
+    border-color: transparent;
+    color: var(--b3-theme-on-surface);
+
+    &:not(:disabled):hover {
+        background: color-mix(in srgb, var(--b3-theme-on-background) 5%, transparent);
+        border-color: transparent;
+        color: var(--b3-theme-on-background);
+    }
+}
+
+// 插件界面按钮语义基线（R52：主色只给核心动作）——思源 .b3-button 基类是实心主色，
+// 在插件页面/中心/对话框内统一回到白面中性；主动作必须显式挂 .lv-btn-primary。
+// :not 白名单 = 宿主已有语义档 + 插件自有语义类（ghost/主色/挑战软色）。
+:is(.lv-page, .lv-hub, .lv-dialog, .lv-peek-body) {
+    .b3-button:not(.b3-button--outline):not(.b3-button--text):not(.b3-button--cancel):not(.lv-btn-primary):not(.lv-btn-ghost):not(.lv-chal-btn) {
+        background: var(--b3-theme-surface);
+        color: var(--b3-theme-on-background);
+    }
+}
+
 // 插件容器内宿主按钮微反馈（R52 button：0.12s 过渡，不覆写宿主配色）
 .lv-page,
 .lv-hub {
@@ -271,9 +308,17 @@
     border-bottom: 1px solid var(--lv-border);
     margin-bottom: var(--lv-sp-4);
 
+    // R53 窄屏：页签横向滚动不换行
+    @media (max-width: 740px) {
+        overflow-x: auto;
+        scrollbar-width: none;
+        &::-webkit-scrollbar { display: none; }
+    }
+
     .lv-tab {
         border: none;
         background: transparent;
+        white-space: nowrap;
         color: var(--b3-theme-on-surface);
         font-size: 13px;
         padding: 9px 16px;
@@ -427,14 +472,64 @@
     }
 }
 
-// T01 今日行动 hero（R52 .hero）：brand-soft 面、30px 留白、徽章行 + 24px 题 + muted 描述 + CTA 行
+// T01 今日行动 hero（R53 .hero）：brand-soft 洗色面、左文右目标环、徽章行 + 24px 题 + muted 描述 + CTA 行
 .lv-hero {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--lv-sp-5);
     padding: 30px;
     margin-bottom: var(--lv-sp-5);
     border: 1px solid var(--lv-border);
     border-radius: var(--lv-r-l);
-    background: var(--lv-primary-softer);
+    background: linear-gradient(135deg,
+            var(--lv-primary-softer),
+            color-mix(in srgb, var(--lv-primary-softer) 35%, var(--b3-theme-surface)) 70%);
     max-width: 100%;
+
+    .lv-hero-text { min-width: 0; flex: 1; }
+
+    // R53 目标环（今日目标完成度；无目标不渲染）
+    .lv-hero-ring {
+        position: relative;
+        width: 92px;
+        height: 92px;
+        flex: none;
+
+        svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+
+        circle {
+            fill: none;
+            stroke-width: 7;
+            &.lv-hero-ring-track { stroke: color-mix(in srgb, var(--b3-theme-on-background) 8%, transparent); }
+            &.lv-hero-ring-fill {
+                stroke: var(--b3-theme-primary);
+                stroke-linecap: round;
+                transition: stroke-dasharray var(--lv-dur-3) var(--lv-ease);
+            }
+        }
+
+        b {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 19px;
+            font-weight: 650;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: -0.02em;
+
+            i {
+                font-style: normal;
+                font-size: 10px;
+                color: var(--b3-theme-on-surface);
+                font-weight: 550;
+                margin-top: 1px;
+            }
+        }
+    }
 
     .lv-hero-badge-row {
         display: flex;
@@ -466,11 +561,14 @@
         /* 原型主动作：48px 高的明确主按钮 */
         .lv-btn-primary { min-height: 48px; padding: 0 22px; }
     }
-    .lv-hero-text { min-width: 0; }
 
     @media (max-width: 740px) {
+        flex-direction: column;
+        align-items: stretch;
         padding: 22px;
+        gap: var(--lv-sp-4);
         .lv-hero-title { font-size: 22px; }
+        .lv-hero-ring { align-self: flex-start; }
     }
 }
 

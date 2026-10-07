@@ -1,5 +1,124 @@
 # Changelog
 
+## v0.207.0 2026-10-07 · R53 设计体系 + P0/P1 全落地（里程碑发版）
+
+> 本版是一个里程碑：docs/41 竞品调研与定位锐化 → docs/42 Starline R53 设计规范 → starline-r53 全页原型 → P0/P1 六个功能全部落地 + 三轮真机走查修复。详细分解见以下各版记录。
+
+### 设计体系
+* Starline R53：7 条设计原则 / 令牌表 / 13 组件解剖 / 14 面逐页规格（docs/42）；starline-r53.html 可交互原型（14 面，亮暗/390px，状态样例）
+* 竞品调研与定位锐化（docs/41）：Anki/RemNote/Quizlet/Mochi/Obsidian-SR/AI 制卡/思源生态 → 三差异点（可回源/可审计 AI/本地优先）→ P0/P1/P2 路线图
+
+### P0 新功能
+* ⌘K 命令面板（v0.206.3）：动作+导航两分组，Ctrl+K 键盘直达
+* 学习日历与负载预测（v0.206.4）：过去热力/未来负载月历 + 14 天预测条
+
+### P1 新功能
+* 每周学习报告（v0.206.7）：设置开启后自动写入「小驴闪卡/学习周报」文档
+* 卡组仪表盘（v0.206.8）：按卡组聚合的排行表（到期/保持率/顽固卡）
+* 分享包（v0.206.9）：整卡组导出为 Obsidian SR markdown（可分享可回导）
+
+### R53 视觉落地
+* 真机比对基建（v0.206.1）：隔离靶场 + CDP 替代静态 shim，消除按钮语义误判
+* 复习工具栏三行重排 / 完成页面板化 / 按钮语义基线（作用域中性化 + ghost）/ 卡片白底 / 考试页主动作唯一化
+* 管理器 R53 化（v0.206.12）：搜索独立页头、工具行拆出、分页底部、行卡对齐、详情抽屉三处崩溃修复
+* 移动端 390px 走查（v0.206.10）：页头纵向堆叠、卡片内容横滚、页签横滚不断字
+
+### 基础修复
+* API 层块去重（v0.206.11）：getRiffCards 系列统一按块 ID 去重，防 Svelte each 重复键崩溃
+* 顶栏页签去重（v0.206.5）：getAllTabs 检测同型页签激活复用
+* 详情抽屉三处崩溃修复（v0.206.12）：versionsOf 防御 / t.ko 路径 / t.relations Proxy 视图
+
+### 统计
+* 699 单测 / 0 svelte-check 错误 / i18n 1245 键中英对齐 / 7 页签 × 亮暗 × 390px 真机走查通过
+* 主包 gzip ≈43KB；hub/review/dialogs chunk 按需加载
+
+
+## v0.206.12 2026-10-07 · 详情抽屉三处崩溃修复 + R53 视觉对齐（真机走查）
+
+* 详情抽屉打开即崩（真机走查发现，三处叠加）：
+  1. versionsOf 对未初始化 contentVersions 不设防 → 加 ?. 防御（面板降级为无版本）
+  2. t.ko.register 顶层不存在（ko 组在 review 下，v0.124 起的潜伏笔误）→ 读 review.ko，顶层回落
+  3. t.relations.empty 同源组路径漂移（relations 在 review 下）→ manager 传给 CardDetail 的 t 用 Proxy 视图矫正组路径（面板内 34 处直读不改）
+* 管理器 R53 化（同轮）：搜索独立页头 actions；排序/筛选/保存拆为独立工具行；分页移至列表底部居中；行卡去旧渐变与静态阴影（对齐 R53 .row）
+* 真机验证：详情抽屉四分面（内容/来源/学习记录/问题）正常渲染， segmented 切换正常；管理器工具行/列表/分页布局正确
+
+
+## v0.206.11 2026-10-07 · API 层块去重（根因修复：each_key_duplicate 全消费者防护）
+
+* 根因修复：维护页签同源崩溃（上一轮只修了 manager 消费者）——getRiffCards/getTreeRiffCards/getNotebookRiffCards 三个 API 在 riff.ts 层统一按块 ID 去重，所有下游消费者（manager/maintenance/dashboard/palette/分享包导出）自动拿到无重复数据
+* 修复方式上提：v0.206.1 的 manager.svelte 消费端去重保留（belt-and-suspenders），新增的 API 层去重覆盖所有现在与未来的消费者
+* 全 7 页签真机回归：无 Svelte 边界错误
+
+
+## v0.206.10 2026-10-07 · P2 移动端（390px）走查与修复
+
+* 窄屏走查（docs/41 P2 · CDP 390×844 实测）：发现三处溢出/断字并修复——
+  1. .lv-pagehead 无 flex-wrap：页头题+按钮组在 390px 挤成竖排文字 → 窄屏改纵向堆叠（题 22px）
+  2. .lv-card2 子元素（热力图/日历/表格）撑破卡片 → 窄屏加 min-width:0 + overflow-x:auto（宽内容卡片内横滚）
+  3. .lv-tab 文字竖排断字（「制卡工作台」四个字竖着排）→ 窄屏加 white-space:nowrap + 容器 overflow-x:auto + 隐藏滚动条
+* 修复后 390px 回归：pageOverflow=false，页头/卡片/页签均无横向溢出；宽内容在卡片内可滑动查看
+* 走查范围：总览（目标环/统计走势/热力图/学习日历/卡组仪表盘表格）/命令面板/页签导航
+
+
+## v0.206.9 2026-10-07 · 分享包：整卡组导出为 Obsidian SR markdown（P1 落地）
+
+* 卡组仪表盘每行新增「导出」：整卡组（分页拉全量，上限 20 页）导出为 Obsidian SR 格式 .md——每行「问 :: 答 #flashcards/<卡组名>」，可用本插件导入器原样回导（同名卡组映射 + 指纹幂等），与 Obsidian 用户互通
+* 复用 v0.204 的 srExportLine/composeSrExport 往返管线（qa/挖空自动分型有既有测试）；空卡组 toast 提示；导出中禁点
+* i18n +3 键（dashboard.ddShare*，zh/en 对齐 1245）
+
+
+## v0.206.8 2026-10-07 · 卡组仪表盘（P1 落地）
+
+* 卡组仪表盘（docs/41 P1 · docs/42 深度统计区）：总览深度统计新增按卡组聚合的排行表——今日到期/新卡（内核实时，逐卡组 getRiffDueCards，上限 12 组按规模取前）、近 7 天复习/遗忘、保持率（近 30 天，样本 <8 如实标未知）、顽固卡（窗口内遗忘 ≥3 次的卡，近似口径页脚注明）
+* 实现：core/deck-dashboard.ts 纯逻辑（窗口聚合/保持率样本门槛/顽固卡计数/排行，+5 单测）；数据全部来自本地 revlog（条目自带 deckID）与内核实时 due，无新增存储
+* i18n +10 键（dashboard.dd*，zh/en 对齐 1242）
+
+
+## v0.206.7 2026-10-07 · 每周学习报告（P1 落地）
+
+* 周报（docs/41 P1）：设置开启后，每周首次加载自动把上周复盘写入「小驴闪卡/学习周报/<上周一> ~ <上周日>」文档——静默写入不自动打开（区别于手动报告的打开回显）；幂等键（上周一 ISO）存设置，失败不推进（下周随本周一起补）
+* 内容口径（docs/28 数据边界）：正式复习（对比上周）、新卡、遗忘、连击、保持率（成熟卡口径，样本不足标「未知」）；全部来自本地复习日志（内核调度），页脚注明边界
+* 实现：core/weekly-report.ts 纯逻辑（mondayOf/decide 幂等键/排版，+7 单测）+ 复用 AR-5 写入管线与 targetNotebook；设置开关（默认关闭——写文档属副作用，opt-in）
+* i18n +12 键（settings.weeklyReport*/weeklyReport.*，zh/en 对齐 1232）
+
+
+## v0.206.5 2026-10-07 · 中心/复习页签去重（UX 修复）+ 暗色与窄屏收尾
+
+* 页签去重（docs/40 UX 待办收敛）：连点顶栏/命令面板反复入此前会堆出多个中心页签（真机复现 hubCount=2）——openTabOf 改经 getAllTabs 检测同型页签：已存在则激活复用，中心子页经 lv-switch-tab 事件就地切换（hub 根元素监听，复用 onTabChange 持久化路径）；带 scope/cram 的复习定点打开保持新开（有意进入特定状态）
+* 真机回归：顶栏双击 → 单一中心页签；命令面板「考试」→ 激活既有中心并切到考试子页
+
+## v0.206.4 2026-10-07 · T14 学习日历与负载预测（P0 第二个新功能落地）
+
+* 学习日历（docs/41 P0 · docs/42 §3.11/§4 T14）：总览深度统计区新增「学习日历」——月历过去按复习热力着色（1-3 档）、未来按到期负载着色、今日描边；下挂未来 14 天到期预测条（峰值 ≥18 高亮）；页脚如实标注覆盖面（参与统计 x/y 张，缺 due 不计入）
+* 数据口径（ADR-3 不变）：预测只读——复习卡按内核 riff due 落日（今天的积压计入今天、窗口外计 laterCount），新卡按每日新卡上限摊入，不改任何卡的到期；分页拉全量（上限 20 页 ×100），core/forecast.ts 纯逻辑 +10 单测（落日/积压/摊新/跳过/月历格子）
+* 平峰建议（原型 T14 的「采用建议」）与统计瓦片 delta 留待后续：需要改期写入与历史口径，本轮只交付只读预测
+* i18n +10 键（calTitle/calSub/calMonth/calFew/calMany/calNote/calForecastTitle/calEmpty/calCoverage/calSkipped，zh/en 对齐 1220）；真机验证：种子到期分散数据（今天×2/+1 天×2/+5 天×1）→ 月历负载着色与预测条逐日吻合
+
+## v0.206.3 2026-10-07 · T13 ⌘K 命令面板（P0 首个新功能落地）
+
+* 命令面板（docs/41 P0 · docs/42 §3.10/T13）：Ctrl+K 全局唤起，动作 + 导航两分组一框直达——开始复习/AI 制卡/快速制卡/修卡演练/设置 + 中心 7 页签（收件箱/考试/维护随模块开关与界面模式收敛，不做隐藏入口的命令）；↑↓ 选择、Enter 执行、Esc 关闭、悬停即选中
+* 实现：core/palette.ts 纯逻辑（折叠匹配/分组聚合/limit，+6 单测）+ LvPalette.svelte 展示组件（dialogs chunk 注册，焦点陷阱/Esc 归还走 svelteDialog 既有管线）；命令经 addCommand(hotkey Ctrl+K) 注册
+* i18n +6 键（cmdPalette/palettePlaceholder/paletteEmpty/paletteFoot/paletteGroupActions/paletteGroupNav，zh/en 对齐 1210）
+* 门禁：668+6 测试全绿；真机验证见 docs/40 R53 落地记录
+
+## v0.206.2 2026-10-07 · R53 设计语言落地第一批（hero 目标环 / 统计走势）+ 原型 R53 与设计规范
+
+* 设计体系升级：竞品调研（Anki/RemNote/Quizlet/Mochi/Obsidian-SR/AI 制卡工具/思源生态）→ 定位锐化（docs/41：可回源 + 可审计 AI + 本地优先三差异点）→ 新功能路线图（P0 学习日历与负载预测、⌘K 命令面板；P1 分享包/周报/卡组仪表盘）→ docs/42「Starline R53」完整设计规范（7 原则 / 令牌表 / 13 组件解剖与状态矩阵 / 14 面逐页规格 / 验收清单）
+* 全新原型 `docs/prototypes/starline-r53.html`（14 面 = 12 现状 + 2 规划）：hero 现场卡 + 今日目标环 + 带走势的统计瓦片、沉浸复习列、三栏制卡审计链、学习日历（过去热力/未来负载/平峰建议）、命令面板、管理器到期 chip 与 checkbox、六类样例状态；`#面名` / `?t=dark` / `?state=` 直达，亮暗/390px 全过；R52 原型保留作历史稿
+* 真机落地第一批（视觉，数据全部既有真实口径）：总览 hero 右侧「今日目标环」（无每日目标时不渲染）；「今日已学」瓦片新增近 7 天正式复习走势 sparkline（LvStat 新 spark prop，只喂真实数据）；hero 底升级 135° 洗色渐变；i18n +1 键（heroRingLabel，zh/en 对齐 1204）
+* 明确不做：统计瓦片到期/新卡走势（内核无历史口径，不造数据）；管理器行常显到期 chip（到期清单仅在切「今日到期」过滤时拉取，常显需数据决策，记 docs/40 待办）
+
+## v0.206.1 2026-10-07 · UI 精品化：真机截图比对轮（工具栏/完成页/按钮语义/崩溃修复）+ 原型 v1.3
+
+* 真机比对基建升级：此前截图比对基于 design/preview.html shim，其 `.b3-button` shim 为白底，而思源宿主 `.b3-button` 基类是实心主色——上一轮"已收敛"的界面在真机上仍是大面积实心蓝。本轮起改用隔离靶场（e2e 同款内核 + 浏览器自动化）直截真机渲染
+* 修复管理页崩溃：同一块同时属于内置卡组与自定义卡组时 `getRiffCards` 返回重复块 ID，Svelte 5 each 重复键抛错整页被错误边界隔离（manager.svelte 按块 ID 去重，真机可复现的潜在 bug）
+* 复习工具栏重排（R52 .study 口径）：20+ 元素单行互压（按钮被压到 32×20px 中文竖排）→ 三行结构——①REVIEW/范围 eyebrow + 状态 chip + 进度 ②进度条独占一行 ③范围/目的控制 + 工具按钮；原始 deckID 不再直接展示（eyebrow 显示卡组名，退回所选范围文案）
+* 按钮语义基线：新增作用域规则（.lv-page/.lv-hub/.lv-dialog/.lv-peek-body 内裸 .b3-button 一律回白面中性）+ .lv-btn-ghost（R52 button.ghost）；主动作显式挂 .lv-btn-primary；插件对话框挂 .lv-dialog 作用域（dialog.ts）。复习工具栏 9 个实心蓝按钮、考试页 6 个、完成页收工原因 5 个全部归位中性
+* 完成页 T07 面板化（R52 results 面）：裸居中文字堆 + 白圈渐变失效徽章 + 💪🎉📦🔥💡 表情串 → 单面板（check 软绿徽 + 三列大数字统计 + notice + ghost 收工原因 + NEXT 软面板 + 右对齐动作）；新增 i18n 3 键（sessionTime/doneConfirm/skipNotRated，zh/en 对齐 1203）
+* 考试页（新功能面首次进视觉核对）：主动作唯一化（开始今日应学=primary，新建考试计划=outline，行内操作=ghost）；卡片白底化（--lv-surface-grad 泛蓝底全面撤位，R52 .panel 纯面 + 1px 派生描边）
+* 原型稿 starline-r52.html 升 v1.3：中心页签 3 → 7（总览/管理/制卡/目标/收件箱/考试/维护，对齐真机 hub）；新增 T11 考试冲刺、T12 数据与备份（自动备份行/恢复差异警告/Obsidian SR 迁入卡组映射与指纹幂等/导出边界说明）两个任务面；设置面增「数据与备份」行入口；今日面页头增考试倒计时入口
+* 版本号 0.206.0 → 0.206.1（chunk URL 带 ?v= 版本号，顺带解决开发期 chunk HTTP 缓存不刷新）
+
 ## v0.206.0 2026-10-06 · UI 精品化：R52 原型残差收敛轮（截图比对驱动）
 
 * 截图比对基建：Edge headless 对 docs/prototypes/starline-r52.html（十任务原型）与 design/preview.html（dist 样式核对台）逐页截图比对——本轮收敛七项「原型 vs 现状」残差；截图产物在 gitignore 的 design/shots/，不进发布包

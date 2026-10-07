@@ -82,8 +82,9 @@ export function appendVersion(
     return normalizeContentVersions({ version: 1, blocks });
 }
 
-export function versionsOf(data: ContentVersionsData, blockID: string): ContentVersion[] {
-    return [...(data.blocks.find((b) => b.blockID === blockID)?.versions ?? [])].reverse(); // 最新在前
+export function versionsOf(data: ContentVersionsData | undefined | null, blockID: string): ContentVersion[] {
+    // 防御：宿主实例未初始化（旧数据/同步竞态）时不抛——详情面板降级为无版本
+    return [...(data?.blocks.find((b) => b.blockID === blockID)?.versions ?? [])].reverse(); // 最新在前
 }
 
 /** 用户核对确认：标记指定版本为「已接受」，同块其他版本的标记剥离（编辑/新保存自然失效） */
