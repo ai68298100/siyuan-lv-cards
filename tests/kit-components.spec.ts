@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/svelte";
 import LvStat from "../src/ui/kit/LvStat.svelte";
 import LvSteps from "../src/ui/kit/LvSteps.svelte";
+import LvCalendar from "../src/ui/kit/LvCalendar.svelte";
 import LvChipHost from "./helpers/LvChipHost.svelte";
 
 // Kit 组件 smoke 测试（组件测试基建首批，v0.86.0）：渲染契约 + 关键交互/语义
@@ -47,6 +48,19 @@ describe("LvSteps", () => {
         for (const b of disabled.container.querySelectorAll("button")) {
             expect(b.disabled).toBe(true);
         }
+    });
+});
+
+describe("LvCalendar", () => {
+    it("只读月历不伪装成可交互 grid", () => {
+        const { container } = render(LvCalendar, {
+            monthLabel: "2026 年 10 月",
+            cells: [{ date: null, day: 0, tone: "empty" }],
+            forecast: [],
+        });
+        const grid = container.querySelector(".lv-cal-grid");
+        expect(grid?.getAttribute("aria-label")).toBe("2026 年 10 月");
+        expect(grid?.getAttribute("role")).toBeNull();
     });
 });
 

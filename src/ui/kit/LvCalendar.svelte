@@ -28,7 +28,7 @@
     {#if loading}
         <div class="lv-skeleton" style="height: 180px"></div>
     {:else}
-        <div class="lv-cal-grid" role="grid" aria-label={monthLabel}>
+        <div class="lv-cal-grid" aria-label={monthLabel}>
             {#each weekDays as d (d)}
                 <span class="lv-cal-wd">{d}</span>
             {/each}
