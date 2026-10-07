@@ -4,7 +4,7 @@
 
 ## 一、提交路径
 
-思源集市通过 **siyuan-note/bazaar 仓库 PR** 上架：fork → 在 `plugins/` 下按模板新增 `<插件名>.json`（内容 = 本插件 plugin.json 的字段子集，官方模板见 bazaar 仓库 README）→ 提交 PR。发布版本以 GitHub Release（当前为 v0.207.3）为源。
+思源集市通过 **siyuan-note/bazaar 仓库 PR** 上架：fork → 在 `plugins/` 下按模板新增 `<插件名>.json`（内容 = 本插件 plugin.json 的字段子集，官方模板见 bazaar 仓库 README）→ 提交 PR。发布版本以 GitHub Release（当前为 v0.207.4）为源。
 
 ## 二、PR 标题与说明（模板）
 
@@ -28,7 +28,7 @@
 
 - [ ] **Anki .apkg 真机导入验证**（当前桌面版同时验证 node:sqlite 与 node:zlib；成功/失败都记录到 docs/34）
 - [ ] **真实脱敏截图 4 张**（P0-C3：复习 / 闪卡中心 / AI 制卡 / 设置；15~30s GIF 可后补）
-- [ ] **version 与 GitHub Release 一致**（当前 v0.207.3；集市 PR 以 Release 为源）
+- [ ] **version 与 GitHub Release 一致**（当前 v0.207.4；集市 PR 以 Release 为源）
 - [ ] **中英 README**：能力矩阵与五种状态标签口径一致（P0-C1 已做，提交前复核一遍）
 - [ ] **AU-1/2/3 素材 gate**：图标 ✓（已重设计）、preview.png（待真实截图）、GIF（可后补）
 - [ ] 帖子预告（ld246.com 发布帖——社区惯例，非硬性）
