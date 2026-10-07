@@ -37,6 +37,8 @@ jobs:
         run: node scripts/check-i18n.mjs
       - name: Governance consistency (docs/17 ↔ docs/31)
         run: node scripts/check-governance.mjs
+      - name: Current documentation facts
+        run: pnpm check:docs-facts
       - name: Unit tests
         run: pnpm test -- --run
       - name: Build (app + kernel)

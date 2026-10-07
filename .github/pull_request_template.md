@@ -14,6 +14,7 @@
 
 ```text
 pnpm check
+pnpm check:docs-facts
 pnpm test -- --run
 pnpm build
 ```

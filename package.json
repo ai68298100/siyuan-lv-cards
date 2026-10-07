@@ -20,6 +20,7 @@
     "check:types": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json",
     "check:svelte": "svelte-check --tsconfig ./tsconfig.json",
     "check:versions": "node scripts/check-versions.mjs",
+    "check:docs-facts": "node scripts/check-docs-facts.mjs",
     "release": "run-s release:version check",
     "release:version": "node --no-warnings ./scripts/update_version.js",
     "clean": "node ./scripts/clean.js",
