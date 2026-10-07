@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.207.7 2026-10-07 · 开发依赖安全收口
+
+* 用 `npm-run-all2` 替换旧版 `npm-run-all`，消除其旧版 `shell-quote`、`semver` 和 `hosted-git-info` 传递依赖风险。
+* 升级 Svelte 5.57.2，并通过 pnpm overrides 固定 `devalue` 5.9.3、`source-map-js` 1.2.2、`shell-quote` 1.12.0 和 `brace-expansion` 5.0.12。
+* 完整开发依赖审计从 1 个 critical、11 个 high 降至仅剩 `braces` 3.0.3（[GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)）；该风险来自 `fast-glob`/`chokidar` 上游，当前没有已发布修复版本。生产依赖审计为 0 漏洞。
+* 724 个测试、类型检查、生产构建、发布包 smoke 和治理门禁全部通过。
+
 ## v0.207.6 2026-10-07 · 只读月历语义修复
 
 * 移除只读学习月历不完整的 `role="grid"` 声明，保留月份标签，避免读屏器把展示内容识别成可操作网格。
