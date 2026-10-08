@@ -62,15 +62,20 @@
     let diffAt = $state<number | null>(null);
     let diffRows = $state<DiffRow[]>([]);
     let diffBusy = $state(false);
+    let diffError = $state(false);
     async function compareWithCurrent(at: number, versionMd: string) {
         if (diffBusy) return;
-        if (diffAt === at) { diffAt = null; return; }
+        if (diffAt === at) { diffAt = null; diffError = false; return; }
         if (!editorCtx) return;
         diffBusy = true;
+        diffError = false;
         try {
             const cur = await editorCtx.load();
             diffRows = diffLines(versionMd, cur ?? "");
             diffAt = at;
+        } catch {
+            diffAt = null;
+            diffError = true;
         } finally {
             diffBusy = false;
         }
@@ -81,6 +86,7 @@
         versionsOpen = false;
         verOpenAt = null;
         diffAt = null;
+        diffError = false;
     });
     // T05 分面（docs/40）：内容/来源/学习记录/问题
     type Facet = "content" | "source" | "history" | "issues";
@@ -135,7 +141,13 @@
 
     async function startEdit() {
         if (!editorCtx) return;
-        const md = await editorCtx.load();
+        let md: string | null;
+        try {
+            md = await editorCtx.load();
+        } catch {
+            editorLoadFail = true;
+            return;
+        }
         if (md === null) {
             editorLoadFail = true;
             return;
@@ -224,6 +236,7 @@
                     {/each}
                 </div>
             {/if}
+            {#if diffError}<div class="ft__smaller ft__on-surface" role="alert">{t.detail.diffLoadFail}</div>{/if}
         {/if}
         <div class="lv-detail-preview">{@html html || (block.content ?? "")}</div>
         {#if editing}

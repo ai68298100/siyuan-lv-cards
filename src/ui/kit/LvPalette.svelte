@@ -64,7 +64,7 @@
         {placeholder}
         autofocus
         aria-label={placeholder}
-        onkeydown={onKeydown}
+        onkeydown={(e: KeyboardEvent) => { e.stopPropagation(); onKeydown(e); }}
     />
     <div class="lv-palette-body" role="listbox" aria-label={placeholder}>
         {#if flat.length === 0}

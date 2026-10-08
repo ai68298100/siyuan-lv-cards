@@ -1,5 +1,5 @@
 {
-    "topbarTitle": "小驴闪卡",
+    "topbarTitle": "小驴闪卡（内测版）",
     "ec393": "该内容位于加密笔记本，闪卡无法访问。可在复习范围选择器中移除对应笔记本。",
     "ec401": "内核要求登录/鉴权，请确认思源已登录后重试。",
     "ec404": "内容不存在或已被删除（可能块已移动/移除），请刷新后重试。",
@@ -34,6 +34,7 @@
         "viaEditor": "编辑器",
         "viaAI": "AI",
         "diffCompare": "对比当前",
+        "diffLoadFail": "当前内容加载失败，请稍后重试。",
         "acceptVer": "用户接受此版本",
         "accepted": "已接受"
     },
@@ -75,7 +76,7 @@
     "cmdStartReview": "开始复习闪卡",
     "dailyTargetReached": "🎉 今日复习目标已完成！",
     "settingsSaved": "设置已保存",
-    "settingsTitle": "小驴闪卡 · 设置",
+    "settingsTitle": "小驴闪卡（内测版） · 设置",
     "chunkLoadFailedTitle": "界面模块加载失败",
     "chunkLoadFailedDetail": "请关闭本页签后重新打开重试；若持续失败，请在闪卡中心 → 设置 → 复制诊断反馈。",
     "badgeDue": "今日到期 ${n} 张",
@@ -723,7 +724,7 @@
     "quickCardNeedDeck": "请选择或新建卡组",
     "quickCardDone": "已制卡并加入卡组",
     "quickCardFail": "制卡失败，请重试",
-    "onboardingTitle": "开始使用小驴闪卡",
+    "onboardingTitle": "开始使用小驴闪卡（内测版）",
     "onboardingPersonaQ": "你想怎么用它？",
     "onboardingStep": "步骤",
     "onboardingSkip": "跳过",
@@ -739,7 +740,7 @@
     "onboardingNoNotebook": "没有已打开的笔记本，请先创建一个",
     "onboardingDeckName": "示例卡组",
     "onboardingSample1": "间隔重复（SRS）是什么？——==按记忆规律安排复习时点的学习方法==",
-    "onboardingSample2": "小驴闪卡用的调度算法是？==FSRS（思源内核原生）==",
+    "onboardingSample2": "小驴闪卡（内测版）用的调度算法是？==FSRS（思源内核原生）==",
     "hubTabExam": "考试",
     "exam": {
         "title": "考试冲刺",

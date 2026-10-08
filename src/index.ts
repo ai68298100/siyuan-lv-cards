@@ -450,8 +450,8 @@ export default class LvCardsPlugin extends Plugin {
                         // BI-14：界面模式（挂载时定格；设置修改后重开页签生效）
                         uiMode: plugin.settings.uiMode,
                         // T02 工作台入口页：向导对话框与修卡演练的常驻入口
-                        openWizard: () => this.openAIWizard(),
-                        openDrill: () => this.openRepairDrill(),
+                        openWizard: () => plugin.openAIWizard(),
+                        openDrill: () => plugin.openRepairDrill(),
                         onTabChange: (id: string) => {
                             plugin.settings.lastHubTab = id;
                             plugin.saveSettingsSoon();
@@ -694,18 +694,18 @@ export default class LvCardsPlugin extends Plugin {
                                 try {
                                     await updateBlock("markdown", md, blockID);
                                     // T05：保存成功即留版本快照（连续相同自动跳过）
-                                    this.contentVersions = appendVersion(this.contentVersions, blockID, md, Date.now(), "editor");
-                                    this.persist.save(CONTENT_VERSIONS_DATA, this.contentVersions).catch(() => { /* onFail 已记录 */ });
+                                    plugin.contentVersions = appendVersion(plugin.contentVersions, blockID, md, Date.now(), "editor");
+                                    plugin.persist.save(CONTENT_VERSIONS_DATA, plugin.contentVersions).catch(() => { /* onFail 已记录 */ });
                                     return true;
                                 } catch {
                                     return false;
                                 }
                             },
                             // T05：内容分面「版本 N」历史
-                            contentVersionsOf: (blockID: string) => versionsOf(this.contentVersions, blockID),
+                            contentVersionsOf: (blockID: string) => versionsOf(plugin.contentVersions, blockID),
                             acceptContentAt: (blockID: string, at: number) => {
-                                this.contentVersions = acceptVersion(this.contentVersions, blockID, at);
-                                this.persist.save(CONTENT_VERSIONS_DATA, this.contentVersions).catch(() => { /* onFail 已记录 */ });
+                                plugin.contentVersions = acceptVersion(plugin.contentVersions, blockID, at);
+                                plugin.persist.save(CONTENT_VERSIONS_DATA, plugin.contentVersions).catch(() => { /* onFail 已记录 */ });
                             },
                         },
                         exam: plugin.settings.modules.exam ? {
@@ -1532,7 +1532,7 @@ export default class LvCardsPlugin extends Plugin {
             kv = await kernelVersion();
         } catch { /* 旁路 */ }
         const text = [
-            "Lv Cards diagnostics",
+            "Lv Cards (Beta) diagnostics",
             "plugin version: " + ((this as any).manifest?.version ?? "unknown"),
             "siyuan/kernel: " + kv,
             "V2 state: " + (this.flashcardV2 ? this.flashcardV2.state : "N/A (<3.9.0)"),
@@ -1679,7 +1679,7 @@ export default class LvCardsPlugin extends Plugin {
         if (plan.scopeKind === "notebook") {
             lines.push(`- 口径：笔记本范围按来源块归属计算；已删除/移动的来源块无法归属，不计入`);
         }
-        lines.push("", `> 由小驴闪卡生成 · ${new Date().toLocaleString()}`);
+        lines.push("", `> 由小驴闪卡（内测版）生成 · ${new Date().toLocaleString()}`);
         return lines.join("\n");
     }
 
@@ -2060,10 +2060,24 @@ export default class LvCardsPlugin extends Plugin {
         }
     }
 
+    /** 对话框懒加载失败时给出可见反馈，避免入口点击后静默拒绝。 */
+    private reportDialogOpenFailure(kind: string, error: unknown): void {
+        const detail = error instanceof Error ? error.message : String(error);
+        lvLog("error", `[dialog] ${kind} open failed: ${detail}`);
+        const prefix = this.i18n.chunkLoadFailedDetail ?? "界面模块加载失败，请重试。";
+        showMessage(`${prefix}\n${detail}`, 4000, "error");
+    }
+
     /** AI 制卡向导（M2·FR6-10）：生成回调 + 批次记录落库；initialSource 用于 leech 改写预填 */
     /** T10 修卡演练（docs/13 §12）：独立样例、零网络零写入、进度不迁入真实学习 */
     private async openRepairDrill() {
-        const Drill = await loadRepairDrill();
+        let Drill: any;
+        try {
+            Drill = await loadRepairDrill();
+        } catch (e) {
+            this.reportDialogOpenFailure(this.i18n.drillTitle, e);
+            return;
+        }
         svelteDialog({
             title: this.i18n.drillTitle,
             component: Drill,
@@ -2124,7 +2138,13 @@ export default class LvCardsPlugin extends Plugin {
     }
 
     private async openAIWizard(initialSource = "", onCreated?: () => void) {
-        const AIWizard = await loadAIWizard();
+        let AIWizard: any;
+        try {
+            AIWizard = await loadAIWizard();
+        } catch (e) {
+            this.reportDialogOpenFailure(this.i18n.aiWizardTitle, e);
+            return;
+        }
         svelteDialog({
             title: this.i18n.aiWizardTitle,
             component: AIWizard,

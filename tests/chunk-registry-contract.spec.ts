@@ -36,4 +36,22 @@ describe("AT-17 chunk 注册契约", () => {
         expect(src).toMatch(/loadReviewMount\(\)\.then[\s\S]*?\.catch/);
         expect(src).toMatch(/mountChunkFallback/);
     });
+
+    it("工作台按钮回调使用插件实例（避免 init 的 this 指向页签对象）", () => {
+        const src = read("src/index.ts");
+        expect(src).toMatch(/openWizard:\s*\(\)\s*=>\s*plugin\.openAIWizard\(\)/);
+        expect(src).toMatch(/openDrill:\s*\(\)\s*=>\s*plugin\.openRepairDrill\(\)/);
+        expect(src).not.toMatch(/openWizard:\s*\(\)\s*=>\s*this\.openAIWizard\(\)/);
+        expect(src).not.toMatch(/openDrill:\s*\(\)\s*=>\s*this\.openRepairDrill\(\)/);
+    });
+
+    it("卡片详情版本回调使用插件实例（避免保存/接受操作丢失）", () => {
+        const src = read("src/index.ts");
+        const managerVersionCtx = src.match(/saveBlockContent:[\s\S]*?acceptContentAt:[\s\S]*?\n\s*},\n\s*exam:/)?.[0] ?? "";
+        expect(src).toMatch(/plugin\.contentVersions\s*=\s*appendVersion\(plugin\.contentVersions/);
+        expect(src).toMatch(/plugin\.persist\.save\(CONTENT_VERSIONS_DATA, plugin\.contentVersions\)/);
+        expect(src).toMatch(/contentVersionsOf:\s*\(blockID: string\) => versionsOf\(plugin\.contentVersions, blockID\)/);
+        expect(src).toMatch(/plugin\.contentVersions\s*=\s*acceptVersion\(plugin\.contentVersions/);
+        expect(managerVersionCtx).not.toMatch(/this\.contentVersions|this\.persist/);
+    });
 });

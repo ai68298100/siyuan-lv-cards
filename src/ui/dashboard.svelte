@@ -185,7 +185,7 @@
     function buildReportMd(): string {
         const today = new Date().toLocaleDateString();
         const rows: string[] = [
-            `# 小驴闪卡 · 学习报告（${today}）`, "",
+            `# 小驴闪卡（内测版） · 学习报告（${today}）`, "",
             "## 总览", "",
             `- 今日到期：${dueCount}（新 ${newCount} / 复习 ${oldCount}）`,
             `- 今日已复习：${todayReview} / 目标 ${ctx.getDailyTargets().review}`,
@@ -208,7 +208,7 @@
                 rows.push(`- ${q.date}：${q.cards} 张 / 复习 ${q.reviews} / ${q.rate === null ? "样本积累中" : Math.round(q.rate * 100) + "%"}`);
             }
         }
-        rows.push("", `> 由小驴闪卡生成 · ${new Date().toLocaleString()}`);
+        rows.push("", `> 由小驴闪卡（内测版）生成 · ${new Date().toLocaleString()}`);
         return rows.join("\n");
     }
 

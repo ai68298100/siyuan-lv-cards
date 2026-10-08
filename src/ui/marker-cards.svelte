@@ -19,6 +19,7 @@
     // svelte-ignore state_referenced_locally
     let picked = $state<Set<string>>(new Set(items.map(i => i.blockID)));
     let busy = $state(false);
+    let errorMsg = $state("");
 
     function toggle(id: string) {
         const next = new Set(picked);
@@ -36,9 +37,12 @@
             return;
         }
         busy = true;
+        errorMsg = "";
         try {
             await onCreate(list);
             onClose();
+        } catch (e) {
+            errorMsg = e instanceof Error ? e.message : String(e);
         } finally {
             busy = false;
         }
@@ -47,6 +51,7 @@
 
 <div class="lv-marker b3-typography">
     <div class="lv-marker-hint">{t.markerHint.replace("${n}", String(items.length))}</div>
+    {#if errorMsg}<div class="lv-marker-error" role="alert">{errorMsg}</div>{/if}
     <div class="lv-marker-list">
         {#each items as it (it.blockID)}
             <label class="lv-marker-item">
@@ -72,6 +77,11 @@
         font-size: 12px;
         color: var(--b3-theme-on-surface);
         margin-bottom: var(--lv-sp-3);
+    }
+    .lv-marker-error {
+        margin-bottom: var(--lv-sp-2);
+        color: var(--b3-theme-error);
+        font-size: 12px;
     }
     .lv-marker-list {
         max-height: 46vh;

@@ -1,6 +1,6 @@
 <div align="center">
 
-# Lv Cards · 小驴闪卡
+# Lv Cards (Beta) · 小驴闪卡（内测版）
 
 **Turn your notes into long-term knowledge you can actually use.**
 
@@ -19,7 +19,7 @@ The full-lifecycle flashcard learning platform for SiYuan — local-first, nativ
 
 > **Note**: The primary README and all design docs are in Chinese. This page covers the essentials; see [docs/](./docs/README.md) for full design material.
 
-Lv Cards turns every block worth remembering in your notes into traceable flashcards, scheduled by the kernel's native FSRS algorithm, accelerated by auditable AI — all local-first, all portable. The current baseline is **v0.208.0**, featuring the Starline R53 design system fully landed (unified page heads, complete component states, restrained micro-motion, a 390px narrow-screen pass, and a polished review loop), plus a ⌘K command palette, a learning calendar with load forecasting, a deck dashboard, weekly reports, and share-pack export. 724 unit tests and isolated E2E pass; desktop light/dark and 390px are screenshot-verified, while the full Android SiYuan host matrix remains pending.
+Lv Cards turns every block worth remembering in your notes into traceable flashcards, scheduled by the kernel's native FSRS algorithm, accelerated by auditable AI — all local-first, all portable. The current baseline is **v0.208.1**, featuring the Starline R53 design system fully landed (unified page heads, complete component states, restrained micro-motion, a 390px narrow-screen pass, and a polished review loop), plus a ⌘K command palette, a learning calendar with load forecasting, a deck dashboard, weekly reports, and share-pack export. This patch also fixes callback bindings for the authoring workbench and card-version actions. 726 unit tests and isolated E2E pass; desktop light/dark and 390px are screenshot-verified, while the full Android SiYuan host matrix remains pending.
 
 ## 📸 Screenshots
 
@@ -50,7 +50,7 @@ SiYuan ≥ 3.8.0. Desktop is the core experience; mobile and browser are narrow-
 
 1. Download `package.zip` from the [latest release](https://github.com/ai68298100/siyuan-lv-cards/releases/latest) (do **not** unzip)
 2. SiYuan → Settings → Marketplace → Download → "Import package" → pick the zip
-3. Enable "Lv Cards" under Downloaded
+3. Enable "Lv Cards (Beta)" under Downloaded
 
 ## ⌨️ Quick start
 
