@@ -20,10 +20,11 @@ describe("LvSection（经测试宿主：children+actions snippet）", () => {
 });
 
 describe("LvPage", () => {
-    it("渲染 title 与 subtitle；dot 提供时渲染状态点", () => {
-        const { container } = render(LvPage, { title: "闪卡中心", subtitle: "自 2026-10-01", dot: true });
+    it("渲染 eyebrow/title 与 subtitle；层级结构堆叠", () => {
+        const { container } = render(LvPage, { title: "闪卡中心", subtitle: "自 2026-10-01", eyebrow: "TODAY / 2026.10.07" });
         expect(container.textContent).toContain("闪卡中心");
-        expect(container.querySelector(".lv-dot")).toBeTruthy();
+        expect(container.querySelector(".lv-eyebrow")).toBeTruthy();
+        expect(container.querySelector(".lv-pagehead-main")?.querySelector(".lv-pagehead-title")).toBeTruthy();
     });
 
     it("title 缺省时不渲染页头", () => {
@@ -47,11 +48,11 @@ describe("LvDrawer", () => {
 });
 
 describe("LvPage（经测试宿主：children snippet）", () => {
-    it("渲染 title/subtitle/dot 与 children 内容", () => {
-        const { container } = render(LvPageHost, { title: "闪卡中心", subtitle: "自 2026-10-01", dot: true });
+    it("渲染 eyebrow/title/subtitle 与 children 内容", () => {
+        const { container } = render(LvPageHost, { title: "闪卡中心", subtitle: "自 2026-10-01", eyebrow: "GOAL / PLAN" });
         expect(container.textContent).toContain("闪卡中心");
         expect(container.textContent).toContain("自 2026-10-01");
-        expect(container.querySelector(".lv-dot")).toBeTruthy();
+        expect(container.querySelector(".lv-eyebrow")?.textContent).toContain("GOAL / PLAN");
         expect(container.querySelector("[data-testid=page-children]")?.textContent).toContain("页内容");
     });
 });

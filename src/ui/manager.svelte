@@ -322,10 +322,10 @@
     }
 </script>
 
-<LvPage title={t.manager.title} subtitle={`${t.manager.total}: ${total}`}>
+<LvPage eyebrow="OBJECT / MAINTAIN" title={t.manager.title} subtitle={t.manager.scopeNote}>
     {#snippet actions()}
         <input class="b3-text-field lv-filter" type="text" placeholder={t.manager.filterPlaceholder} bind:value={filterText} />
-        <button class="b3-button b3-button--outline" onclick={load}>{t.dashboard.refresh}</button>
+        <button class="b3-button b3-button--small lv-btn-ghost" onclick={load}>{t.dashboard.refresh}</button>
     {/snippet}
 
     <!-- T-管理器 R53 工具行：排序/筛选/保存独立于页头搜索 -->
@@ -355,11 +355,14 @@
             <option value="due">{t.manager.statusDue}</option>
         </select>
         {#if ctx.uiMode !== "simple"}
-            <button class="b3-button b3-button--small" class:lv-btn-primary={leechOnly} onclick={() => (leechOnly = !leechOnly)}>
-                {t.manager.leechFilter}
-            </button>
+            <button
+                class="lv-chipbtn"
+                class:lv-chipbtn-active={leechOnly}
+                title={t.manager.leechFilter}
+                onclick={() => (leechOnly = !leechOnly)}
+            >{t.manager.leechFilter}</button>
         {/if}
-        <span class="hint" style="margin-left:auto">{t.manager.total}: {total}</span>
+        <span class="lv-toolbar-caption">{t.manager.total}: {total}</span>
     </div>
 
     {#if selected.length > 0}
@@ -535,6 +538,7 @@
         margin-bottom: var(--lv-sp-3);
 
         .lv-sort { max-width: 140px; font-size: 12px; padding: 3px 8px; }
+        .lv-toolbar-caption { margin-left: auto; font-size: 12px; color: var(--b3-theme-on-surface); font-variant-numeric: tabular-nums; }
     }
 
     /* T-管理器 R53 分页：列表底部居中（与 .lv-list 同级） */
@@ -605,9 +609,9 @@
                 }
             }
 
+            /* span 需块化，否则 overflow:hidden 不生效——窄屏文字会压到行内按钮上 */
             .lv-content { flex: 1; min-width: 0; }
-            .lv-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-            .lv-meta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+            .lv-text, .lv-meta { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
             .lv-arrow {
                 color: var(--b3-theme-primary);

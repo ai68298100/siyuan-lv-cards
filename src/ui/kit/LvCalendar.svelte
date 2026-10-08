@@ -82,6 +82,8 @@
         grid-template-columns: repeat(7, 1fr);
         gap: 5px;
         margin-top: 8px;
+        /* 密度护栏：撑满 1200px 卡时格子会变成 158×117 的巨块——限宽保持原型 .cal 的紧凑比例 */
+        max-width: 640px;
     }
     .lv-cal-wd {
         font-size: 10px;
@@ -108,9 +110,9 @@
     }
     .lv-cal-day b { font-size: 12px; color: var(--b3-theme-on-background); font-weight: 600; }
     .lv-cal-off { border-color: transparent; background: transparent; }
-    .lv-cal-day.past1 { background: color-mix(in srgb, var(--b3-theme-primary) 7%, var(--b3-theme-surface)); }
-    .lv-cal-day.past2 { background: color-mix(in srgb, var(--b3-theme-primary) 16%, var(--b3-theme-surface)); }
-    .lv-cal-day.past3 { background: color-mix(in srgb, var(--b3-theme-primary) 30%, var(--b3-theme-surface)); }
+    .lv-cal-day.past1 { background: color-mix(in srgb, var(--b3-theme-primary) 12%, var(--b3-theme-surface)); }
+    .lv-cal-day.past2 { background: color-mix(in srgb, var(--b3-theme-primary) 26%, var(--b3-theme-surface)); }
+    .lv-cal-day.past3 { background: color-mix(in srgb, var(--b3-theme-primary) 42%, var(--b3-theme-surface)); }
     .lv-cal-day.past2 b, .lv-cal-day.past3 b { color: var(--b3-theme-primary); }
     .lv-cal-day.today { border: 2px solid var(--b3-theme-primary); }
     .lv-cal-day.future1 { background: color-mix(in srgb, var(--b3-theme-warning) 14%, var(--b3-theme-surface)); }
@@ -131,8 +133,8 @@
         border: 1px solid var(--lv-border);
     }
     .lv-cal-sw.past1 { background: color-mix(in srgb, var(--b3-theme-primary) 12%, var(--b3-theme-surface)); }
-    .lv-cal-sw.past2 { background: color-mix(in srgb, var(--b3-theme-primary) 24%, var(--b3-theme-surface)); }
-    .lv-cal-sw.past3 { background: color-mix(in srgb, var(--b3-theme-primary) 36%, var(--b3-theme-surface)); }
+    .lv-cal-sw.past2 { background: color-mix(in srgb, var(--b3-theme-primary) 26%, var(--b3-theme-surface)); }
+    .lv-cal-sw.past3 { background: color-mix(in srgb, var(--b3-theme-primary) 42%, var(--b3-theme-surface)); }
     .lv-cal-sw.future2 { background: color-mix(in srgb, var(--b3-theme-warning) 24%, var(--b3-theme-surface)); }
     .lv-forecast {
         display: flex;

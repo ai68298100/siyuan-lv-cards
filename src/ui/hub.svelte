@@ -1,5 +1,6 @@
 <script lang="ts">
     import { onDestroy, onMount } from "svelte";
+    import { fade } from "svelte/transition";
     import LvTabs from "./kit/LvTabs.svelte";
     import Dashboard from "./dashboard.svelte";
     import Manager from "./manager.svelte";
@@ -178,36 +179,25 @@
     onDestroy(() => {
         hubRoot?.removeEventListener("lv-switch-tab", onSwitchTab ?? (() => {}));
     });
-
-    // T01 页头日期（R52 .page-head 的 eyebrow 口径）：本地日期 YYYY.MM.DD，跨天自检翻转
-    const todayLabel = $derived.by(() => {
-        const d = new Date();
-        return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
-    });
 </script>
 
 <div class="lv-hub" bind:this={hubRoot}>
-    <!-- T01 页头语义（R52 .page-head）：eyebrow + 页题 + 副题，页签栏之上 -->
-    <div class="lv-pagehead">
-        <div>
-            <!-- T01 页头语义（R52 .page-head）：TODAY/日期 eyebrow（日期每分钟自检翻转） -->
-            <div class="lv-eyebrow">TODAY / {todayLabel}</div>
-            <div class="lv-pagehead-title">{i18n.menuDashboard}</div>
-            <p class="lv-pagehead-sub">{i18n.hubTagline}</p>
-        </div>
-    </div>
+    <!-- R53 中心外壳：只保留页签栏（原型 .app-head 口径）；页头语义下放到各子页
+         的 LvPage（eyebrow + 题 + 副题 + 动作），避免一屏两个 24px 题级 -->
     <div class="lv-hub-bar">
         <LvTabs {tabs} active={active} onchange={switchTab} panelId="lv-hub-panel" />
     </div>
     <div class="lv-hub-body">
         <!-- 错误边界（450）：{#key} 使边界随页签重建，单子页崩溃不拖垮中心，切换自愈 -->
         {#key active}
+            <!-- 页签切换：140ms 单次淡入（R53 动效纪律：只动 opacity，无错峰） -->
             <div
                 id="lv-hub-panel"
                 class="lv-hub-panel"
                 role="tabpanel"
                 aria-labelledby={`lv-tab-${active}`}
                 tabindex="0"
+                in:fade={{ duration: 140 }}
             >
             <svelte:boundary onerror={(e) => console.warn("[lv-cards] tab error", e)}>
                 {#snippet failed(error: unknown, reset)}
@@ -224,8 +214,14 @@
                 {:else if active === "authoring"}
                     <!-- T02 工作台入口页（docs/40）：向导/演练常驻入口；全屏内嵌工作面为后续批次 -->
                     <div style="padding: var(--lv-sp-5); max-width: 720px; margin: 0 auto">
-                        <div class="lv-eyebrow">{i18n.hubTabAuthoring}</div>
-                        <div class="lv-card2" style="margin-top: 10px; padding: 20px 22px">
+                        <div class="lv-pagehead">
+                            <div class="lv-pagehead-main">
+                                <div class="lv-eyebrow">CREATE / CHECK</div>
+                                <div class="lv-pagehead-title">{i18n.hubTabAuthoring}</div>
+                                <p class="lv-pagehead-sub">{i18n.authoringPageSub}</p>
+                            </div>
+                        </div>
+                        <div class="lv-card2" style="padding: 20px 22px">
                             <div style="font-weight: 650; font-size: 15px">{i18n.aiWizardTitle}</div>
                             <div class="ft__smaller ft__on-surface" style="margin: 6px 0 12px">{i18n.authoringWizardDesc}</div>
                             <button class="b3-button lv-btn-primary" onclick={() => openWizard?.()}>{i18n.authoringWizardOpen}</button>
@@ -299,6 +295,7 @@
         padding: var(--lv-sp-3) var(--lv-sp-5) 0;
         flex: none;
     }
+
     .lv-hub-body {
         flex: 1;
         min-height: 0;

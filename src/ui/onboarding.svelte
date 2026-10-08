@@ -75,7 +75,8 @@
     </div>
 
     {#if step === 1}
-        <LvSection title={t.onboardingTitle} sub={t.onboardingPersonaHint}>
+        <!-- R53 UX：标题不与对话框头重复——用步骤问题句驱动选择 -->
+        <LvSection title={t.onboardingPersonaQ} sub={t.onboardingPersonaHint}>
             <div class="fn__flex fn__flex-wrap lv-ob-cards">
                 {#each personaKeys as p (p.id)}
                     <button class="lv-persona" class:lv-persona-active={persona === p.id} onclick={() => pickPersona(p.id)}>

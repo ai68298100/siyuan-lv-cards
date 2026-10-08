@@ -121,6 +121,8 @@ export const svelteDialog = (args: {
     width?: string,
     height?: string,
     callback?: () => void;
+    /** R53 §3.10：无镶板形态——隐藏宿主标题栏与内容内边距，容器即面板（命令面板用） */
+    panel?: boolean,
 }) => {
     // AR-2：打开前记焦点宿主，关闭（任意路径）后归还——键盘流不因弹窗丢焦
     let prevFocus: HTMLElement | null = null;
@@ -215,6 +217,9 @@ export const svelteDialog = (args: {
     dialogHandle = dialog;
     // 样式作用域（R52）：插件对话框挂 lv-dialog，供 index.scss 做按钮语义中性化与滚动条
     dialog.element.classList.add("lv-dialog");
+    if (args.panel) {
+        dialog.element.classList.add("lv-dialog--panel");
+    }
     // AS-1：焦点捕获（Esc→closeOnce 一次性；归还走既有 restoreFocus）
     focusTrap = trapFocus(dialog.element, { onEscape: closeOnce, restoreOnRelease: false });
 

@@ -1,6 +1,7 @@
 <script lang="ts">
     import { dueCache } from "@/api/due-shared";
     import { getBlockDOM } from "@/api/siyuan";
+    import LvEmpty from "./kit/LvEmpty.svelte";
 
     /** 配对挑战（M4·FR4）：到期挖空卡限时配对——左列题面（挖空）× 右列答案（mark 文本），
      * 只入激励不计调度。无挖空的卡自动跳过。 */
@@ -120,9 +121,11 @@
     {#if phase === "loading"}
         <div class="lv-pair-center">{t.dashboard.loading}</div>
     {:else if phase === "notEnough"}
+        <!-- R53 §3.9：空态走标准组件（图标圈 + 说明 + 动作钮），居中限宽不顶满 -->
         <div class="lv-pair-center">
-            <div>{t.pairing.notEnough}</div>
-            <button class="b3-button b3-button--cancel" style="margin-top: 12px" onclick={onExit}>{t.pairing.exit}</button>
+            <div class="lv-pair-empty-wrap">
+                <LvEmpty text={t.pairing.notEnough} actionLabel={t.pairing.exit} onaction={onExit} />
+            </div>
         </div>
     {:else if phase === "running"}
         <div class="lv-pair-head">
@@ -165,6 +168,7 @@
 
 <style>
     .lv-pair { min-height: 320px; display: flex; flex-direction: column; }
+    .lv-pair-empty-wrap { width: min(440px, 100%); }
     .lv-pair-center {
         flex: 1;
         display: flex;

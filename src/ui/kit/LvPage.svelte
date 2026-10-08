@@ -1,12 +1,12 @@
 <script lang="ts">
     import type { Snippet } from "svelte";
 
-    let { title = "", subtitle = "", dot = false, actions, children }: {
+    let { eyebrow = "", title = "", subtitle = "", actions, children }: {
+        /** 页眉线（如 TODAY / 2026.10.07），R53 .page-head 的 eyebrow 层 */
+        eyebrow?: string;
         /** 页题（空则不渲染页头） */
         title?: string;
         subtitle?: string;
-        /** 呼吸点（表示"运行中"的页面级状态） */
-        dot?: boolean;
         actions?: Snippet;
         children?: Snippet;
     } = $props();
@@ -15,11 +15,14 @@
 <div class="lv-page">
     {#if title || actions}
         <div class="lv-pagehead">
-            {#if dot}<span class="lv-dot"></span>{/if}
-            {#if title}<span class="lv-pagehead-title">{title}</span>{/if}
-            {#if subtitle}<span class="lv-pagehead-sub">{subtitle}</span>{/if}
-            <div class="fn__flex-1"></div>
-            {#if actions}{@render actions()}{/if}
+            <div class="lv-pagehead-main">
+                {#if eyebrow}<div class="lv-eyebrow">{eyebrow}</div>{/if}
+                {#if title}<div class="lv-pagehead-title">{title}</div>{/if}
+                {#if subtitle}<p class="lv-pagehead-sub">{subtitle}</p>{/if}
+            </div>
+            {#if actions}
+                <div class="lv-pagehead-actions">{@render actions()}</div>
+            {/if}
         </div>
     {/if}
     {@render children?.()}

@@ -50,8 +50,11 @@
 <section class="lv-lc">
     <h4>{t.lc.title}</h4>
     {#if !snapshot}
-        <p class="lv-lc-hint ft__smaller ft__on-surface">{t.lc.hint}</p>
-        <button class="b3-button b3-button--small" onclick={onopen}>{t.lc.open}</button>
+        <!-- R53 §3.9：未开档说明进软面板（soft 底 + outline 动作），不再是裸文字行 -->
+        <div class="lv-lc-soft">
+            <p class="lv-lc-hint ft__smaller ft__on-surface">{t.lc.hint}</p>
+            <button class="b3-button b3-button--outline b3-button--small" onclick={onopen}>{t.lc.open}</button>
+        </div>
     {:else}
         <div class="lv-lc-now">
             <LvChip tone="primary">{t.lc.state[state!]}</LvChip>
@@ -100,7 +103,17 @@
 <style>
     .lv-lc { margin-bottom: var(--lv-sp-4); }
     .lv-lc h4 { margin: 0 0 var(--lv-sp-2); }
-    .lv-lc-hint { margin: 0 0 var(--lv-sp-2); }
+    .lv-lc-soft {
+        background: color-mix(in srgb, var(--b3-theme-on-background) 4%, transparent);
+        border: 1px solid var(--lv-border);
+        border-radius: var(--lv-r-m);
+        padding: var(--lv-sp-3);
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--lv-sp-2);
+    }
+    .lv-lc-hint { margin: 0; line-height: 1.7; }
     .lv-lc-now { display: flex; align-items: center; gap: var(--lv-sp-2); flex-wrap: wrap; margin-bottom: var(--lv-sp-2); }
     .lv-lc-why { flex: 1 1 auto; min-width: 0; }
     .lv-lc-next, .lv-lc-flow, .lv-lc-history { margin-bottom: var(--lv-sp-2); }

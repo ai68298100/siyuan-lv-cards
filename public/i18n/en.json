@@ -14,6 +14,7 @@
     "menuSettings": "Settings",
     "cmdOpenDashboard": "Open Card Hub",
     "hubTabAuthoring": "Authoring",
+    "authoringPageSub": "Sources, editing and card faces cross-check; generated candidates are reviewed here.",
     "authoringWizardDesc": "Source ledger, material trimming and request preview — candidates are reviewed and imported here.",
     "authoringWizardOpen": "Open AI wizard",
     "authoringDrillDesc": "Practice the five-step repair flow on a fixed public sample — no real data, no ratings.",
@@ -121,6 +122,7 @@
         "docCards": "${n} cards reviewed",
         "unattributedNote": "${n} cards have records without deck info (native review UI) — excluded from breakdown",
         "coverageLine": "Card coverage (local evidence): ${a} / ${b} cards · ${pct}% · since ${since} — coverage ≠ mastery; denominator = kernel deck sizes",
+        "coverageDetail": "Coverage detail",
         "studyTime": "Today's time (min)",
         "title": "Card Hub · Overview",
         "todayDue": "Due Today",
@@ -153,6 +155,7 @@
         "ddShareDone": "Share pack exported: ${qa} qa · ${c} cloze — re-import via Obsidian SR import (same-name deck mapping)",
         "ddShareEmpty": "This deck has no cards yet",
         "ddShare": "Export",
+        "ddShareBtn": "Share",
         "ddEmpty": "No deck data",
         "ddLeeches": "Leeches (30d)",
         "ddRetention": "Retention",
@@ -199,6 +202,8 @@
         "doneProgress": "Keep it up!",
         "again": "Fetch next batch",
         "viewStats": "View statistics",
+        "emptyQueueTitle": "Nothing due in this scope",
+        "emptyQueueSub": "Switch scopes or create cards first — existing progress and statistics stay untouched.",
         "tagNew": "New",
         "reps": "Reps",
         "lapses": "Lapses",
@@ -309,7 +314,18 @@
             },
             "capability": {
                 "title": "Capability distribution",
-                "sub": "Based on registered knowledge-object instances · plugin-side tagging coverage"
+                "sub": "Based on registered knowledge-object instances · plugin-side tagging coverage",
+                "labels": {
+                    "fact": "Fact recall",
+                    "definition": "Definition",
+                    "distinction": "Distinction",
+                    "procedure": "Procedure",
+                    "generation": "Generation",
+                    "lang-comprehension": "Language comprehension",
+                    "lang-production": "Language production",
+                    "application": "Application",
+                    "unspecified": "Unspecified"
+                }
             },
             "revise": "Revise fact",
             "reviseLabel": "Core fact (revising)",
@@ -451,6 +467,7 @@
     },
     "manager": {
         "title": "Card Manager",
+        "scopeNote": "Back to content: filters, selection and return points stay",
         "total": "Total",
         "prev": "Prev",
         "next": "Next",
@@ -707,6 +724,7 @@
     "quickCardDone": "Card created and added",
     "quickCardFail": "Card creation failed, please retry",
     "onboardingTitle": "Get started with Lv Cards",
+    "onboardingPersonaQ": "How will you use it?",
     "onboardingStep": "Step",
     "onboardingSkip": "Skip",
     "onboardingPersonaHint": "Pick a persona — modules & parameters configured in one click (changeable in settings)",
@@ -724,6 +742,9 @@
     "onboardingSample2": "Which scheduler does Lv Cards use? ==FSRS, native in the SiYuan kernel==",
     "hubTabExam": "Exam",
     "exam": {
+        "title": "Exam sprint",
+        "pageSub": "Turn the deadline into a daily capacity you can afford; advice is advisory and never reschedules",
+        "pace": "Timeline",
         "adviceToday": "Today's target: ${n} cards",
         "adviceBehind": "incl. ${n} catch-up",
         "adviceOverCap": "needs ${n} days at current daily cap — not feasible",
@@ -964,6 +985,7 @@
         "restore": "Restore",
         "remove": "Delete forever",
         "selectAll": "All",
+        "unselectAll": "None",
         "selectItem": "Select item",
         "empty": "Inbox is empty — collect material via block menu \"Add to inbox\"",
         "undoneNotice": "Moved ${n} item(s) back to staged",
@@ -985,6 +1007,7 @@
     "inboxAdded": "Added ${n} item(s) to inbox",
     "hubTabGoals": "Goals",
     "goals": {
+        "subtitle": "Define the purpose first, then the investment; plans are advice, scheduling stays with the kernel",
         "stepConcept": "Learn the concepts",
         "stepScope": "${n} blocks scoped",
         "stepGapMaterial": "no material scoped",
@@ -1165,6 +1188,7 @@
     "hubTabMaintenance": "Maintain",
     "maintenance": {
         "title": "Maintenance debts",
+        "queueCount": "${n} in queue · read-only diagnosis, scanning never reschedules",
         "scan": "Scan",
         "scanning": "Scanning…",
         "scanned": "Scan complete",

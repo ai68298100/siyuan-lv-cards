@@ -14,6 +14,7 @@
     "menuSettings": "设置",
     "cmdOpenDashboard": "打开闪卡中心",
     "hubTabAuthoring": "制卡工作台",
+    "authoringPageSub": "来源、编辑、卡面相互查证；生成的候选在此审核入库。",
     "authoringWizardDesc": "来源清单分条管理、材料裁剪与请求预览确认——生成的候选在此审核入库。",
     "authoringWizardOpen": "打开 AI 制卡向导",
     "authoringDrillDesc": "在固定公开样例上练习修卡五步流程——不触真实数据，不产生评分。",
@@ -121,6 +122,7 @@
         "docCards": "${n} 张卡有记录",
         "unattributedNote": "另有 ${n} 张卡的记录缺卡组信息（原生复习界面），未计入分解",
         "coverageLine": "卡片覆盖（本地证据）：${a} / ${b} 张 · ${pct}% · 自 ${since} 起 · 覆盖率≠掌握率，分母为内核卡组规模合计",
+        "coverageDetail": "覆盖明细",
         "studyTime": "今日作答(分)",
         "title": "闪卡中心 · 总览",
         "todayDue": "今日到期",
@@ -153,6 +155,7 @@
         "ddShareDone": "分享包已导出：问答 ${qa} · 挖空 ${c}——可用「导入 Obsidian SR」回导（卡组同名映射）",
         "ddShareEmpty": "该卡组暂无卡片",
         "ddShare": "导出",
+        "ddShareBtn": "分享包",
         "ddEmpty": "暂无卡组数据",
         "ddLeeches": "顽固卡（30 天）",
         "ddRetention": "保持率",
@@ -199,6 +202,8 @@
         "doneProgress": "继续加油！",
         "again": "再来一批",
         "viewStats": "查看统计",
+        "emptyQueueTitle": "该范围没有到期的卡",
+        "emptyQueueSub": "换个范围，或先去制卡；已有的进度与统计不受影响。",
         "tagNew": "新",
         "reps": "复习",
         "lapses": "遗忘",
@@ -309,7 +314,18 @@
             },
             "capability": {
                 "title": "能力分布",
-                "sub": "基于已登记知识对象实例 · 口径=插件侧标注覆盖"
+                "sub": "基于已登记知识对象实例 · 口径=插件侧标注覆盖",
+                "labels": {
+                    "fact": "事实回忆",
+                    "definition": "定义",
+                    "distinction": "辨析",
+                    "procedure": "步骤流程",
+                    "generation": "生成应用",
+                    "lang-comprehension": "语言理解",
+                    "lang-production": "语言输出",
+                    "application": "综合应用",
+                    "unspecified": "未标注"
+                }
             },
             "revise": "修订事实",
             "reviseLabel": "核心事实（修订）",
@@ -451,6 +467,7 @@
     },
     "manager": {
         "title": "闪卡管理器",
+        "scopeNote": "回到内容：保留筛选、选择与返回点",
         "total": "卡片总数",
         "prev": "上一页",
         "next": "下一页",
@@ -707,6 +724,7 @@
     "quickCardDone": "已制卡并加入卡组",
     "quickCardFail": "制卡失败，请重试",
     "onboardingTitle": "开始使用小驴闪卡",
+    "onboardingPersonaQ": "你想怎么用它？",
     "onboardingStep": "步骤",
     "onboardingSkip": "跳过",
     "onboardingPersonaHint": "选一个画像，一键配好模块与参数（设置里可随时改）",
@@ -724,6 +742,9 @@
     "onboardingSample2": "小驴闪卡用的调度算法是？==FSRS（思源内核原生）==",
     "hubTabExam": "考试",
     "exam": {
+        "title": "考试冲刺",
+        "pageSub": "把截止日期换算成每日可承担的量；建议仅供参考，不改变内核调度",
+        "pace": "时程",
         "adviceToday": "今日建议 ${n} 张",
         "adviceBehind": "含落后补偿 ${n}",
         "adviceOverCap": "按当前每日上限需 ${n} 天，来不及",
@@ -964,6 +985,7 @@
         "restore": "恢复",
         "remove": "彻底删除",
         "selectAll": "全选",
+        "unselectAll": "全不选",
         "selectItem": "选择材料",
         "empty": "收件箱为空——从块菜单「加入材料收件箱」收集材料",
         "undoneNotice": "已将 ${n} 项打回暂存",
@@ -985,6 +1007,7 @@
     "inboxAdded": "已收 ${n} 条材料入收件箱",
     "hubTabGoals": "目标",
     "goals": {
+        "subtitle": "先定义目的，再安排投入；计划是建议，正式到期仍由内核提供",
         "stepConcept": "了解必要概念",
         "stepScope": "已圈 ${n} 块",
         "stepGapMaterial": "未圈材料",
@@ -1165,6 +1188,7 @@
     "hubTabMaintenance": "维护",
     "maintenance": {
         "title": "维护债务",
+        "queueCount": "队列 ${n} 项 · 只读诊断，扫描不改调度",
         "scan": "扫描",
         "scanning": "扫描中…",
         "scanned": "扫描完成",

@@ -10,7 +10,7 @@
     <div class="lv-empty-icon" aria-hidden="true">✦</div>
     <div class="lv-empty-text">{text}</div>
     {#if actionLabel && onaction}
-        <button class="b3-button b3-button--text" onclick={onaction}>{actionLabel}</button>
+        <button class="b3-button b3-button--outline" onclick={onaction}>{actionLabel}</button>
     {/if}
 </div>
 

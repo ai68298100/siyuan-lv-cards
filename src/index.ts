@@ -2109,6 +2109,8 @@ export default class LvCardsPlugin extends Plugin {
             title: this.i18n.cmdPalette,
             component: Palette,
             width: "min(560px, 94vw)",
+            // R53 §3.10：面板为无镶板浮层（去宿主标题栏，容器本身 r20 + shadow-2）
+            panel: true,
             props: {
                 commands,
                 placeholder: this.i18n.palettePlaceholder,

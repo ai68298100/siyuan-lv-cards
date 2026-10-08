@@ -99,6 +99,20 @@
         return dailyTarget(plan, size);
     }
 
+    /** 时程进度（诚实口径）：createdAt → 考试日的已流逝天数占比；缺 createdAt 或已过期返回 null 不画条 */
+    function paceFor(plan: ExamPlan): number | null {
+        if (!plan.createdAt || !plan.examDate) {
+            return null;
+        }
+        const start = plan.createdAt;
+        const end = new Date(`${plan.examDate}T23:59:59`).getTime();
+        if (!Number.isFinite(end) || end <= start) {
+            return null;
+        }
+        const pct = Math.round(((Date.now() - start) / (end - start)) * 100);
+        return Math.min(100, Math.max(0, pct));
+    }
+
     /** AQ-8 动态建议：deck 范围容量取实时规模；all 用手填总量；notebook 归属需查内核，回退简单日均 */
     function adviceFor(plan: ExamPlan): { advice: DynamicPlanAdvice; capacity: number | undefined } | null {
         if (!plan.enabled || plan.archived) {
@@ -141,15 +155,22 @@
     }
 </script>
 
-<div class="lv-exam">
+<div class="lv-page lv-exam">
     {#if loadError}
         <!-- AR-8：数据源全败时错误+重试优先，不用空计划列表误导 -->
         <LvError message={t.exam.loadFailed} onretry={load} retryLabel={t.dashboard.refresh} />
     {/if}
-    <div class="fn__flex" style="justify-content: flex-end; margin-bottom: var(--lv-sp-3)">
-        <button class="b3-button b3-button--outline" onclick={() => (editing = newPlan())}>
-            + {t.exam.newPlan}
-        </button>
+    <div class="lv-pagehead">
+        <div class="lv-pagehead-main">
+            <div class="lv-eyebrow">EXAM / CRAM</div>
+            <div class="lv-pagehead-title">{t.exam.title}</div>
+            <p class="lv-pagehead-sub">{t.exam.pageSub}</p>
+        </div>
+        <div class="lv-pagehead-actions">
+            <button class="b3-button b3-button--outline" onclick={() => (editing = newPlan())}>
+                + {t.exam.newPlan}
+            </button>
+        </div>
     </div>
 
     {#if plans.plans.length === 0}
@@ -194,9 +215,14 @@
                 {#if target !== null}
                     <div class="lv-plan-pacing">
                         <span>{t.exam.dailyTarget}: <b>{target}</b> {t.exam.cardsUnit}</span>
-                        <div class="lv-mini-track" style="flex:1">
-                            <div class="lv-mini-fill" style={`width:${Math.min(100, Math.round((left ?? 0) / Math.max(1, (left ?? 0) + 30) * 100))}%`}></div>
-                        </div>
+                        {#if paceFor(plan) !== null}
+                            <!-- 时程进度（真实口径：建档→考试日的已流逝占比），替换无意义的假宽度条 -->
+                            <span class="lv-plan-pace-label ft__smaller ft__on-surface">{t.exam.pace}</span>
+                            <div class="lv-mini-track" style="flex:1">
+                                <div class="lv-mini-fill" style={`width:${paceFor(plan)}%`}></div>
+                            </div>
+                            <span class="ft__smaller ft__on-surface" style="font-variant-numeric: tabular-nums">{paceFor(plan)}%</span>
+                        {/if}
                     </div>
                 {/if}
                 {#if plan.enabled ? adviceFor(plan) : null}
@@ -306,7 +332,7 @@
         display: flex; flex-wrap: wrap; gap: 4px; align-items: baseline;
         margin: var(--lv-sp-1) 0 0;
     }
-    .lv-plan-actions { gap: var(--lv-sp-1); }
+    .lv-plan-actions { gap: var(--lv-sp-1); flex-wrap: wrap; }
     .lv-plan-advice-warn { color: var(--b3-theme-warning); }
     .lv-editmask {
         position: fixed; inset: 0; z-index: 40;

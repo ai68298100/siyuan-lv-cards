@@ -19,7 +19,15 @@ The full-lifecycle flashcard learning platform for SiYuan — local-first, nativ
 
 > **Note**: The primary README and all design docs are in Chinese. This page covers the essentials; see [docs/](./docs/README.md) for full design material.
 
-Lv Cards turns every block worth remembering in your notes into traceable flashcards, scheduled by the kernel's native FSRS algorithm, accelerated by auditable AI — all local-first, all portable. The current baseline is **v0.207.7**, featuring the Starline R53 design system, a ⌘K command palette, a learning calendar with load forecasting, a deck dashboard, weekly reports, and share-pack export. 724 unit tests and isolated E2E pass; the 390px narrow-screen structural walkthrough is recorded, while the full Android SiYuan host matrix remains pending.
+Lv Cards turns every block worth remembering in your notes into traceable flashcards, scheduled by the kernel's native FSRS algorithm, accelerated by auditable AI — all local-first, all portable. The current baseline is **v0.208.0**, featuring the Starline R53 design system fully landed (unified page heads, complete component states, restrained micro-motion, a 390px narrow-screen pass, and a polished review loop), plus a ⌘K command palette, a learning calendar with load forecasting, a deck dashboard, weekly reports, and share-pack export. 724 unit tests and isolated E2E pass; desktop light/dark and 390px are screenshot-verified, while the full Android SiYuan host matrix remains pending.
+
+## 📸 Screenshots
+
+| Overview — pick up where you left off | Review — recall first, check, then grade |
+|---|---|
+| ![Overview](./asset/screenshots/overview.png) | ![Review](./asset/screenshots/review.png) |
+| **Manager** — back to content, with source & history | **Rating bar** — 4-button grading with interval preview |
+| ![Manager](./asset/screenshots/manager.png) | ![Rating](./asset/screenshots/review-rating.png) |
 
 ## ✨ Features
 
@@ -64,6 +72,7 @@ Full design docs in [docs/](./docs/README.md) (Chinese). Key references: [produc
 | P1 | Deck dashboard | ✅ v0.206.8 |
 | P1 | Share pack (deck-level Obsidian SR export) | ✅ v0.206.9 |
 | P2 | 390px narrow-screen structural walkthrough | ✅ v0.206.10 |
+| P1 | Starline UI overhaul (page heads / complete states / micro-motion / narrow screen / review polish) | ✅ v0.208.0 |
 | P2 | Full Android SiYuan host matrix | Pending |
 | P2 | Templates & fields | Deferred |
 

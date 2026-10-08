@@ -182,7 +182,7 @@
     }
 </script>
 
-<LvPage title={t.title} subtitle={`${t.tabInbox} ${counts.inbox} · ${t.tabStaged} ${counts.staged} · ${t.tabSelected} ${counts.selected} · ${t.tabDismissed} ${counts.dismissed}`}>
+<LvPage eyebrow="CAPTURE / INBOX" title={t.title} subtitle={`${t.tabInbox} ${counts.inbox} · ${t.tabStaged} ${counts.staged} · ${t.tabSelected} ${counts.selected} · ${t.tabDismissed} ${counts.dismissed}`}>
     {#snippet actions()}
         <LvSegmented
             options={FILTERS.map(f => ({ value: f.id, label: `${t[f.labelKey]} (${counts[f.id]})` }))}
@@ -190,8 +190,8 @@
             onchange={(id: string) => { filter = id as InboxStatus; checked = []; }}
             ariaLabel={t.filterGroupLabel}
         />
-        <button class="b3-button b3-button--small" title={t.selectAll} disabled={visible.length === 0} onclick={toggleAll}>{allChecked ? "☑" : "☐"}</button>
-        <button class="b3-button b3-button--small" title={t.refresh} onclick={refresh}>⟳</button>
+        <button class="b3-button b3-button--small lv-btn-ghost" title={t.selectAll} disabled={visible.length === 0} onclick={toggleAll}>{allChecked ? t.unselectAll : t.selectAll}</button>
+        <button class="b3-button b3-button--small lv-btn-ghost" title={t.refresh} onclick={refresh}>{t.refresh}</button>
     {/snippet}
 
     {#if visible.length === 0}
@@ -237,7 +237,7 @@
                         {/if}
                         <div class="lv-meta ft__smaller ft__on-surface">{new Date(item.addedAt).toLocaleString()}</div>
                     </button>
-                    <button class="b3-button b3-button--small" title={t.openSource} onclick={(e: Event) => { e.stopPropagation(); inbox.openSource(item.blockID); }}>📄</button>
+                    <button class="b3-button b3-button--small lv-btn-ghost" title={t.openSource} onclick={(e: Event) => { e.stopPropagation(); inbox.openSource(item.blockID); }}>{t.openSource}</button>
                 </div>
             {/each}
         </div>
@@ -267,20 +267,18 @@
         align-items: center;
         gap: var(--lv-sp-3);
         padding: var(--lv-sp-3) var(--lv-sp-4);
-        background: var(--lv-surface-grad);
+        /* R53 .panel 口径：纯 surface + 1px 派生描边，无静态阴影（阴影只给 hover） */
+        background: var(--b3-theme-surface);
         border: 1px solid var(--lv-border);
         border-radius: var(--lv-r-m);
-        box-shadow: var(--lv-shadow-1);
-        transition: transform var(--lv-dur-2) var(--lv-ease),
-            border-color var(--lv-dur-2) var(--lv-ease),
+        transition: border-color var(--lv-dur-2) var(--lv-ease),
             box-shadow var(--lv-dur-2) var(--lv-ease);
         position: relative;
         cursor: default;
     }
     .lv-row:hover {
-        transform: translateY(-1px);
         border-color: var(--lv-border-strong);
-        box-shadow: var(--lv-shadow-2);
+        box-shadow: var(--lv-shadow-1);
     }
     .lv-check { cursor: pointer; }
     .lv-content {

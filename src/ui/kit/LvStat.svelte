@@ -23,9 +23,9 @@
         neutral: "var(--b3-theme-on-surface)",
     };
 
-    /** R53 sparkline（§3.4）：面积 8% 主色 + 30% ink 描边 + 末点 primary 实心 */
+    /** R53 sparkline（§3.4）：面积 8% 主色 + 30% ink 描边 + 末点 primary 实心；全 0 走势不渲染（平线无信息量） */
     const sparkPts = $derived.by(() => {
-        if (!spark || spark.length < 2) return null;
+        if (!spark || spark.length < 2 || !spark.some(v => v > 0)) return null;
         const w = 76, h = 24;
         const max = Math.max(...spark, 1);
         const xy = spark.map((v, i) => `${(i / (spark.length - 1) * w).toFixed(1)},${(h - 4 - v / max * (h - 8)).toFixed(1)}`).join(" ");
@@ -59,13 +59,16 @@
         };
         requestAnimationFrame(step);
     });
+
+    // 零值态（R53 .num.zero）：0 降透明度保留原位，不隐藏不误读
+    const isZero = $derived(display === 0 || display === "0");
 </script>
 
 <div class="lv-card2 lv-stat">
     <div class="lv-stat-label">
         <span class="lv-stat-dot" style={`background:${toneColor[tone]}`}></span>{label}
     </div>
-    <div class="lv-hero-num">{display}{#if denom && denom !== "0"}<span class="lv-stat-denom">/ {denom}</span>{/if}</div>
+    <div class="lv-hero-num" class:lv-num-zero={isZero}>{display}{#if denom && denom !== "0"}<span class="lv-stat-denom">/ {denom}</span>{/if}</div>
     {#if progress >= 0}
         <div class="lv-stat-progress"><LvProgress value={progress} /></div>
     {/if}

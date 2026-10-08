@@ -600,8 +600,7 @@
     {/if}
     <div class="lv-ob-head">
         <LvSteps steps={[t.aiWizard.stepCfg, t.aiWizard.stepPreview]} current={step - 1} />
-        <div class="fn__flex-1"></div>
-                <button class="b3-button b3-button--small" aria-label={window.siyuan.languages.cancel} onclick={closeWizard}>✕</button>
+        <!-- 关闭走对话框头部的 × 与 Esc（svelteDialog 自带），不再重复内嵌关闭钮 -->
     </div>
 
     {#if step === 1}
@@ -614,10 +613,12 @@
                         <button class="b3-button b3-button--small lv-wb-load" onclick={loadActiveDoc}>{t.aiWizard.loadDoc}</button>
                     {/if}
                     {#if loadNotebookMaterial}
-                        <button class="b3-button b3-button--small lv-wb-load" onclick={loadNotebookContent}>{t.aiWizard.loadNotebook}</button>
-                        <select class="b3-select lv-wb-load" bind:value={nbId}>
-                            {#each nbOptions as n (n.id)}<option value={n.id}>{n.name}</option>{/each}
-                        </select>
+                        <div class="lv-wb-nb">
+                            <button class="b3-button b3-button--small lv-wb-load" onclick={loadNotebookContent}>{t.aiWizard.loadNotebook}</button>
+                            <select class="b3-select lv-wb-nb-select" bind:value={nbId} aria-label={t.aiWizard.loadNotebook}>
+                                {#each nbOptions as n (n.id)}<option value={n.id}>{n.name}</option>{/each}
+                            </select>
+                        </div>
                     {/if}
                     <button class="b3-button b3-button--small lv-wb-load" onclick={loadSelection}>{t.aiWizard.loadSelection}</button>
                     <button class="b3-button b3-button--small lv-wb-load" onclick={loadClipboard}>{t.aiWizard.loadClipboard}</button>
@@ -628,18 +629,17 @@
                                 <div class="lv-wb-chip">
                                     <!-- T02：点标签查看该条原文（只读展开，不影响合并编辑） -->
                                     <button class="lv-wb-view" title={t.aiWizard.viewSource} onclick={() => (viewSrc = viewSrc === src.id ? null : src.id)}>{src.label} · {src.content.length}</button>
-                                    <div class="fn__flex-1"></div>
                                     {#if src.docId && openDocById}
-                                        <button class="b3-button b3-button--small" style="border: none; background: transparent; padding: 0 2px; min-height: auto" title={t.aiWizard.openSource} onclick={() => openDocById?.(src.docId!)}>📂</button>
+                                        <button class="lv-wb-icon" title={t.aiWizard.openSource} onclick={() => openDocById?.(src.docId!)}>↗</button>
                                     {/if}
                                     {#if (src.docId || src.nbId) && onDenySource}
                                         <!-- BW-9：一键登记禁止外发（落盘规则 + 移除该来源） -->
-                                        <button class="b3-button b3-button--small" style="border: none; background: transparent; padding: 0 2px; min-height: auto" title={t.aiWizard.denySource} onclick={() => denySource(src)}>🚫</button>
+                                        <button class="lv-wb-icon" title={t.aiWizard.denySource} onclick={() => denySource(src)}>⊘</button>
                                     {/if}
-                                    <button class="b3-button b3-button--small" style="border: none; background: transparent; padding: 0 2px; min-height: auto" title={t.aiWizard.srcRemove} onclick={() => removeSource(src.id)}>✕</button>
+                                    <button class="lv-wb-icon" title={t.aiWizard.srcRemove} onclick={() => removeSource(src.id)}>✕</button>
                                 </div>
                                 {#if viewSrc === src.id}
-                                    <div class="ft__smaller" style="white-space: pre-wrap; max-height: 140px; overflow: auto; padding: 8px; border: 1px solid var(--lv-border); border-radius: 6px; margin: -2px 0 4px">{src.content}</div>
+                                    <div class="ft__smaller lv-wb-srcview">{src.content}</div>
                                 {/if}
                             {/each}
                         </div>
@@ -658,10 +658,14 @@
                         <div class="ft__smaller ft__on-surface" style="margin-top: 4px; display: flex; gap: 8px; align-items: center">
                             <span>{source.length} 字符 · ≈ {Math.ceil(source.length / 4)} tokens</span>
                             <div class="fn__flex-1"></div>
-                            <button class="b3-button b3-button--small" onclick={() => (source = "")}>{t.aiWizard.sourceClear}</button>
+                            <button class="b3-button b3-button--small lv-btn-ghost" onclick={() => (source = "")}>{t.aiWizard.sourceClear}</button>
                         </div>
                     {:else}
-                        <div class="lv-hint" style="padding: 24px 0; text-align: center">{t.aiWizard.sourceEmptyHint}</div>
+                        <!-- R53 §3.9 空态：图标圈 + 一句话 + 指引，不用裸 hint -->
+                        <div class="lv-wb-empty">
+                            <div class="lv-wb-empty-icon" aria-hidden="true">✦</div>
+                            <div class="lv-wb-empty-text">{t.aiWizard.sourceEmptyHint}</div>
+                        </div>
                     {/if}
                     <div class="fn__flex fn__flex-wrap" style="gap: var(--lv-sp-3); margin-top: var(--lv-sp-3); align-items: center">
                         <span class="ft__smaller ft__on-surface">{t.aiWizard.count}</span>
@@ -743,8 +747,7 @@
             {/if}
             <div class="fn__flex" style="justify-content: flex-end; gap: var(--lv-sp-2)">
                 <button class="b3-button b3-button--cancel" onclick={closeWizard}>{window.siyuan.languages.cancel}</button>
-                <div class="fn__space"></div>
-                <button class="b3-button b3-button--text lv-btn-primary" disabled={busy || !source.trim()} onclick={openPreview}>
+                <button class="b3-button lv-btn-primary" disabled={busy || !source.trim()} onclick={openPreview}>
                     {busy ? t.aiWizard.generating : `${t.aiWizard.generate} →`}
                 </button>
             </div>
@@ -884,8 +887,7 @@
 <style>
     .lv-aiwiz {
         padding: var(--lv-sp-4);
-        max-width: 680px;
-        margin: 0 auto;
+        /* 宽度交给对话框（860px 三栏工作台），不再自限 680 —— T02 来源/编辑/参数需要横向空间 */
         height: 100%;
         overflow: auto;
         box-sizing: border-box;
@@ -930,7 +932,16 @@
         @media (max-width: 740px) { grid-template-columns: 1fr; }
     }
     .lv-wb-side { display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
-    .lv-wb-side .lv-wb-load { width: 100%; text-align: left; }
+    .lv-wb-side .lv-wb-load {
+        width: 100%;
+        text-align: left;
+        /* 宿主 .b3-button 是 inline-flex 居中——覆盖对齐，文字靠左（text-align 对 flex 不生效） */
+        justify-content: flex-start;
+    }
+    /* 笔记本载入组：按钮 + 范围选择拼接成一行 */
+    .lv-wb-nb { display: flex; gap: 6px; }
+    .lv-wb-nb .lv-wb-load { flex: 1; min-width: 0; }
+    .lv-wb-nb-select { width: 96px; flex: none; font-size: 12px; padding: 4px 6px; }
     .lv-wb-chips { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
     .lv-wb-chip {
         display: flex;
@@ -941,6 +952,59 @@
         border: 1px solid var(--lv-border);
         border-radius: 6px;
         background: color-mix(in srgb, var(--b3-theme-on-background) 4%, transparent);
+    }
+    /* 来源条目动作（回源/禁止外发/移除）：统一 ghost 图形钮，muted→hover 强调 */
+    .lv-wb-icon {
+        flex: none;
+        width: 22px;
+        height: 22px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: none;
+        background: transparent;
+        border-radius: 5px;
+        color: var(--b3-theme-on-surface);
+        opacity: 0.7;
+        font-size: 12px;
+        cursor: pointer;
+        transition: opacity var(--lv-dur-1) var(--lv-ease), background var(--lv-dur-1) var(--lv-ease), color var(--lv-dur-1) var(--lv-ease);
+        &:hover { opacity: 1; background: var(--lv-primary-soft); color: var(--b3-theme-primary); }
+    }
+    .lv-wb-srcview {
+        white-space: pre-wrap;
+        max-height: 140px;
+        overflow: auto;
+        padding: 8px;
+        border: 1px solid var(--lv-border);
+        border-radius: 6px;
+        margin: -2px 0 4px;
+    }
+    /* 材料空态（R53 §3.9）：图标圈 + 指引 */
+    .lv-wb-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: var(--lv-sp-2);
+        padding: 34px 20px;
+        text-align: center;
+    }
+    .lv-wb-empty-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--lv-primary-soft);
+        color: var(--b3-theme-primary);
+        font-size: 16px;
+    }
+    .lv-wb-empty-text {
+        font-size: 12px;
+        color: var(--b3-theme-on-surface);
+        max-width: 30em;
+        line-height: 1.7;
     }
     /* T02：来源条目标签 = 查看原文按钮 */    .lv-wb-view {
         flex: 1;

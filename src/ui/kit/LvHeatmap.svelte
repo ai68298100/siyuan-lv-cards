@@ -13,15 +13,18 @@
 </script>
 
 <div class="lv-heatmap-wrap">
-    <div class="lv-heatmap">
-        {#each days as d, i (d.date)}
-            <div
-                class="lv-cell"
-                class:lv-cell-today={i === days.length - 1}
-                style={`background:${heatColor(d.stat.review)}`}
-                title={`${d.date}: ${d.stat.review}`}
-            ></div>
-        {/each}
+    <!-- 周数大时网格远超卡宽：横向滚动（GitHub 式），避免溢出卡片 -->
+    <div class="lv-heat-scroll">
+        <div class="lv-heatmap">
+            {#each days as d, i (d.date)}
+                <div
+                    class="lv-cell"
+                    class:lv-cell-today={i === days.length - 1}
+                    style={`background:${heatColor(d.stat.review)}`}
+                    title={`${d.date}: ${d.stat.review}`}
+                ></div>
+            {/each}
+        </div>
     </div>
     <div class="lv-heat-legend ft__smaller ft__on-surface">
         <span class="lv-legend-cell" style="background: transparent; border: 1px solid var(--lv-border)"></span>
@@ -33,6 +36,14 @@
 </div>
 
 <style>
+    .lv-heatmap-wrap { min-width: 0; }
+    .lv-heat-scroll {
+        max-width: 100%;
+        overflow-x: auto;
+        padding-bottom: 4px;
+        scrollbar-width: thin;
+        scrollbar-color: var(--lv-border-strong, transparent) transparent;
+    }
     .lv-heatmap {
         display: grid;
         grid-template-rows: repeat(7, 12px);
@@ -45,7 +56,8 @@
         width: 12px;
         height: 12px;
         border-radius: 3px;
-        background-color: color-mix(in srgb, var(--b3-theme-on-background) 6%, transparent);
+        /* 空格可见度：6% 在白卡上近乎隐形，整图只剩一簇数据——提到 10% 让网格形态完整可读 */
+        background-color: color-mix(in srgb, var(--b3-theme-on-background) 10%, transparent);
         transition: transform var(--lv-dur-1) var(--lv-ease), outline var(--lv-dur-1) var(--lv-ease);
         outline: 1px solid transparent;
     }

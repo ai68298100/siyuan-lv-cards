@@ -1,5 +1,6 @@
 <script lang="ts">
     import { onMount } from "svelte";
+    import { fade } from "svelte/transition";
     import { getRiffDecks, getRiffCards, getRiffDueCards, type RiffDeck } from "@/api/riff";
     import { dueCache } from "@/api/due-shared";
     import { buildDeckDashboard, type DeckDashboardRow } from "@/core/deck-dashboard";
@@ -82,7 +83,7 @@
     // T08 待处理聚合（docs/40 批 5 简化版）：疑问/暂停/续传
     let inboxOpen = $state(0);
     let suspended = $state(0);
-    /** hero eyebrow 的本地日期（R52：TODAY / 2026.10.02 同款） */
+    // 页眉日期（R53 .page-head eyebrow 口径）：本地日期 YYYY.MM.DD
     function heroDateText(): string {
         const d = new Date();
         return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
@@ -249,6 +250,14 @@
         }
         return Math.min(100, Math.round((todayReview / target) * 100));
     }
+
+    /** hero 环首绘（灵动感）：先画 0 弧，下一帧过渡到目标值；reduced-motion 时 --lv-dur-3=0 直落 */
+    let ringDrawn = $state(false);
+    onMount(() => {
+        requestAnimationFrame(() => {
+            ringDrawn = true;
+        });
+    });
 
     /** R53 统计瓦片走势（docs/42 §3.4）：近 7 天正式复习量——只喂真实数据，无记录不补 0 走势 */
     function studySpark(): number[] {
@@ -490,14 +499,14 @@
     });
 </script>
 
-<LvPage title={t.dashboard.title} subtitle={revlogNote ? `${t.dashboard.since} ${revlogNote}` : ""} dot>
+<LvPage eyebrow={`TODAY / ${heroDateText()}`} title={t.dashboard.title} subtitle={revlogNote ? `${t.dashboard.since} ${revlogNote}` : ""}>
     {#snippet actions()}
-        <button class="b3-button b3-button--outline" onclick={downloadReport}>{t.dashboard.report}</button>
+        <!-- R53 动作组：次级动作全部 ghost（主动作唯一——hero CTA）；报告/写入/管理器/刷新 -->
+        <button class="b3-button b3-button--small lv-btn-ghost" onclick={downloadReport}>{t.dashboard.report}</button>
         <!-- AR-5：写入中禁点；失败原因就近展示（报告可重试，草稿不丢） -->
-        <button class="b3-button b3-button--outline" disabled={writeBusy} title={writeError || undefined} onclick={writeDocReport}>{writeBusy ? "…" : t.dashboard.writeDoc}</button>
-        <button class="b3-button b3-button--outline" onclick={() => ctx.openManager()}>{t.menuManager}</button>
-        <button class="b3-button b3-button--text lv-btn-primary" onclick={() => ctx.openReview()}>{t.dashboard.openReview}</button>
-        <button class="b3-button b3-button--outline" onclick={refresh}>{t.dashboard.refresh}</button>
+        <button class="b3-button b3-button--small lv-btn-ghost" disabled={writeBusy} title={writeError || undefined} onclick={writeDocReport}>{writeBusy ? "…" : t.dashboard.writeDoc}</button>
+        <button class="b3-button b3-button--small lv-btn-ghost" onclick={() => ctx.openManager()}>{t.menuManager}</button>
+        <button class="b3-button b3-button--small lv-btn-ghost" onclick={refresh}>{t.dashboard.refresh}</button>
     {/snippet}
 
     {#if writeError}
@@ -521,10 +530,14 @@
     {/if}
 
     {#if loading}
-        <div class="lv-card2 lv-loading">
-            <div class="lv-skeleton" style="height: 96px"></div>
-            <div class="lv-skeleton" style="height: 64px"></div>
-            <div class="lv-skeleton" style="height: 64px"></div>
+        <!-- 感知性能：骨架对位真实布局（hero + 四瓦片），加载完成不跳动 -->
+        <div class="lv-loading" aria-busy="true">
+            <div class="lv-skeleton lv-sk-hero"></div>
+            <div class="lv-sk-tiles">
+                {#each [0, 1, 2, 3] as i (i)}
+                    <div class="lv-skeleton lv-sk-tile"></div>
+                {/each}
+            </div>
         </div>
     {:else}
         {#if errorMsg}
@@ -551,10 +564,9 @@
                 <div class="lv-hero-badge-row">
                     {#if sessLive}
                         <span class="lv-tag lv-tag--brand">{t.dashboard.heroResume}</span>
-                    {:else}
-                        <span class="lv-eyebrow">{t.dashboard.heroEyebrow.replace("${d}", heroDateText())}</span>
                     {/if}
-                    <!-- T01 可用时间（R52 hero「可用时间 [15 分钟▾]」）：选择落偏好，复习开场生效 -->
+                    <!-- T01 可用时间（R52 hero「可用时间 [15 分钟▾]」）：选择落偏好，复习开场生效；
+                         日期 eyebrow 已上移页头，无续场时徽章行只留预算选择（不重复日期） -->
                     <div class="fn__flex" style="gap: 6px; align-items: center">
                         <span class="ft__smaller ft__on-surface">{t.dashboard.heroTimeBudget}</span>
                         <select
@@ -580,7 +592,10 @@
                     <button class="b3-button lv-btn-primary" onclick={() => ctx.openReview()}>
                         {sessLive ? t.dashboard.heroResume : t.dashboard.heroStart}
                     </button>
-                    <span class="lv-hero-remaining">{t.dashboard.todayDue} {dueCount}{#if targets.review > 0} · {targetPct()}%{/if}</span>
+                    <!-- R53 .hero .cta 右侧说明：有到期或目标才展示（不堆 0 值） -->
+                    {#if dueCount > 0 || targets.review > 0}
+                        <span class="lv-hero-remaining">{t.dashboard.todayDue} {dueCount}{#if targets.review > 0} · {targetPct()}%{/if}</span>
+                    {/if}
                 </div>
             </div>
             <!-- R53 hero 目标环（docs/42 §4 T01）：今日目标完成度，无目标时不渲染 -->
@@ -591,7 +606,7 @@
                         <circle
                             class="lv-hero-ring-fill"
                             cx="46" cy="46" r="40"
-                            stroke-dasharray={`${(2 * Math.PI * 40 * Math.min(100, targetPct()) / 100).toFixed(1)} ${(2 * Math.PI * 40).toFixed(1)}`}
+                            stroke-dasharray={`${(2 * Math.PI * 40 * Math.min(100, targetPct()) / 100 * (ringDrawn ? 1 : 0)).toFixed(1)} ${(2 * Math.PI * 40).toFixed(1)}`}
                         ></circle>
                     </svg>
                     <b>{targetPct()}%<i>{t.dashboard.heroRingLabel}</i></b>
@@ -624,52 +639,18 @@
                     spark={studySpark()}
                 />
             </div>
-            <div class="lv-stat-cell">
-                <LvStat label={t.dashboard.streak} value={streak} tone="warn" animate />
-            </div>
-            {#if todayStudyMinutes > 0}
-                <div class="lv-stat-cell">
-                    <!-- AQ-13：今日作答用时（仅统计带耗时的插件面板评分；原生无字段不补 0） -->
-                    <LvStat label={t.dashboard.studyTime} value={todayStudyMinutes} tone="neutral" />
-                </div>
-            {/if}
-            <div class="lv-stat-cell">
-                <LvStat label={t.dashboard.totalCards} value={totalCards} tone="neutral" animate />
-            </div>
         </div>
         {/if}
 
-        <!-- AQ-12：本地证据口径的覆盖视图——覆盖率≠掌握率，分母=内核卡组规模合计，窗口=插件启用起 -->
+        <!-- AQ-12：本地证据口径的覆盖视图——首屏只留一行 caption；分卡组/分文档明细在深度统计区 -->
         {#if coverage && coverage.coverage !== null}
-            <div class="ft__smaller ft__on-surface" style="margin: calc(-1 * var(--lv-sp-2)) 0 var(--lv-sp-2); opacity: .85">
+            <div class="ft__smaller ft__on-surface lv-cov-line">
                 {t.dashboard.coverageLine
                     .replace("${a}", String(coverage.seenCards))
                     .replace("${b}", String(coverage.totalCards))
                     .replace("${pct}", String(Math.round(coverage.coverage * 100)))
                     .replace("${since}", coverage.sinceDate ?? "")}
             </div>
-            {#if deckCov && deckCov.decks.some(d => d.size !== null)}
-                <!-- 卡组维度分解（AQ-12 剩余面）：有规模的卡组按 seen/size 展示 -->
-                <div class="ft__smaller ft__on-surface" style="margin: 0 0 var(--lv-sp-2); opacity: .7; line-height: 1.7">
-                    {#each [...deckCov.decks].filter(d => d.size !== null).sort((a, b) => (b.size ?? 0) - (a.size ?? 0)).slice(0, 5) as dc (dc.deckID)}
-                        <div>· {decks.find(d => d.id === dc.deckID)?.name ?? dc.deckID}：{dc.seen}/{dc.size} · {Math.round((dc.coverage ?? 0) * 100)}%</div>
-                    {/each}
-                    {#if deckCov.unattributedCards > 0}
-                        <div>{t.dashboard.unattributedNote.replace("${n}", String(deckCov.unattributedCards))}</div>
-                    {/if}
-                </div>
-            {/if}
-            {#if docCov && docCov.docs.length > 0}
-                <!-- 文档维度（AQ-12）：块归属查内核聚合，标题回源；仅展示 Top3 -->
-                <div class="ft__smaller ft__on-surface" style="margin: 0 0 var(--lv-sp-2); opacity: .7; line-height: 1.7">
-                    {#each docCov.docs.slice(0, 3) as dc (dc.docID)}
-                        <div>📄 {dc.title || dc.docID.slice(0, 8)}：{t.dashboard.docCards.replace("${n}", String(dc.seen))}</div>
-                    {/each}
-                    {#if docCov.unattributed > 0}
-                        <div>{t.dashboard.docUnattributedNote.replace("${n}", String(docCov.unattributed))}</div>
-                    {/if}
-                </div>
-            {/if}
         {/if}
 
         <!-- T08 待处理与恢复（docs/40 批 5 简化聚合）：只聚合不重做；恢复幂等 -->
@@ -703,9 +684,56 @@
             {t.dashboard.deepToggle} {deepOpen ? "▴" : "▾"}
         </button>
         {#if deepOpen}
+        <!-- 展开入场：180ms 单次淡入（R53 动效纪律），折叠即时收起不打断 -->
+        <div in:fade={{ duration: 180 }}>
+        <!-- 深度统计首行：连续/用时/总量瓦片（R53 T01 上限 4——次级指标折叠在此） -->
+        <div class="fn__flex fn__flex-wrap lv-cards">
+            <div class="lv-stat-cell">
+                <LvStat label={t.dashboard.streak} value={streak} tone="warn" animate />
+            </div>
+            {#if todayStudyMinutes > 0}
+                <div class="lv-stat-cell">
+                    <!-- AQ-13：今日作答用时（仅统计带耗时的插件面板评分；原生无字段不补 0） -->
+                    <LvStat label={t.dashboard.studyTime} value={todayStudyMinutes} tone="neutral" />
+                </div>
+            {/if}
+            <div class="lv-stat-cell">
+                <LvStat label={t.dashboard.totalCards} value={totalCards} tone="neutral" animate />
+            </div>
+        </div>
+
         <LvSection title={t.dashboard.heatmap} sub={revlogNote ? `${t.dashboard.since} ${revlogNote}` : ""}>
             <LvHeatmap days={heat} />
         </LvSection>
+
+        <!-- AQ-12 覆盖明细（首屏 caption 的展开面）：卡组/文档两维度，行 + 迷你进度 -->
+        {#if coverage && coverage.coverage !== null && ((deckCov && deckCov.decks.some(d => d.size !== null)) || (docCov && docCov.docs.length > 0))}
+            <LvSection title={t.dashboard.coverageDetail}>
+                {#if deckCov && deckCov.decks.some(d => d.size !== null)}
+                    {#each [...deckCov.decks].filter(d => d.size !== null).sort((a, b) => (b.size ?? 0) - (a.size ?? 0)).slice(0, 5) as dc (dc.deckID)}
+                        <div class="lv-cov-row">
+                            <span class="lv-cov-name">{decks.find(d => d.id === dc.deckID)?.name ?? dc.deckID}</span>
+                            <span class="lv-cov-seen ft__smaller ft__on-surface">{dc.seen}/{dc.size}</span>
+                            <div class="lv-mini-track lv-cov-track"><div class="lv-mini-fill" style={`width:${Math.round((dc.coverage ?? 0) * 100)}%`}></div></div>
+                            <span class="lv-cov-pct ft__smaller">{Math.round((dc.coverage ?? 0) * 100)}%</span>
+                        </div>
+                    {/each}
+                    {#if deckCov.unattributedCards > 0}
+                        <div class="ft__smaller ft__on-surface" style="margin-top: var(--lv-sp-2)">{t.dashboard.unattributedNote.replace("${n}", String(deckCov.unattributedCards))}</div>
+                    {/if}
+                {/if}
+                {#if docCov && docCov.docs.length > 0}
+                    <div class="lv-cov-docs ft__smaller ft__on-surface">
+                        {#each docCov.docs.slice(0, 3) as dc (dc.docID)}
+                            <div>📄 {dc.title || dc.docID.slice(0, 8)} · {t.dashboard.docCards.replace("${n}", String(dc.seen))}</div>
+                        {/each}
+                        {#if docCov.unattributed > 0}
+                            <div>{t.dashboard.docUnattributedNote.replace("${n}", String(docCov.unattributed))}</div>
+                        {/if}
+                    </div>
+                {/if}
+            </LvSection>
+        {/if}
 
         <!-- T14 学习日历与负载预测（docs/41 P0）：过去=复习热力，未来=到期负载；首次展开拉取，只读不改调度 -->
         <LvSection title={t.dashboard.calTitle} sub={t.dashboard.calSub}>
@@ -754,7 +782,7 @@
                                 <td style="text-align:right;font-variant-numeric:tabular-nums">{row.reviews7}</td>
                                 <td style="text-align:right;font-variant-numeric:tabular-nums">{row.retention === null ? t.dashboard.unknown : row.retention + "%"}</td>
                                 <td style="text-align:right;font-variant-numeric:tabular-nums">{row.leeches}</td>
-                                <td style="text-align:right"><button class="b3-button b3-button--small lv-btn-ghost" disabled={ddExportBusy} onclick={() => exportDeckShare(row.deckID, decks.find(d => d.id === row.deckID)?.name ?? row.deckID)}>{t.dashboard.ddShare}</button></td>
+                                <td style="text-align:right"><button class="b3-button b3-button--small lv-btn-ghost" disabled={ddExportBusy} onclick={() => exportDeckShare(row.deckID, decks.find(d => d.id === row.deckID)?.name ?? row.deckID)}>{t.dashboard.ddShareBtn}</button></td>
                             </tr>
                         {/each}
                     </tbody>
@@ -958,13 +986,13 @@
             {/if}
         </LvSection>
 
-        {#if koStats && koStats.length > 0}
-            <!-- BJ-1：能力分布（基于已登记知识对象实例；口径=插件侧标注覆盖） -->
+        {#if koStats && koStats.some(s => s.count > 0)}
+            <!-- BJ-1：能力分布（基于已登记知识对象实例；口径=插件侧标注覆盖；全 0 不展示——未知不显示为 0） -->
             <LvSection title={t.capability?.title ?? "Capability"} sub={t.capability?.sub ?? ""}>
                 <div class="fn__flex fn__flex-wrap lv-caps">
-                    {#each koStats as s (s.cap)}
+                    {#each koStats.filter(s => s.count > 0) as s (s.cap)}
                         <div class="lv-stat-mini">
-                            <div class="lv-mini-label">{s.cap}</div>
+                            <div class="lv-mini-label">{t.capability?.labels?.[s.cap] ?? s.cap}</div>
                             <div class="lv-mini-num">{s.count} <span class="ft__smaller ft__on-surface">({s.pct}%)</span></div>
                         </div>
                     {/each}
@@ -985,6 +1013,7 @@
                 </div>
             </LvSection>
         {/if}
+        </div>
     {/if}
         {/if}
 </LvPage>
@@ -1001,6 +1030,31 @@
     }
 
     .lv-cards { gap: var(--lv-sp-3); margin-bottom: var(--lv-sp-4); }
+
+    /* AQ-12 覆盖：首屏一行 caption + 深度区行明细 */
+    .lv-cov-line {
+        margin: calc(-1 * var(--lv-sp-2)) 0 var(--lv-sp-3);
+        opacity: 0.85;
+    }
+    .lv-cov-row {
+        display: flex;
+        align-items: center;
+        gap: var(--lv-sp-3);
+        padding: var(--lv-sp-2) 0;
+        border-bottom: 1px solid var(--lv-border);
+        font-size: 13px;
+        &:last-of-type { border-bottom: none; }
+        .lv-cov-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .lv-cov-seen { font-variant-numeric: tabular-nums; }
+        .lv-cov-track { width: 120px; flex: none; }
+        .lv-cov-pct { width: 40px; text-align: right; font-variant-numeric: tabular-nums; }
+    }
+    .lv-cov-docs {
+        margin-top: var(--lv-sp-2);
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
 
     /* T08 待处理行（docs/40 批 5）：行式布局 + 右侧动作 */
     .lv-todo-row {
@@ -1032,6 +1086,13 @@
         display: flex;
         flex-direction: column;
         gap: var(--lv-sp-3);
+        .lv-sk-hero { height: 172px; border-radius: var(--lv-r-l); }
+        .lv-sk-tiles { display: flex; gap: var(--lv-sp-3); }
+        .lv-sk-tile { flex: 1; height: 96px; border-radius: var(--lv-r-m); }
+        @media (max-width: 740px) {
+            .lv-sk-tiles { flex-wrap: wrap; }
+            .lv-sk-tile { flex: 1 1 40%; }
+        }
     }
 
     .lv-table .lv-deck-name .lv-arrow {

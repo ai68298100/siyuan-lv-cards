@@ -33,9 +33,6 @@
     --lv-border-strong: color-mix(in srgb, var(--b3-theme-on-background) 14%, transparent);
 
     // 表面与海拔
-    --lv-surface-grad: linear-gradient(180deg,
-            color-mix(in srgb, var(--b3-theme-primary) 5%, var(--b3-theme-surface)),
-            var(--b3-theme-surface) 62%);
     --lv-shadow-1: 0 1px 2px color-mix(in srgb, black 5%, transparent),
         0 2px 10px color-mix(in srgb, black 4%, transparent);
     --lv-shadow-2: 0 2px 6px color-mix(in srgb, black 7%, transparent),
@@ -73,6 +70,11 @@
     margin-bottom: var(--lv-sp-5);
     min-width: 0;
 
+    // 主信息列：eyebrow / 题 / 副题纵向堆叠（层级靠字号与字重，不靠并排）
+    .lv-pagehead-main {
+        min-width: 0;
+    }
+
     .lv-pagehead-title {
         // docs/13 §1.3：页题 24/650（R52 口径），字距与行高对齐原型
         margin: 4px 0 5px;
@@ -87,12 +89,25 @@
         font-size: 13px;
     }
 
+    // 动作组：与题面基线对齐（顶部对齐 + 4px 视觉补偿），行内不换行挤压题面
+    .lv-pagehead-actions {
+        display: flex;
+        align-items: center;
+        gap: var(--lv-sp-2);
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        padding-top: 14px;
+        flex: none;
+        max-width: 60%;
+    }
+
     // R53 窄屏：页头纵向堆叠，动作组换行
     @media (max-width: 740px) {
         flex-direction: column;
         gap: var(--lv-sp-2);
 
         .lv-pagehead-title { font-size: 22px; }
+        .lv-pagehead-actions { padding-top: 0; justify-content: flex-start; max-width: none; }
     }
 }
 
@@ -186,10 +201,10 @@
         100% { opacity: 1; transform: scale(1); }
     }
 
-    // R52 docs/15 §6：辉光脉冲默认关闭——揭晓反馈退为 240ms 淡入（fly+fade 家族）
+    // R52 docs/15 §6：辉光脉冲默认关闭——揭晓反馈为 240ms 淡入+上浮（Mochi 式「答案抵达」，只动 transform/opacity）
     @keyframes lv-glow {
-        0% { opacity: 0.35; }
-        100% { opacity: 1; }
+        0% { opacity: 0.35; transform: translateY(6px); }
+        100% { opacity: 1; transform: translateY(0); }
     }
 
     .lv-anim-rise { animation: lv-rise var(--lv-dur-2) var(--lv-ease) both; }
@@ -205,6 +220,9 @@
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.035em;
     color: var(--b3-theme-on-background);
+
+    // 零值态（R53 .stat .num.zero）：数字降透明度保留在原位，不隐藏不误读
+    &.lv-num-zero { opacity: 0.55; }
 }
 
 // 区块标题行（R52 .panel h3：15px/650）
@@ -284,6 +302,28 @@
     }
 }
 
+// 插件全部作用域：按压反馈与禁用态一致（R53 §3.1 active scale .98 / disabled .6）
+.lv-page,
+.lv-hub,
+.lv-dialog,
+.lv-peek-body {
+    .b3-button:not(:disabled):not(.lv-btn-rate):not(.lv-btn-primary):active { transform: scale(0.98); }
+    .b3-button:disabled {
+        opacity: 0.6;
+        cursor: default;
+    }
+}
+
+// 对话框内容区滚动条（R53 细滚动条口径，与页面一致）
+.lv-dialog .b3-dialog__content {
+    scrollbar-width: thin;
+    scrollbar-color: var(--lv-border-strong) transparent;
+
+    &::-webkit-scrollbar { width: 8px; height: 8px; }
+    &::-webkit-scrollbar-thumb { background: var(--lv-border-strong); border-radius: 4px; }
+    &::-webkit-scrollbar-track { background: transparent; }
+}
+
 // 细滚动条（插件容器内）
 .lv-page,
 .lv-list,
@@ -359,6 +399,98 @@
     &.lv-chip2--warn { background: var(--lv-warn-soft); color: var(--b3-theme-warning); }
     &.lv-chip2--error { background: var(--lv-danger-soft); color: var(--b3-theme-error); }
     &.lv-chip2--default { background: var(--lv-border); color: var(--b3-theme-on-surface); }
+}
+
+// ---- 工具行（R53 .flex.between 口径：筛选 chips + 结果 caption，两端对齐） ----
+.lv-toolbar {
+    display: flex;
+    align-items: center;
+    gap: var(--lv-sp-2);
+    flex-wrap: wrap;
+    margin-bottom: var(--lv-sp-4);
+    min-width: 0;
+
+    .lv-toolbar-caption {
+        margin-left: auto;
+        font-size: 12px;
+        color: var(--b3-theme-on-surface);
+        font-variant-numeric: tabular-nums;
+    }
+}
+
+// 筛选 chip 钮（R53 .chip：软底 999 圆角，选中态 primary-soft）
+.lv-chipbtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 30px;
+    padding: 3px 12px;
+    border: 1px solid var(--lv-border);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--b3-theme-on-surface);
+    font-size: 12px;
+    font-weight: 550;
+    cursor: pointer;
+    transition: background var(--lv-dur-1) var(--lv-ease),
+        border-color var(--lv-dur-1) var(--lv-ease), color var(--lv-dur-1) var(--lv-ease);
+
+    &:not(:disabled):hover {
+        background: color-mix(in srgb, var(--b3-theme-on-background) 4%, transparent);
+        border-color: var(--lv-border-strong);
+        color: var(--b3-theme-on-background);
+    }
+
+    &.lv-chipbtn-active {
+        background: var(--lv-primary-soft);
+        border-color: transparent;
+        color: var(--b3-theme-primary);
+        font-weight: 600;
+    }
+
+    .lv-chipbtn-count { font-variant-numeric: tabular-nums; opacity: 0.75; font-weight: 550; }
+}
+
+// 危险 ghost 钮（破坏性动作：删除/移除；保留 ghost 形态 + error 色）
+.lv-btn-danger {
+    background: transparent;
+    border-color: transparent;
+    color: var(--b3-theme-error);
+
+    &:not(:disabled):hover {
+        background: var(--lv-danger-soft);
+        border-color: transparent;
+        color: var(--b3-theme-error);
+    }
+}
+
+// ---- 无镶板对话框（R53 §3.10 命令面板载体：去宿主标题栏与内边距，容器本身即面板） ----
+// 灵感融合（Raycast/Linear）：插件对话框统一 180ms scale-in 入场（reduced-motion 时 --lv-dur-*=0 直落）
+@keyframes lv-dialog-in {
+    from { opacity: 0; transform: translateY(6px) scale(0.985); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.lv-dialog .b3-dialog__container {
+    animation: lv-dialog-in var(--lv-dur-2) var(--lv-ease) both;
+}
+
+.lv-dialog.lv-dialog--panel {
+    .b3-dialog__container {
+        border-radius: 20px;
+        overflow: hidden;
+        box-shadow: var(--lv-shadow-2);
+        transform-origin: 50% 0; /* 面板自顶部展开（⌘K 惯例） */
+    }
+
+    .b3-dialog__header { display: none; }
+
+    .b3-dialog__content { padding: 0; overflow: visible; }
+
+    .b3-dialog__scrim {
+        background: color-mix(in srgb, var(--b3-theme-on-background) 26%, transparent);
+        backdrop-filter: blur(2px);
+    }
 }
 
 // ---- 键位徽章（LvKbd） ----
@@ -461,6 +593,7 @@
 .lv-cards .lv-stat-cell {
     flex: 1;
     min-width: 140px;
+    max-width: 300px; /* 深度统计区只剩 2-3 块时不无限拉伸成巨瓦 */
     display: flex;
 
     > * { flex: 1; }
@@ -573,8 +706,25 @@
 }
 
 // 深度统计渐进展开开关（T01：首屏只留行动与今日统计）
+// R53 收敛：quiet ghost 宽钮——上下发丝线夹持、居中 eyebrow 口径文案，不做实心大按钮
 .lv-deep-toggle {
     width: 100%;
-    margin-bottom: var(--lv-sp-4);
+    margin: var(--lv-sp-2) 0 var(--lv-sp-4);
+    min-height: 36px;
+    background: transparent;
+    border: none;
+    border-top: 1px solid var(--lv-border);
+    border-bottom: 1px solid var(--lv-border);
+    border-radius: 0;
     color: var(--b3-theme-on-surface);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+
+    &:not(:disabled):hover {
+        background: color-mix(in srgb, var(--b3-theme-on-background) 4%, transparent);
+        border-color: transparent;
+        border-top: 1px solid var(--lv-border);
+        border-bottom: 1px solid var(--lv-border);
+        color: var(--b3-theme-on-background);
+    }
 }

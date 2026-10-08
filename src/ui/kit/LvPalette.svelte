@@ -134,19 +134,21 @@
         align-items: center;
         gap: 10px;
         width: 100%;
-        min-height: 36px;
-        padding: 6px 14px;
+        min-height: 40px;
+        padding: 9px 14px;
         border: 0;
         border-radius: 0;
         background: transparent;
         font-size: 13px;
         text-align: left;
+        transition: background var(--lv-dur-1) var(--lv-ease);
     }
     .lv-palette-item:hover { background: transparent; color: inherit; }
     .lv-palette-sel,
     .lv-palette-sel:hover {
         background: var(--lv-primary-soft);
         color: var(--b3-theme-primary);
+        box-shadow: inset 2px 0 0 var(--b3-theme-primary);
     }
     .lv-palette-label { min-width: 0; flex: 1; }
     .lv-palette-hint { font-size: 11px; color: var(--b3-theme-on-surface); font-variant-numeric: tabular-nums; }

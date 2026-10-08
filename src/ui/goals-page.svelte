@@ -130,10 +130,11 @@
     }
 </script>
 
-<LvPage title={t.title} subtitle={`${sorted.length}`}>
+<LvPage eyebrow="GOAL / PLAN" title={t.title} subtitle={t.subtitle}>
     {#snippet actions()}
         {#if !editing}
-            <button class="b3-button b3-button--small" onclick={startAdd}>{t.add}</button>
+            <!-- 主动作：每屏唯一 primary（底部重复入口已收敛） -->
+            <button class="b3-button b3-button--small lv-btn-primary" onclick={startAdd}>{t.add}</button>
         {/if}
     {/snippet}
 
@@ -223,13 +224,12 @@
                             <div class="lv-notice lv-notice--warn" style="margin-top: 8px">{t.gapPrefix}{goalGaps(g).join("；")}</div>
                         {/if}
                     </div>
-                    <button class="b3-button b3-button--small" title={t.priorityTitle} onclick={() => cyclePriority(g)}>{priorityText(g)}</button>
-                    <button class="b3-button b3-button--small" title={t.delete} onclick={() => remove(g.id)}>🗑</button>
+                    <div class="lv-goal-side">
+                        <button class="lv-chipbtn" title={t.priorityTitle} onclick={() => cyclePriority(g)}>{priorityText(g)}</button>
+                        <button class="b3-button b3-button--small lv-btn-danger" title={t.delete} onclick={() => remove(g.id)}>{t.delete}</button>
+                    </div>
                 </div>
             {/each}
-            <div class="lv-goal-add">
-                <button class="b3-button b3-button--outline" onclick={startAdd}>{t.add}</button>
-            </div>
         </div>
     {/if}
 </LvPage>
@@ -309,6 +309,23 @@
         align-items: center;
         gap: var(--lv-sp-3);
     }
+    /* 窄屏：侧栏动作（优先级/删除）落到卡底横排，不再挤压主内容 */
+    @media (max-width: 740px) {
+        .lv-goal-row { flex-direction: column; align-items: stretch; }
+        .lv-goal-side {
+            flex-direction: row;
+            align-items: center;
+            justify-content: flex-end;
+            width: 100%;
+        }
+    }
+    .lv-goal-side {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: var(--lv-sp-2);
+        flex: none;
+    }
     .lv-goal-main {
         flex: 1;
         min-width: 0;
@@ -322,11 +339,6 @@
     }
     .lv-goal-meta {
         margin-top: 2px;
-    }
-    .lv-goal-add {
-        display: flex;
-        justify-content: center;
-        padding: var(--lv-sp-2);
     }
     .lv-visually-hidden {
         position: absolute;

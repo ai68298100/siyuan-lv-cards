@@ -1,12 +1,15 @@
-// 生成品牌 icon.png（160×160）：渐变圆角底 + 白卡闪电（v0.186 图标重塑形，系列语言：
-// 渐变圆角方底 + 单一白色简形 + 点缀橙点，用户 2026-10-05 从 A/B/C 候选中选定 A）。
-// 候选探索工具见 scripts/icon-candidates.mjs，候选渲染记录见 design/icon-candidates/。
-// 纯 Node 实现 PNG 编码（zlib deflate + CRC32），4x 超采样抗锯齿。
-// 用法：node scripts/gen-icon.mjs [输出路径=icon.png]
+// 生成品牌 icon.png（默认 1024×1024）：渐变圆角底 + 白卡闪电（用户选定 A 方案语言的精修版）。
+// 系列语言：渐变圆角方底 + 单一白色简形 + 点缀橙点（2026-10-05 用户从 A/B/C 候选中选定 A）。
+// 本版（v0.208.0 图标提质）：
+//   - 默认输出 1024×1024（集市与社交场景高清源），4x 超采样抗锯齿
+//   - 对角渐变 #4F6BFF → #8B5CF6 叠左上径向提亮（纵深）
+//   - 内缘 1 条白色发丝环（精致感）；后卡透明度 0.55（浅色背景分离度）；橙点带高光
+// 纯 Node 实现 PNG 编码（zlib deflate + CRC32），无任何外部依赖。
+// 用法：node scripts/gen-icon.mjs [输出路径=icon.png] [尺寸=1024]
 import { deflateSync } from "node:zlib";
 import { writeFileSync } from "node:fs";
 
-const SIZE = 160;
+const SIZE = Number(process.argv[3] ?? 1024);
 const SS = 4; // 超采样倍数
 const N = SIZE * SS;
 
@@ -29,11 +32,16 @@ const inPoly = (x, y, pts) => {
 };
 
 const lerp = (a, b, t) => a + (b - a) * t;
+const clamp255 = (v) => Math.max(0, Math.min(255, Math.round(v)));
 
-// 背景：对角渐变 #4F6BFF → #8B5CF6
+// 背景：对角渐变 #4F6BFF → #8B5CF6，叠加左上径向提亮（+10%，中心 0.18/0.14，半径 0.75）
 const bg = (x, y) => {
     const t = (x / N + y / N) / 2;
-    return [Math.round(lerp(79, 139, t)), Math.round(lerp(107, 92, t)), Math.round(lerp(255, 246, t))];
+    let r = lerp(79, 139, t), g = lerp(107, 92, t), b = lerp(255, 246, t);
+    const dx = x / N - 0.18, dy = y / N - 0.14;
+    const d = Math.sqrt(dx * dx + dy * dy);
+    const hl = Math.max(0, 1 - d / 0.75) * 0.10;
+    return [r + hl * 255, g + hl * 255, b + hl * 255];
 };
 
 // 前后卡与闪电镂空、点缀橙点（比例相对 N）
@@ -42,6 +50,14 @@ const cardFront = (x, y) => inRoundedRect(x, y, N * 0.14, N * 0.24, N * 0.54, N 
 const BOLT = [[0.345, 0.30], [0.475, 0.30], [0.415, 0.455], [0.505, 0.455], [0.315, 0.735], [0.385, 0.535], [0.295, 0.535]];
 const inBolt = (x, y) => inPoly(x, y, BOLT.map(([px, py]) => [px * N, py * N]));
 const inDot = (x, y) => inCircle(x, y, N * 0.735, N * 0.70, N * 0.05);
+const inDotHi = (x, y) => inCircle(x, y, N * 0.718, N * 0.682, N * 0.016);
+// 内缘发丝环：沿圆角方内缩 1.1%，环宽 0.45%，白色 16%
+const inHairline = (x, y) => {
+    const inset = N * 0.011, w = N * 0.0045;
+    const outer = inRoundedRect(x, y, inset, inset, N - inset * 2, N - inset * 2, N * 0.21);
+    const inner = inRoundedRect(x, y, inset + w, inset + w, N - (inset + w) * 2, N - (inset + w) * 2, N * (0.21 - w / N));
+    return outer && !inner;
+};
 
 const buf = Buffer.alloc(N * N * 4);
 
@@ -52,22 +68,28 @@ for (let py = 0; py < N; py++) {
 
         if (inRoundedRect(x, y, 0, 0, N, N, N * 0.225)) {
             [r, g, b] = bg(x, y);
-            // 层序与候选一致：后卡（半透明白）先判，前卡白底上做渐变闪电镂空，卡外橙点
+            if (inHairline(x, y)) {
+                r = lerp(r, 255, 0.16); g = lerp(g, 255, 0.16); b = lerp(b, 255, 0.16);
+            }
+            // 层序与候选一致：后卡（半透明白）先判，前卡白底上做闪电镂空，卡外橙点
             if (cardBack(x, y)) {
-                const w = 0.5 * 255;
-                r = Math.round(lerp(r, 255, 0.5)); g = Math.round(lerp(g, 255, 0.5)); b = Math.round(lerp(b, 255, 0.5));
+                r = lerp(r, 255, 0.55); g = lerp(g, 255, 0.55); b = lerp(b, 255, 0.55);
             } else if (cardFront(x, y)) {
                 if (!inBolt(x, y)) {
                     r = 255; g = 255; b = 255;
                 }
             } else if (inDot(x, y)) {
-                r = 249; g = 115; b = 22; // #F97316
+                if (inDotHi(x, y)) {
+                    r = 255; g = 180; b = 120; // 高光点
+                } else {
+                    r = 249; g = 115; b = 22; // #F97316
+                }
             }
         } else {
             a = 0; // 圆角外透明
         }
         const i = (py * N + px) * 4;
-        buf[i] = r; buf[i + 1] = g; buf[i + 2] = b; buf[i + 3] = a;
+        buf[i] = clamp255(r); buf[i + 1] = clamp255(g); buf[i + 2] = clamp255(b); buf[i + 3] = a;
     }
 }
 

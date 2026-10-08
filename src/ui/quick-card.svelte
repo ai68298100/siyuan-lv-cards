@@ -1,6 +1,7 @@
 <script lang="ts">
     import { onMount } from "svelte";
     import { getRiffDecks, createRiffDeck, type RiffDeck } from "@/api/riff";
+    import LvKbd from "./kit/LvKbd.svelte";
 
     let { i18n, onCreate, onClose }: {
         i18n: any;
@@ -85,13 +86,12 @@
         <input class="b3-text-field fn__block lv-qc-new" placeholder={t.deckNewName} bind:value={newName} />
     </div>
     {#if errorMsg}
-        <div class="ft__smaller" style="color: var(--b3-theme-error)">{errorMsg}</div>
+        <div class="ft__smaller lv-qc-error" role="alert">{errorMsg}</div>
     {/if}
-    <div class="b3-dialog__action">
+    <div class="b3-dialog__action lv-qc-actions">
         <button class="b3-button b3-button--cancel" onclick={onClose}>{window.siyuan.languages.cancel}</button>
-        <div class="fn__space"></div>
-        <button class="b3-button b3-button--text lv-btn-primary" disabled={busy || !q.trim() || !a.trim()} onclick={confirm}>
-            {t.quickCardCreate} <span class="ft__smaller">Ctrl+↵</span>
+        <button class="b3-button lv-btn-primary" disabled={busy || !q.trim() || !a.trim()} onclick={confirm}>
+            {t.quickCardCreate} <LvKbd k="Ctrl ↵" />
         </button>
     </div>
 </div>
@@ -100,12 +100,34 @@
     .lv-quickcard {
         padding: var(--lv-sp-4);
     }
+    /* R53：表单控件撑满面板宽度（宿主 .b3-text-field 默认定宽） */
+    .lv-quickcard :global(.b3-text-field),
+    .lv-quickcard :global(.b3-select) {
+        width: 100%;
+    }
     .lv-quickcard .lv-qc-field { margin-bottom: var(--lv-sp-3); }
     .lv-quickcard .lv-qc-label {
         font-size: 12px;
+        font-weight: 600;
         color: var(--b3-theme-on-surface);
         margin-bottom: var(--lv-sp-1);
     }
     .lv-quickcard .lv-qc-new { margin-top: var(--lv-sp-2); }
+    .lv-quickcard .lv-qc-error {
+        color: var(--b3-theme-error);
+        margin-bottom: var(--lv-sp-2);
+    }
+    .lv-quickcard .lv-qc-actions {
+        justify-content: flex-end;
+        gap: var(--lv-sp-2);
+    }
+    .lv-quickcard .lv-qc-actions :global(.lv-kbd2) {
+        margin-left: 6px;
+        /* 宿主 b3-typography kbd 是白底——主按钮内回到透明 + on-primary 描边 */
+        background: transparent;
+        color: var(--b3-theme-on-primary);
+        border-color: color-mix(in srgb, var(--b3-theme-on-primary) 40%, transparent);
+        opacity: 0.9;
+    }
     .lv-quickcard .b3-dialog__action { justify-content: flex-end; }
 </style>

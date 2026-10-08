@@ -1,6 +1,7 @@
 <script lang="ts">
     import { onDestroy, onMount } from "svelte";
     import { fade } from "svelte/transition";
+    import { countUp } from "./kit/countup";
     import { openTab, showMessage } from "siyuan";
     import {
         getRiffDueCards, getRiffDecks, getNotebookRiffDueCards, getTreeRiffDueCards, reviewRiffCard, skipReviewRiffCard,
@@ -159,9 +160,10 @@
         return (t as any).aiFace?.hint?.[name] ?? key;
     }
     // 复习范围（M3·FR1）：all | deck:<id> | notebook:<id>
-    // 初值语义：范围仅经命令/考试入口传入一次，运行时由用户切换
+    // 初值语义：范围仅经命令/考试入口传入一次，运行时由用户切换；
+    // 空串/未知的持久化范围归一为 all（否则 select 空白、下拉无选中项）
     // svelte-ignore state_referenced_locally
-    let scopeKey = $state(initialScope ?? "all");
+    let scopeKey = $state(initialScope || "all");
     // svelte-ignore state_referenced_locally
     let cramActive = $state(initialCram === true);
     let decks: RiffDeck[] = $state([]);
@@ -746,6 +748,11 @@
         return `${m}:${String(s).padStart(2, "0")}`;
     }
 
+    /** 空队列态（R53 §3.9）：无任何作答即完成 → 「该范围没有到期的卡」而非 0 值完成庆祝 */
+    const emptyQueue = $derived(
+        sessionDone && sessionNew === 0 && sessionReview === 0 && sessionForget === 0 && sessionSkip === 0
+    );
+
     /** 完成页今日目标进度（544）：本次会话有效评分 vs 每日复习目标 */
     function targetProgressText(): string {
         const target = eff().dailyReviewTarget;
@@ -1313,6 +1320,19 @@
         <div class="lv-center lv-error-wrap">
             <LvError message={errorMsg} onretry={loadQueue} retryLabel={t.dashboard.refresh} />
         </div>
+    {:else if emptyQueue}
+        <!-- R53 §3.9：空队列≠完成——范围名 + 如实说明 + 下一步，不渲染 0 值庆祝面板 -->
+        <div class="lv-center lv-done">
+            <div class="lv-done-panel lv-empty-queue">
+                <div class="lv-eyebrow">REVIEW / {headScopeLabel}</div>
+                <div class="lv-empty-queue-title">{t.review.emptyQueueTitle}</div>
+                <p class="ft__smaller ft__on-surface" style="margin: 6px 0 0">{t.review.emptyQueueSub}</p>
+                <div class="fn__flex lv-done-actions" style="justify-content: center; margin-top: var(--lv-sp-4)">
+                    <button class="b3-button b3-button--outline" onclick={loadQueue}>{t.dashboard.refresh}</button>
+                    <button class="b3-button lv-btn-primary" onclick={ctx.openDashboard}>{t.review.viewStats}</button>
+                </div>
+            </div>
+        </div>
     {:else if sessionDone || !current}
         <div class="lv-center lv-done">
             <!-- T07 结果面（R52 results）：单面板 + check 徽 + 大数字统计 + 行式补充 + NEXT 软面板 -->
@@ -1329,12 +1349,12 @@
                 <div class="lv-done-stats">
                     <div class="lv-done-stat">
                         <span class="lv-done-stat-label">{t.review.doneReview} · {t.review.doneNew}</span>
-                        <span class="lv-hero-num">{sessionNew + sessionReview}</span>
+                        <span class="lv-hero-num" use:countUp={sessionNew + sessionReview}>{sessionNew + sessionReview}</span>
                         <p>{PURPOSE_PROFILES[purpose].grading === "informal" ? t.review.purposeInformal : t.review.doneConfirm}</p>
                     </div>
                     <div class="lv-done-stat">
                         <span class="lv-done-stat-label">{t.review.doneSkip}</span>
-                        <span class="lv-hero-num">{sessionSkip}</span>
+                        <span class="lv-hero-num" use:countUp={sessionSkip}>{sessionSkip}</span>
                         <p>{t.review.skipNotRated}</p>
                     </div>
                     <div class="lv-done-stat">
@@ -1427,8 +1447,11 @@
                 </span>
                 <span class="lv-progress">{reviewedIDs.length + 1} / {reviewedIDs.length + queue.length}</span>
             </div>
-            <div class="lv-progress-bar">
-                <div class="lv-progress-fill" style={`width:${reviewedIDs.length / Math.max(1, reviewedIDs.length + queue.length) * 100}%`}></div>
+            <div class="lv-progress-bar" role="progressbar" aria-valuemin={0} aria-valuemax={reviewedIDs.length + queue.length} aria-valuenow={reviewedIDs.length}>
+                <!-- 灵感融合（AnkiDroid）：进度条按本场评分语义分段——遗忘段 error 色、已评段 primary 色，
+                     宽度取持久化计数（sessionForget/总进度），刷新恢复后口径一致 -->
+                <div class="lv-progress-seg lv-progress-seg--forget" style={`width:${(Math.max(0, sessionForget) / Math.max(1, reviewedIDs.length + queue.length)) * 100}%`}></div>
+                <div class="lv-progress-seg" style={`width:${(Math.max(0, reviewedIDs.length - sessionForget) / Math.max(1, reviewedIDs.length + queue.length)) * 100}%`}></div>
             </div>
             <div class="lv-head-row lv-head-tools">
                 <select class="b3-select lv-scope" bind:this={scopeEl} bind:value={scopeKey} onchange={() => { ctx.onScopePersist(scopeKey); recovery = null; loadQueue(); }} title={t.review.scopeTitle}>
@@ -1456,7 +1479,8 @@
                         <option value={p}>{t.purpose[p].name}</option>
                     {/each}
                 </select>
-                <span class="lv-chip2" class:lv-chip2--primary={PURPOSE_PROFILES[purpose].grading === "formal"} title={PURPOSE_PROFILES[purpose].grading === "formal" ? t.review.purposeFormal : t.review.purposeInformal}>
+                <!-- R53 主色即动作：结束条件章是信息不是按钮——中性章 + title 解释 -->
+                <span class="lv-chip2" title={PURPOSE_PROFILES[purpose].grading === "formal" ? t.review.purposeFormal : t.review.purposeInformal}>
                     {t.purpose[purpose].end}
                 </span>
                 <div class="fn__flex-1"></div>
@@ -1481,7 +1505,10 @@
                     <button class="b3-button b3-button--outline b3-button--small" onclick={retryFace}>{t.dashboard.refresh}</button>
                 </div>
             {:else}
-                <div class="lv-card-content" class:lv-masked={!showAnswer} style={`font-size:${eff().cardFontScale || 1}em`}>{@html cardHtml}</div>
+                {#key current?.cardID}
+                    <!-- 灵动感（R53 纪律内）：切卡 140ms 单次淡入，只动 opacity；翻面淡入由 lv-anim-glow 承担 -->
+                    <div class="lv-card-content" class:lv-masked={!showAnswer} style={`font-size:${eff().cardFontScale || 1}em`} in:fade={{ duration: 140 }}>{@html cardHtml}</div>
+                {/key}
             {/if}
             {#if faceHints.length > 0 && !faceError}
                 <!-- AS-3：富内容提示行（特征告知 + 窄屏横滚提示；只读不遮挡） -->
@@ -1792,6 +1819,16 @@
             padding: var(--lv-sp-5);
             text-align: left;
         }
+        /* 空队列面板：居中叙述，不做庆祝形态 */
+        .lv-empty-queue {
+            text-align: center;
+            .lv-empty-queue-title {
+                margin-top: var(--lv-sp-3);
+                font-size: 17px;
+                font-weight: 650;
+                letter-spacing: -0.02em;
+            }
+        }
         .lv-done-head {
             display: flex; align-items: center; gap: var(--lv-sp-3);
             margin-bottom: var(--lv-sp-4);
@@ -1905,7 +1942,7 @@
                 display: flex; align-items: center; gap: var(--lv-sp-2);
                 min-width: 0; flex-wrap: wrap;
             }
-            .lv-scope { max-width: 200px; font-size: 12px; padding: 4px 8px; }
+            .lv-scope { min-width: 8.5em; max-width: 200px; font-size: 12px; padding: 4px 8px; }
             /* BI-3：入口上下文条（窄屏换行不挤压进度） */
             .lv-entry {
                 display: inline-flex; align-items: center; gap: 2px;
@@ -1925,11 +1962,13 @@
                 width: 100%; height: 3px; border-radius: 2px;
                 background: color-mix(in srgb, var(--b3-theme-on-background) 8%, transparent);
                 overflow: hidden;
-                .lv-progress-fill {
-                    height: 100%; border-radius: 2px;
+                display: flex;
+                .lv-progress-seg {
+                    height: 100%;
                     background: var(--b3-theme-primary);
                     transition: width var(--lv-dur-3) var(--lv-ease);
                 }
+                .lv-progress-seg--forget { background: var(--b3-theme-error); }
             }
             .lv-timeout { font-size: 12px; color: var(--b3-theme-on-surface); font-variant-numeric: tabular-nums; }
             .lv-timeout-low { color: var(--b3-theme-error); font-weight: 700; }
@@ -2023,12 +2062,12 @@
                 z-index: 0;
                 width: 100%; height: 100%;
                 background: transparent;
-                color: var(--b3-theme-on-surface);
+                /* 翻面热区覆盖整卡：文字隐藏（底部 48px 宽钮已承担指引），只留可点击与 hover 微光 */
+                color: transparent;
                 font-size: 14px;
-                opacity: 0.9;
-                transition: opacity var(--lv-dur-2) var(--lv-ease), background var(--lv-dur-2) var(--lv-ease);
+                transition: background var(--lv-dur-2) var(--lv-ease);
 
-                &:hover { opacity: 1; background: var(--lv-primary-softer); }
+                &:hover { background: color-mix(in srgb, var(--lv-primary-softer) 55%, transparent); }
             }
 
             .lv-hint-text {

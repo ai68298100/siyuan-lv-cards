@@ -94,9 +94,9 @@
     onMount(() => { void runScan(); });
 </script>
 
-<LvPage title={t.title} subtitle={`${total()}`}>
+<LvPage eyebrow="WORKSPACE / RECOVER" title={t.title} subtitle={t.queueCount.replace("${n}", String(total()))}>
     {#snippet actions()}
-        <button class="b3-button b3-button--small" disabled={scanning} onclick={runScan}>{scanning ? t.scanning : t.scan}</button>
+        <button class="b3-button b3-button--small b3-button--outline" disabled={scanning} onclick={runScan}>{scanning ? t.scanning : t.scan}</button>
     {/snippet}
 
     <div class="lv-maint-note ft__smaller ft__on-surface">{t.impactNote}</div>
