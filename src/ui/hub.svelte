@@ -78,7 +78,7 @@
     ];
     // svelte-ignore state_referenced_locally
     let active = $state(
-        initialTab === "manage" || initialTab === "goals" || (initialTab === "maintenance" && uiMode !== "simple") || (initialTab === "exam" && exam && uiMode !== "simple") || (initialTab === "inbox" && inbox) ? initialTab : "overview"
+        initialTab === "manage" || (initialTab === "authoring" && openWizard) || initialTab === "goals" || (initialTab === "maintenance" && uiMode !== "simple") || (initialTab === "exam" && exam && uiMode !== "simple") || (initialTab === "inbox" && inbox) ? initialTab : "overview"
     );
 
     // svelte-ignore state_referenced_locally
@@ -240,7 +240,10 @@
                     {#if GoalsComp}
                         <GoalsComp i18n={i18n} {goals} />
                     {:else if goalsError}
-                        <div style="padding: var(--lv-sp-5); color: var(--b3-theme-error); font-size: 13px">{goalsError}</div>
+                        <div style="padding: var(--lv-sp-5); color: var(--b3-theme-error); font-size: 13px">
+                            <div style="margin-bottom: 8px">{goalsError}</div>
+                            <button class="b3-button b3-button--outline" onclick={ensureGoals}>{i18n.dashboard.refresh}</button>
+                        </div>
                     {:else}
                         <div style="padding: var(--lv-sp-5); color: var(--b3-theme-on-surface); font-size: 13px">{i18n.dashboard.loading}</div>
                     {/if}
@@ -248,7 +251,10 @@
                     {#if MaintComp}
                         <MaintComp i18n={i18n} maintenance={maintenance} />
                     {:else if maintError}
-                        <div style="padding: var(--lv-sp-5); color: var(--b3-theme-error); font-size: 13px">{maintError}</div>
+                        <div style="padding: var(--lv-sp-5); color: var(--b3-theme-error); font-size: 13px">
+                            <div style="margin-bottom: 8px">{maintError}</div>
+                            <button class="b3-button b3-button--outline" onclick={ensureMaint}>{i18n.dashboard.refresh}</button>
+                        </div>
                     {:else}
                         <div style="padding: var(--lv-sp-5); color: var(--b3-theme-on-surface); font-size: 13px">{i18n.dashboard.loading}</div>
                     {/if}
@@ -256,7 +262,10 @@
                     {#if InboxComp}
                         <InboxComp i18n={i18n} inbox={inbox} />
                     {:else if inboxError}
-                        <div style="padding: var(--lv-sp-5); color: var(--b3-theme-error); font-size: 13px">{inboxError}</div>
+                        <div style="padding: var(--lv-sp-5); color: var(--b3-theme-error); font-size: 13px">
+                            <div style="margin-bottom: 8px">{inboxError}</div>
+                            <button class="b3-button b3-button--outline" onclick={ensureInbox}>{i18n.dashboard.refresh}</button>
+                        </div>
                     {:else}
                         <div style="padding: var(--lv-sp-5); color: var(--b3-theme-on-surface); font-size: 13px">{i18n.dashboard.loading}</div>
                     {/if}
@@ -274,7 +283,10 @@
                             getDailyCap={exam.getDailyCap}
                         />
                     {:else if examError}
-                        <div style="padding: var(--lv-sp-5); color: var(--b3-theme-error); font-size: 13px">{examError}</div>
+                        <div style="padding: var(--lv-sp-5); color: var(--b3-theme-error); font-size: 13px">
+                            <div style="margin-bottom: 8px">{examError}</div>
+                            <button class="b3-button b3-button--outline" onclick={ensureExam}>{i18n.dashboard.refresh}</button>
+                        </div>
                     {:else}
                         <div style="padding: var(--lv-sp-5); color: var(--b3-theme-on-surface); font-size: 13px">{i18n.dashboard.loading}</div>
                     {/if}

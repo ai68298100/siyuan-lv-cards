@@ -3,6 +3,7 @@
     import { getBlockDOM } from "@/api/siyuan";
     import { extractMarkTexts, MARK_SELECTOR } from "@/core/card-face";
     import LvEmpty from "./kit/LvEmpty.svelte";
+    import LvError from "./kit/LvError.svelte";
 
     /** 配对挑战（M4·FR4）：到期挖空卡限时配对——左列题面（挖空）× 右列答案（mark 文本），
      * 只入激励不计调度。无挖空的卡自动跳过。 */
@@ -16,7 +17,8 @@
     let { i18n, onExit }: { i18n: any; onExit: () => void } = $props();
     const t = $derived(i18n);
 
-    let phase = $state<"loading" | "running" | "done" | "notEnough">("loading");
+    let phase = $state<"loading" | "running" | "done" | "notEnough" | "error">("loading");
+    let errorMsg = $state("");
     let pairs = $state<Pair[]>([]);
     // 左列（题面，原序）与右列（答案，洗牌）
     let left = $state<Pair[]>([]);
@@ -46,10 +48,12 @@
 
     async function load() {
         phase = "loading";
+        errorMsg = "";
         try {
             const due = await dueCache.get("");
             const candidates = (due.cards ?? []).slice(0, 12);
             const found: Pair[] = [];
+            let failedCards = 0;
             for (const c of candidates) {
                 if (found.length >= 8) { break; }
                 try {
@@ -64,9 +68,14 @@
                     const prompt = (holder.textContent ?? "").trim().replace(/\s+/g, " ");
                     if (prompt.length < 4) { continue; }
                     found.push({ cardID: c.cardID, prompt, answer: marks.join(" / ") });
-                } catch { /* 单卡失败跳过 */ }
+                } catch { failedCards += 1; }
             }
             if (found.length < 4) {
+                if (failedCards > 0) {
+                    errorMsg = t.pairing.loadFailed;
+                    phase = "error";
+                    return;
+                }
                 phase = "notEnough";
                 return;
             }
@@ -75,8 +84,9 @@
             right = shuffle(found);
             startTimer();
             phase = "running";
-        } catch {
-            phase = "notEnough";
+        } catch (e: any) {
+            errorMsg = e?.message ?? String(e);
+            phase = "error";
         }
     }
 
@@ -125,6 +135,10 @@
             <div class="lv-pair-empty-wrap">
                 <LvEmpty text={t.pairing.notEnough} actionLabel={t.pairing.exit} onaction={onExit} />
             </div>
+        </div>
+    {:else if phase === "error"}
+        <div class="lv-pair-center">
+            <LvError message={errorMsg} onretry={load} retryLabel={t.dashboard.refresh} />
         </div>
     {:else if phase === "running"}
         <div class="lv-pair-head">

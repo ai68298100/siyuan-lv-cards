@@ -796,6 +796,9 @@
     }
 
     function undoHistory() {
+        if (submitting) {
+            return;
+        }
         const snap = history.pop();
         if (!snap) {
             showMessage(t.review.undoNone, 1800, "info");
@@ -900,7 +903,7 @@
     }
 
     async function suspendToday() {
-        if (!current) { return; }
+        if (!current || submitting) { return; }
         ctx.suspendToday(current.cardID);
         showMessage(t.review.suspendedToast, 2000, "info");
         await next();
@@ -1333,6 +1336,29 @@
                 <div class="lv-eyebrow">REVIEW / {headScopeLabel}</div>
                 <div class="lv-empty-queue-title">{t.review.emptyQueueTitle}</div>
                 <p class="ft__smaller ft__on-surface" style="margin: 6px 0 0">{t.review.emptyQueueSub}</p>
+                <label class="fn__flex" style="justify-content: center; gap: 8px; align-items: center; margin-top: var(--lv-sp-3)">
+                    <span class="ft__smaller ft__on-surface">{t.review.scopeTitle}</span>
+                    <select
+                        class="b3-select"
+                        aria-label={t.review.scopeTitle}
+                        bind:value={scopeKey}
+                        onchange={() => { ctx.onScopePersist(scopeKey); recovery = null; loadQueue(); }}
+                    >
+                        <option value="all">{t.review.scopeAll}</option>
+                        <option value="new">{t.review.scopeNew}</option>
+                        <option value="old">{t.review.scopeOld}</option>
+                        {#if decks.length > 0}
+                            <optgroup label={t.dashboard.decks}>
+                                {#each decks as d (d.id)}<option value={`deck:${d.id}`}>{d.name}</option>{/each}
+                            </optgroup>
+                        {/if}
+                        {#if notebooks.length > 0}
+                            <optgroup label={t.review.scopeNotebooks}>
+                                {#each notebooks as n (n.id)}<option value={`notebook:${n.id}`}>{n.name}</option>{/each}
+                            </optgroup>
+                        {/if}
+                    </select>
+                </label>
                 <div class="fn__flex lv-done-actions" style="justify-content: center; margin-top: var(--lv-sp-4)">
                     <button class="b3-button b3-button--outline" onclick={loadQueue}>{t.dashboard.refresh}</button>
                     <button class="b3-button lv-btn-primary" onclick={ctx.openDashboard}>{t.review.viewStats}</button>
@@ -1495,11 +1521,11 @@
                 <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.prefsTitle} aria-label={t.review.prefsTitle} class:lv-btn-primary={prefsOpen || hasOverrides} onclick={() => (prefsOpen = !prefsOpen)}>{t.review.tbPrefs}{hasOverrides ? " ●" : ""}</button>
                 <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.refreshCard} aria-label={t.review.refreshCard} onclick={refreshCard}>{t.review.tbRefresh}</button>
                 <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.helpTitle} aria-label={t.review.helpTitle} onclick={() => (helpOpen = true)}>{t.review.tbHelp}</button>
-                <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.undoTitle} aria-label={t.review.undoTitle} onclick={undoHistory}>{t.review.tbUndo}</button>
+                <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.undoTitle} aria-label={t.review.undoTitle} disabled={submitting} onclick={undoHistory}>{t.review.tbUndo}</button>
                 <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.peekPrev} aria-label={t.review.peekPrev} onclick={togglePeek}>{t.review.peekPrev.slice(0, 2)}</button>
                 <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.openInEditor} onclick={openInEditor}>{t.review.open}</button>
-                <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.suspendToday} aria-label={t.review.suspendToday} onclick={suspendToday}>{t.review.tbSuspend}</button>
-                <button class="b3-button b3-button--small lv-btn-ghost" onclick={skip}>{t.review.skip}</button>
+                <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.suspendToday} aria-label={t.review.suspendToday} disabled={submitting} onclick={suspendToday}>{t.review.tbSuspend}</button>
+                <button class="b3-button b3-button--small lv-btn-ghost" disabled={submitting} onclick={skip}>{t.review.skip}</button>
             </div>
         </div>
         <div class="lv-card b3-typography" class:lv-anim-glow={showAnswer} bind:this={cardEl} style={`max-width:${eff().cardMaxWidth}px; width:100%; margin:0 auto;`}>
@@ -1726,14 +1752,14 @@
             {#if !showAnswer}
                 <button class="b3-button lv-btn-primary lv-btn-wide" onclick={() => (showAnswer = true)}>{t.review.showAnswer}<span class="lv-btn-wide-kbd">Space</span></button>
             {:else if eff().ratingStyle === "three"}
-                <button class="b3-button lv-btn-rate lv-b1" onclick={() => rate(1)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.unknown}</span><LvKbd k="1" /></span><small>{dueText("1")}</small></button>
-                <button class="b3-button lv-btn-rate lv-b2" onclick={() => rate(2)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.vague}</span><LvKbd k="2" /></span><small>{dueText("2")}</small></button>
-                <button class="b3-button lv-btn-rate lv-b3" onclick={() => rate(3)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.know}</span><LvKbd k="3" /></span><small>{dueText("3")}</small></button>
+                <button class="b3-button lv-btn-rate lv-b1" disabled={submitting} onclick={() => rate(1)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.unknown}</span><LvKbd k="1" /></span><small>{dueText("1")}</small></button>
+                <button class="b3-button lv-btn-rate lv-b2" disabled={submitting} onclick={() => rate(2)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.vague}</span><LvKbd k="2" /></span><small>{dueText("2")}</small></button>
+                <button class="b3-button lv-btn-rate lv-b3" disabled={submitting} onclick={() => rate(3)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.know}</span><LvKbd k="3" /></span><small>{dueText("3")}</small></button>
             {:else}
-                <button class="b3-button lv-btn-rate lv-b1" onclick={() => rate(1)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.againBtn}</span><LvKbd k="1" /></span><small>{dueText("1")}</small></button>
-                <button class="b3-button lv-btn-rate lv-b2" onclick={() => rate(2)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.hard}</span><LvKbd k="2" /></span><small>{dueText("2")}</small></button>
-                <button class="b3-button lv-btn-rate lv-b3" onclick={() => rate(3)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.good}</span><LvKbd k="3" /></span><small>{dueText("3")}</small></button>
-                <button class="b3-button lv-btn-rate lv-b4" onclick={() => rate(4)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.easy}</span><LvKbd k="4" /></span><small>{dueText("4")}</small></button>
+                <button class="b3-button lv-btn-rate lv-b1" disabled={submitting} onclick={() => rate(1)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.againBtn}</span><LvKbd k="1" /></span><small>{dueText("1")}</small></button>
+                <button class="b3-button lv-btn-rate lv-b2" disabled={submitting} onclick={() => rate(2)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.hard}</span><LvKbd k="2" /></span><small>{dueText("2")}</small></button>
+                <button class="b3-button lv-btn-rate lv-b3" disabled={submitting} onclick={() => rate(3)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.good}</span><LvKbd k="3" /></span><small>{dueText("3")}</small></button>
+                <button class="b3-button lv-btn-rate lv-b4" disabled={submitting} onclick={() => rate(4)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.easy}</span><LvKbd k="4" /></span><small>{dueText("4")}</small></button>
             {/if}
         </div>
     {/if}

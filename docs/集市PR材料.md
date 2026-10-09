@@ -1,10 +1,17 @@
 # 集市 PR 材料（提交前核对单与文案模板）
 
-> 状态：材料就绪，**提交前置条件未满足**——见文末核对单。满足后按本文件直接组装 PR。
+> 状态：待发布候选（当前为 v0.209.1），GitHub Release 尚未创建；**bazaar PR 前置条件仍未全部满足**。本文件的提交步骤已按 2026-10-10 的官方说明更新。
 
-## 一、提交路径
+## 一、官方提交流程
 
-思源集市通过 **siyuan-note/bazaar 仓库 PR** 上架：fork → 在 `plugins/` 下按模板新增 `<插件名>.json`（内容 = 本插件 plugin.json 的字段子集，官方模板见 bazaar 仓库 README）→ 提交 PR。发布版本以 GitHub Release（当前为 v0.209.0）为源。
+官方说明：[中文提交指南](https://github.com/siyuan-note/bazaar/blob/master/README.zh-CN.md#提交集市包) · [English](https://github.com/siyuan-note/bazaar#submitting-a-bazaar-package) · [插件样例与 `plugin.json` 字段](https://github.com/siyuan-note/plugin-sample/blob/main/README.zh-CN.md#pluginjson)。
+
+1. Fork `siyuan-note/bazaar`，同步最新 `main`。
+2. 只在 bazaar 根目录的 [`plugins.txt`](https://github.com/siyuan-note/bazaar/blob/master/plugins.txt) 新增一行：`ai68298100/siyuan-lv-cards`。每行一个 `owner/repo`；一个新增 PR 只添加一个包，不要同时混入无关下架。
+3. 向 bazaar 的 `main` 创建 PR。PR Check 会核验包仓库的 Release、`package.zip`、必要文件和 metadata；失败后修复同一个 PR，仓库 Release 有变化后会定期复查，也可由维护者手动触发。
+4. 合并后 bazaar 索引通常在数分钟内更新；无需为后续版本再开 bazaar PR，发布新的 GitHub Release 后索引会自动更新，通常每 1–3 小时部署。
+
+插件仓库名必须与 `plugin.json` 的 `name` 相同；清单中的 `version` 遵循 semver，Latest Release 需提供 `package.zip`。本仓库 tag 发布工作流会生成 `package.zip` 和 SHA256 文件。`plugin.json` 中的 `icon`、`preview`、中英 `displayName`/`description`/`readme`、平台声明等 metadata 应与实际包内容一致。当前 `icon.png` 为 62,255 字节；官方样例建议图标 160×160 且不超过 64 KiB，预览图建议 1024×768 且不超过 512 KiB。GIF 是额外演示素材，不是官方列表文件要求。
 
 ## 二、PR 标题与说明（模板）
 
@@ -28,10 +35,11 @@
 
 - [ ] **Anki .apkg 真机导入验证**（当前桌面版同时验证 node:sqlite 与 node:zlib；成功/失败都记录到 docs/34）
 - [ ] **真实脱敏截图 4 张**（P0-C3：复习 / 闪卡中心 / AI 制卡 / 设置；15~30s GIF 可后补）
-- [ ] **version 与 GitHub Release 一致**（当前 v0.209.0；集市 PR 以 Release 为源）
+- [ ] **version 与 GitHub Release 一致**（本次发布候选 v0.209.1；推送 tag 并确认 Release workflow 产包后再勾选）
 - [ ] **中英 README**：能力矩阵与五种状态标签口径一致（P0-C1 已做，提交前复核一遍）
-- [ ] **AU-1/2/3 素材 gate**：图标 ✓（已重设计）、preview.png（待真实截图）、GIF（可后补）
-- [ ] 帖子预告（ld246.com 发布帖——社区惯例，非硬性）
+- [ ] **preview.png 实际展示验收**：现已按官方推荐尺寸调整为 1024×768、474,932 字节；仍待确认内容适合作为集市预览图。
+- [ ] **Gate L 其余上线条件**：核心闭环真机稳定两周、双语/无硬编码校验、性能预算、亮暗主题及移动设备验收、反馈渠道与差异化说明、平台 metadata 复核、发布后 48 小时响应安排。
+- [ ] 帖子预告（ld246.com 发布帖，社区宣传项，非 bazaar CI 硬性要求）
 
 ## 四、发布后动作
 

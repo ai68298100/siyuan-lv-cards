@@ -109,6 +109,8 @@
     let heat: { date: string; stat: { new: number; review: number; forget: number } }[] = $state([]);
     let revlogNote = $state("");
     let errorMsg = $state("");
+    let hasLoadedSnapshot = $state(false);
+    let lastSuccessfulAt = $state(0);
     let v2Stats: { key: string; value: string }[] = $state([]);
     let retention: RetentionResult | null = $state(null);
     let curve: CurvePoint[] = $state([]);
@@ -454,6 +456,8 @@
             examChip = ctx.getExamCountdown();
             targets = ctx.getDailyTargets();
             // 快路径完成：hero 与统计立即可见（慢面板就绪后渐进补齐）
+            hasLoadedSnapshot = true;
+            lastSuccessfulAt = Date.now();
             loading = false;
             docCov = await docCovPromise;
             if (seq !== refreshSeq) {
@@ -543,6 +547,12 @@
         {#if errorMsg}
             <LvError message={errorMsg} onretry={refresh} retryLabel={t.dashboard.refresh} />
         {/if}
+        {#if !errorMsg || hasLoadedSnapshot}
+        {#if errorMsg && hasLoadedSnapshot}
+            <div class="lv-notice lv-notice--warn" role="status">
+                {t.dashboard.staleData.replace("${time}", new Date(lastSuccessfulAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }))}
+            </div>
+        {/if}
 
         <!-- ADR-7：未完成的 AI 导入提示——总览即可见，点击打开向导（恢复横幅在其中） -->
         {#if unfinishedAI}
@@ -614,11 +624,11 @@
             {/if}
         </div>
 
-        {#if totalCards === 0 && !errorMsg}
+        {#if totalCards === 0 && (!errorMsg || hasLoadedSnapshot)}
             <LvEmpty text={t.dashboard.onboardingHint} actionLabel={t.dashboard.onboardingStart} onaction={ctx.openOnboarding} />
         {/if}
 
-        {#if totalCards > 0 || !errorMsg}
+        {#if totalCards > 0 || !errorMsg || hasLoadedSnapshot}
         <div class="fn__flex fn__flex-wrap lv-cards">
             <div class="lv-stat-cell">
                 <LvStat label={t.dashboard.todayDue} value={dueCount} tone="error" animate />
@@ -1014,6 +1024,7 @@
             </LvSection>
         {/if}
         </div>
+        {/if}
     {/if}
         {/if}
 </LvPage>

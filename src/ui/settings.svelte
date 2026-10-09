@@ -29,7 +29,7 @@
     export interface SettingsCtx {
         i18n: any;
         settings: LvCardsSettings;
-        save: (s: LvCardsSettings) => void;
+        save: (s: LvCardsSettings) => void | Promise<void>;
         close: () => void;
         exportRevlog: () => void;
         clearRevlog: () => void;
@@ -66,7 +66,7 @@
         getV2Status: () => string;
         getSuspendedCount: () => number;
         restoreAllSuspended: () => void;
-        testAnkiClient: () => Promise<string>;
+        testAnkiClient: (url?: string, key?: string) => Promise<string>;
         storageStats: () => { file: string; size: string; lastWrite: number }[];
         exportSettings: () => void;
         /** 笔记本清单（605 落盘笔记本选择） */
@@ -100,6 +100,7 @@
 
     // Anki M3：本地 .apkg 导入（docs/39 §3）——解析/预览/建文档/配对/制卡/台账，幂等重导
     let ankiBusy = $state(false);
+    let ankiTestBusy = $state(false);
     const ankiHost = detectSqlite();
     let ankiStatus = $state<{ kind: "info" | "warn" | "error"; text: string } | null>(null);
     // Anki M3：损失明细（导入完成时可一键复制）
@@ -312,6 +313,22 @@
     });
     let ankiLabel = $state("");
 
+    async function testAnki() {
+        if (ankiTestBusy) return;
+        ankiTestBusy = true;
+        ankiLabel = "";
+        try {
+            ankiLabel = await ctx.testAnkiClient(draft.ankiClientUrl, draft.ankiClientKey);
+        } catch (e: any) {
+            ankiLabel = `${t.settings.ankiTestFail ?? "Connection failed"}: ${e?.message ?? String(e)}`;
+        } finally {
+            ankiTestBusy = false;
+        }
+    }
+
+    let saveBusy = $state(false);
+    let saveError = $state("");
+
     function toggleModule(id: string, ev: Event) {
         draft.modules[id] = (ev.target as HTMLInputElement).checked;
         draft.persona = "custom";
@@ -499,11 +516,8 @@
         });
     }
 
-    async function testAnki() {
-        ankiLabel = await ctx.testAnkiClient();
-    }
-
     function requestClose() {
+        if (saveBusy) return;
         if (JSON.stringify(draft) === JSON.stringify(ctx.settings)) {
             ctx.close();
             return;
@@ -515,14 +529,23 @@
         });
     }
 
-    function save() {
+    async function save() {
+        if (saveBusy) return;
         draft.dailyNewTarget = Math.max(0, Number(draft.dailyNewTarget) || 0);
         draft.dailyReviewTarget = Math.max(0, Number(draft.dailyReviewTarget) || 0);
         draft.timeoutSeconds = Math.min(3600, Math.max(5, Number(draft.timeoutSeconds) || 60));
         draft.answerTimeCapSec = Math.min(3600, Math.max(5, Number(draft.answerTimeCapSec) || 60));
         draft.leechThreshold = Math.max(1, Number(draft.leechThreshold) || 8);
-        ctx.save(draft);
-        ctx.close();
+        saveBusy = true;
+        saveError = "";
+        try {
+            await ctx.save(draft);
+            ctx.close();
+        } catch (e: any) {
+            saveError = e?.message || t.settings.saveFail || t.storageWriteFail || "Save failed, try again";
+        } finally {
+            saveBusy = false;
+        }
     }
 </script>
 
@@ -912,7 +935,7 @@
         <LvRow label={t.settings.ankiTest}>
             {#snippet children()}
                 {#if ankiLabel}<span class="ft__smaller ft__on-surface">{ankiLabel}</span>{/if}
-                <button class="b3-button b3-button--outline" onclick={testAnki}>{t.settings.ankiTest}</button>
+                <button class="b3-button b3-button--outline" disabled={ankiTestBusy} onclick={testAnki}>{ankiTestBusy ? "…" : t.settings.ankiTest}</button>
             {/snippet}
         </LvRow>
         <!-- Anki M3：本地 .apkg 导入（docs/39 §3）——解析/预览/建文档/制卡/台账，幂等重导 -->
@@ -1089,10 +1112,13 @@
     </LvSection>
     {/if}
 
+    {#if saveError}
+        <div class="lv-notice lv-notice--warn" role="alert" style="margin-bottom: var(--lv-sp-2)">{saveError}</div>
+    {/if}
     <div class="b3-dialog__action">
-        <button class="b3-button b3-button--cancel" onclick={requestClose}>{window.siyuan.languages.cancel}</button>
+        <button class="b3-button b3-button--cancel" disabled={saveBusy} onclick={requestClose}>{window.siyuan.languages.cancel}</button>
         <div class="fn__space"></div>
-        <button class="b3-button b3-button--text" onclick={save}>{window.siyuan.languages.confirm}</button>
+        <button class="b3-button b3-button--text" disabled={saveBusy} onclick={save}>{saveBusy ? "…" : window.siyuan.languages.confirm}</button>
     </div>
 </div>
 

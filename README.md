@@ -1,8 +1,8 @@
-> **内测说明**：当前版本仅实现了基础功能，仍有较多能力处于开发与测试阶段。欢迎对本插件感兴趣的用户参与内测体验，并通过交流 QQ 群 **871707735** 反馈 Bug、提交功能需求。若您对插件的完整性和稳定性有较高要求，建议等待正式版发布后再行使用。项目将持续更新迭代，感谢您的理解与支持。
+> **内测说明**：小驴闪卡（内测版）当前仍有部分能力处于开发与测试阶段。欢迎参与内测体验，并通过交流 QQ 群 **871707735** 反馈 Bug、提交功能需求。若您对功能完整性和运行稳定性有较高要求，建议等待正式版发布后再使用。项目会持续更新迭代，感谢您的理解与支持。
 
 <div align="center">
 
-# 小驴闪卡（内测版） · Lv Cards (Beta)
+# 小驴闪卡（内测版）
 
 **让笔记成为记得住、用得上的长期知识。**
 
@@ -10,61 +10,84 @@
 
 中文 ｜ [English](./README.en.md)
 
-[![Release](https://img.shields.io/github/v/release/ai68298100/siyuan-lv-cards)](https://github.com/ai68298100/siyuan-lv-cards/releases)
-[![CI](https://github.com/ai68298100/siyuan-lv-cards/actions/workflows/ci.yml/badge.svg)](https://github.com/ai68298100/siyuan-lv-cards/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
-[![SiYuan >= 3.8.0](https://img.shields.io/badge/%E6%80%9D%E6%BA%90-%3E%3D%203.8.0-blue)](https://b3log.org/siyuan/)
+[![最新版本](https://img.shields.io/github/v/release/ai68298100/siyuan-lv-cards?label=%E6%9C%80%E6%96%B0%E7%89%88%E6%9C%AC)](https://github.com/ai68298100/siyuan-lv-cards/releases/latest)
+[![持续集成](https://github.com/ai68298100/siyuan-lv-cards/actions/workflows/ci.yml/badge.svg)](https://github.com/ai68298100/siyuan-lv-cards/actions/workflows/ci.yml)
+[![许可证：MIT](https://img.shields.io/badge/%E8%AE%B8%E5%8F%AF%E8%AF%81-MIT-green.svg)](./LICENSE)
+[![思源笔记 >= 3.8.0](https://img.shields.io/badge/%E6%80%9D%E6%BA%90-%3E%3D%203.8.0-blue)](https://b3log.org/siyuan/)
 
 [下载安装](#安装) · [开始使用](#开始使用) · [AI 如何参与](#ai-如何参与学习) · [设计规范与原型](./docs/42-UI设计规范-R53.md)
 
 </div>
 
-小驴闪卡（内测版）的定位是**思源笔记里的全生命周期记忆引擎**：让笔记里每一段值得记的内容，都能可回源地变成卡片，用内核原生 FSRS 科学排期，用可审计的 AI 提效；数据本地优先，带得走。
+小驴闪卡（内测版）的定位是**思源笔记里的全生命周期记忆引擎**：让笔记里每一段值得记的内容，都能可回源地变成卡片，用内核原生 FSRS 排期，用可审计的 AI 提效；数据本地优先，方便带走。
 
-当前开发基线为 **v0.209.0**。相比上一大版本（v0.185），本版完成了 Starline R53 视觉体系（docs/42）、两个 P0 新功能（⌘K 命令面板、学习日历与负载预测）、三个 P1 功能（每周学习报告、卡组仪表盘、分享包导出），以及 v0.208.0 的一轮 **UI 全面提质**：页头体系重构、组件状态完备（空态/零值/禁用）、克制的微动效、390px 窄屏全景修复与复习核心流程精修。v0.209.0 基于十二轮全方位审计（隔离靶场 + 浏览器实测 + 本地 mock AI 端点），修复 16 项缺陷——含 3.8.x 建卡链路失效、挖空卡答案泄露等用户可直接感知的功能性硬伤，详见下方更新说明。730 项单元测试与隔离 E2E 全绿；桌面亮暗双主题与 390px 窄屏均有截图背书，Android 思源真机完整矩阵仍待执行。
+当前发布版本为 **v0.209.1（2026-10-10）**，本次更新范围为 **v0.209.0 → v0.209.1**。本版收口入口、按钮忙碌态、加载错误和重试反馈，并修复挑战退出及拒绝重复添加时的副作用。详细变化见下方“本次更新”和可展开的历史版本记录。
 
-## 本次更新（v0.209.0）
+[下载最新版](https://github.com/ai68298100/siyuan-lv-cards/releases/latest) · [提交问题](https://github.com/ai68298100/siyuan-lv-cards/issues/new/choose) · [贡献指南](./CONTRIBUTING.md)
 
-本轮基于十二轮全方位审计（隔离靶场 + 浏览器实测 + 本地 mock AI 端点），修复 16 项缺陷并统一术语表述。
+## 本次更新（v0.209.1）
 
-修复：3.8.x 内核建卡链路失效
-（`/api/block/insertBlock` 事务响应结构变化导致快速制卡、示例卡、标记制卡报「制卡失败」；已兼容新旧两种响应形态。）
+本版本根据入口、前置条件、按钮状态、错误反馈和页面文案核对结果，补齐可恢复的交互状态。
 
-修复：挖空卡问题态泄露答案
-（内核将 `==挖空==` 渲染为 `span[data-type=mark]`，遮罩与打字判分/配对/干扰项仅匹配 `<mark>` 导致失效；已统一选择器并修复全部调用点。）
+新增：加载失败后的恢复路径
 
-修复：「全部范围」到期队列恒为空
-（内核 3.8.6 全局到期查询不返回卡片，角标/总览/复习全部归零；插件改为遍历卡组逐组查询并合并去重，新增合并去重单测。）
+- 总览刷新失败时保留上次成功的数据，并标注数据时间。
+- 卡组、笔记本、维护、挑战、配对和收件箱等操作提供清楚的加载、错误、空态或重试反馈。
+- 复习空队列提供范围切换，可直接尝试其他卡组或范围。
 
-修复：注册知识对象后闪卡中心崩溃
-（ko-panel 13 处 i18n 键路径笔误 `t.ko.*` → `t.review.ko.*`，注册后不再整页报错。）
+优化：按钮状态与操作反馈
 
-修复：AI 安全阀在思源内置 AI 模式不可见
-（安全阀行被误包进「自定义端点」条件块，默认模式无法紧急停用/撤销同意；已移出并常显。）
+- 保存、评分、批量操作和加载期间禁用重复提交；失败时保留当前设置或选择。
+- AnkiConnect 测试使用当前编辑的地址与密钥；AI 笔记本来源显示读取进度和不可用原因。
+- 中英文页面文案、内测说明和原型与现状的边界说明保持一致。
 
-修复：模型拒答文本泄漏原始 JSON 异常
-（非 JSON 拒答回复现在走「格式失败」拒答呈现：可读原因 + 重试一次 + 手工制卡建议。）
+修复：异步退出与重复操作
 
-修复：遗忘后错误原因标注不显示
-（置位时序被翻页重置 + errReasons 键路径笔误，双重缺陷修复；七类原因 chips 实测可用。）
+- 挑战加载期间退出后，不再继续读取卡面或启动计时器。
+- 拒绝重复制卡确认时，不会提前创建输入中的新卡组。
+- 补齐新增设置反馈的中英文文案键。
 
-修复：修改练习设置后已打开的复习面板不生效
-（出题形态与打字/选择开关保存后即时生效，无需重开面板。）
+验证：`pnpm check`、736 项单元测试、i18n、治理、文档事实、生产构建和发布包 smoke 全部通过。Android 思源真机完整矩阵仍待单独验收。
 
-优化与表述：问题态快捷键对齐（x 跳过 / f 改期 / s 暂停）、i18n 引用完整性纳入门禁（706 处代码引用全量校验）、示例卡答案改挖空语法、空卡面占位文案、术语统一（遗忘/回忆）、AI 审核步与敏感词/来源禁止全链实测。
+<details>
+<summary>历史版本更新（点击展开）</summary>
 
-## 小驴系列插件
+### v0.209.0 · 2026-10-09
 
-| 插件 | 简介 | GitHub |
+本版本基于十二轮全方位审计，重点修复核心制卡、挖空、到期队列和 AI 安全问题。
+
+- 修复思源 3.8.x 下快速制卡、示例卡和标记制卡失败，以及挖空卡问题态答案泄露。
+- 修复“全部范围”到期队列为空、知识对象面板崩溃、AI 安全阀不可见和拒答错误信息异常。
+- 修复遗忘原因标注、练习设置即时生效及画像应用确认框名称；统一快捷键和复习术语。
+
+### v0.208.1 · 2026-10-08
+
+- 修复 AI 制卡向导、修卡演练和卡片详情操作的入口回调，并为懒加载失败补上可见反馈。
+
+### v0.208.0 · 2026-10-08
+
+- 完成 Starline R53 视觉体系提质，覆盖页头、复习流程、状态、窄屏布局和动效。
+
+完整历史请查看 [CHANGELOG](./CHANGELOG.md)。
+
+</details>
+
+## 小驴系列插件与交流
+
+小驴系列插件彼此独立，可按需安装和组合使用：
+
+| 插件名称 | 一句话简介 | GitHub 仓库 |
 |---|---|---|
-| [小驴雷切](https://github.com/ai68298100/siyuan-speed-switch) | 统一切换与工作上下文平台。 | [仓库](https://github.com/ai68298100/siyuan-speed-switch) |
-| [小驴打卡](https://github.com/ai68298100/siyuan-checkin) | 本地优先的习惯、打卡与复盘工作台。 | [仓库](https://github.com/ai68298100/siyuan-checkin) |
-| [小驴人脉](https://github.com/ai68298100/siyuan-contacts) | 在思源中管理联系人、人际关系及相关资料。 | [仓库](https://github.com/ai68298100/siyuan-contacts) |
-| [小驴拾遗](https://github.com/ai68298100/siyuan-glean) | 整理剪藏文章，支持阅读管理与日后回顾。 | [仓库](https://github.com/ai68298100/siyuan-glean) |
-| [小驴考试（内测版）](https://github.com/ai68298100/siyuan-exam) | 本地题库、刷题、模考、错题复盘与 AI 辅助。 | [仓库](https://github.com/ai68298100/siyuan-exam) |
-| [小驴管家（内测版）](https://github.com/ai68298100/siyuan-home) | 家庭与生活台账、到期提醒及事务跟进。 | [仓库](https://github.com/ai68298100/siyuan-home) |
-| [小驴闪卡（内测版）](https://github.com/ai68298100/siyuan-lv-cards) | 思源笔记中的本地优先全生命周期闪卡学习平台。 | [仓库](https://github.com/ai68298100/siyuan-lv-cards) |
-| [小驴常用（内测版）](https://github.com/ai68298100/xiaolv-common) | 基于思源块快速调用常用语、模板、代码等内容。 | [仓库](https://github.com/ai68298100/xiaolv-common) |
+| [小驴雷切](https://github.com/ai68298100/siyuan-speed-switch) | 思源中的统一导航与工作上下文平台，连接页签、工作台、片段和快捷入口。 | [ai68298100/siyuan-speed-switch](https://github.com/ai68298100/siyuan-speed-switch) |
+| [小驴打卡](https://github.com/ai68298100/siyuan-checkin) | 本地优先的习惯、目标打卡与复盘工作台，支持统计、提醒和笔记联动。 | [ai68298100/siyuan-checkin](https://github.com/ai68298100/siyuan-checkin) |
+| [小驴人脉](https://github.com/ai68298100/siyuan-contacts) | 在思源中管理联系人、人际关系、组织归属和生日提醒。 | [ai68298100/siyuan-contacts](https://github.com/ai68298100/siyuan-contacts) |
+| [小驴拾遗](https://github.com/ai68298100/siyuan-glean) | 整理思源剪藏和导入文章，支持状态分拣、阅读管理与日后回顾。 | [ai68298100/siyuan-glean](https://github.com/ai68298100/siyuan-glean) |
+| [小驴考试（内测版）](https://github.com/ai68298100/siyuan-exam) | 本地题库备考工作台，支持多格式导入、刷题、背诵、模考、错题复盘与 AI 辅助。 | [ai68298100/siyuan-exam](https://github.com/ai68298100/siyuan-exam) |
+| [小驴管家（内测版）](https://github.com/ai68298100/siyuan-home) | 管理家庭与生活资料、成员档案、台账、到期提醒和事务跟进。 | [ai68298100/siyuan-home](https://github.com/ai68298100/siyuan-home) |
+| [小驴闪卡（内测版）](https://github.com/ai68298100/siyuan-lv-cards) | 思源中的知识捕获、制卡、练习与复习平台，使用内核原生 FSRS 排期。 | [ai68298100/siyuan-lv-cards](https://github.com/ai68298100/siyuan-lv-cards) |
+| [小驴常用（内测版）](https://github.com/ai68298100/xiaolv-common) | 基于思源块快速调用常用语、模板、代码、链接，并支持变量填充。 | [ai68298100/xiaolv-common](https://github.com/ai68298100/xiaolv-common) |
+
+交流 QQ 群：**871707735**（反馈 Bug、提交需求、交流使用体验）
 
 ## 界面速览
 
@@ -87,7 +110,7 @@
 
 ## 当前功能
 
-以下按 v0.208.1 的代码与版本记录整理，具体使用还受宿主能力、设置和设备影响。
+以下按 v0.209.1 的代码与版本记录整理，具体使用还受宿主能力、设置和设备影响。
 
 | 能力 | 当前提供 |
 |---|---|
@@ -207,7 +230,7 @@ pnpm install
 pnpm make-link    # 将 dist/ 链接到本机思源工作区，具体配置见 CONTRIBUTING
 pnpm dev          # 监听构建，开发环境需运行思源
 pnpm check        # 类型、Svelte 与版本检查
-pnpm test         # 单元测试（726+）
+pnpm test         # 单元测试（数量以当前 CI 结果为准）
 pnpm build        # 生产构建（含 hub/review/dialogs 三个 UI chunk）
 node scripts/e2e-isolated.mjs   # 隔离式后台 e2e（临时工作区+无头内核，18 项断言）
 pnpm release      # 交互式同步版本并运行检查；不等于发布到外部平台

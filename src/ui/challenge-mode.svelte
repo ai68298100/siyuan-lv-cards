@@ -8,17 +8,36 @@
     const t = $derived(i18n);
 
     const DURATION = 180;
-    let phase = $state<"idle" | "running" | "done">("idle");
+    let phase = $state<"idle" | "loading" | "running" | "empty" | "error" | "done">("idle");
+    let errorMsg = $state("");
+    let readFailures = $state(0);
     let remaining = $state(DURATION);
     let known = $state(0);
     let unknown = $state(0);
     let cards: { blockID: string; dom: string }[] = $state([]);
     let idx = $state(0);
     let timer: ReturnType<typeof setInterval> | null = null;
+    let disposed = false;
+    let loadSeq = 0;
     // AR-10：monotonic deadline——后台节流/休眠后按壁钟校正，不靠 interval 次数累计
     let deadline = 0;
 
-    onDestroy(() => { stopTimer(); });
+    onDestroy(() => {
+        disposed = true;
+        loadSeq += 1;
+        stopTimer();
+    });
+
+    function isCurrentLoad(seq: number) {
+        return !disposed && seq === loadSeq;
+    }
+
+    function exit() {
+        disposed = true;
+        loadSeq += 1;
+        stopTimer();
+        onExit();
+    }
 
     function stopTimer() {
         if (timer) {
@@ -38,33 +57,59 @@
         }, 250);
     }
 
-    async function fetchDom(blockID: string): Promise<string> {
+    async function fetchDom(blockID: string): Promise<string | null> {
         try {
             // AQ-20：统一内核响应校验，非 0 不再静默渲染空
-            return await getBlockDOM(blockID);
-        } catch { return ""; }
+            const dom = await getBlockDOM(blockID);
+            return dom.trim() ? dom : null;
+        } catch { return null; }
     }
 
     async function start() {
-        phase = "running";
+        if (phase === "loading" || phase === "running") return;
+        const seq = ++loadSeq;
+        phase = "loading";
+        errorMsg = "";
+        readFailures = 0;
         remaining = DURATION;
         known = 0; unknown = 0; idx = 0;
+        cards = [];
         try {
             const data = await dueCache.get("");
+            if (!isCurrentLoad(seq)) return;
             const due: RiffDueCard[] = data?.cards ?? [];
+            if (due.length === 0) {
+                phase = "empty";
+                return;
+            }
             const slice = due.slice(0, 30);
             const loaded: { blockID: string; dom: string }[] = [];
+            let failed = 0;
             for (const c of slice) {
                 const dom = await fetchDom(c.blockID);
-                loaded.push({ blockID: c.blockID, dom });
+                if (!isCurrentLoad(seq)) return;
+                if (dom === null) {
+                    failed += 1;
+                } else {
+                    loaded.push({ blockID: c.blockID, dom });
+                }
             }
             cards = loaded;
-        } catch { /* 旁路 */ }
-        if (cards.length === 0) {
-            finish();
+            readFailures = failed;
+            if (cards.length === 0) {
+                errorMsg = failed > 0 ? t.challenge.readFailed : t.challenge.empty;
+                phase = failed > 0 ? "error" : "empty";
+                return;
+            }
+        } catch (e: any) {
+            if (!isCurrentLoad(seq)) return;
+            errorMsg = e?.message ?? String(e);
+            phase = "error";
             return;
         }
+        if (!isCurrentLoad(seq)) return;
         // AR-10：计时点与材料加载完成一致，倒计时期间不吞作答时间
+        phase = "running";
         startTimer();
     }
 
@@ -91,7 +136,32 @@
             <div class="lv-chal-desc">{t.challenge.desc.replace("${n}", "3")}</div>
             <button class="b3-button b3-button--text lv-btn-primary" onclick={start}>{t.challenge.start}</button>
             <div style="margin-top:var(--lv-sp-3)">
-                <button class="b3-button b3-button--cancel" onclick={onExit}>{window.siyuan.languages.cancel}</button>
+                <button class="b3-button b3-button--cancel" onclick={exit}>{window.siyuan.languages.cancel}</button>
+            </div>
+        </div>
+    {:else if phase === "loading"}
+        <div class="lv-chal-center" aria-busy="true">
+            <div class="lv-chal-icon">⏳</div>
+            <div class="lv-chal-title">{t.challenge.loading}</div>
+            <button class="b3-button b3-button--cancel" onclick={exit}>{window.siyuan.languages.cancel}</button>
+        </div>
+    {:else if phase === "empty"}
+        <div class="lv-chal-center">
+            <div class="lv-chal-icon">∅</div>
+            <div class="lv-chal-title">{t.challenge.empty}</div>
+            <div class="fn__flex" style="gap: var(--lv-sp-2)">
+                <button class="b3-button b3-button--outline" onclick={start}>{t.challenge.retry}</button>
+            <button class="b3-button b3-button--cancel" onclick={exit}>{window.siyuan.languages.cancel}</button>
+            </div>
+        </div>
+    {:else if phase === "error"}
+        <div class="lv-chal-center">
+            <div class="lv-chal-icon">⚠</div>
+            <div class="lv-chal-title">{t.challenge.loadError}</div>
+            <div class="lv-chal-desc" role="alert">{errorMsg}</div>
+            <div class="fn__flex" style="gap: var(--lv-sp-2)">
+                <button class="b3-button b3-button--outline" onclick={start}>{t.challenge.retry}</button>
+                <button class="b3-button b3-button--cancel" onclick={exit}>{window.siyuan.languages.cancel}</button>
             </div>
         </div>
     {:else if phase === "running"}
@@ -102,6 +172,11 @@
             <span class="lv-chal-score">✓ {known} · ✗ {unknown}</span>
             <button class="b3-button b3-button--small" onclick={finish}>{t.challenge.stop}</button>
         </div>
+        {#if readFailures > 0}
+            <div class="lv-notice lv-notice--warn" role="status">
+                {t.challenge.readPartial.replace("${n}", String(readFailures))}
+            </div>
+        {/if}
         {#if cards[idx]}
             <div class="lv-chal-card lv-card2 b3-typography">
                 {@html cards[idx].dom}
@@ -120,7 +195,7 @@
             <div class="lv-chal-desc">
                 ✓ {known} · ✗ {unknown} · {t.review.doneSkip} {t.challenge.skipped}
             </div>
-            <button class="b3-button b3-button--text lv-btn-primary" onclick={onExit}>{t.challenge.closeBtn}</button>
+            <button class="b3-button b3-button--text lv-btn-primary" onclick={exit}>{t.challenge.closeBtn}</button>
         </div>
     {/if}
 </div>

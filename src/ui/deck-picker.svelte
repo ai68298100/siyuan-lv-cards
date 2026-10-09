@@ -2,13 +2,17 @@
     import { onMount } from "svelte";
     import { getRiffDecks, createRiffDeck, type RiffDeck } from "@/api/riff";
 
-    let { newNamePlaceholder = "", confirmLabel = "OK", decks: initialDecks = null, onConfirm, onClose }: {
+    let { newNamePlaceholder = "", firstDeckNamePlaceholder = newNamePlaceholder, emptyDeckText = "", retryLabel = "Retry", confirmLabel = "OK", decks: initialDecks = null, onBeforeConfirm = () => undefined, onConfirm, onClose }: {
         newNamePlaceholder?: string;
+        firstDeckNamePlaceholder?: string;
+        emptyDeckText?: string;
+        retryLabel?: string;
         confirmLabel?: string;
         /** 调用方已持有卡组列表时直传，避免重复请求 */
         decks?: RiffDeck[] | null;
         /** AR-2：支持 Promise——成功后才关闭，失败保留选择与输入 */
-        onConfirm: (deckID: string, deckName: string) => void | Promise<void>;
+        onBeforeConfirm?: () => void | boolean | Promise<void | boolean>;
+        onConfirm: (deckID: string, deckName: string) => void | boolean | Promise<void | boolean>;
         onClose: () => void;
     } = $props();
 
@@ -22,21 +26,26 @@
     // svelte-ignore state_referenced_locally
     let loading = $state(!initialDecks);
     let errorMsg = $state("");
+    let loadError = $state("");
 
-    onMount(async () => {
-        if (initialDecks) {
-            return;
-        }
+    async function loadDecks() {
+        loading = true;
+        loadError = "";
         try {
             decks = await getRiffDecks();
-            if (decks.length > 0) {
-                selected = decks[0].id;
-            }
+            selected = decks[0]?.id ?? "";
         } catch (e: any) {
-            errorMsg = e?.message ?? String(e);
+            loadError = e?.message ?? String(e);
         } finally {
             loading = false;
         }
+    }
+
+    onMount(() => {
+        if (initialDecks) {
+            return;
+        }
+        void loadDecks();
     });
 
     async function confirm() {
@@ -46,6 +55,10 @@
         busy = true;
         errorMsg = "";
         try {
+            const proceed = await onBeforeConfirm?.();
+            if (proceed === false) {
+                return;
+            }
             let deckID = selected;
             let deckName = decks.find(d => d.id === deckID)?.name ?? "";
             if (newName.trim()) {
@@ -57,8 +70,10 @@
                 return;
             }
             // AR-2：等写入成功才关闭；失败/取消保留编辑内容与选择
-            await onConfirm(deckID, deckName);
-            onClose();
+            const result = await onConfirm(deckID, deckName);
+            if (result !== false) {
+                onClose();
+            }
         } catch (e: any) {
             errorMsg = e?.message ?? String(e);
         } finally {
@@ -79,20 +94,23 @@
                     <span class="ft__smaller ft__on-surface">{d.size}</span>
                 </label>
             {/each}
-            {#if decks.length === 0}
-                <div class="ft__smaller ft__on-surface">—</div>
+            {#if loadError}
+                <div class="ft__smaller" style="color: var(--b3-theme-error)" role="alert">{loadError}</div>
+                <button class="b3-button b3-button--small" disabled={loading || busy} onclick={loadDecks}>{retryLabel}</button>
+            {:else if decks.length === 0}
+                <div class="ft__smaller ft__on-surface">{emptyDeckText}</div>
             {/if}
         </div>
         <div class="lv-dp-new">
-            <input class="b3-text-field fn__block" placeholder={newNamePlaceholder} bind:value={newName} />
+            <input class="b3-text-field fn__block" placeholder={decks.length === 0 ? firstDeckNamePlaceholder : newNamePlaceholder} bind:value={newName} />
         </div>
         {#if errorMsg}
-            <div class="ft__smaller" style="color: var(--b3-theme-error)">{errorMsg}</div>
+            <div class="ft__smaller" style="color: var(--b3-theme-error)" role="alert">{errorMsg}</div>
         {/if}
         <div class="b3-dialog__action">
-            <button class="b3-button b3-button--cancel" aria-label={window.siyuan.languages.cancel} onclick={onClose}>✕</button>
+            <button class="b3-button b3-button--cancel" aria-label={window.siyuan.languages.cancel} disabled={busy} onclick={onClose}>✕</button>
             <div class="fn__space"></div>
-            <button class="b3-button b3-button--text lv-btn-primary" disabled={busy} onclick={confirm}>{confirmLabel} ↵</button>
+            <button class="b3-button b3-button--text lv-btn-primary" disabled={busy || !!loadError || (!selected && !newName.trim())} onclick={confirm}>{confirmLabel} ↵</button>
         </div>
     {/if}
 </div>

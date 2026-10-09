@@ -8,7 +8,7 @@ The full-lifecycle flashcard learning platform for SiYuan — local-first, nativ
 
 中文 ｜ [English](./README.en.md)
 
-[![Release](https://img.shields.io/github/v/release/ai68298100/siyuan-lv-cards)](https://github.com/ai68298100/siyuan-lv-cards/releases)
+[![Release](https://img.shields.io/github/v/release/ai68298100/siyuan-lv-cards)](https://github.com/ai68298100/siyuan-lv-cards/releases/latest)
 [![CI](https://github.com/ai68298100/siyuan-lv-cards/actions/workflows/ci.yml/badge.svg)](https://github.com/ai68298100/siyuan-lv-cards/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
 [![SiYuan >= 3.8.0](https://img.shields.io/badge/SiYuan-%3E%3D%203.8.0-blue)](https://b3log.org/siyuan/)
@@ -19,7 +19,32 @@ The full-lifecycle flashcard learning platform for SiYuan — local-first, nativ
 
 > **Note**: The primary README and all design docs are in Chinese. This page covers the essentials; see [docs/](./docs/README.md) for full design material.
 
-Lv Cards turns every block worth remembering in your notes into traceable flashcards, scheduled by the kernel's native FSRS algorithm, accelerated by auditable AI — all local-first, all portable. The current baseline is **v0.209.0**, featuring the Starline R53 design system fully landed (unified page heads, complete component states, restrained micro-motion, a 390px narrow-screen pass, and a polished review loop), plus a ⌘K command palette, a learning calendar with load forecasting, a deck dashboard, weekly reports, and share-pack export. This release is based on a twelve-round comprehensive audit (isolated test rig + live browser + local mock AI endpoint) and fixes 16 defects — including card-creation breakage on kernel 3.8.x, cloze answers leaking in the question state, and the AI kill switch being unreachable in the built-in AI mode. 730 unit tests and isolated E2E pass; desktop light/dark and 390px are screenshot-verified, while the full Android SiYuan host matrix remains pending.
+Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current release is **v0.209.1** (2026-10-10), focused on clearer loading, empty, error, retry, and busy states across the plugin. It also prevents late challenge loads from starting a timer after exit and checks duplicate-card confirmation before creating a new deck. The previous release fixed core card creation, cloze masking, due queues, and AI safety issues. The full Android SiYuan host matrix remains pending.
+
+## What's New in v0.209.1
+
+- **Loading and recovery:** Dashboard refreshes preserve the last successful data with its timestamp. Deck, notebook, maintenance, challenge, pairing, and inbox actions now show clearer loading, empty, error, or retry states.
+- **Action feedback:** Review controls, settings saves, and batch operations prevent duplicate submissions while busy. AnkiConnect checks use the current draft credentials.
+- **Fixes:** Exiting a challenge invalidates pending card reads. Declining duplicate-card confirmation no longer creates the newly entered deck in advance.
+- **Validation:** 736 unit tests, source checks, i18n and governance checks, documentation facts, production build, and package smoke pass. Android host testing remains pending.
+
+<details>
+<summary>Previous releases</summary>
+
+### v0.209.0
+
+- Fixed card creation on SiYuan 3.8.x, cloze answer leakage, empty all-deck due queues, knowledge-object panel crashes, and AI safety/rejection feedback.
+- Fixed error-reason tags, live review preferences, and preset confirmation labels; aligned review shortcuts and terminology.
+
+### v0.208.1
+
+- Fixed wizard, drill, and card-detail callbacks; added visible feedback for lazy-load failures.
+
+### v0.208.0
+
+- Completed the Starline R53 UI refinement across page headers, review, component states, narrow layouts, and motion.
+
+</details>
 
 ## 📸 Screenshots
 

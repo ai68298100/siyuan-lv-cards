@@ -18,6 +18,8 @@
     let persona = $state<"exam" | "notes" | "language">("exam");
     let notebooks: Notebook[] = $state([]);
     let nbId = $state("");
+    let notebookLoading = $state(true);
+    let notebookError = $state("");
     let busy = $state(false);
     let errorMsg = $state("");
 
@@ -27,15 +29,27 @@
         { id: "language", nameKey: "personaLanguage" },
     ] as const;
 
-    onMount(async () => {
+    async function loadNotebooks() {
+        notebookLoading = true;
+        notebookError = "";
         try {
             notebooks = await getNotebooks();
             if (notebooks.length > 0) {
                 nbId = notebooks[0].id;
+            } else {
+                nbId = "";
+                notebookError = t.onboardingNoNotebook;
             }
-        } catch {
-            // 允许稍后在步骤 2 重试
+        } catch (e: any) {
+            nbId = "";
+            notebookError = e?.message ?? String(e);
+        } finally {
+            notebookLoading = false;
         }
+    }
+
+    onMount(() => {
+        void loadNotebooks();
     });
 
     function pickPersona(id: "exam" | "notes" | "language") {
@@ -90,19 +104,27 @@
         <LvSection title={t.onboardingSampleTitle} sub={t.onboardingSampleHint}>
             <LvRow label={t.onboardingNotebook}>
                 {#snippet children()}
-                    <select class="b3-select fn__size-200" bind:value={nbId}>
+                    <select class="b3-select fn__size-200" bind:value={nbId} disabled={notebookLoading || notebooks.length === 0}>
                         {#each notebooks as n (n.id)}
                             <option value={n.id}>{n.name}</option>
                         {/each}
                     </select>
                 {/snippet}
             </LvRow>
+            {#if notebookLoading}
+                <div class="ft__smaller ft__on-surface" role="status">{t.dashboard.loading}</div>
+            {:else if notebookError}
+                <div class="ft__smaller" style="color: var(--b3-theme-error)" role="alert">{notebookError}</div>
+                <div class="fn__flex" style="justify-content: flex-end; margin-top: var(--lv-sp-1)">
+                    <button class="b3-button b3-button--small" disabled={busy} onclick={loadNotebooks}>{t.dashboard.refresh}</button>
+                </div>
+            {/if}
             {#if errorMsg}
-                <div class="ft__smaller" style="color: var(--b3-theme-error)">{errorMsg}</div>
+                <div class="ft__smaller" style="color: var(--b3-theme-error)" role="alert">{errorMsg}</div>
             {/if}
             <div class="fn__flex" style="justify-content: flex-end; gap: var(--lv-sp-2); margin-top: var(--lv-sp-2)">
                 <button class="b3-button b3-button--outline" onclick={() => (step = 1)}>{t.onboardingBack}</button>
-                <button class="b3-button b3-button--text lv-btn-primary" disabled={busy || !nbId} onclick={createSamples}>
+                <button class="b3-button b3-button--text lv-btn-primary" disabled={busy || notebookLoading || !nbId} onclick={createSamples}>
                     {busy ? "…" : t.onboardingCreate}
                 </button>
             </div>

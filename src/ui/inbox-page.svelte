@@ -55,6 +55,7 @@
     let checked = $state<string[]>([]);
     let titles = $state<Map<string, string>>(new Map());
     let making = $state(false);
+    let makeError = $state("");
     let live = $state("");
 
     const visible = $derived(
@@ -167,11 +168,15 @@
     async function sendToCards() {
         if (checked.length === 0 || making) { return; }
         making = true;
+        makeError = "";
         try {
             await inbox.makeCards(checked);
             checked = [];
             snapshot = inbox.get();
-        } catch { /* 向导内部已提示错误 */ }
+        } catch (e: any) {
+            makeError = e?.message ?? t.makeCardsFailed;
+            showMessage(makeError, 3500, "error");
+        }
         making = false;
     }
 
@@ -197,6 +202,7 @@
     {#if visible.length === 0}
         <LvEmpty text={t.empty} />
     {:else}
+        {#if makeError}<div class="lv-inbox-error" role="alert">{makeError}</div>{/if}
         {#if checked.length > 0}
             <div class="lv-glass lv-batchbar">
                 <LvChip tone="primary">{t.selectedCount.replace("${n}", String(checked.length))}</LvChip>
@@ -247,6 +253,15 @@
 <LvLive message={live} />
 
 <style>
+    .lv-inbox-error {
+        color: var(--b3-theme-error);
+        background: var(--lv-danger-soft);
+        border: 1px solid var(--lv-danger-border);
+        border-radius: var(--lv-r-m);
+        padding: var(--lv-sp-2) var(--lv-sp-3);
+        margin-bottom: var(--lv-sp-3);
+        font-size: 13px;
+    }
     .lv-batchbar {
         display: flex;
         align-items: center;

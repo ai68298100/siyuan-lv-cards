@@ -103,6 +103,8 @@
     let savedList = $state<{ name: string; filter: string }[]>([]);
     let pickedSaved = $state("");
     let selected: string[] = $state([]);
+    let batchBusy = $state<"remove" | "reset" | null>(null);
+    let batchError = $state("");
     let detail: SearchBlock | null = $state(null);
     let detailRelations: { relation: { from: string; to: string; type: string; createdAt: number }; direction: "outgoing" | "incoming" }[] = $state([]);
     let detailKo: { registered: boolean; fact: string; instances: { cardID: string; cardType: string; capability: string | null; disabled: boolean }[] } | null = $state(null);
@@ -233,31 +235,53 @@
     }
 
     function batchRemove() {
-        if (selected.length === 0) return;
+        if (selected.length === 0 || batchBusy) return;
         confirmDialog({
             title: t.manager.batchRemove,
             content: `<div class="b3-typography">${t.manager.batchConfirm.replace("${n}", String(selected.length))}</div>`,
             confirm: async () => {
-                // 🧪 deckID 传空的跨集删除语义待 docs/18 实测
-                await removeRiffCards("", selected);
-                invalidateDueCache(); // AT-4：删卡改变到期数
-                showMessage(t.manager.batchDone.replace("${n}", String(selected.length)), 2000, "info");
-                await load();
+                const count = selected.length;
+                batchBusy = "remove";
+                batchError = "";
+                try {
+                    // 🧪 deckID 传空的跨集删除语义待 docs/18 实测
+                    await removeRiffCards("", selected);
+                    invalidateDueCache(); // AT-4：删卡改变到期数
+                    selected = [];
+                    showMessage(t.manager.batchDone.replace("${n}", String(count)), 2000, "info");
+                    await load();
+                } catch (e: any) {
+                    batchError = e?.message ?? String(e);
+                    showMessage(batchError, 3500, "error");
+                } finally {
+                    batchBusy = null;
+                }
             },
         });
     }
 
     function batchReset() {
-        if (selected.length === 0) return;
+        if (selected.length === 0 || batchBusy) return;
         confirmDialog({
             title: t.manager.batchReset,
             content: `<div class="b3-typography">${t.manager.batchConfirm.replace("${n}", String(selected.length))}</div>`,
             confirm: async () => {
-                // 🧪 type="0" + blockIDs 的块级重置语义待 docs/18 实测
-                await resetRiffCards("0", "", "", selected);
-                invalidateDueCache(); // AT-4：重置调度数据改变到期数
-                showMessage(t.manager.batchResetDone.replace("${n}", String(selected.length)), 2000, "info");
-                await load();
+                const count = selected.length;
+                batchBusy = "reset";
+                batchError = "";
+                try {
+                    // 🧪 type="0" + blockIDs 的块级重置语义待 docs/18 实测
+                    await resetRiffCards("0", "", "", selected);
+                    invalidateDueCache(); // AT-4：重置调度数据改变到期数
+                    selected = [];
+                    showMessage(t.manager.batchResetDone.replace("${n}", String(count)), 2000, "info");
+                    await load();
+                } catch (e: any) {
+                    batchError = e?.message ?? String(e);
+                    showMessage(batchError, 3500, "error");
+                } finally {
+                    batchBusy = null;
+                }
             },
         });
     }
@@ -368,15 +392,16 @@
     {#if selected.length > 0}
         <div class="lv-glass lv-batchbar">
             <LvChip tone="primary">{t.manager.batchSelected.replace("${n}", String(selected.length))}</LvChip>
+            {#if batchError}<span class="lv-batch-error" role="alert">{batchError}</span>{/if}
             <div class="fn__flex-1"></div>
             {#if ctx.uiMode !== "simple"}
-                <button class="b3-button b3-button--outline" onclick={exportSelected}>{t.manager.exportCsv}</button>
+                <button class="b3-button b3-button--outline" disabled={batchBusy !== null} onclick={exportSelected}>{t.manager.exportCsv}</button>
                 <!-- W3：导出 Obsidian SR markdown（qa/挖空自动分型；可用我们的导入器回导） -->
-                <button class="b3-button b3-button--outline" title={t.manager.obExportHint} onclick={exportObsidianSr}>{t.manager.obExport}</button>
-                <button class="b3-button b3-button--outline" onclick={batchReset}>{t.manager.batchReset}</button>
+                <button class="b3-button b3-button--outline" disabled={batchBusy !== null} title={t.manager.obExportHint} onclick={exportObsidianSr}>{t.manager.obExport}</button>
+                <button class="b3-button b3-button--outline" disabled={batchBusy !== null} onclick={batchReset}>{batchBusy === "reset" ? t.dashboard.loading : t.manager.batchReset}</button>
             {/if}
-            <button class="b3-button b3-button--outline" onclick={batchRemove}>{t.manager.batchRemove}</button>
-            <button class="b3-button b3-button--small" onclick={() => (selected = [])}>{t.manager.batchCancel}</button>
+            <button class="b3-button b3-button--outline" disabled={batchBusy !== null} onclick={batchRemove}>{batchBusy === "remove" ? t.dashboard.loading : t.manager.batchRemove}</button>
+            <button class="b3-button b3-button--small" disabled={batchBusy !== null} onclick={() => (selected = [])}>{t.manager.batchCancel}</button>
         </div>
     {/if}
 
@@ -526,6 +551,12 @@
         border-radius: var(--lv-r-m);
         padding: var(--lv-sp-2) var(--lv-sp-3);
         margin-bottom: var(--lv-sp-2);
+    }
+    .lv-batch-error {
+        color: var(--b3-theme-error);
+        font-size: 12px;
+        max-width: min(42vw, 420px);
+        overflow-wrap: anywhere;
     }
     .lv-check { cursor: pointer; }
 

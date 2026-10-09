@@ -6,6 +6,7 @@
     import LvChip from "./kit/LvChip.svelte";
     import LvSkeleton from "./kit/LvSkeleton.svelte";
     import LvEmpty from "./kit/LvEmpty.svelte";
+    import LvError from "./kit/LvError.svelte";
     import { groupDebts, detectDebts, DEBT_KINDS, type DebtItem, type DebtKind } from "@/core/maintenance-queue";
 
     let {
@@ -108,7 +109,7 @@
             {/each}
         </div>
     {:else if errorMsg}
-        <div class="lv-card2" style="color: var(--b3-theme-error); font-size: 13px">{errorMsg}</div>
+        <LvError message={errorMsg} onretry={runScan} retryLabel={i18n.dashboard.refresh} />
     {:else if total() === 0}
         <LvEmpty text={t.none} />
     {:else}

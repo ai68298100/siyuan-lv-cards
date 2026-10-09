@@ -1432,23 +1432,27 @@ export default class LvCardsPlugin extends Plugin {
             width: "min(420px, 92vw)",
             props: {
                 newNamePlaceholder: this.i18n.deckNewName,
+                firstDeckNamePlaceholder: this.i18n.deckNewNameFirst,
+                emptyDeckText: this.i18n.deckEmpty,
+                retryLabel: this.i18n.refresh,
                 confirmLabel: this.i18n.deckConfirm,
+                onBeforeConfirm: async () => {
+                    if (opts.skipAdd) {
+                        return;
+                    }
+                    try {
+                        const { blocks } = await getRiffCardsByBlockIDs(blockIDs);
+                        const dupes = (blocks ?? []).filter(b => !!b.id).length;
+                        if (dupes > 0) {
+                            return confirmDialogBool({
+                                title: this.i18n.dupTitle,
+                                content: `<div class="b3-typography">${this.i18n.dupConfirm.replace("${n}", String(dupes))}</div>`,
+                            });
+                        }
+                    } catch { /* 查询失败不阻塞制卡 */ }
+                },
                 onConfirm: async (deckID: string) => {
                     if (!opts.skipAdd) {
-                        // 重复提示（M2）：目标块已在复习集时 warning，用户可选仍要添加
-                        try {
-                            const { blocks } = await getRiffCardsByBlockIDs(blockIDs);
-                            const dupes = (blocks ?? []).filter(b => !!b.id).length;
-                            if (dupes > 0) {
-                                const ok = await confirmDialogBool({
-                                    title: this.i18n.dupTitle,
-                                    content: `<div class="b3-typography">${this.i18n.dupConfirm.replace("${n}", String(dupes))}</div>`,
-                                });
-                                if (!ok) {
-                                    return;
-                                }
-                            }
-                        } catch { /* 查询失败不阻塞制卡 */ }
                         await addRiffCards(deckID, blockIDs);
                         showMessage(this.i18n.deckAdded.replace("${n}", String(blockIDs.length)), 2000, "info");
                     }
@@ -1559,15 +1563,15 @@ export default class LvCardsPlugin extends Plugin {
     }
 
     /** AnkiConnect 客户端连接测试（M9·FR1） */
-    private async testAnkiClient(): Promise<string> {
+    private async testAnkiClient(url = this.settings.ankiClientUrl, key = this.settings.ankiClientKey): Promise<string> {
         try {
-            const resp = await fetch(this.settings.ankiClientUrl, {
+            const resp = await fetch(url, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     action: "version",
                     version: 6,
-                    ...(this.settings.ankiClientKey ? { key: this.settings.ankiClientKey } : {}),
+                    ...(key ? { key } : {}),
                 }),
             });
             const j: any = await resp.json();
@@ -2155,6 +2159,7 @@ export default class LvCardsPlugin extends Plugin {
                 initialSource,
                 loadCurrentDoc: () => this.loadCurrentDoc(),
                 loadNotebookMaterial: (nbId: string) => this.loadNotebookMaterial(nbId),
+                loadNotebooks: () => getNotebooks(),
                 // T02：来源清单「回源」——按文档 ID 跳回原文档
                 openDocById: (docId: string) => {
                     openTab({ app: this.app, doc: { id: docId } });
@@ -2830,8 +2835,15 @@ export default class LvCardsPlugin extends Plugin {
                     settings: this.settings,
                     close: () => close(),
                     save: async (s: LvCardsSettings) => {
+                        const previous = this.settings;
                         this.settings = s;
-                        await this.saveSettingsNow();
+                        try {
+                            await this.saveSettingsNow();
+                        } catch (e) {
+                            this.settings = previous;
+                            this.setupBadgeTimer();
+                            throw e;
+                        }
                         showMessage(this.i18n.settingsSaved, 2000, "info");
                     },
                     exportRevlog: () => this.exportRevlog(),
@@ -2907,7 +2919,7 @@ export default class LvCardsPlugin extends Plugin {
                         this.persist.save(SUSPEND_TODAY_DATA, this.suspendToday).catch(() => { /* onFail 已记录 */ });
                         showMessage(this.i18n.settingsSaved, 2000, "info");
                     },
-                    testAnkiClient: () => this.testAnkiClient(),
+                    testAnkiClient: (url?: string, key?: string) => this.testAnkiClient(url, key),
                     storageStats: () => this.storageStats(),
                     generateExamReport: (plan: ExamPlan) => this.generateExamReport(plan),
                     exportSettings: () => this.exportSettings(),

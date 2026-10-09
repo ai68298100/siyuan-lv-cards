@@ -23,7 +23,7 @@
     import LvChip from "./kit/LvChip.svelte";
     import LvSteps from "./kit/LvSteps.svelte";
 
-    let { i18n, initialSource = "", loadCurrentDoc, loadNotebookMaterial, generate, onCreate, onClose, getUnfinishedJob, onResumeAIJob, onAbandonAIJob, openDocById, isSourceDenied, onDenySource, sensitiveTerms = "", modelTrustKnown, previewBudget }: {
+    let { i18n, initialSource = "", loadCurrentDoc, loadNotebookMaterial, loadNotebooks, generate, onCreate, onClose, getUnfinishedJob, onResumeAIJob, onAbandonAIJob, openDocById, isSourceDenied, onDenySource, sensitiveTerms = "", modelTrustKnown, previewBudget }: {
         i18n: any;
         /** 预填材料（leech 改写联动） */
         initialSource?: string;
@@ -36,6 +36,8 @@
         loadCurrentDoc?: () => Promise<{ name: string; content: string; docId?: string } | null>;
         /** 载入笔记本范围材料（M2·FR6 扩展） */
         loadNotebookMaterial?: (nbId: string) => Promise<string>;
+        /** 可选的已打开笔记本列表（用于笔记本范围材料入口） */
+        loadNotebooks?: () => Promise<{ id: string; name: string }[]>;
         /** T02 来源清单：按文档 ID 回源跳转（可选——旧宿主不传则不显示回源按钮） */
         openDocById?: (docId: string) => void;
         /** BW-9：来源是否已登记禁止外发（可选——旧宿主不传则不做载入前拦截，generate 侧仍硬阻断） */
@@ -67,6 +69,8 @@
     }
     let sourceSeq = 0;
     let sources = $state<WizardSource[]>([]);
+    // BW-9：来源被登记禁止外发后，审核页仍可能保留已生成候选；重生成时给出明确原因。
+    let deniedSourceKind = $state<"doc" | "notebook" | null>(null);
 
     function addSource(label: string, content: string, docId?: string, nbId?: string): void {
         // BW-9：已登记禁止外发的来源在载入前拦截（generate 侧另有硬阻断兜底）
@@ -78,6 +82,7 @@
             errorMsg = t.aiWizard.srcDeniedNb;
             return;
         }
+        deniedSourceKind = null;
         sources = [...sources, { id: `src-${++sourceSeq}`, label, content, docId, nbId }];
         source = source ? `${source}\n\n${content}` : content;
     }
@@ -95,8 +100,10 @@
     /** BW-9：登记禁止外发（宿主落盘）并移除该来源条目——本会话不再载入（addSource 有拦截） */
     function denySource(src: WizardSource) {
         if (src.docId) {
+            deniedSourceKind = "doc";
             onDenySource?.("doc", src.docId);
         } else if (src.nbId) {
+            deniedSourceKind = "notebook";
             onDenySource?.("notebook", src.nbId);
         }
         removeSource(src.id);
@@ -269,6 +276,30 @@
     // 笔记本范围源（M2·FR6 扩展）
     let nbOptions = $state<{ id: string; name: string }[]>([]);
     let nbId = $state("");
+    let nbLoading = $state(false);
+    let nbError = $state("");
+
+    async function loadNotebookOptions() {
+        if (!loadNotebooks || nbLoading) {
+            return;
+        }
+        nbLoading = true;
+        nbError = "";
+        try {
+            nbOptions = await loadNotebooks();
+            if (!disposed && nbOptions.length > 0 && !nbId) {
+                nbId = nbOptions[0].id;
+            }
+        } catch (e: any) {
+            if (!disposed) {
+                nbError = e?.message ?? String(e);
+            }
+        } finally {
+            if (!disposed) {
+                nbLoading = false;
+            }
+        }
+    }
 
     async function loadNotebookContent() {
         if (loadDocBusy || !loadNotebookMaterial || !nbId) {
@@ -386,6 +417,7 @@
             }
             errorMsg = e?.message ?? String(e);
         }
+        await loadNotebookOptions();
     });
 
     async function doResume() {
@@ -490,6 +522,10 @@
         if (regenBusy !== null || busy) {
             return;
         }
+        if (!source.trim()) {
+            errorMsg = deniedSourceKind === "notebook" ? t.aiWizard.srcDeniedNb : deniedSourceKind === "doc" ? t.aiWizard.srcDenied : t.aiWizard.sourceEmptyHint;
+            return;
+        }
         const targetOrigIndex = candidates[i]?.origIndex;
         if (targetOrigIndex === undefined) {
             return;
@@ -519,6 +555,7 @@
                 if (gen) {
                     recordAIVersion(targetIndex, cards[0], gen); // BU-15：重生成记新 ai 版（链上可对比新旧）
                 }
+                errorMsg = "";
             } else {
                 errorMsg = t.aiWizard.emptyResult;
             }
@@ -610,18 +647,23 @@
                 <div class="lv-wb-side">
                     <div class="lv-eyebrow">{t.aiWizard.source}</div>
                     {#if loadCurrentDoc}
-                        <button class="b3-button b3-button--small lv-wb-load" onclick={loadActiveDoc}>{t.aiWizard.loadDoc}</button>
+                        <button class="b3-button b3-button--small lv-wb-load" disabled={loadDocBusy} onclick={loadActiveDoc}>{t.aiWizard.loadDoc}</button>
                     {/if}
                     {#if loadNotebookMaterial}
                         <div class="lv-wb-nb">
-                            <button class="b3-button b3-button--small lv-wb-load" onclick={loadNotebookContent}>{t.aiWizard.loadNotebook}</button>
-                            <select class="b3-select lv-wb-nb-select" bind:value={nbId} aria-label={t.aiWizard.loadNotebook}>
+                            <button class="b3-button b3-button--small lv-wb-load" disabled={loadDocBusy || nbLoading || nbOptions.length === 0 || !nbId} onclick={loadNotebookContent}>{nbLoading ? t.aiWizard.loadingNotebooks : t.aiWizard.loadNotebook}</button>
+                            <select class="b3-select lv-wb-nb-select" bind:value={nbId} disabled={loadDocBusy || nbLoading || nbOptions.length === 0} aria-label={t.aiWizard.loadNotebook}>
+                                {#if nbOptions.length === 0}<option value="">{nbLoading ? t.aiWizard.loadingNotebooks : t.aiWizard.noNotebookAvailable}</option>{/if}
                                 {#each nbOptions as n (n.id)}<option value={n.id}>{n.name}</option>{/each}
                             </select>
+                            {#if nbError}
+                                <span class="ft__smaller" style="color: var(--b3-theme-error)" role="alert">{nbError}</span>
+                                <button class="b3-button b3-button--small" disabled={nbLoading} onclick={loadNotebookOptions}>{t.dashboard.refresh}</button>
+                            {/if}
                         </div>
                     {/if}
-                    <button class="b3-button b3-button--small lv-wb-load" onclick={loadSelection}>{t.aiWizard.loadSelection}</button>
-                    <button class="b3-button b3-button--small lv-wb-load" onclick={loadClipboard}>{t.aiWizard.loadClipboard}</button>
+                    <button class="b3-button b3-button--small lv-wb-load" disabled={loadDocBusy} onclick={loadSelection}>{t.aiWizard.loadSelection}</button>
+                    <button class="b3-button b3-button--small lv-wb-load" disabled={loadDocBusy} onclick={loadClipboard}>{t.aiWizard.loadClipboard}</button>
                     {#if sources.length > 0}
                         <div class="lv-eyebrow" style="margin-top: 10px">{t.aiWizard.srcLedger}</div>
                         <div class="lv-wb-chips">
@@ -686,7 +728,7 @@
                 </div>
             </div>
             {#if errorMsg}
-                <div class="ft__smaller" style="color: var(--b3-theme-error); margin-bottom: var(--lv-sp-2)">{errorMsg}</div>
+                <div class="ft__smaller" style="color: var(--b3-theme-error); margin-bottom: var(--lv-sp-2)" role="alert">{errorMsg}</div>
             {/if}
             {#if previewOpen}
                 <!-- T02 AI 请求预览（docs/13 §4）：实际片段/参数/估算 → 确认后才发送 -->
@@ -868,7 +910,7 @@
                 {/each}
             </div>
             {#if errorMsg}
-                <div class="ft__smaller" style="color: var(--b3-theme-error); margin-bottom: var(--lv-sp-2)">{errorMsg}</div>
+                <div class="ft__smaller" style="color: var(--b3-theme-error); margin-bottom: var(--lv-sp-2)" role="alert">{errorMsg}</div>
             {/if}
             <div class="fn__flex" style="justify-content: flex-end; gap: var(--lv-sp-2); margin-top: var(--lv-sp-2)">
                 <button class="b3-button b3-button--outline" onclick={() => (step = 1)}>{t.aiWizard.back}</button>
