@@ -42,8 +42,23 @@ export const createDocWithMd = async (notebook: string, path: string, markdown: 
 
 /** 在指定父块下追加块（快速制卡问答对） */
 export const appendBlock = async (dataType: "markdown", data: string, parentID: string): Promise<string[]> => {
-    const body = await kernelPost<{ operations?: { id?: string }[] }>("/api/block/insertBlock", { dataType, data, parentID });
-    return (body?.operations?.map(o => o.id).filter(Boolean) ?? []) as string[];
+    // 内核 3.8.x 事务响应双形态兼容：旧 {operations:[{id}]} / 新 [{doOperations:[{id, action}]}]
+    // （后者是 3.8.6 实测形态；解析不到 id 会让快速制卡/示例卡/标记制卡全部「制卡失败」）
+    const body = await kernelPost<
+        { operations?: { id?: string; action?: string }[] } | { doOperations?: { id?: string; action?: string }[] }[]
+    >("/api/block/insertBlock", { dataType, data, parentID });
+    const ids: string[] = [];
+    const collect = (ops: { id?: string; action?: string }[] | undefined) => {
+        for (const op of ops ?? []) {
+            if (op.id && (op.action ?? "insert") !== "delete") ids.push(op.id);
+        }
+    };
+    if (Array.isArray(body)) {
+        for (const tx of body) collect(tx?.doOperations);
+    } else {
+        collect(body?.operations);
+    }
+    return ids;
 };
 
 /** 读块自定义属性（遮挡数据存于 lv-occlusion 属性） */

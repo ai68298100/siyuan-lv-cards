@@ -54,10 +54,39 @@ describe("riff API 契约（内核 /api/riff/*）", () => {
         expect(JSON.parse(calls[1].init.body)).toEqual({ cardDues: [{ id: "c", due: "20261101" }] });
     });
 
-    it("getDueCount：取 unreviewedCount，缺失回 0", async () => {
-        mockKernel({ code: 0, msg: "", data: { unreviewedCount: 7 } });
-        expect(await getDueCount()).toBe(7);
-        mockKernel({ code: 0, msg: "", data: {} });
+    it("getDueCount：全部卡包=按组遍历合并（跳过空组），计数从合并卡面重算", async () => {
+        // 内核 3.8.6 的 deckID="" 全局查询不返回到期卡 → 插件侧逐组查询后合并（mergeDeckDueResults）
+        calls = [];
+        vi.stubGlobal("fetch", vi.fn(async (url: string, init?: any) => {
+            calls.push({ url, init });
+            const body = JSON.parse(init?.body ?? "{}");
+            let data: unknown = null;
+            if (url.includes("getRiffDecks")) {
+                data = [
+                    { id: "d1", name: "a", size: 2, created: "", updated: "" },
+                    { id: "d0", name: "empty", size: 0, created: "", updated: "" },
+                ];
+            } else if (body.deckID === "d1") {
+                data = {
+                    cards: [{ deckID: "d1", cardID: "c1", blockID: "b1", lapses: 0, reps: 0, state: 0, lastReview: 0, nextDues: {} }],
+                    unreviewedCount: 1, unreviewedNewCardCount: 1, unreviewedOldCardCount: 0,
+                };
+            } else {
+                data = { cards: [], unreviewedCount: 0, unreviewedNewCardCount: 0, unreviewedOldCardCount: 0 };
+            }
+            return jsonResponse({ code: 0, msg: "", data });
+        }));
+        expect(await getDueCount()).toBe(1);
+        // size=0 的卡组被跳过：只有 d1 发生了 due 查询
+        const dueCalls = calls.filter(c => c.url.includes("getRiffDueCards"));
+        expect(dueCalls).toHaveLength(1);
+        expect(JSON.parse(dueCalls[0].init.body).deckID).toBe("d1");
+        // 空数据 → 0（合并后重算，缺失字段不再透传 undefined）
+        calls = [];
+        vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+            if (url.includes("getRiffDecks")) return jsonResponse({ code: 0, msg: "", data: [] });
+            return jsonResponse({ code: 0, msg: "", data: { cards: [] } });
+        }));
         expect(await getDueCount()).toBe(0);
     });
 

@@ -547,8 +547,10 @@
     .lv-skeleton { animation: none; }
 }
 
-// 问题态遮罩：mark 文字透明（底色保留），题面可见、答案留空（docs/12 §2.1）
-.lv-masked mark {
+// 问题态遮罩：挖空（mark）文字透明（底色保留），题面可见、答案留空（docs/12 §2.1）
+// 内核 getBlockDOM 把 ==text== 渲染为 span[data-type=mark]（3.8.x），HTML 来源可能是 <mark>，两态都遮
+.lv-masked mark,
+.lv-masked span[data-type="mark"] {
     color: transparent !important;
 }
 

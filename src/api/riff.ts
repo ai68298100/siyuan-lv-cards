@@ -86,11 +86,55 @@ export const removeRiffCards = (deckID: string, blockIDs: string[]) =>
 // ---- 到期队列与复习 ----
 
 /**
+ * 合并各卡组 due 查询结果：同卡多组只保留一次（内核按 (deckID,cardID) 计数，
+ * 同块加入多组时逐组查询会重复返回），新/旧计数从合并后的卡面状态重算。
+ */
+export const mergeDeckDueResults = (parts: (RiffDueCardsData | null | undefined)[]): RiffDueCardsData => {
+    const seen = new Set<string>();
+    const cards: RiffDueCard[] = [];
+    for (const part of parts) {
+        for (const c of part?.cards ?? []) {
+            if (seen.has(c.cardID)) continue;
+            seen.add(c.cardID);
+            cards.push(c);
+        }
+    }
+    const newCount = cards.filter(c => c.state === CardState.New).length;
+    return {
+        cards,
+        unreviewedCount: cards.length,
+        unreviewedNewCardCount: newCount,
+        unreviewedOldCardCount: cards.length - newCount,
+    };
+};
+
+/**
  * 拉取到期卡。deckID 传空字符串表示全部卡包。
  * reviewedCards 传本场已复习的 cardID 列表（与官方前端一致，供内核增量计算）。
+ *
+ * 「全部卡包」按组遍历合并：内核 3.8.6 的 deckID="" 全局查询不返回任何到期卡
+ * （宿主自带闪卡面板同样为 0；API/UI 建卡、新卡与已排期到期卡均不可见，deck 域正常，
+ * 隔离靶场已复现定性）。逐组查询 + 去重合并让角标/总览/复习在全局口径下保持可用；
+ * 单组查询失败按 null 跳过（与 AT-3 有界降级语义一致，不拖垮整体）。
  */
-export const getRiffDueCards = (deckID = "", reviewedCardIDs: string[] = []) =>
-    riff<RiffDueCardsData>("getRiffDueCards", { deckID, reviewedCards: reviewedCardIDs.map(id => ({ cardID: id })) });
+export const getRiffDueCards = async (deckID = "", reviewedCardIDs: string[] = []): Promise<RiffDueCardsData> => {
+    const reviewedCards = reviewedCardIDs.map(id => ({ cardID: id }));
+    if (deckID) {
+        return riff<RiffDueCardsData>("getRiffDueCards", { deckID, reviewedCards });
+    }
+    const decks = (await getRiffDecks()).filter(d => d.size > 0);
+    const CONCURRENCY = 6;
+    const parts: (RiffDueCardsData | null)[] = [];
+    for (let i = 0; i < decks.length; i += CONCURRENCY) {
+        const batch = await Promise.all(
+            decks.slice(i, i + CONCURRENCY).map(d =>
+                riff<RiffDueCardsData>("getRiffDueCards", { deckID: d.id, reviewedCards }).catch(() => null),
+            ),
+        );
+        parts.push(...batch);
+    }
+    return mergeDeckDueResults(parts);
+};
 
 /** 今日到期总数（全部卡包），供顶栏角标等轻量场景 */
 export const getDueCount = async (): Promise<number> => {

@@ -192,7 +192,9 @@
         "onboardingStart": "开始引导",
         "report": "学习报告",
         "writeDoc": "写入思源文档",
-        "reportWritten": "学习报告已写入「小驴闪卡/学习报告/今天」并打开"
+        "reportWritten": "学习报告已写入「小驴闪卡/学习报告/今天」并打开",
+        "unfinishedAI": "AI 导入进行中 ${done}/${total}",
+        "unknown": "未知"
     },
     "review": {
         "done": "本场完成！",
@@ -223,14 +225,14 @@
         "peekTitle": "上一张（只读，Esc 关闭）",
         "peekNone": "还没有已作答的上一张",
         "requeueChip": "本批重现",
-        "requeueTip": "忘记的卡在本批末尾再出现一次，仅会话内强化，不影响内核调度",
+        "requeueTip": "遗忘的卡在本批末尾再出现一次，仅会话内强化，不影响内核调度",
         "doneTarget": "今日目标 ${a}/${b}",
         "streakMilestone": "连击 ${n} 天！这个里程碑值得骄傲。",
         "tip1": "分散练习优于集中填鸭：把复习摊开到多天，记忆更牢。",
         "tip2": "主动回忆比重读有效：先努力回想再看答案，提取本身就是强化。",
         "tip3": "遗忘是正常过程：评「遗忘」的卡会在本批末尾再出现一次，趁热补上。",
         "tip4": "间隔混合不同科目的卡（交错练习），辨别力比成块练习更强。",
-        "tip5": "卡片尽量一卡一知识点；大块内容拆小， recall 成功率更高。",
+        "tip5": "卡片尽量一卡一知识点；大块内容拆小，回忆成功率更高。",
         "showAnswer": "显示答案",
         "revealHint": "空格 翻面",
         "hintBtn": "提示",
@@ -390,7 +392,8 @@
         "budgetOn": "本场预算进行中，随时可以按预算收工。",
         "budgetEst": "剩余预算约可完成 ${done} 张，未完成 ${left} 张",
         "budgetCustomLabel": "自定义预算（分钟）",
-        "budgetCustomHint": "自定义"
+        "budgetCustomHint": "自定义",
+        "choiceFallback": "干扰项"
     },
     "purpose": {
         "explore": {
@@ -506,7 +509,8 @@
         "statusDue": "状态：今日到期",
         "obExport": "导出 Obsidian SR",
         "obExportHint": "导出为 Obsidian Spaced Repetition markdown（问答→「问 :: 答」，多挖空→原样），可用本插件导入器回导",
-        "obExportDone": "已导出 ${n} 张问答 + ${c} 张挖空（.md）"
+        "obExportDone": "已导出 ${n} 张问答 + ${c} 张挖空（.md）",
+        "emptyContentFallback": "（空卡面——块内容为空，可打开文档补充）"
     },
     "settings": {
         "answerTimeCap": "单卡作答计时上限",
@@ -641,7 +645,7 @@
         "restoreDefaults": "恢复全部默认设置",
         "batchLimit": "每批拉取数量（0=跟随内核）",
         "batchLimitHint": "自己控制节奏时设为 5-20",
-        "requeueAgain": "忘记卡本批重现",
+        "requeueAgain": "遗忘卡本批重现",
         "requeueAgainHint": "评「遗忘」的卡在本批末尾再出现一次，仅本地强化，不计入调度",
         "xpEnabled": "XP/等级激励",
         "xpEnabledHint": "由本地复习日志推导等级与经验值，总览显示 Lv 章",
@@ -700,7 +704,8 @@
         "obImportMismatch": "落块数（${a}）与卡数（${b}）不一致，已中止以防错位",
         "obImportNbName": "Obsidian SR Import",
         "weeklyReportEnabled": "每周学习报告",
-        "weeklyReportHint": "开启后，每周首次打开思源时自动把上周复盘写入「小驴闪卡/学习周报」文档（只读统计，不改调度）"
+        "weeklyReportHint": "开启后，每周首次打开思源时自动把上周复盘写入「小驴闪卡/学习周报」文档（只读统计，不改调度）",
+        "personaNoChange": "该画像与当前设置一致，无需改动。"
     },
     "hubTabOverview": "总览",
     "hubTabError": "该子页出现错误，已隔离在边界内",
@@ -850,7 +855,23 @@
         "budgetTruncated": "已截断",
         "budgetDropped": "已丢弃",
         "budgetFromRegistry": "预算上限来自模型注册表（${m}，按窗口收紧）",
-        "budgetFromDefault": "预算上限为任务默认（模型未在册）"
+        "budgetFromDefault": "预算上限为任务默认（模型未在册）",
+        "resumeCopied": "失败明细已复制到剪贴板",
+        "selCount": "已选 ${n}",
+        "accCount": "已接受 ${n}",
+        "acceptAll": "全部接受",
+        "sourceFold": "来源依据",
+        "lintDup": "疑似重复",
+        "lintLong": "答案过长",
+        "lintShort": "内容过短",
+        "reviewAccepted": "已接受",
+        "reviewVerified": "已核实",
+        "cardPreview": "卡面预览",
+        "acceptVer": "接受",
+        "markVerified": "核实通过",
+        "previewQLabel": "问题",
+        "previewALabel": "答案",
+        "importReviewed": "将已接受的候选落库为正式卡片（未接受候选丢弃）"
     },
     "aiSystemPrompt": "你是记忆卡片专家。根据用户提供的材料生成闪卡。只输出 JSON 数组，格式为 [{\"q\":\"问题\",\"a\":\"答案\",\"d\":1}]，不要输出任何其他内容。d 为难度标注（1=易，2=中，3=难）。要求：问题具体、可主动回忆；答案简洁准确；难度按材料对普通学习者的实际难度评估。",
     "aiUserPrompt": "材料：\n${source}\n\n请生成 ${count} 张${language}闪卡。题型要求：${type}。",
@@ -1439,5 +1460,16 @@
     "weeklyReport_forgotten": "遗忘",
     "weeklyReport_newCards": "新卡",
     "weeklyReport_reviewed": "正式复习",
-    "weeklyReport_title": "学习周报"
+    "weeklyReport_title": "学习周报",
+    "aiKill": {
+        "targetDisabled": "AI 已被紧急停用（当前配置或模型已禁用），可到设置 → AI 恢复。",
+        "consentRevoked": "AI 使用同意已被撤销，可到设置 → AI 重新开启。"
+    },
+    "examMilestone": "考试「${name}」还剩 ${n} 天",
+    "examReportWritten": "考试复盘已写入文档",
+    "inboxEmptySource": "收件箱来源内容为空，无法制卡",
+    "capability": {
+        "title": "能力分布",
+        "sub": "按知识对象的掌握阶段汇总（本地日志口径）"
+    }
 }

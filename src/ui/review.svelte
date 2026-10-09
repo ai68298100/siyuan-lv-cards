@@ -18,7 +18,7 @@
     import { isLongReturn, returnCheck, type ReturnCheckFacts } from "@/core/return-check";
     import { avgSecPerCard, budgetLeftSec, BUDGET_PRESETS, clampBudgetMinutes, estimateCompletable, estimateLeftover, isBudgetExpired } from "@/core/session-budget";
     import { nominateVariant } from "@/core/question-rotation";
-    import { analyzeFaceRichness, faceHintKeys, hasRichContent } from "@/core/card-face";
+    import { analyzeFaceRichness, extractMarkTexts, faceHintKeys, hasRichContent } from "@/core/card-face";
     import { loadReliefChoices, type LoadChoice } from "@/core/load-relief";
     import { recoveryOptions, type RecoveryOption, type RecoverySnapshot } from "@/core/session-recovery";
     import { triageReturn, RETURN_REASONS, type ReturnReason } from "@/core/return-triage";
@@ -126,6 +126,7 @@
     let showAnswer = $state(false);
     // 混合题型轮换（v0.179.0）：混合开时按本场张数提名本题形态；关时保持既有静态设置
     const answerVariant = $derived.by(() => {
+        void settingsRev; // 设置保存 → settings-changed → rev++ → 出题形态立即重算
         if (eff().mixedRotation) {
             return nominateVariant(reviewedIDs.length, { typing: eff().typingEnabled, choice: eff().choiceEnabled });
         }
@@ -285,6 +286,9 @@
     let showReschedule = $state(false);
     /** BX-3 本场偏好：覆盖全局设置（仅当前复习面板生命周期内有效，切页后还原） */
     let sessionOverride: Partial<ReviewSettings> = $state({});
+    /** AT-10 补充：ctx.settings() 返回普通对象（非响应式），出题形态/判定类 derived 无法感知
+     * 设置保存——以版本号信号桥接 settings-changed 广播，保存后立即按新设置出题（C-3 审计修复） */
+    let settingsRev = $state(0);
     let prefsOpen = $state(false);
     /** BI-12 时间预算：本场维度（非全局设置，不进覆盖集）；预算到≠失败——只提示不强制收工 */
     let budgetMin = $state(0);
@@ -363,12 +367,10 @@
             }
             cardHtml = dom;
             faceError = "";
-            // 打字题期望答案 = 高亮（mark）文本合集；无 mark 则退化为全文
+            // 打字题期望答案 = 挖空（mark）文本合集；无挖空则退化为全文
             const holder = document.createElement("div");
             holder.innerHTML = cardHtml;
-            const marks = Array.from(holder.querySelectorAll("mark"))
-                .map(m => (m.textContent ?? "").trim())
-                .filter(Boolean);
+            const marks = extractMarkTexts(holder);
             expectedText = marks.length > 0 ? marks.join(" / ") : (holder.textContent ?? "").trim();
             // 遮挡数据（宽容解析，无属性即为普通卡）
             try {
@@ -437,9 +439,7 @@
             const dom = await getBlockDOM(blockID);
             const holder = document.createElement("div");
             holder.innerHTML = dom;
-            const marks = Array.from(holder.querySelectorAll("mark"))
-                .map(m => (m.textContent ?? "").trim())
-                .filter(Boolean);
+            const marks = extractMarkTexts(holder);
             const text = marks.length > 0 ? marks.join(" / ") : (holder.textContent ?? "").trim();
             answerCache.set(blockID, text);
             return text;
@@ -842,12 +842,6 @@
             reviewedIDs = [...reviewedIDs, current.cardID];
             if (rating === 1) {
                 sessionForget += 1;
-                // BJ-4：遗忘后显示错误原因标注（旁路增强，不阻塞下一张）
-                if (ctx.tagErrorReason) {
-                    errTagCardID = current.cardID;
-                    errTagged = false;
-                    showErrTags = true;
-                }
                 // 忘记卡本批重现（M3）：评 1 的卡在批尾再出现一次，会话内强化，不动内核调度
                 if (eff().requeueAgain) {
                     queue = [...queue, { ...current, lvRequeue: 1 }];
@@ -860,7 +854,16 @@
             // AQ-2：先更新计数再落盘——重载恢复的进度与界面一致，不丢刚评的一张
             persistSession();
             announce(t.review.liveRated, "polite");
+            const forgotCardID = rating === 1 ? current.cardID : null;
             await next();
+            // BJ-4：遗忘后显示错误原因标注（旁路增强，不阻塞下一张）。
+            // 必须在 next() 之后置位——next() 开头会重置 showErrTags（F-3 审计修复：
+            // 原先在 next() 前置位导致 chips 行被立即清除、从不显示）
+            if (forgotCardID && ctx.tagErrorReason) {
+                errTagCardID = forgotCardID;
+                errTagged = false;
+                showErrTags = true;
+            }
         } catch (e: any) {
             // 评分失败保留现场（AJ11）：当前卡/答案态/队列不动，只提示错误
             errorMsg = friendlyError(e, t);
@@ -1114,6 +1117,11 @@
             if (lastAnswered) { togglePeek(); }
             return;
         }
+        // F-7：x 跳过 / f 改期 / s 暂停在问题态同样可用（与工具行按钮对齐；
+        // 原先被 !showAnswer 早退挡住，问题态按键无响应而按钮可用，行为不一致）
+        if (e.key === "x" || e.key === "0") { skip(); }
+        if (e.key === "f") { showReschedule = !showReschedule; return; }
+        if (e.key === "s") { suspendToday(); }
         if (!showAnswer) { return; }
         if (eff().ratingStyle === "three") {
             if (e.key === "1") { rate(1); }
@@ -1122,10 +1130,7 @@
         } else {
             if (["1", "2", "3", "4"].includes(e.key)) { rate(Number(e.key) as Rating); }
         }
-        if (e.key === "x" || e.key === "0") { skip(); }
         if (e.key === "p" || e.key === "q") { undoHistory(); }
-        if (e.key === "f") { showReschedule = !showReschedule; return; }
-        if (e.key === "s") { suspendToday(); }
     }
 
     /** 点击翻面热区：卡面空白处才翻面（输入控件/链接/按钮不触发，为打字题预留） */
@@ -1223,6 +1228,7 @@
         getNotebooks().then(n => (notebooks = n)).catch(() => { /* 旁路 */ });
         // AT-10：设置保存后超时参数立即生效；评分风格/顺序等下一卡自然生效
         const offSettings = ctx.onSettingsChanged?.(() => {
+            settingsRev++; // C-3：出题形态等 derived 以此为响应式信号，保存后立即生效
             const s = eff();
             if (current && !showAnswer && (s.timeoutMode !== lastTimeoutMode || s.timeoutSeconds !== lastTimeoutSeconds)) {
                 restartTimeout();
@@ -1740,9 +1746,9 @@
                 <button class="b3-button b3-button--small lv-err-tag" onclick={() => {
                     ctx.tagErrorReason?.(errTagCardID, rid);
                     errTagged = true;
-                    announce(`${t.review.errTagDone}: ${t.errReasons[rid] ?? rid}`, "polite");
+                    announce(`${t.review.errTagDone}: ${t.review.ko.errReasons[rid] ?? rid}`, "polite");
                 }}>
-                    {t.errReasons[rid] ?? rid}
+                    {t.review.ko.errReasons[rid] ?? rid}
                 </button>
             {/each}
             <button class="b3-button b3-button--small" onclick={() => (showErrTags = false)} aria-label={t.review.skip}>✕</button>

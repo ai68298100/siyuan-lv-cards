@@ -2246,10 +2246,19 @@ export default class LvCardsPlugin extends Plugin {
                                 },
                             },
                         );
-                        const parsed = parseCards(raw).slice(0, cfg.count);
+                        // BU-11：非 JSON 输出（典型=模型拒答文本）不得透传原始 SyntaxError——
+                        // 与空响应同走「格式失败」拒答呈现（审计 F-6：拒答文本曾泄漏 JSON 异常）
+                        let parsed: ReturnType<typeof parseCards>;
+                        let parseFailedDetail = "";
+                        try {
+                            parsed = parseCards(raw).slice(0, cfg.count);
+                        } catch {
+                            parsed = [];
+                            parseFailedDetail = raw.slice(0, 60);
+                        }
                         if (parsed.length === 0) {
-                            // BU-11：空响应按「格式失败」拒答呈现（可读原因 + 有序下一步，不偷偷重试/换端点）
-                            const refusal = evaluateRefusal({ "format-failure": "empty" });
+                            // BU-11：空响应/不可解析按「格式失败」拒答呈现（可读原因 + 有序下一步，不偷偷重试/换端点）
+                            const refusal = evaluateRefusal({ "format-failure": parseFailedDetail || "empty" });
                             const dict = (this.i18n as any).aiRefusal;
                             const parts = [
                                 dict?.kind?.[refusal.kind] ?? (this.i18n as any).aiWizard?.emptyResult ?? "AI returned no cards",

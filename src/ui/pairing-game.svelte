@@ -1,6 +1,7 @@
 <script lang="ts">
     import { dueCache } from "@/api/due-shared";
     import { getBlockDOM } from "@/api/siyuan";
+    import { extractMarkTexts, MARK_SELECTOR } from "@/core/card-face";
     import LvEmpty from "./kit/LvEmpty.svelte";
 
     /** 配对挑战（M4·FR4）：到期挖空卡限时配对——左列题面（挖空）× 右列答案（mark 文本），
@@ -56,12 +57,10 @@
                     const html = await getBlockDOM(c.blockID);
                     const holder = document.createElement("div");
                     holder.innerHTML = html;
-                    const marks = Array.from(holder.querySelectorAll("mark"))
-                        .map(m => (m.textContent ?? "").trim())
-                        .filter(Boolean);
+                    const marks = extractMarkTexts(holder);
                     if (marks.length === 0) { continue; } // 无挖空的卡不参与配对
-                    // 题面：所有 mark 统一替换为 ____（答案串 = 各 mark 文本合并）
-                    holder.querySelectorAll("mark").forEach(m => m.replaceWith(document.createTextNode("____")));
+                    // 题面：所有挖空段统一替换为 ____（答案串 = 各挖空文本合并）
+                    holder.querySelectorAll(MARK_SELECTOR).forEach(m => m.replaceWith(document.createTextNode("____")));
                     const prompt = (holder.textContent ?? "").trim().replace(/\s+/g, " ");
                     if (prompt.length < 4) { continue; }
                     found.push({ cardID: c.cardID, prompt, answer: marks.join(" / ") });

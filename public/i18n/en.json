@@ -192,7 +192,9 @@
         "onboardingStart": "Start guide",
         "report": "Study report",
         "writeDoc": "Write to SiYuan doc",
-        "reportWritten": "Report written to \"Lv Cards / Study Report / <date>\" and opened"
+        "reportWritten": "Report written to \"Lv Cards / Study Report / <date>\" and opened",
+        "unfinishedAI": "AI import in progress ${done}/${total}",
+        "unknown": "Unknown"
     },
     "review": {
         "done": "Session complete!",
@@ -390,7 +392,8 @@
         "budgetOn": "Session budget running. You can wrap up on budget any time.",
         "budgetEst": "Remaining budget ≈ ${done} cards; ${left} would be left over",
         "budgetCustomLabel": "Custom budget (minutes)",
-        "budgetCustomHint": "Custom"
+        "budgetCustomHint": "Custom",
+        "choiceFallback": "Distractor"
     },
     "purpose": {
         "explore": {
@@ -506,7 +509,8 @@
         "statusDue": "Status: Due today",
         "obExport": "Export Obsidian SR",
         "obExportHint": "Export as Obsidian Spaced Repetition markdown (Q&A → \"Q :: A\", multi-cloze kept as-is); re-importable by this plugin",
-        "obExportDone": "Exported ${n} Q&A + ${c} cloze cards (.md)"
+        "obExportDone": "Exported ${n} Q&A + ${c} cloze cards (.md)",
+        "emptyContentFallback": "(empty card — block has no content; open the doc to fill it)"
     },
     "settings": {
         "answerTimeCap": "Per-card time cap",
@@ -700,7 +704,8 @@
         "obImportMismatch": "Block count (${a}) does not match card count (${b}) — aborted to prevent misalignment",
         "obImportNbName": "Obsidian SR Import",
         "weeklyReportEnabled": "Weekly report",
-        "weeklyReportHint": "When enabled, last week's review is written to a Lv Cards / Weekly report document on first launch each week (read-only stats, never reschedules)"
+        "weeklyReportHint": "When enabled, last week's review is written to a Lv Cards / Weekly report document on first launch each week (read-only stats, never reschedules)",
+        "personaNoChange": "This preset matches current settings; nothing to change."
     },
     "hubTabOverview": "Overview",
     "hubTabError": "This tab hit an error (contained by the boundary)",
@@ -850,7 +855,23 @@
         "budgetTruncated": "truncated",
         "budgetDropped": "dropped",
         "budgetFromRegistry": "Budget from model registry (${m}, window-tightened)",
-        "budgetFromDefault": "Budget is the task default (model not registered)"
+        "budgetFromDefault": "Budget is the task default (model not registered)",
+        "resumeCopied": "Failure details copied",
+        "selCount": "Selected ${n}",
+        "accCount": "Accepted ${n}",
+        "acceptAll": "Accept all",
+        "sourceFold": "Source evidence",
+        "lintDup": "Possible duplicate",
+        "lintLong": "Answer too long",
+        "lintShort": "Too short",
+        "reviewAccepted": "Accepted",
+        "reviewVerified": "Verified",
+        "cardPreview": "Card preview",
+        "acceptVer": "Accept",
+        "markVerified": "Mark verified",
+        "previewQLabel": "Question",
+        "previewALabel": "Answer",
+        "importReviewed": "Commit accepted candidates as real cards (unaccepted ones are dropped)"
     },
     "aiSystemPrompt": "You are a flashcard expert. Generate flashcards from the user material. Output ONLY a JSON array in the form [{\"q\":\"question\",\"a\":\"answer\",\"d\":1}] with no other text. d is a difficulty tag (1=easy, 2=medium, 3=hard). Questions must be specific and actively recallable; answers concise and accurate; difficulty reflects how hard an average learner would find it.",
     "aiUserPrompt": "Material:\n${source}\n\nGenerate ${count} flashcards in ${language}. Card style: ${type}.",
@@ -1439,5 +1460,16 @@
     "weeklyReport_forgotten": "Forgotten",
     "weeklyReport_newCards": "New cards",
     "weeklyReport_reviewed": "Formal reviews",
-    "weeklyReport_title": "Weekly report"
+    "weeklyReport_title": "Weekly report",
+    "aiKill": {
+        "targetDisabled": "AI has been emergency-stopped (current config or model disabled). Restore it in Settings → AI.",
+        "consentRevoked": "AI consent has been revoked. Re-enable it in Settings → AI."
+    },
+    "examMilestone": "Exam \"${name}\": ${n} days left",
+    "examReportWritten": "Exam review written to document",
+    "inboxEmptySource": "Inbox sources are empty; nothing to create cards from",
+    "capability": {
+        "title": "Capability mix",
+        "sub": "Grouped by knowledge-object mastery stage (local log basis)"
+    }
 }

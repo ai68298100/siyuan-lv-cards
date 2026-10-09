@@ -48,7 +48,7 @@
 </script>
 
 <div class="lv-ko">
-    <div class="lv-ko-title">{t.ko.title}</div>
+    <div class="lv-ko-title">{t.review.ko.title}</div>
     {#if revising}
         <!-- BK-1 验收：修订模式下实例清单仍可见——受影响实例一目了然 -->
         <div class="lv-ko-revise">
@@ -56,25 +56,25 @@
                 class="b3-text-field fn__block"
                 rows="3"
                 bind:value={reviseDraft}
-                aria-label={t.ko.reviseLabel}
+                aria-label={t.review.ko.reviseLabel}
             ></textarea>
             <div class="fn__flex" style="gap: var(--lv-sp-2); margin-top: var(--lv-sp-2)">
-                <button class="b3-button b3-button--text lv-btn-primary" onclick={saveRevise}>{t.ko.saveRevise}</button>
-                <button class="b3-button b3-button--text" onclick={() => (revising = false)}>{t.ko.cancelRevise}</button>
+                <button class="b3-button b3-button--text lv-btn-primary" onclick={saveRevise}>{t.review.ko.saveRevise}</button>
+                <button class="b3-button b3-button--text" onclick={() => (revising = false)}>{t.review.ko.cancelRevise}</button>
             </div>
         </div>
     {:else}
         <div class="lv-ko-fact">
             {fact}
             {#if onrevise}
-                <button class="b3-button b3-button--small lv-ko-revise-btn" onclick={startRevise}>{t.ko.revise}</button>
+                <button class="b3-button b3-button--small lv-ko-revise-btn" onclick={startRevise}>{t.review.ko.revise}</button>
             {/if}
         </div>
     {/if}
 
-    <div class="lv-ko-sub">{t.ko.instancesTitle}</div>
+    <div class="lv-ko-sub">{t.review.ko.instancesTitle}</div>
     {#if instances.length === 0}
-        <div class="lv-ko-empty">{t.ko.emptyInstances}</div>
+        <div class="lv-ko-empty">{t.review.ko.emptyInstances}</div>
     {:else}
         {#each instances as inst (inst.cardID)}
             <div class="lv-ko-row" class:lv-ko-row-disabled={inst.disabled}>
@@ -82,8 +82,8 @@
                     type="checkbox"
                     class="b3-switch"
                     checked={!inst.disabled}
-                    title={t.ko.toggleTitle}
-                    aria-label={`${t.ko.toggleTitle}: ${inst.cardID}`}
+                    title={t.review.ko.toggleTitle}
+                    aria-label={`${t.review.ko.toggleTitle}: ${inst.cardID}`}
                     onchange={() => ontoggle(inst.cardID, !inst.disabled)}
                 />
                 <span class="lv-ko-type b3-chip">{typeName(inst.cardType)}</span>
@@ -91,8 +91,8 @@
                 <span class="fn__flex-1 lv-ko-id ft__smaller ft__on-surface">{inst.cardID}</span>
                 <button
                     class="b3-button b3-button--small"
-                    title={t.ko.remove}
-                    aria-label={t.ko.remove}
+                    title={t.review.ko.remove}
+                    aria-label={t.review.ko.remove}
                     onclick={() => onremove(inst.cardID)}
                 >✕</button>
             </div>
@@ -100,13 +100,13 @@
     {/if}
 
     <div class="lv-ko-derive">
-        <select class="b3-select" aria-label={t.ko.deriveLabel} bind:value={deriveType}>
+        <select class="b3-select" aria-label={t.review.ko.deriveLabel} bind:value={deriveType}>
             {#each CARD_CATALOG.filter(c => !instances.some(i => i.cardType === c.id)) as c (c.id)}
                 <option value={c.id}>{typeName(c.id)}</option>
             {/each}
         </select>
         <button class="b3-button b3-button--text" disabled={deriving} onclick={() => onderive(deriveType)}>
-            {deriving ? t.ko.deriving : t.ko.derive}
+            {deriving ? t.review.ko.deriving : t.review.ko.derive}
         </button>
     </div>
 </div>

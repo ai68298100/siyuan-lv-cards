@@ -29,8 +29,9 @@ import os from "node:os";
 import path from "node:path";
 import { SmokeAbort, guardScratch, makeApi, notebookIdOf, resolveTarget, sweepOrphans } from "./lib/smoke-kernel.mjs";
 
-const KERNEL = "D:/biji/SiYuan/resources/kernel/SiYuan-Kernel.exe";
-const RESOURCES = "D:/biji/SiYuan/resources";
+// 宿主路径支持环境变量覆盖（与 SIYUAN_BASE_URL/SIYUAN_TOKEN 同一约定），默认值保留原参考机路径
+const KERNEL = process.env.SIYUAN_KERNEL ?? "D:/biji/SiYuan/resources/kernel/SiYuan-Kernel.exe";
+const RESOURCES = process.env.SIYUAN_RESOURCES ?? "D:/biji/SiYuan/resources";
 const DIST = path.resolve("dist");
 const PLUGIN_ID = "siyuan-lv-cards";
 const FRONTEND = "desktop";

@@ -349,7 +349,7 @@
             : `<hr style="margin:8px 0"><div style="font-size:12px">${t.settings.personaNoChange}</div>`;
         confirmDialog({
             title: t.personaApplyTitle,
-            content: `<div class="b3-typography">${t.modules[preset.nameKey]}：${t[preset.descKey]}<br><small>${t.personaApplyHint}</small></div>${diffBlock}`,
+            content: `<div class="b3-typography">${t[preset.nameKey]}：${t[preset.descKey]}<br><small>${t.personaApplyHint}</small></div>${diffBlock}`,
             confirm: () => {
                 draft.persona = preset.id;
                 draft.modules = { ...draft.modules, ...preset.modules };
@@ -843,8 +843,10 @@
                     <textarea class="b3-text-field fn__size-200" rows="4" style="width: 100%; resize: vertical" bind:value={draft.aiPromptTemplate}></textarea>
                 {/snippet}
             </LvRow>
+            {/if}
             {#if ctx.killswitch}
-                <!-- BU-31：紧急停用/撤销同意（停用即清理待发队列；卡片与正式复习不受影响） -->
+                <!-- BU-31：紧急停用/撤销同意（停用即清理待发队列；卡片与正式复习不受影响）。
+                     安全阀对思源内置 AI 同样有意义，不能随 custom 模式条件块隐藏（审计 F-2 修复） -->
                 <LvRow label={t.settings.aiKillTitle} hint={t.settings.aiKillHint}>
                     {#snippet children()}
                         <div class="fn__flex fn__flex-wrap" style="gap: 6px; align-items: center">
@@ -867,7 +869,6 @@
                     {/snippet}
                 </LvRow>
             {/if}
-        {/if}
             <!-- BU-8：自定义敏感词（发送前扫描提示脱敏，仅本地；思源内置 AI 与自定义端点都生效） -->
             <LvRow label={t.settings.aiSensitiveTerms} hint={t.settings.aiSensitiveTermsHint}>
                 <LvInput bind:value={draft.aiSensitiveTerms} placeholder="projectblue, 项目代号" width="200px" />

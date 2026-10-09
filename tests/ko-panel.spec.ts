@@ -6,19 +6,21 @@ afterEach(cleanup);
 
 // BK-1 UI：知识对象面板（实例清单/停用开关/移除/派生派发）
 const t = {
-    ko: {
-        title: "知识对象",
-        instancesTitle: "卡片实例",
-        emptyInstances: "尚无实例",
-        toggleTitle: "参与复习",
-        remove: "移除",
-        derive: "派生实例",
-        deriving: "派生中…",
-        deriveLabel: "派生卡型",
-        revise: "修订事实",
-        reviseLabel: "核心事实（修订）",
-        saveRevise: "保存修订",
-        cancelRevise: "取消",
+    review: {
+        ko: {
+            title: "知识对象",
+            instancesTitle: "卡片实例",
+            emptyInstances: "尚无实例",
+            toggleTitle: "参与复习",
+            remove: "移除",
+            derive: "派生实例",
+            deriving: "派生中…",
+            deriveLabel: "派生卡型",
+            revise: "修订事实",
+            reviseLabel: "核心事实（修订）",
+            saveRevise: "保存修订",
+            cancelRevise: "取消",
+        },
     },
 };
 

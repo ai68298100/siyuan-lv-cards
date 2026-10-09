@@ -407,7 +407,7 @@
                     />
                     <button type="button" class="lv-row-main" onclick={() => openDetail(b)}>
                         <span class="lv-content">
-                            <span class="lv-text">{stripHtml(b.content) || b.id}</span>
+                            <span class="lv-text">{stripHtml(b.content) || t.manager.emptyContentFallback}</span>
                             <span class="lv-meta ft__smaller ft__on-surface">{b.hPath ?? ""} {b.name ? "· " + b.name : ""}</span>
                         </span>
                         <span class="lv-arrow" aria-hidden="true">›</span>
