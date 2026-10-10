@@ -346,4 +346,16 @@
         font-size: 12px;
         margin-bottom: var(--lv-sp-2);
     }
+
+    @media (max-width: 740px) {
+        .lv-plan-head {
+            align-items: flex-start;
+            flex-wrap: wrap;
+            .lv-plan-name { flex: 1 1 180px; min-width: 0; overflow-wrap: anywhere; }
+            .fn__flex-1 { display: none; }
+            > .b3-button { flex: 1 1 100%; }
+        }
+        .lv-plan-pacing { flex-wrap: wrap; }
+        .lv-plan-actions { justify-content: flex-start; }
+    }
 </style>

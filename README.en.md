@@ -19,11 +19,14 @@ The full-lifecycle flashcard learning platform for SiYuan — local-first, nativ
 
 > **Note**: The primary README and all design docs are in Chinese. This page covers the essentials; see [docs/](./docs/README.md) for full design material.
 
-Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current release is **v0.209.2** (2026-10-10), a marketplace metadata compatibility update with no feature changes. The previous release clarified loading, empty, error, retry, and busy states, and fixed late challenge loads and duplicate-card confirmation. The full Android SiYuan host matrix remains pending.
+Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current release is **v0.209.3** (2026-10-10), focused on recoverable AI errors, review fallbacks, cross-page sync, onboarding, and keyboard-first management. The full Android SiYuan host matrix remains pending.
 
-## What's New in v0.209.2
+## What's New in v0.209.3
 
-- **Marketplace compatibility:** Platform metadata now lists supported kernels without mixing in `all`; an unused sponsor placeholder was removed. No plugin behavior changed.
+- **New:** Classified AI generation failures (cancel, timeout, auth, rate limit, quota, server, and network), sensitive-material warnings, onboarding with example cards, a delayed short loop for forgotten cards, and manager keyboard navigation.
+- **Improved:** Multiple-choice questions now degrade to two or three options or free recall when reliable distractors are unavailable. Review, dashboard, and manager views synchronize across windows and expose clearer loading, empty, error, retry, and disabled states.
+- **Fixed:** Old AI responses, over-budget jobs, delayed requeues, undo, scope changes, and destroyed review panels no longer leave stale state behind.
+- **Validation:** 747 unit tests, type/Svelte checks, i18n and documentation checks, governance checks, production build, and package smoke pass. Android host testing remains pending.
 
 ## Previous Feature Update: v0.209.1
 
@@ -34,6 +37,10 @@ Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by 
 
 <details>
 <summary>Previous releases</summary>
+
+### v0.209.2
+
+- Updated marketplace metadata: explicit supported platforms and no unused sponsor placeholder.
 
 ### v0.209.0
 

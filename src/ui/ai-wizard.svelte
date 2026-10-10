@@ -3,7 +3,7 @@
     import { fade } from "svelte/transition";
     import { showMessage } from "siyuan";
     import { getRiffDecks, createRiffDeck, type RiffDeck } from "@/api/riff";
-    import { isAICanceled } from "@/api/ai";
+    import { classifyAiFailure, isAICanceled } from "@/api/ai";
     import { lintAICards } from "@/core/ai-lint";
     import { maskSensitive, scanSensitive, type SensitiveHit } from "@/core/ai-sensitive";
     import { scoreBatch, type Scorecard } from "@/core/ai-quality-scorecard";
@@ -134,6 +134,7 @@
     /** T03 片二：审阅状态——已选(keep)≠已审(review)；入库只取 已选+已接受 */
     let candidates: { q: string; a: string; d?: number; keep: boolean; origIndex: number; review: "pending" | "accepted" | "verified" }[] = $state([]);
     let acceptedCount = $derived(candidates.filter((c) => c.keep && c.review === "accepted").length);
+    const canImport = $derived(acceptedCount > 0 && (decks.some(d => d.id === selected) || !!newName.trim()));
     /** 编辑已接受卡 → 退回未审（修改后需重新核对，docs/13 §5） */
     function touchCandidate(i: number) {
         if (candidates[i]?.review === "accepted") {
@@ -206,6 +207,29 @@
     let busy = $state(false);
     let creating = $state(false);
     let errorMsg = $state("");
+
+    /** 将网络/服务端错误转换为稳定、可操作的提示；不把响应正文或 URL 原样展示。 */
+    function aiErrorText(err: unknown): string {
+        const v = classifyAiFailure(err);
+        const dict = (t as any).aiError ?? {};
+        const key = v.cls === "rate-limit" ? "rateLimit"
+            : v.cls === "server" ? "server"
+                : v.cls === "auth" ? "auth"
+                    : v.cls === "quota" ? "quota"
+                        : v.cls === "privacy" ? "privacy"
+                            : v.cls === "parse" ? "parse"
+                                : v.cls === "network" ? "network"
+                                    : v.cls === "canceled" ? "canceled" : "unknown";
+        // 前置 eligibility、停用开关和格式拒答会用本地化的可操作说明，
+        // 它们不属于网络错误分类；保留原文，避免把“未配置/预算超限”抹成笼统失败。
+        const text = v.cls === "unknown"
+            ? (err instanceof Error ? err.message : String(err ?? "")).slice(0, 300)
+            : (dict[key] ?? (err instanceof Error ? err.message : String(err ?? "")));
+        if (v.cls === "rate-limit" && v.retryAfterMs && dict.retryAfter) {
+            return `${text} ${dict.retryAfter.replace("${n}", String(Math.ceil(v.retryAfterMs / 1000)))}`;
+        }
+        return text;
+    }
 
     let loadDocBusy = $state(false);
     // 异步来源/牌组请求在宿主销毁后可能迟到；生命周期标记阻断状态写回。
@@ -507,7 +531,7 @@
             if (seq !== genSeq || isAICanceled(e)) {
                 return; // 取消/被新请求取代：静默，草稿保留可重试
             }
-            errorMsg = e?.message ?? String(e);
+            errorMsg = aiErrorText(e);
         } finally {
             if (seq === genSeq) {
                 busy = false;
@@ -563,7 +587,7 @@
             if (seq !== genSeq || isAICanceled(e)) {
                 return;
             }
-            errorMsg = e?.message ?? String(e);
+            errorMsg = aiErrorText(e);
         } finally {
             if (seq === genSeq) {
                 genCtrl = null;
@@ -579,6 +603,10 @@
         // T03：入库口径 = 已选 + 已接受（待核实/未审不入库）
         const picked = candidates.filter(c => c.keep && c.review === "accepted");
         if (picked.length === 0 || creating) {
+            return;
+        }
+        if ((!selected || !decks.some(d => d.id === selected)) && !newName.trim()) {
+            errorMsg = t.quickCardNeedDeck;
             return;
         }
         creating = true;
@@ -604,7 +632,7 @@
             if (disposed) {
                 return;
             }
-            errorMsg = e?.message ?? String(e);
+            errorMsg = aiErrorText(e);
         } finally {
             if (!disposed) {
                 creating = false;
@@ -918,7 +946,10 @@
                 <select class="b3-select" style="max-width: 180px" bind:value={selected} disabled={decks.length === 0}>
                     {#each decks as d (d.id)}<option value={d.id}>{d.name}</option>{/each}
                 </select>
-                <button class="b3-button b3-button--text lv-btn-primary" disabled={creating || acceptedCount === 0} onclick={importCards} title={t.aiWizard.importReviewed}>
+                {#if decks.length === 0}
+                    <span class="ft__smaller ft__on-surface">{t.quickCardNeedDeck}</span>
+                {/if}
+                <button class="b3-button b3-button--text lv-btn-primary" disabled={creating || !canImport} onclick={importCards} title={t.aiWizard.importReviewed}>
                     {creating ? "…" : `${t.aiWizard.import} (${acceptedCount})`}
                 </button>
             </div>

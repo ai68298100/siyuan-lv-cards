@@ -32,7 +32,7 @@ export interface LvCardsSettings {
     choiceEnabled: boolean;
     /** 混合题型轮换（v0.179.0）：按本场张数在翻面/打字/选择间轮换出题形态（展示层，不动调度） */
     mixedRotation: boolean;
-    /** 忘记卡本批重现：评 1 的卡在批尾再出现一次（会话内强化，不动内核调度） */
+    /** 遗忘卡短期循环：评 1 的卡延迟几分钟再出现（会话内强化，不动内核调度） */
     requeueAgain: boolean;
     /** XP/等级激励（M8·FR3，默认关）：由本地复习日志推导 */
     xpEnabled: boolean;

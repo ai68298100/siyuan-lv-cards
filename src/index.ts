@@ -33,7 +33,7 @@ import { createRiffDeck, getRiffCards, getRiffCardsByBlockIDs, getRiffDecks, rem
 // AT-4：addRiffCards 取经 due-shared 的包装版（建卡成功即失效共享 due 缓存），badge/提醒走共享缓存
 import { addRiffCards, cachedDueCount, dueCache, invalidateDueCache } from "./api/due-shared";
 import { createPerf } from "./libs/perf";
-import { cardsCreatedEvent, gatewayChangedEvent, LV_EVENTS, reviewedEvent, sessionFinishedEvent, settingsChangedEvent, streakChangedEvent } from "./libs/events";
+import { cardsCreatedEvent, gatewayChangedEvent, LV_EVENTS, reviewedEvent, sessionFinishedEvent, settingsChangedEvent, storesChangedEvent, streakChangedEvent } from "./libs/events";
 import { deriveInstance, emptyKnowledgeObjects, findBySource, normalizeKnowledgeObjects, registerObject, removeInstance, toggleInstance, type KnowledgeObjectsData } from "./core/knowledge-objects";
 import { capabilityShare } from "./core/capability-types";
 import { addRelation, detachCard, emptyCardRelations, normalizeCardRelations, relationsOf, removeRelation, type CardRelationsData, type RelationType } from "./core/card-relations";
@@ -297,7 +297,16 @@ export default class LvCardsPlugin extends Plugin {
             // 兼容两种形态：string[] / { files: string[] }（宿主版本契约有差异）
             const raw = Array.isArray(files) ? files : (files as any)?.files;
             const list = Array.isArray(raw) ? raw : [];
-            const ours = list.some(f => typeof f === "string" && f.includes("/storage/petal/siyuan-lv-cards/"));
+            // 宿主有两个契约：旧版无参数（表示插件数据变化），新版传变更文件列表。
+            // 无法解析列表时按插件级变更处理，保证多窗口/多前端同步不会静默漏掉。
+            const ours = list.length === 0 || list.some(f => {
+                const p = typeof f === "string"
+                    ? f
+                    : (typeof (f as any)?.path === "string" ? (f as any).path : "");
+                const normalized = p.replaceAll("\\", "/").toLowerCase();
+                return normalized.includes("/storage/petal/siyuan-lv-cards/")
+                    || normalized.includes("storage/petal/siyuan-lv-cards/");
+            });
             if (!ours) {
                 return;
             }
@@ -306,12 +315,12 @@ export default class LvCardsPlugin extends Plugin {
             }
             this.reloadTimer = setTimeout(() => {
                 this.reloadTimer = null;
-                void this.reloadLocalStoresBounded();
+                void this.reloadLocalStoresBounded(list.filter((f): f is string => typeof f === "string"));
             }, 2000);
         } catch { /* 协议差异不容阻断宿主 */ }
     }
 
-    private async reloadLocalStoresBounded() {
+    private async reloadLocalStoresBounded(files: string[] = []) {
         if (this.reloadInFlight) {
             this.reloadQueued = true;
             return;
@@ -319,9 +328,25 @@ export default class LvCardsPlugin extends Plugin {
         this.reloadInFlight = true;
         try {
             // 关键顺序：先冲刷本地在途写（重载读盘才不会用旧数据覆盖内存新状态）
+            // revlog/settings 采用防抖写入，尚未进入 persist 队列时 waitAll 看不到它们；
+            // 同步回调若在防抖窗口到达，必须先将这两类本地事实入队。
+            if (this.saveRevlogTimer) {
+                this.flushRevlogSave();
+            }
+            if (this.settingsSaveTimer) {
+                clearTimeout(this.settingsSaveTimer);
+                this.settingsSaveTimer = null;
+                await this.saveSettingsNow();
+            }
             await this.persist.waitAll(3000);
             await this.applyLoadedStores(await this.readAllStores());
+            // 外部前端可能已修改 revlog/due；共享缓存必须先失效，否则角标与页面会继续显示旧快照。
+            invalidateDueCache();
             this.refreshDueBadge();
+            // 打开中的 Hub/复习页订阅此事件后主动刷新快照；角标在上面同步更新。
+            try {
+                (this.eventBus as any).emit(LV_EVENTS.storesChanged, storesChangedEvent(files));
+            } catch { /* 事件旁路，数据已成功重载 */ }
             lvLog("info", `[sync] reloaded ${LvCardsPlugin.STORE_KEYS.length} stores after data change`);
         } catch (e) {
             lvLog("error", `[sync] reload failed: ${e instanceof Error ? e.message : String(e)}`);
@@ -329,7 +354,7 @@ export default class LvCardsPlugin extends Plugin {
             this.reloadInFlight = false;
             if (this.reloadQueued) {
                 this.reloadQueued = false;
-                void this.reloadLocalStoresBounded();
+                void this.reloadLocalStoresBounded(files);
             }
         }
     }
@@ -514,6 +539,12 @@ export default class LvCardsPlugin extends Plugin {
                                 (plugin.eventBus as any).on(LV_EVENTS.reviewed, handler);
                                 return () => (plugin.eventBus as any).off(LV_EVENTS.reviewed, handler);
                             },
+                            // 跨前端同步重载后，总览主动刷新本地快照（AT-1）。
+                            onStoresChanged: (cb: () => void) => {
+                                const handler = () => cb();
+                                (plugin.eventBus as any).on(LV_EVENTS.storesChanged, handler);
+                                return () => (plugin.eventBus as any).off(LV_EVENTS.storesChanged, handler);
+                            },
                             // AQ-12 文档维度：块归属查内核（分块 IN），聚合后按 seen 降序；失败返回 null 由 UI 隐藏
                             getDocCoverage: async () => {
                                 try {
@@ -548,7 +579,19 @@ export default class LvCardsPlugin extends Plugin {
                         managerCtx: {
                             i18n: plugin.i18n,
                             app: plugin.app,
+                            openOnboarding: () => plugin.openOnboarding(),
                             uiMode: plugin.settings.uiMode,
+                            // 评分/跨前端同步后，管理器刷新当前分页（筛选与排序状态保留）。
+                            onReviewed: (cb: () => void) => {
+                                const handler = () => cb();
+                                (plugin.eventBus as any).on(LV_EVENTS.reviewed, handler);
+                                return () => (plugin.eventBus as any).off(LV_EVENTS.reviewed, handler);
+                            },
+                            onStoresChanged: (cb: () => void) => {
+                                const handler = () => cb();
+                                (plugin.eventBus as any).on(LV_EVENTS.storesChanged, handler);
+                                return () => (plugin.eventBus as any).off(LV_EVENTS.storesChanged, handler);
+                            },
                             savedFilters: () => plugin.settings.savedFilters,
                             // BI-17：管理器视图状态持久化（返回时恢复筛选/排序）
                             view: {
@@ -908,7 +951,7 @@ export default class LvCardsPlugin extends Plugin {
                             suspend(plugin.suspendToday, cardID);
                             plugin.persist.save(SUSPEND_TODAY_DATA, plugin.suspendToday).catch(() => { /* onFail 已记录 */ });
                         },
-                        openDashboard: () => plugin.openTabOf(TAB_DASHBOARD),
+                        openDashboard: (tab?: string) => plugin.openTabOf(TAB_DASHBOARD, tab ? { tab } : undefined),
                         // BI-3：入口条返回/清除（取消/重开不丢——仅显式清除才删记录）
                         returnToEntry: (returnPoint: string) => plugin.returnToEntryPoint(returnPoint),
                         dismissEntry: (entryKind: EntryKind, sourceID: string) => {
@@ -1972,6 +2015,8 @@ export default class LvCardsPlugin extends Plugin {
                     this.persist.save(SETTINGS_DATA, this.settings).catch(() => { /* onFail 已记录 */ });
                 },
                 createSampleCards: (nbId: string) => this.createSampleCards(nbId),
+                openHelp: () => this.openHelpDoc(),
+                openSampleDoc: (docId: string) => openTab({ app: this.app, doc: { id: docId } }),
                 openReview: () => this.openTabOf(TAB_REVIEW),
                 onClose: () => this.markOnboarded(),
             },
@@ -1979,9 +2024,9 @@ export default class LvCardsPlugin extends Plugin {
     }
 
     private sampleBusy = false;
-    private async createSampleCards(nbId: string) {
+    private async createSampleCards(nbId: string): Promise<string | null> {
         if (this.sampleBusy) {
-            return;
+            return null;
         }
         this.sampleBusy = true;
         try {
@@ -1996,19 +2041,35 @@ export default class LvCardsPlugin extends Plugin {
             if (!docID) {
                 throw new Error(this.i18n.quickCardFail);
             }
-            // AR-4：文档已有示例块则跳过（重试/重复点击不重复建卡）
+            // AR-4：按稳定标记恢复半途失败的创建，只补缺失块，再统一加入示例卡组。
             const escapedDoc = docID.replace(/'/g, "''");
-            const existing = await sqlQuery(`SELECT id FROM blocks WHERE root_id='${escapedDoc}' AND type IN ('p','h','u','o')`);
-            if (existing.length > 0) {
-                return;
+            const existing = await sqlQuery(`SELECT id, markdown FROM blocks WHERE root_id='${escapedDoc}' AND markdown LIKE '%lv-cards-sample:%'`);
+            const samples = [
+                ["qa", this.i18n.onboardingSample1],
+                ["cloze", this.i18n.onboardingSample2],
+                ["cloze-2", this.i18n.onboardingSample3],
+                ["formula", this.i18n.onboardingSample4],
+                ["list", this.i18n.onboardingSample5],
+            ] as const;
+            const ids: string[] = [];
+            for (const [kind, content] of samples) {
+                const marker = `lv-cards-sample:${kind}`;
+                const found = existing.find(row => String(row.markdown ?? "").includes(marker));
+                if (found?.id) {
+                    ids.push(String(found.id));
+                    continue;
+                }
+                const created = await appendBlock("markdown", `<!-- ${marker} -->${content}`, docID);
+                if (created?.[0]) ids.push(created[0]);
             }
-            const ids1 = await appendBlock("markdown", this.i18n.onboardingSample1, docID);
-            const ids2 = await appendBlock("markdown", this.i18n.onboardingSample2, docID);
-            const ids = [...ids1, ...ids2].slice(0, 2);
-            if (ids.length === 0) {
+            if (ids.length !== samples.length) {
                 throw new Error(this.i18n.quickCardFail);
             }
-            await addRiffCards(deck.id, ids);
+            const deckCards = await getRiffCards(deck.id, 1, 100);
+            const inDeck = new Set(deckCards.blocks.map(block => block.id));
+            const missingFromDeck = ids.filter(id => !inDeck.has(id));
+            if (missingFromDeck.length > 0) await addRiffCards(deck.id, missingFromDeck);
+            return docID;
         } finally {
             this.sampleBusy = false;
         }
@@ -2800,6 +2861,11 @@ export default class LvCardsPlugin extends Plugin {
             icon: "iconLvCards",
             label: this.i18n.menuQuickCard,
             click: () => this.openQuickCard(),
+        });
+        menu.addItem({
+            icon: "iconLvCards",
+            label: this.i18n.menuOnboarding,
+            click: () => this.openOnboarding(),
         });
         if (this.settings.modules.create) {
             menu.addItem({

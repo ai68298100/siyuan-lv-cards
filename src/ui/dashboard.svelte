@@ -38,6 +38,8 @@
         onSessionFinished?: (cb: () => void) => () => void;
         /** 订阅评分事件（AT-11）：原生/插件两路评分统一经此失效统计缓存，返回取消函数 */
         onReviewed?: (cb: () => void) => () => void;
+        /** 订阅跨前端存储重载事件：同步/其他窗口写入后刷新当前总览 */
+        onStoresChanged?: (cb: () => void) => () => void;
         /** 文档维度覆盖（AQ-12）：块归属查内核后聚合；null=查询失败隐藏 */
         getDocCoverage?: () => Promise<{ docs: { docID: string; title: string; seen: number }[]; unattributed: number } | null>;
         /** 未完成的 AI 导入（ADR-7）：null=无 */
@@ -492,9 +494,11 @@
         // 会话完成联动（549）+ 评分联动（AT-11）：跨页签失效总览缓存
         const offFinished = ctx.onSessionFinished?.(() => refresh());
         const offReviewed = ctx.onReviewed?.(() => scheduleRefresh());
+        const offStores = ctx.onStoresChanged?.(() => scheduleRefresh());
         return () => {
             offFinished?.();
             offReviewed?.();
+            offStores?.();
             if (reviewedTimer) {
                 clearTimeout(reviewedTimer);
                 reviewedTimer = null;
@@ -506,11 +510,11 @@
 <LvPage eyebrow={`TODAY / ${heroDateText()}`} title={t.dashboard.title} subtitle={revlogNote ? `${t.dashboard.since} ${revlogNote}` : ""}>
     {#snippet actions()}
         <!-- R53 动作组：次级动作全部 ghost（主动作唯一——hero CTA）；报告/写入/管理器/刷新 -->
-        <button class="b3-button b3-button--small lv-btn-ghost" onclick={downloadReport}>{t.dashboard.report}</button>
+        <button class="b3-button b3-button--small lv-btn-ghost" disabled={loading && !hasLoadedSnapshot} onclick={downloadReport}>{t.dashboard.report}</button>
         <!-- AR-5：写入中禁点；失败原因就近展示（报告可重试，草稿不丢） -->
-        <button class="b3-button b3-button--small lv-btn-ghost" disabled={writeBusy} title={writeError || undefined} onclick={writeDocReport}>{writeBusy ? "…" : t.dashboard.writeDoc}</button>
+        <button class="b3-button b3-button--small lv-btn-ghost" disabled={writeBusy || (loading && !hasLoadedSnapshot)} title={writeError || undefined} onclick={writeDocReport}>{writeBusy ? "…" : t.dashboard.writeDoc}</button>
         <button class="b3-button b3-button--small lv-btn-ghost" onclick={() => ctx.openManager()}>{t.menuManager}</button>
-        <button class="b3-button b3-button--small lv-btn-ghost" onclick={refresh}>{t.dashboard.refresh}</button>
+        <button class="b3-button b3-button--small lv-btn-ghost" disabled={loading} onclick={refresh}>{loading ? t.dashboard.loading : t.dashboard.refresh}</button>
     {/snippet}
 
     {#if writeError}
@@ -599,7 +603,7 @@
                     {#if sessLive}{t.dashboard.heroResumeLine.replace("${n}", String(sessReps))} · {/if}{t.dashboard.todayDue} {dueCount} · {t.dashboard.newCards} {newCount}
                 </p>
                 <div class="lv-hero-cta">
-                    <button class="b3-button lv-btn-primary" onclick={() => ctx.openReview()}>
+                    <button class="b3-button lv-btn-primary" disabled={loading && !hasLoadedSnapshot} onclick={() => ctx.openReview()}>
                         {sessLive ? t.dashboard.heroResume : t.dashboard.heroStart}
                     </button>
                     <!-- R53 .hero .cta 右侧说明：有到期或目标才展示（不堆 0 值） -->
@@ -677,7 +681,7 @@
                 {#if suspended > 0}
                     <div class="lv-todo-row">
                         <span>{t.dashboard.todoSuspended.replace("${n}", String(suspended))}</span>
-                        <button class="b3-button b3-button--small" onclick={() => { suspended = Math.max(0, suspended - (ctx.restoreSuspendedToday?.() ?? 0)); }}>{t.dashboard.todoSuspendedAct}</button>
+                        <button class="b3-button b3-button--small" onclick={() => { ctx.restoreSuspendedToday?.(); suspended = 0; void refresh(); }}>{t.dashboard.todoSuspendedAct}</button>
                     </div>
                 {/if}
                 {#if unfinishedAI}

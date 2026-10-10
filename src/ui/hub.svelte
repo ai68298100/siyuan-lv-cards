@@ -312,4 +312,11 @@
         flex: 1;
         min-height: 0;
     }
+
+    @media (max-width: 740px) {
+        .lv-hub-bar { padding-left: var(--lv-sp-4); padding-right: var(--lv-sp-4); }
+    }
+    @media (max-width: 420px) {
+        .lv-hub-bar { padding-left: var(--lv-sp-3); padding-right: var(--lv-sp-3); }
+    }
 </style>

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { isRecoverableAIError, isAICanceled, AICanceledError } from "../src/api/ai-errors";
+import { AIHttpError, extractAIErrorCode, isRecoverableAIError, isAICanceled, AICanceledError, parseRetryAfter } from "../src/api/ai-errors";
+import { classifyAiFailure } from "../src/core/ai-degradation";
 
 describe("AI 错误分类（AQ-15：fallback 只对可恢复错误生效）", () => {
     it("网络故障与超时可恢复", () => {
@@ -35,5 +36,25 @@ describe("AI 错误分类（AQ-15：fallback 只对可恢复错误生效）", ()
         abort.name = "AbortError";
         expect(isAICanceled(abort)).toBe(true);
         expect(isAICanceled(new Error("AI HTTP 500"))).toBe(false);
+    });
+
+    it("HTTP 错误保留机器码/Retry-After，但不携带响应正文", () => {
+        const e = new AIHttpError(429, "insufficient_quota", 7000);
+        expect(e.message).toBe("AI HTTP 429 (insufficient_quota)");
+        expect(classifyAiFailure(e).cls).toBe("quota");
+        expect(classifyAiFailure(new AIHttpError(429, "rate_limit", 7000))).toMatchObject({ cls: "rate-limit", retryAfterMs: 7000 });
+        expect(e.message).not.toContain("secret material");
+    });
+
+    it("解析标准 Retry-After 秒数和 HTTP 日期", () => {
+        expect(parseRetryAfter("7", 1000)).toBe(7000);
+        expect(parseRetryAfter("Wed, 21 Oct 2015 07:28:00 GMT", Date.parse("Wed, 21 Oct 2015 07:27:55 GMT"))).toBe(5000);
+        expect(parseRetryAfter("nope")).toBeUndefined();
+    });
+
+    it("只提取安全的错误码，不读取 message/details", () => {
+        expect(extractAIErrorCode({ error: { code: "rate_limit", message: "secret material" } })).toBe("rate_limit");
+        expect(extractAIErrorCode({ error: { message: "secret material" } })).toBeUndefined();
+        expect(extractAIErrorCode({ code: "bad code with spaces" })).toBeUndefined();
     });
 });

@@ -59,6 +59,14 @@
     height: 100%;
     overflow: auto;
     box-sizing: border-box;
+
+    // 窄屏保留必要的阅读边距，给中文标题和主要操作留出实际宽度。
+    @media (max-width: 740px) {
+        padding: var(--lv-sp-4);
+    }
+    @media (max-width: 420px) {
+        padding: var(--lv-sp-3);
+    }
 }
 
 // 页头：eyebrow + 题 + 副题 + 动作组（R53 .page-head：两端对齐、题 22/-0.02em、副 13px muted）
@@ -81,7 +89,7 @@
         font-size: 24px;
         font-weight: 650;
         line-height: 1.4;
-        letter-spacing: -0.03em;
+        letter-spacing: 0;
     }
 
     .lv-pagehead-sub {
@@ -99,6 +107,8 @@
         padding-top: 14px;
         flex: none;
         max-width: 60%;
+
+        > * { min-width: 0; }
     }
 
     // R53 窄屏：页头纵向堆叠，动作组换行
@@ -107,7 +117,13 @@
         gap: var(--lv-sp-2);
 
         .lv-pagehead-title { font-size: 22px; }
-        .lv-pagehead-actions { padding-top: 0; justify-content: flex-start; max-width: none; }
+        .lv-pagehead-actions {
+            width: 100%;
+            padding-top: 0;
+            justify-content: flex-start;
+            max-width: none;
+            > .b3-text-field { flex: 1 1 180px; }
+        }
     }
 }
 
@@ -218,7 +234,7 @@
     font-weight: 650;
     line-height: 1.35;
     font-variant-numeric: tabular-nums;
-    letter-spacing: -0.035em;
+    letter-spacing: 0;
     color: var(--b3-theme-on-background);
 
     // 零值态（R53 .stat .num.zero）：数字降透明度保留在原位，不隐藏不误读
@@ -677,7 +693,7 @@
         margin: 14px 0 8px;
         font-size: 24px;
         line-height: 1.45;
-        letter-spacing: -0.025em;
+        letter-spacing: 0;
         font-weight: 650;
     }
     .lv-hero-desc {

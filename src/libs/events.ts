@@ -38,6 +38,14 @@ export interface GatewayChangedPayload {
     state: string;
 }
 
+/**
+ * 本地插件存储因同步/其他前端写入而重新载入后的通知载荷。
+ * files 仅作为诊断提示，消费方不应依赖其具体路径格式。
+ */
+export interface StoresChangedPayload {
+    files?: string[];
+}
+
 export interface SessionFinishedSummary {
     [key: string]: unknown;
 }
@@ -50,6 +58,7 @@ export const LV_EVENTS = {
     sessionFinished: "lv-cards:session-finished",
     settingsChanged: "lv-cards:settings-changed",
     gatewayChanged: "lv-cards:gateway-changed",
+    storesChanged: "lv-cards:stores-changed",
 } as const;
 
 /** 基础字段（plugin/v/ts）统一填充 */
@@ -79,4 +88,8 @@ export function settingsChangedEvent(now: () => number = Date.now): LvEventBase 
 
 export function gatewayChangedEvent(state: string, now: () => number = Date.now): LvEventBase & GatewayChangedPayload {
     return { ...lvEventBase(now), state };
+}
+
+export function storesChangedEvent(files?: string[], now: () => number = Date.now): LvEventBase & StoresChangedPayload {
+    return { ...lvEventBase(now), ...(files?.length ? { files: [...files] } : {}) };
 }

@@ -4078,7 +4078,7 @@
       "priority": "P1",
       "group": "M",
       "groupName": "复习面板深化（M3 续）",
-      "title": "忘记卡本批重现：评 1 的卡在批尾再出现一次（会话内强化，不动调度）（v0.44.0：本地重现不计内核不计 revlog + chip 标识 + 设置开关）",
+      "title": "遗忘卡短期循环：评 1 的卡延迟几分钟再出现（会话内强化，不动调度）（v0.209.3：延迟队列 + 等待态 + 撤销/切换范围清理）",
       "backlogLine": 252,
       "primaryPackage": "WP-review-study-experience",
       "linksTo": []
@@ -5178,12 +5178,12 @@
     },
     {
       "id": "LEGACY-W-02",
-      "status": "open",
-      "checkbox": " ",
+      "status": "done",
+      "checkbox": "x",
       "priority": "P2",
       "group": "W",
       "groupName": "学习科学与人因（把\"坚持\"做进产品）",
-      "title": "遗忘卡短期循环：评 1 的卡进入\"分钟级\"小循环（本会话内 N 分钟后再现一次，不动内核调度）",
+      "title": "遗忘卡短期循环：评 1 的卡进入\"分钟级\"小循环（v0.209.3：默认约 3 分钟后再现；等待态、撤销与切换范围清理；不动内核调度）",
       "backlogLine": 376,
       "primaryPackage": "WP-review-study-experience",
       "linksTo": []
@@ -5790,13 +5790,13 @@
     },
     {
       "id": "LEGACY-AB-05",
-      "status": "open",
-      "checkbox": " ",
+      "status": "done",
+      "checkbox": "x",
       "priority": "P3",
       "group": "AB",
       "groupName": "命令面板与快捷键体验",
-      "title": "方向键导航（管理器行上下移动 + Enter 打开）",
-      "backlogLine": 440,
+      "title": "方向键导航（v0.209.3：管理器行上下移动、Enter 打开、Delete 删除并恢复相邻焦点）",
+      "backlogLine": 455,
       "primaryPackage": "WP-management-search",
       "linksTo": []
     },
@@ -15224,10 +15224,10 @@
   "summary": {
     "packages": 38,
     "total": 935,
-    "done": 194,
-    "open": 738,
+    "done": 196,
+    "open": 736,
     "special": 3,
-    "pending": 741
+    "pending": 739
   },
   "experienceDocument": "docs/32-产品体验优化与页面蓝图.md",
   "experienceRefinements": [

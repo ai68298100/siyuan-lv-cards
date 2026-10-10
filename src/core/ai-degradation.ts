@@ -69,6 +69,10 @@ const excerpt = (e: unknown): string => (e instanceof Error ? e.message : String
  */
 export function classifyAiFailure(e: unknown): FailureVerdict {
     const msg = excerpt(e);
+    const retryAfterMs = typeof e === "object" && e !== null && "retryAfterMs" in e
+        && typeof (e as { retryAfterMs?: unknown }).retryAfterMs === "number"
+        ? Math.max(0, (e as { retryAfterMs: number }).retryAfterMs)
+        : undefined;
     if (isCancelLike(e, msg)) {
         return { cls: "canceled", detail: msg };
     }
@@ -88,7 +92,7 @@ export function classifyAiFailure(e: unknown): FailureVerdict {
             return { cls: "quota", detail: msg };
         }
         if (code === 429) {
-            return { cls: "rate-limit", detail: msg };
+            return { cls: "rate-limit", detail: msg, retryAfterMs };
         }
         if (code >= 500) {
             return { cls: "server", detail: msg };
@@ -97,10 +101,10 @@ export function classifyAiFailure(e: unknown): FailureVerdict {
     }
     const ra = msg.match(/retry[- ]after[: ]*(\d+)/i);
     if (/too many requests|rate[- ]?limit/i.test(msg)) {
-        return { cls: "rate-limit", detail: msg, retryAfterMs: ra ? Number(ra[1]) * 1000 : undefined };
+        return { cls: "rate-limit", detail: msg, retryAfterMs: retryAfterMs ?? (ra ? Number(ra[1]) * 1000 : undefined) };
     }
     if (/failed to fetch|networkerror|timeout|fetch failed|econn|enotfound/i.test(msg)) {
-        return { cls: "network", detail: msg, retryAfterMs: ra ? Number(ra[1]) * 1000 : undefined };
+        return { cls: "network", detail: msg, retryAfterMs: retryAfterMs ?? (ra ? Number(ra[1]) * 1000 : undefined) };
     }
     if (/parse|not an array|unexpected (token|end of json)/i.test(msg)) {
         return { cls: "parse", detail: msg };

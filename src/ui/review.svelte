@@ -18,12 +18,14 @@
     import { isLongReturn, returnCheck, type ReturnCheckFacts } from "@/core/return-check";
     import { avgSecPerCard, budgetLeftSec, BUDGET_PRESETS, clampBudgetMinutes, estimateCompletable, estimateLeftover, isBudgetExpired } from "@/core/session-budget";
     import { nominateVariant } from "@/core/question-rotation";
+    import { buildChoiceOptions } from "@/core/choice-options";
     import { analyzeFaceRichness, extractMarkTexts, faceHintKeys, hasRichContent } from "@/core/card-face";
     import { loadReliefChoices, type LoadChoice } from "@/core/load-relief";
     import { recoveryOptions, type RecoveryOption, type RecoverySnapshot } from "@/core/session-recovery";
     import { triageReturn, RETURN_REASONS, type ReturnReason } from "@/core/return-triage";
     import { SESSION_PURPOSES, PURPOSE_PROFILES, type SessionPurpose } from "@/core/session-purpose";
     import { reviewSwipeAction } from "@/core/review-gesture";
+    import { enqueueDelayedRequeue, nextRequeueDelay, SHORT_REQUEUE_DELAY_MS, takeDueRequeues, type DelayedRequeue } from "@/core/delayed-requeue";
     import { invalidateDueCache, dueCache } from "@/api/due-shared";
     import { nextHint, logHint, deriveHintLevels, availableLevels, type HintLevel, type HintLevelsInput } from "@/core/hint-ladder";
     import LvKbd from "./kit/LvKbd.svelte";
@@ -88,7 +90,7 @@
         getRevlog: () => RevlogData;
         isSuspendedToday: (cardID: string) => boolean;
         suspendToday: (cardID: string) => void;
-        openDashboard: () => void;
+        openDashboard: (tab?: string) => void;
         onScopePersist: (scopeKey: string) => void;
         getSessionState: () => { date: string; reviewedIDs: string[]; skippedIDs: string[]; counters: { new: number; review: number; forget: number; skip: number }; endReason?: EndReason | null } | null;
         saveSessionState: (s: { date: string; reviewedIDs: string[]; skippedIDs: string[]; counters: { new: number; review: number; forget: number; skip: number }; endReason?: EndReason | null }) => void;
@@ -118,9 +120,14 @@
     // svelte-ignore state_referenced_locally
     let entryCtx = $state(initialEntry);
 
-    /** 会话内重现标记：lvRequeue>0 表示本卡由「忘记卡本批重现」追加 */
+    /** 会话内重现标记：lvRequeue>0 表示本卡由遗忘卡短期循环追加 */
     type QueueCard = RiffDueCard & { lvRequeue?: number };
     let queue: QueueCard[] = $state([]);
+    /** 评分 Again 后的本地延迟队列；不写入会话快照，也不参与内核调度。 */
+    let pendingRequeues: DelayedRequeue<QueueCard>[] = $state([]);
+    let requeueTimer: ReturnType<typeof setTimeout> | null = null;
+    let requeueClockTimer: ReturnType<typeof setInterval> | null = null;
+    let requeueNow = $state(Date.now());
     let reviewedIDs: string[] = $state([]);
     let current: QueueCard | null = $state(null);
     let showAnswer = $state(false);
@@ -134,7 +141,7 @@
     });
     // 轮换提名 choice 时自动本地采样干扰项（无网络；等同手动 🎲）
     $effect(() => {
-        if (answerVariant === "choice" && current && !choices && !choiceLoading) {
+        if (answerVariant === "choice" && current && !choices && !choiceLoading && choiceFallbackMode === "none") {
             void startChoice();
         }
     });
@@ -153,6 +160,8 @@
     let cardHtml = $state("");
     /** AS-3：卡面加载失败占位（区别于队列级 errorMsg——队列保持可用，占位可重试） */
     let faceError = $state("");
+    // 卡面尚未加载时不允许提前翻面，避免空卡面进入评分流程。
+    const faceReady = $derived(Boolean(cardHtml) && !faceError);
     /** AS-3：富内容特征提示（随卡面派生） */
     let faceRich = $derived(cardHtml ? analyzeFaceRichness(cardHtml) : null);
     let faceHints = $derived(faceRich && hasRichContent(faceRich) ? faceHintKeys(faceRich) : []);
@@ -190,7 +199,85 @@
     // AQ-13：题面呈现时刻（monotonic 按壁钟差），评分时按设置封顶后记入 revlog.dur
     let cardShownAt = 0;
     let sessionSkipped: string[] = []; // 本场跳过排除集（AJ9：跳过的卡不再被下一批拉回）
-    let lastAnswered: { html: string; card: RiffDueCard } | null = null; // 回看数据源（AJ2：不再自动打开）
+    let lastAnswered = $state<{ html: string; card: RiffDueCard } | null>(null); // 回看数据源（AJ2：不再自动打开）
+
+    const requeueWaiting = $derived(!sessionDone && !current && pendingRequeues.length > 0 && !loading && !errorMsg);
+    const requeueWaitSeconds = $derived(Math.max(0, Math.ceil((nextRequeueDelay(pendingRequeues, requeueNow) ?? 0) / 1000)));
+
+    function stopRequeueTimers() {
+        if (requeueTimer) {
+            clearTimeout(requeueTimer);
+            requeueTimer = null;
+        }
+        if (requeueClockTimer) {
+            clearInterval(requeueClockTimer);
+            requeueClockTimer = null;
+        }
+    }
+
+    function scheduleRequeueTimer() {
+        if (requeueTimer) {
+            clearTimeout(requeueTimer);
+            requeueTimer = null;
+        }
+        if (pendingRequeues.length === 0) {
+            if (requeueClockTimer) {
+                clearInterval(requeueClockTimer);
+                requeueClockTimer = null;
+            }
+            return;
+        }
+        requeueNow = Date.now();
+        const delay = nextRequeueDelay(pendingRequeues, requeueNow);
+        requeueTimer = setTimeout(() => {
+            requeueTimer = null;
+            releaseDueRequeues();
+        }, Math.max(0, delay ?? SHORT_REQUEUE_DELAY_MS));
+        if (!requeueClockTimer) {
+            requeueClockTimer = setInterval(() => {
+                requeueNow = Date.now();
+            }, 1000);
+        }
+    }
+
+    function releaseDueRequeues() {
+        // Do not race an in-flight kernel fetch. The timer is rescheduled by
+        // loadQueue's finally block after the fetched cards have been merged.
+        if (loading) {
+            requeueTimer = setTimeout(() => {
+                requeueTimer = null;
+                releaseDueRequeues();
+            }, 250);
+            return;
+        }
+        const result = takeDueRequeues(pendingRequeues, Date.now());
+        pendingRequeues = result.pending;
+        if (result.due.length > 0) {
+            queue = [...queue, ...result.due];
+            sessionDone = false;
+            if (!current && queue.length > 0) {
+                void setCurrent(queue[0]);
+            }
+        }
+        scheduleRequeueTimer();
+    }
+
+    function queueDelayedRequeue(card: QueueCard) {
+        pendingRequeues = enqueueDelayedRequeue(pendingRequeues, { ...card, lvRequeue: 1 });
+        scheduleRequeueTimer();
+    }
+
+    function clearPendingRequeues() {
+        pendingRequeues = [];
+        stopRequeueTimers();
+    }
+
+    function changeScope() {
+        // 延迟卡属于原范围；切换范围后丢弃，避免跨范围误出卡。
+        clearPendingRequeues();
+        recovery = null;
+        void loadQueue();
+    }
     // BI-9：中断恢复分支（快照存在时给出四选一；不自动重复评分/写卡）
     let recovery = $state<RecoveryOption[] | null>(null);
     // BI-27 返场分流横幅（跨天 + 上日收工原因；展示性方案，可忽略）
@@ -239,14 +326,18 @@
 
     // 撤销历史栈（M3·FR7，ZY 技法：快照恢复 + 内核重评时按官方缓存恢复原状态）
     interface HistorySnapshot {
-        queue: RiffDueCard[];
+        queue: QueueCard[];
+        pendingRequeues: DelayedRequeue<QueueCard>[];
         reviewedIDs: string[];
-        current: RiffDueCard;
+        current: QueueCard;
         showAnswer: boolean;
         cardHtml: string;
         counters: { new: number; review: number; forget: number; skip: number };
     }
-    let history: HistorySnapshot[] = [];
+    // Svelte 5 state proxy keeps the completion actions in sync with the
+    // actual undo stack. Without this, the button stayed enabled after the
+    // last undo because push/pop mutations were not reflected in the view.
+    let history = $state<HistorySnapshot[]>([]);
 
     /** 会话快照统一出口（AQ-2）：计数与 skip 集合的当前值即时落盘 */
     function persistSession() {
@@ -356,6 +447,8 @@
     let answerCache = new Map<string, string>();
     let choices = $state<{ options: string[]; answerIdx: number; picked: number | null } | null>(null);
     let choiceLoading = $state(false);
+    // 当同队列没有任何可靠干扰项时，选择题退回正常自由回忆，避免伪造选项。
+    let choiceFallbackMode = $state<"none" | "free-recall">("none");
 
     async function loadBlockDOM(blockID: string) {
         const seq = ++loadSeq;
@@ -448,7 +541,7 @@
         }
     }
 
-    /** 选择题（M4·FR3）：本卡答案 + 同队列后续卡采样 3 个干扰项 */
+    /** 选择题（M4·FR3）：本卡答案 + 同队列后续卡采样最多 3 个干扰项。 */
     async function startChoice() {
         if (!current || choiceLoading || typingInput.trim()) {
             return;
@@ -465,11 +558,17 @@
                     pool.push(text);
                 }
             }
-            while (pool.length < 3) {
-                pool.push(`${t.review.choiceFallback} ${pool.length + 1}`);
+            const built = buildChoiceOptions(answer, pool);
+            if (!built) {
+                // 没有可靠的干扰项时保持自由回忆路径；不使用“干扰项 1/2/3”
+                // 一类占位文本，以免把提示内容误当作知识。
+                choices = null;
+                choiceFallbackMode = "free-recall";
+                return;
             }
-            const options = shuffle([answer, ...pool]);
-            choices = { options, answerIdx: options.indexOf(answer), picked: null };
+            const options = shuffle(built);
+            choices = { options, answerIdx: options.indexOf(answer.trim()), picked: null };
+            choiceFallbackMode = "none";
         } finally {
             choiceLoading = false;
         }
@@ -554,9 +653,19 @@
             }
             if (queue.length === 0) {
                 current = null;
+                if (pendingRequeues.length > 0) {
+                    // 延迟循环仍属于本场：先显示等待态，不能把本场提前广播为完成。
+                    sessionDone = false;
+                    stopTimeout();
+                    scheduleRequeueTimer();
+                    return;
+                }
                 const finished = !sessionDone; // 只在首次进入完成态时广播
                 sessionDone = true;
-                if (finished && reviewedIDs.length > 0) {
+                // Skipping a card changes the due queue too. Broadcast a
+                // finished session when either rating or skip produced work,
+                // so the dashboard refreshes after a skip-only session.
+                if (finished && (reviewedIDs.length > 0 || sessionSkipped.length > 0)) {
                     ctx.emitSessionFinished({ new: sessionNew, review: sessionReview, forget: sessionForget, skip: sessionSkip });
                 }
                 // BI-8/BI-12：预算到点自动记「时间到」收工原因（中性事实；用户手动点选的原因优先）
@@ -578,6 +687,8 @@
         } finally {
             if (seq === queueSeq) {
                 loading = false;
+                // 处理网络请求期间已经到期的本地遗忘卡，避免响应覆盖延迟队列。
+                releaseDueRequeues();
             }
         }
     }
@@ -589,6 +700,7 @@
         typingGrade = null;
         choices = null;
         choiceLoading = false;
+        choiceFallbackMode = "none";
         occl = null;
         occlBox = null;
         occlHidden = [];
@@ -784,6 +896,7 @@
     function pushHistory() {
         history.push({
             queue: [...queue],
+            pendingRequeues: pendingRequeues.map(item => ({ ...item })),
             reviewedIDs: [...reviewedIDs],
             current: current!,
             showAnswer,
@@ -807,6 +920,8 @@
         errorMsg = "";
         sessionDone = false;
         queue = snap.queue;
+        pendingRequeues = snap.pendingRequeues;
+        scheduleRequeueTimer();
         reviewedIDs = snap.reviewedIDs;
         current = snap.current;
         showAnswer = false;
@@ -827,6 +942,7 @@
         recovery = null; // BI-9：已开始评分=隐式选择继续原场
         submitting = true;
         pushHistory();
+        let writeSucceeded = false;
         // 会话强化重现卡（M3）：仅本地翻牌推进，不重复评内核、不计 revlog（调度不变）
         if (current.lvRequeue) {
             playSfx(rating);
@@ -838,6 +954,7 @@
             const wasNew = isCardNew(ctx.getRevlog(), current.cardID);
             playSfx(rating);
             await reviewRiffCard(current.deckID, current.cardID, rating, reviewedIDs);
+            writeSucceeded = true;
             // AQ-13：作答耗时按设置封顶（后台停留/离席不制造超长样本），原生事件无此字段保持 N/A
             const cap = Math.max(5, eff().answerTimeCapSec || 60);
             const dur = cardShownAt > 0 ? Math.min(cap, Math.max(0, Math.round((Date.now() - cardShownAt) / 1000))) : undefined;
@@ -845,9 +962,9 @@
             reviewedIDs = [...reviewedIDs, current.cardID];
             if (rating === 1) {
                 sessionForget += 1;
-                // 忘记卡本批重现（M3）：评 1 的卡在批尾再出现一次，会话内强化，不动内核调度
+                // 遗忘卡短期循环：延迟数分钟后本地重现，避免立即重复；不动内核调度。
                 if (eff().requeueAgain) {
-                    queue = [...queue, { ...current, lvRequeue: 1 }];
+                    queueDelayedRequeue(current);
                 }
             } else if (wasNew) {
                 sessionNew += 1;
@@ -869,6 +986,9 @@
             }
         } catch (e: any) {
             // 评分失败保留现场（AJ11）：当前卡/答案态/队列不动，只提示错误
+            // The snapshot was created before the write. Since no write took
+            // effect, keeping it would expose a phantom undo after retry.
+            if (!writeSucceeded) history.pop();
             errorMsg = friendlyError(e, t);
             announce(errorMsg, "assertive");
         } finally {
@@ -883,11 +1003,16 @@
         recovery = null; // BI-9：同评分——有动作即隐式续场
         submitting = true;
         pushHistory();
+        let writeSucceeded = false;
         try {
             // 重现卡不计内核跳过（同评分类：调度不变）
             if (!current.lvRequeue) {
                 await skipReviewRiffCard(current.deckID, current.cardID);
+                writeSucceeded = true;
                 invalidateDueCache(); // AT-4：skip 移出今日到期，共享缓存失效（badge/总览下次读取拉新）
+            } else {
+                // Requeue cards are local-only and do not call the kernel.
+                writeSucceeded = true;
             }
             sessionSkip += 1;
             sessionSkipped = [...sessionSkipped, current.cardID];
@@ -896,6 +1021,10 @@
             announce(t.review.liveSkipped, "polite");
             await next();
         } catch (e: any) {
+            // Skip follows the same pre-write snapshot rule as rating: a
+            // failed request must not leave an undo entry for an unchanged
+            // queue.
+            if (!writeSucceeded) history.pop();
             errorMsg = friendlyError(e, t);
         } finally {
             submitting = false;
@@ -1107,7 +1236,7 @@
         }
         if (e.code === "Space" || e.code === "Enter") {
             e.preventDefault();
-            if (!showAnswer) { showAnswer = true; } else { rate(3); }
+            if (!showAnswer) { if (faceReady) showAnswer = true; } else { rate(3); }
             return;
         }
         // BJ-2：h 键推进分级提示（仅问题态）
@@ -1166,6 +1295,10 @@
         }
         // end：清空现场重新开始
         ctx.clearSessionState();
+        // The previous session is no longer the session shown on screen. Do
+        // not offer an undo that would restore cards from that discarded run.
+        history = [];
+        clearPendingRequeues();
         reviewedIDs = [];
         sessionSkipped = [];
         sessionNew = 0;
@@ -1184,7 +1317,7 @@
         const action = reviewSwipeAction(showAnswer, dx, dy);
         if (action === "good") { rate(3); }
         else if (action === "again") { rate(1); }
-        else if (action === "reveal") { showAnswer = true; }
+        else if (action === "reveal" && faceReady) { showAnswer = true; }
     }
 
     function onContainerClick(e: MouseEvent) {
@@ -1192,7 +1325,7 @@
         if (el.closest("input,textarea,select,button,a,[contenteditable]")) {
             return;
         }
-        if (!showAnswer && current) {
+        if (!showAnswer && current && faceReady) {
             showAnswer = true;
         }
     }
@@ -1249,6 +1382,7 @@
 
     onDestroy(() => {
         stopTimeout(); // AJ7：销毁时清理倒计时，防止泄漏
+        stopRequeueTimers();
     });
 </script>
 
@@ -1329,6 +1463,20 @@
         <div class="lv-center lv-error-wrap">
             <LvError message={errorMsg} onretry={loadQueue} retryLabel={t.dashboard.refresh} />
         </div>
+    {:else if requeueWaiting}
+        <div class="lv-center lv-done">
+            <div class="lv-done-panel lv-empty-queue" role="status" aria-live="polite">
+                <div class="lv-eyebrow">REVIEW / {headScopeLabel}</div>
+                <div class="lv-empty-queue-title">{t.review.requeueWaitingTitle}</div>
+                <p class="ft__smaller ft__on-surface" style="margin: 6px 0 0">
+                    {t.review.requeueWaitingSub.replace("${n}", String(requeueWaitSeconds))}
+                </p>
+                <div class="fn__flex lv-done-actions" style="justify-content: center; margin-top: var(--lv-sp-4)">
+                    <button class="b3-button b3-button--outline" onclick={loadQueue}>{t.dashboard.refresh}</button>
+                    <button class="b3-button b3-button--outline" disabled={history.length === 0 || submitting} onclick={undoHistory}>{t.review.undoLast}</button>
+                </div>
+            </div>
+        </div>
     {:else if emptyQueue}
         <!-- R53 §3.9：空队列≠完成——范围名 + 如实说明 + 下一步，不渲染 0 值庆祝面板 -->
         <div class="lv-center lv-done">
@@ -1342,7 +1490,7 @@
                         class="b3-select"
                         aria-label={t.review.scopeTitle}
                         bind:value={scopeKey}
-                        onchange={() => { ctx.onScopePersist(scopeKey); recovery = null; loadQueue(); }}
+                        onchange={() => { ctx.onScopePersist(scopeKey); changeScope(); }}
                     >
                         <option value="all">{t.review.scopeAll}</option>
                         <option value="new">{t.review.scopeNew}</option>
@@ -1361,7 +1509,8 @@
                 </label>
                 <div class="fn__flex lv-done-actions" style="justify-content: center; margin-top: var(--lv-sp-4)">
                     <button class="b3-button b3-button--outline" onclick={loadQueue}>{t.dashboard.refresh}</button>
-                    <button class="b3-button lv-btn-primary" onclick={ctx.openDashboard}>{t.review.viewStats}</button>
+                    <button class="b3-button b3-button--outline" onclick={() => ctx.openDashboard("manage")}>{t.menuManager}</button>
+                    <button class="b3-button lv-btn-primary" onclick={() => ctx.openDashboard()}>{t.review.viewStats}</button>
                 </div>
             </div>
         </div>
@@ -1425,7 +1574,7 @@
                         {#if sessionSkip > 0}
                             <div class="lv-next-row">
                                 <span>{t.review.nextSkipped.replace("${n}", String(sessionSkip))}</span>
-                                <button class="b3-button b3-button--small" onclick={ctx.openDashboard}>{t.review.nextAct}</button>
+                                <button class="b3-button b3-button--small" onclick={() => ctx.openDashboard()}>{t.review.nextAct}</button>
                             </div>
                         {/if}
                         {#if sessionForget > 0}
@@ -1435,8 +1584,8 @@
                 {/if}
                 <div class="fn__flex lv-done-actions">
                     <button class="b3-button b3-button--text" onclick={loadQueue}>{t.review.again}</button>
-                    <button class="b3-button b3-button--outline" onclick={undoHistory}>{t.review.undoLast}</button>
-                    <button class="b3-button lv-btn-primary" onclick={ctx.openDashboard}>{t.review.viewStats}</button>
+                    <button class="b3-button b3-button--outline" disabled={history.length === 0 || submitting} onclick={undoHistory}>{t.review.undoLast}</button>
+                    <button class="b3-button lv-btn-primary" onclick={() => ctx.openDashboard()}>{t.review.viewStats}</button>
                 </div>
             </div>
         </div>
@@ -1486,7 +1635,7 @@
                 <div class="lv-progress-seg" style={`width:${(Math.max(0, reviewedIDs.length - sessionForget) / Math.max(1, reviewedIDs.length + queue.length)) * 100}%`}></div>
             </div>
             <div class="lv-head-row lv-head-tools">
-                <select class="b3-select lv-scope" bind:this={scopeEl} bind:value={scopeKey} onchange={() => { ctx.onScopePersist(scopeKey); recovery = null; loadQueue(); }} title={t.review.scopeTitle}>
+                <select class="b3-select lv-scope" bind:this={scopeEl} bind:value={scopeKey} onchange={() => { ctx.onScopePersist(scopeKey); changeScope(); }} title={t.review.scopeTitle}>
                     <option value="all">{t.review.scopeAll}</option>
                     <option value="new">{t.review.scopeNew}</option>
                     <option value="old">{t.review.scopeOld}</option>
@@ -1521,8 +1670,8 @@
                 <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.prefsTitle} aria-label={t.review.prefsTitle} class:lv-btn-primary={prefsOpen || hasOverrides} onclick={() => (prefsOpen = !prefsOpen)}>{t.review.tbPrefs}{hasOverrides ? " ●" : ""}</button>
                 <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.refreshCard} aria-label={t.review.refreshCard} onclick={refreshCard}>{t.review.tbRefresh}</button>
                 <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.helpTitle} aria-label={t.review.helpTitle} onclick={() => (helpOpen = true)}>{t.review.tbHelp}</button>
-                <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.undoTitle} aria-label={t.review.undoTitle} disabled={submitting} onclick={undoHistory}>{t.review.tbUndo}</button>
-                <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.peekPrev} aria-label={t.review.peekPrev} onclick={togglePeek}>{t.review.peekPrev.slice(0, 2)}</button>
+                <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.undoTitle} aria-label={t.review.undoTitle} disabled={submitting || history.length === 0} onclick={undoHistory}>{t.review.tbUndo}</button>
+                <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.peekPrev} aria-label={t.review.peekPrev} disabled={!lastAnswered} onclick={togglePeek}>{t.review.peekPrev.slice(0, 2)}</button>
                 <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.openInEditor} onclick={openInEditor}>{t.review.open}</button>
                 <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.suspendToday} aria-label={t.review.suspendToday} disabled={submitting} onclick={suspendToday}>{t.review.tbSuspend}</button>
                 <button class="b3-button b3-button--small lv-btn-ghost" disabled={submitting} onclick={skip}>{t.review.skip}</button>
@@ -1535,6 +1684,10 @@
                     <span style="font-size: 28px" aria-hidden="true">⚠️</span>
                     <span class="ft__smaller ft__on-surface" style="text-align: center">{faceError}</span>
                     <button class="b3-button b3-button--outline b3-button--small" onclick={retryFace}>{t.dashboard.refresh}</button>
+                </div>
+            {:else if !cardHtml}
+                <div class="lv-center" style="min-height: 220px" aria-busy="true">
+                    <span class="ft__smaller ft__on-surface">{t.dashboard.loading}</span>
                 </div>
             {:else}
                 {#key current?.cardID}
@@ -1601,7 +1754,11 @@
                         />
                     </div>
                 {:else if answerVariant === "choice"}
-                    {#if choices}
+                    {#if choiceFallbackMode === "free-recall"}
+                        <div class="ft__smaller ft__on-surface lv-choice-fallback" role="status">
+                            {t.review.choiceFallbackFreeRecall}
+                        </div>
+                    {:else if choices}
                         <div class="lv-choices">
                             {#each choices.options as opt, i (i)}
                                 <button
@@ -1639,7 +1796,7 @@
                     {#if !showAnswer}
                         <button class="b3-button b3-button--small lv-btn-ghost" onclick={advanceHint}>{t.review.hintBtn}</button>
                     {/if}
-                    <button class="b3-button b3-button--text lv-reveal" onclick={() => (showAnswer = true)}>{t.review.showAnswer}</button>
+                    <button class="b3-button b3-button--text lv-reveal" disabled={!faceReady} onclick={() => (showAnswer = true)}>{t.review.showAnswer}</button>
                 </div>
                 <span class="lv-reveal-hint" aria-hidden="true">⎵ {t.review.revealHint}</span>
             {/if}
@@ -1750,7 +1907,7 @@
             {/if}
             <div class="lv-actions" class:lv-actions-compact={eff().ratingDensity === "compact"}>
             {#if !showAnswer}
-                <button class="b3-button lv-btn-primary lv-btn-wide" onclick={() => (showAnswer = true)}>{t.review.showAnswer}<span class="lv-btn-wide-kbd">Space</span></button>
+                <button class="b3-button lv-btn-primary lv-btn-wide" disabled={!faceReady} onclick={() => (showAnswer = true)}>{t.review.showAnswer}<span class="lv-btn-wide-kbd">Space</span></button>
             {:else if eff().ratingStyle === "three"}
                 <button class="b3-button lv-btn-rate lv-b1" disabled={submitting} onclick={() => rate(1)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.unknown}</span><LvKbd k="1" /></span><small>{dueText("1")}</small></button>
                 <button class="b3-button lv-btn-rate lv-b2" disabled={submitting} onclick={() => rate(2)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.vague}</span><LvKbd k="2" /></span><small>{dueText("2")}</small></button>

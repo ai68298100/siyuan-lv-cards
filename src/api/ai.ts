@@ -6,12 +6,12 @@
  * AQ-15：fallback 仅对可恢复错误（网络/5xx/429）生效；401/配额/4xx/取消/解析错误直接给原因。
  */
 import { fetchSyncPost } from "siyuan";
-import { AICanceledError, isAICanceled, isRecoverableAIError } from "./ai-errors";
+import { AICanceledError, AIHttpError, extractAIErrorCode, isAICanceled, isRecoverableAIError, parseRetryAfter } from "./ai-errors";
 import { classifyAiFailure, nextLadderStep, type LadderStep } from "../core/ai-degradation";
 import { withTimeout } from "../libs/timeout";
 
 // 错误分类从零依赖模块再导出（单测不经 siyuan 包解析；调用方仍从 @/api/ai 引入）
-export { AICanceledError, isAICanceled, isRecoverableAIError };
+export { AICanceledError, AIHttpError, extractAIErrorCode, isAICanceled, isRecoverableAIError, parseRetryAfter };
 // BU-28 阶梯分类/决策随调用层暴露（向导/审计可呈现实际降级路径）
 export { classifyAiFailure, nextLadderStep };
 export type { LadderStep };
@@ -99,6 +99,12 @@ export async function aiChat(cfg: AIConfig, system: string, user: string, opts: 
         throw new AICanceledError();
     }
     if (!resp || resp.code !== 0) {
+        // 思源网关返回 envelope 时可能只给数值状态码，不带 HTTP 文本；
+        // 映射 4xx/5xx 后与自定义端点共用认证、配额、限流和服务端错误提示。
+        const status = Number(resp?.code);
+        if (Number.isInteger(status) && status >= 400 && status <= 599) {
+            throw new AIHttpError(status, extractAIErrorCode(resp?.data ?? resp));
+        }
         throw new Error(resp?.msg || `kernel error (code=${resp?.code ?? "unknown"})`);
     }
     const d = resp.data;
@@ -142,7 +148,12 @@ async function chatCompletions(cfg: AIConfig, system: string, user: string, opts
             throw new AICanceledError();
         }
         if (!resp.ok) {
-            throw new Error(`AI HTTP ${resp.status}`);
+            // 只读取机器码，不把服务端 message/details（可能回显材料）带入 UI 或日志。
+            let code: string | undefined;
+            try {
+                code = extractAIErrorCode(await resp.clone().json());
+            } catch { /* 非 JSON 错误响应仍可按 HTTP 状态分类 */ }
+            throw new AIHttpError(resp.status, code, parseRetryAfter(resp.headers?.get("retry-after")));
         }
         try {
             const j: any = await resp.json();
@@ -155,7 +166,7 @@ async function chatCompletions(cfg: AIConfig, system: string, user: string, opts
         if (opts.signal?.aborted) {
             throw new AICanceledError();
         }
-        if (e instanceof DOMException && e.name === "AbortError") {
+        if ((e instanceof DOMException && e.name === "AbortError") || (e instanceof Error && e.name === "AbortError")) {
             throw new Error(`AI timeout after ${timeoutMs}ms`);
         }
         throw e;

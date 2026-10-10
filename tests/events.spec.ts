@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
     cardsCreatedEvent, EVENT_SOURCE, EVENT_VERSION, gatewayChangedEvent, LV_EVENTS,
-    reviewedEvent, sessionFinishedEvent, settingsChangedEvent, streakChangedEvent,
+    reviewedEvent, sessionFinishedEvent, settingsChangedEvent, storesChangedEvent, streakChangedEvent,
 } from "../src/libs/events";
 
 // AX-2 事件契约：version/来源/毫秒时间戳单一事实源；payload 只增不改
@@ -15,6 +15,7 @@ describe("events 契约（AX-2）", () => {
         expect(LV_EVENTS.sessionFinished).toBe("lv-cards:session-finished");
         expect(LV_EVENTS.settingsChanged).toBe("lv-cards:settings-changed");
         expect(LV_EVENTS.gatewayChanged).toBe("lv-cards:gateway-changed");
+        expect(LV_EVENTS.storesChanged).toBe("lv-cards:stores-changed");
     });
 
     it("reviewedEvent：基础字段（plugin/v/ts）+ payload 原样", () => {
@@ -33,6 +34,10 @@ describe("events 契约（AX-2）", () => {
         expect(sessionFinishedEvent({ a: 1 }, t).summary).toEqual({ a: 1 });
         expect(settingsChangedEvent(t)).toEqual({ plugin: EVENT_SOURCE, v: 1, ts: 1791045009395 });
         expect(gatewayChangedEvent("Active", t)).toEqual({ plugin: EVENT_SOURCE, v: 1, ts: 1791045009395, state: "Active" });
+        expect(storesChangedEvent(["/storage/petal/siyuan-lv-cards/revlog.json"], t)).toEqual({
+            plugin: EVENT_SOURCE, v: 1, ts: 1791045009395,
+            files: ["/storage/petal/siyuan-lv-cards/revlog.json"],
+        });
     });
 
     it("ts 为毫秒精度（幂等键=cardID+rating+ts 组合由消费方构造）", () => {

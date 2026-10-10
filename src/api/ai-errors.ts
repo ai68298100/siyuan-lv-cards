@@ -5,6 +5,47 @@
  */
 import { classifyAiFailure, isRetryableClass } from "../core/ai-degradation";
 
+/**
+ * HTTP 层错误：保留状态码和服务端机器码，避免把响应正文（可能包含用户材料）
+ * 原样拼进错误消息。机器码足够让降级分类器区分 429 限流与配额耗尽。
+ */
+export class AIHttpError extends Error {
+    readonly status: number;
+    readonly reasonCode?: string;
+    readonly retryAfterMs?: number;
+
+    constructor(status: number, reasonCode?: string, retryAfterMs?: number) {
+        const code = reasonCode ? ` (${reasonCode})` : "";
+        super(`AI HTTP ${status}${code}`);
+        this.name = "AIHttpError";
+        this.status = status;
+        this.reasonCode = reasonCode;
+        this.retryAfterMs = retryAfterMs;
+    }
+}
+
+/** Retry-After 支持秒数和 HTTP-date 两种标准格式。 */
+export function parseRetryAfter(value: string | null | undefined, now = Date.now()): number | undefined {
+    if (!value) {
+        return undefined;
+    }
+    const raw = value.trim();
+    if (/^\d+(?:\.\d+)?$/.test(raw)) {
+        return Math.max(0, Math.round(Number(raw) * 1000));
+    }
+    const at = Date.parse(raw);
+    return Number.isFinite(at) ? Math.max(0, at - now) : undefined;
+}
+
+/** 从错误响应中只提取安全的机器码，不泄漏 message/details 原文。 */
+export function extractAIErrorCode(payload: unknown): string | undefined {
+    const root = payload && typeof payload === "object" ? payload as Record<string, unknown> : null;
+    const nested = root?.error && typeof root.error === "object" ? root.error as Record<string, unknown> : null;
+    const candidates = [nested?.code, nested?.type, root?.code, root?.type];
+    const code = candidates.find(v => typeof v === "string" && /^[a-z0-9_.-]{2,80}$/i.test(v as string));
+    return typeof code === "string" ? code : undefined;
+}
+
 /** 用户/调用方主动取消（区别于超时）：向导静默处理，不当作错误展示 */
 export class AICanceledError extends Error {
     constructor() {

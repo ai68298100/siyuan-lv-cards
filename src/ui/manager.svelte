@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { onMount } from "svelte";
+    import { onMount, tick } from "svelte";
     import { openTab, showMessage } from "siyuan";
     import { getRiffCards, removeRiffCards, resetRiffCards, type SearchBlock } from "@/api/riff";
     import { invalidateDueCache } from "@/api/due-shared";
@@ -20,6 +20,7 @@
         /** BI-17：管理器视图状态持久化（可选——旧宿主不传则不恢复筛选） */
         view?: { initial: string | null; save: (v: string) => void };
         app: any;
+        openOnboarding?: () => void;
         savedFilters: () => { name: string; filter: string }[];
         saveFilter: (name: string, filter: string) => void;
         /** T05 分面（docs/40）：块学习记录与关联疑问（可选——旧宿主不传则分面显示空态） */
@@ -37,6 +38,10 @@
         getLapsesMap: () => Record<string, number>;
         /** 今日到期块 ID 清单（内核到期卡片，含 blockID） */
         getDueBlockIDs: () => Promise<string[]>;
+        /** 订阅跨前端存储重载事件，自动刷新当前分页与到期筛选 */
+        onStoresChanged?: (cb: () => void) => () => void;
+        /** 订阅评分事件，保持卡片状态/到期筛选与总览同一时点 */
+        onReviewed?: (cb: () => void) => () => void;
         /** BK-2：关系视图/增删（v0.123.0；可选——旧宿主不传则详情不显示关系区） */
         relationsOfBlock?: (blockID: string) => { relation: { from: string; to: string; type: string; createdAt: number }; direction: "outgoing" | "incoming" }[];
         addRelation?: (from: string, to: string, type: string) => void;
@@ -100,6 +105,8 @@
     let dueSet = new Set<string>();
     let loadSeq = 0;  // AR-6：分页/刷新请求序号
     let dueSeq = 0;   // AR-6：到期清单请求序号
+    let dueLoading = $state(false);
+    let dueError = $state("");
     let savedList = $state<{ name: string; filter: string }[]>([]);
     let pickedSaved = $state("");
     let selected: string[] = $state([]);
@@ -110,6 +117,7 @@
     let detailKo: { registered: boolean; fact: string; instances: { cardID: string; cardType: string; capability: string | null; disabled: boolean }[] } | null = $state(null);
     let koDeriving = $state(false);
     let detailLc: import("@/core/content-lifecycle").ContentLifecycle | null = $state(null);
+    let storesChangedTimer: ReturnType<typeof setTimeout> | null = null;
 
     let filteredBlocks = $derived(
         (() => {
@@ -151,6 +159,8 @@
         const seq = ++loadSeq;
         loading = true;
         errorMsg = "";
+        // 新请求对应新结果，旧页面的选择不能作用于新分页或筛选结果。
+        selected = [];
         try {
             const cards = await getRiffCards("", page, PAGE_SIZE);
             if (seq !== loadSeq) {
@@ -188,15 +198,26 @@
 
     /** 「今日到期」切换过滤项时拉取内核到期清单（AR-6：每次切入都重拉，评分后 due 集不陈旧） */
     async function onStatusChange() {
-        if (statusFilter === "due") {
-            const seq = ++dueSeq;
-            try {
-                const ids = await ctx.getDueBlockIDs();
-                if (seq === dueSeq) {
-                    dueSet = new Set(ids);
-                    load();
-                }
-            } catch { /* 到期清单失败按空集处理，仅影响该过滤项 */ }
+        const seq = ++dueSeq;
+        dueError = "";
+        dueSet = new Set();
+        if (statusFilter !== "due") {
+            dueLoading = false;
+            return;
+        }
+        dueLoading = true;
+        try {
+            const ids = await ctx.getDueBlockIDs();
+            if (seq === dueSeq && statusFilter === "due") {
+                dueSet = new Set(ids);
+                await load();
+            }
+        } catch (e: any) {
+            if (seq === dueSeq && statusFilter === "due") {
+                dueError = e?.message || t.manager.dueLoadFailed;
+            }
+        } finally {
+            if (seq === dueSeq) dueLoading = false;
         }
     }
 
@@ -286,6 +307,57 @@
         });
     }
 
+    /** 键盘快捷删除当前焦点卡片；删除后把焦点留在相邻卡片，避免回到页面顶部。 */
+    function removeOne(b: SearchBlock, rowIndex: number) {
+        if (batchBusy) return;
+        confirmDialog({
+            title: t.manager.deleteCard,
+            content: `<div class="b3-typography">${t.manager.deleteConfirm}</div>`,
+            confirm: async () => {
+                batchBusy = "remove";
+                batchError = "";
+                try {
+                    await removeRiffCards("", [b.id]);
+                    invalidateDueCache();
+                    showMessage(t.manager.deleteDone, 2000, "info");
+                    await load();
+                    if (page > pageCount) {
+                        page = pageCount;
+                        await load();
+                    }
+                    await tick();
+                    focusRowAt(Math.min(rowIndex, filteredBlocks.length - 1));
+                } catch (e: any) {
+                    batchError = e?.message ?? String(e);
+                    showMessage(batchError, 3500, "error");
+                } finally {
+                    batchBusy = null;
+                }
+            },
+        });
+    }
+
+    function focusRowAt(index: number) {
+        if (index < 0) return;
+        const rows = Array.from(document.querySelectorAll<HTMLElement>(".lv-list .lv-row-main"));
+        rows[index]?.focus({ preventScroll: true });
+    }
+
+    function onRowKeydown(event: KeyboardEvent, b: SearchBlock, rowIndex: number) {
+        // 仅处理无修饰键的列表导航，避免抢占浏览器/宿主的组合快捷键。
+        if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+        if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+            event.preventDefault();
+            focusRowAt(rowIndex + (event.key === "ArrowUp" ? -1 : 1));
+        } else if (event.key === "Enter") {
+            event.preventDefault();
+            openDetail(b);
+        } else if (event.key === "Delete") {
+            event.preventDefault();
+            removeOne(b, rowIndex);
+        }
+    }
+
     function openDetail(b: SearchBlock) {
         detail = b;
         // BK-2：详情打开时载入该块的关系视图（本地镜像，增删后经 ctx 刷新）
@@ -312,6 +384,31 @@
             if (v.status === "due") { void onStatusChange(); }
         }
         load();
+        // 同步/其他窗口写入后，当前管理器保持筛选和页签位置但重读卡片快照。
+        const offStores = ctx.onStoresChanged?.(() => {
+            if (storesChangedTimer) clearTimeout(storesChangedTimer);
+            storesChangedTimer = setTimeout(() => {
+                storesChangedTimer = null;
+                void load();
+                if (statusFilter === "due") void onStatusChange();
+            }, 180);
+        });
+        const offReviewed = ctx.onReviewed?.(() => {
+            if (storesChangedTimer) clearTimeout(storesChangedTimer);
+            storesChangedTimer = setTimeout(() => {
+                storesChangedTimer = null;
+                void load();
+                if (statusFilter === "due") void onStatusChange();
+            }, 180);
+        });
+        return () => {
+            offStores?.();
+            offReviewed?.();
+            if (storesChangedTimer) {
+                clearTimeout(storesChangedTimer);
+                storesChangedTimer = null;
+            }
+        };
     });
 
     // BI-17：视图变化即持久化（settings 走 saveSettingsSoon 防抖）
@@ -348,8 +445,8 @@
 
 <LvPage eyebrow="OBJECT / MAINTAIN" title={t.manager.title} subtitle={t.manager.scopeNote}>
     {#snippet actions()}
-        <input class="b3-text-field lv-filter" type="text" placeholder={t.manager.filterPlaceholder} bind:value={filterText} />
-        <button class="b3-button b3-button--small lv-btn-ghost" onclick={load}>{t.dashboard.refresh}</button>
+        <input class="b3-text-field lv-filter" type="text" placeholder={t.manager.filterPlaceholder} bind:value={filterText} oninput={() => (selected = [])} />
+        <button class="b3-button b3-button--small lv-btn-ghost" disabled={loading || batchBusy !== null} onclick={load}>{t.dashboard.refresh}</button>
     {/snippet}
 
     <!-- T-管理器 R53 工具行：排序/筛选/保存独立于页头搜索 -->
@@ -363,16 +460,16 @@
                 {#each savedList as f (f.name)}<option value={f.name}>{f.name}</option>{/each}
             </select>
             {#if pickedSaved}
-                <button class="b3-button b3-button--small lv-btn-ghost" title={t.manager.deleteSaved} onclick={deleteSaved}>🗑</button>
+                <button class="b3-button b3-button--small lv-btn-ghost" title={t.manager.deleteSaved} aria-label={t.manager.deleteSaved} onclick={deleteSaved}>🗑</button>
             {/if}
         {/if}
-        <select class="b3-select lv-sort" bind:value={sortMode} title={t.manager.sortLabel}>
+        <select class="b3-select lv-sort" bind:value={sortMode} onchange={() => (selected = [])} title={t.manager.sortLabel}>
             <option value="default">{t.manager.sortDefault}</option>
             <option value="path">{t.manager.sortPath}</option>
             <option value="content">{t.manager.sortContent}</option>
             <option value="lapses">{t.manager.sortLapses}</option>
         </select>
-        <select class="b3-select lv-sort" bind:value={statusFilter} onchange={onStatusChange} title={t.manager.statusLabel}>
+        <select class="b3-select lv-sort" bind:value={statusFilter} disabled={loading || dueLoading} onchange={() => { selected = []; void onStatusChange(); }} title={t.manager.statusLabel}>
             <option value="all">{t.manager.statusAll}</option>
             <option value="new">{t.manager.statusNew}</option>
             <option value="review">{t.manager.statusReview}</option>
@@ -383,7 +480,7 @@
                 class="lv-chipbtn"
                 class:lv-chipbtn-active={leechOnly}
                 title={t.manager.leechFilter}
-                onclick={() => (leechOnly = !leechOnly)}
+                onclick={() => { leechOnly = !leechOnly; selected = []; }}
             >{t.manager.leechFilter}</button>
         {/if}
         <span class="lv-toolbar-caption">{t.manager.total}: {total}</span>
@@ -411,17 +508,24 @@
         </div>
     {:else if errorMsg}
         <LvError message={errorMsg} onretry={load} retryLabel={t.dashboard.refresh} />
+    {:else if dueError}
+        <LvError message={dueError} onretry={() => { void onStatusChange(); }} retryLabel={t.dashboard.refresh} />
     {:else if filteredBlocks.length === 0}
-        {#if filterText}
-            <LvEmpty text={t.manager.filterEmpty} actionLabel={t.manager.filterClear} onaction={() => (filterText = "")} />
+        {#if filterText || statusFilter !== "all" || leechOnly}
+            <LvEmpty
+                text={t.manager.filterEmpty}
+                actionLabel={t.manager.filterClear}
+                onaction={() => { filterText = ""; statusFilter = "all"; leechOnly = false; }}
+            />
         {:else}
-            <LvEmpty text={t.manager.empty} />
+            <LvEmpty text={t.manager.empty} actionLabel={t.dashboard.onboardingStart} onaction={() => ctx.openOnboarding?.()} />
         {/if}
     {:else}
-        <div class="lv-list">
-            {#each filteredBlocks as b (b.id)}
+        <div class="lv-list" role="list" aria-label={t.manager.title}>
+            {#each filteredBlocks as b, rowIndex (b.id)}
                 <div
                     class="lv-row"
+                    role="listitem"
                 >
                     <input
                         type="checkbox"
@@ -430,7 +534,14 @@
                         checked={selected.includes(b.id)}
                         onclick={(e: Event) => { e.stopPropagation(); toggleSelect(b.id); }}
                     />
-                    <button type="button" class="lv-row-main" onclick={() => openDetail(b)}>
+                    <button
+                        type="button"
+                        class="lv-row-main"
+                        aria-keyshortcuts="ArrowUp ArrowDown Delete Enter"
+                        disabled={batchBusy !== null}
+                        onclick={() => openDetail(b)}
+                        onkeydown={(event) => onRowKeydown(event, b, rowIndex)}
+                    >
                         <span class="lv-content">
                             <span class="lv-text">{stripHtml(b.content) || t.manager.emptyContentFallback}</span>
                             <span class="lv-meta ft__smaller ft__on-surface">{b.hPath ?? ""} {b.name ? "· " + b.name : ""}</span>
@@ -651,6 +762,43 @@
                 transform: translateX(-4px);
                 transition: opacity var(--lv-dur-2) var(--lv-ease), transform var(--lv-dur-2) var(--lv-ease);
             }
+        }
+    }
+
+    /* 窄屏工具栏：搜索、筛选和批量动作分行，避免中文按钮互相挤压。 */
+    @media (max-width: 740px) {
+        .lv-filter {
+            width: min(100%, 320px);
+            flex: 1 1 180px;
+        }
+        .lv-mgr-toolbar {
+            align-items: stretch;
+            .lv-sort { flex: 1 1 135px; max-width: none; }
+            .lv-chipbtn { flex: 0 1 auto; }
+            .lv-toolbar-caption { width: 100%; margin-left: 0; }
+        }
+        .lv-batchbar {
+            align-items: stretch;
+            .fn__flex-1 { display: none; }
+            > .b3-button { flex: 1 1 auto; }
+        }
+        .lv-row { flex-wrap: wrap; }
+        .lv-list .lv-row > .b3-button { margin-left: 28px; }
+    }
+
+    @media (max-width: 420px) {
+        .lv-mgr-toolbar {
+            .lv-sort { flex-basis: 100%; }
+            .lv-chipbtn { width: 100%; justify-content: center; }
+        }
+        .lv-batchbar {
+            > .b3-button { flex-basis: 45%; white-space: normal; }
+        }
+        .lv-list .lv-row {
+            padding: var(--lv-sp-2) var(--lv-sp-3);
+            gap: var(--lv-sp-2);
+            .lv-row-main { flex-basis: calc(100% - 28px); }
+            > .b3-button { width: calc(100% - 28px); margin-left: 28px; }
         }
     }
 </style>

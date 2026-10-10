@@ -19,6 +19,8 @@
     let busy = $state(false);
     let errorMsg = $state("");
 
+    const canCreateDeck = $derived(decks.some(d => d.id === selected) || !!newName.trim());
+
     onMount(async () => {
         try {
             decks = await getRiffDecks();
@@ -44,7 +46,7 @@
                 deckID = deck.id;
                 deckName = deck.name;
             }
-            if (!deckID) {
+            if (!deckID || (!newName.trim() && !decks.some(d => d.id === deckID))) {
                 errorMsg = t.quickCardNeedDeck;
                 return;
             }
@@ -84,13 +86,16 @@
             {/each}
         </select>
         <input class="b3-text-field fn__block lv-qc-new" placeholder={t.deckNewName} bind:value={newName} />
+        {#if decks.length === 0}
+            <div class="ft__smaller ft__on-surface lv-qc-deck-hint">{t.quickCardNeedDeck}</div>
+        {/if}
     </div>
     {#if errorMsg}
         <div class="ft__smaller lv-qc-error" role="alert">{errorMsg}</div>
     {/if}
     <div class="b3-dialog__action lv-qc-actions">
         <button class="b3-button b3-button--cancel" onclick={onClose}>{window.siyuan.languages.cancel}</button>
-        <button class="b3-button lv-btn-primary" disabled={busy || !q.trim() || !a.trim()} onclick={confirm}>
+        <button class="b3-button lv-btn-primary" disabled={busy || !q.trim() || !a.trim() || !canCreateDeck} onclick={confirm}>
             {t.quickCardCreate} <LvKbd k="Ctrl ↵" />
         </button>
     </div>
@@ -113,6 +118,7 @@
         margin-bottom: var(--lv-sp-1);
     }
     .lv-quickcard .lv-qc-new { margin-top: var(--lv-sp-2); }
+    .lv-quickcard .lv-qc-deck-hint { margin-top: var(--lv-sp-1); }
     .lv-quickcard .lv-qc-error {
         color: var(--b3-theme-error);
         margin-bottom: var(--lv-sp-2);

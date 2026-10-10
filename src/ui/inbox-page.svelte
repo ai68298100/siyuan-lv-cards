@@ -71,6 +71,14 @@
     );
     const allChecked = $derived(visible.length > 0 && visible.every(i => checked.includes(i.blockID)));
 
+    // 块菜单或向导可能在当前页打开时更新收件箱；清理已经不存在的选择，
+    // 避免批量操作误作用于隐藏或已删除的记录。
+    $effect(() => {
+        const ids = new Set(snapshot.items.map(i => i.blockID));
+        const next = checked.filter(id => ids.has(id));
+        if (next.length !== checked.length) checked = next;
+    });
+
     // 标题解析：块 content 首行（失败置空串→回退短 ID，行骨架随之解除）
     const pendingTitles = new Set<string>();
     $effect(() => {
@@ -199,30 +207,30 @@
         <button class="b3-button b3-button--small lv-btn-ghost" title={t.refresh} onclick={refresh}>{t.refresh}</button>
     {/snippet}
 
+    {#if makeError}<div class="lv-inbox-error" role="alert">{makeError}</div>{/if}
     {#if visible.length === 0}
         <LvEmpty text={t.empty} />
     {:else}
-        {#if makeError}<div class="lv-inbox-error" role="alert">{makeError}</div>{/if}
         {#if checked.length > 0}
             <div class="lv-glass lv-batchbar">
                 <LvChip tone="primary">{t.selectedCount.replace("${n}", String(checked.length))}</LvChip>
                 <div class="fn__flex-1"></div>
                 {#if filter === "inbox"}
-                    <button class="b3-button b3-button--outline" onclick={() => applyStatus("staged")}>{t.stage}</button>
-                    <button class="b3-button b3-button--outline" onclick={() => applyStatus("selected")}>{t.select}</button>
-                    <button class="b3-button b3-button--outline" onclick={() => applyStatus("dismissed")}>{t.dismiss}</button>
+                    <button class="b3-button b3-button--outline" disabled={making} onclick={() => applyStatus("staged")}>{t.stage}</button>
+                    <button class="b3-button b3-button--outline" disabled={making} onclick={() => applyStatus("selected")}>{t.select}</button>
+                    <button class="b3-button b3-button--outline" disabled={making} onclick={() => applyStatus("dismissed")}>{t.dismiss}</button>
                 {:else if filter === "staged"}
-                    <button class="b3-button b3-button--outline" onclick={() => applyStatus("selected")}>{t.select}</button>
-                    <button class="b3-button b3-button--outline" onclick={() => applyStatus("dismissed")}>{t.dismiss}</button>
-                    <button class="b3-button b3-button--outline" onclick={() => applyStatus("inbox")}>{t.back}</button>
+                    <button class="b3-button b3-button--outline" disabled={making} onclick={() => applyStatus("selected")}>{t.select}</button>
+                    <button class="b3-button b3-button--outline" disabled={making} onclick={() => applyStatus("dismissed")}>{t.dismiss}</button>
+                    <button class="b3-button b3-button--outline" disabled={making} onclick={() => applyStatus("inbox")}>{t.back}</button>
                 {:else if filter === "selected"}
                     <button class="b3-button b3-button--outline" disabled={making} onclick={sendToCards}>{t.sendToCards}</button>
-                    <button class="b3-button b3-button--outline" onclick={undoSel}>{t.undoSelection}</button>
+                    <button class="b3-button b3-button--outline" disabled={making} onclick={undoSel}>{t.undoSelection}</button>
                 {:else}
-                    <button class="b3-button b3-button--outline" onclick={() => applyStatus("inbox")}>{t.restore}</button>
-                    <button class="b3-button b3-button--outline" onclick={removeChecked}>{t.remove}</button>
+                    <button class="b3-button b3-button--outline" disabled={making} onclick={() => applyStatus("inbox")}>{t.restore}</button>
+                    <button class="b3-button b3-button--outline" disabled={making} onclick={removeChecked}>{t.remove}</button>
                 {/if}
-                <button class="b3-button b3-button--small" onclick={() => (checked = [])}>{t.batchCancel}</button>
+                <button class="b3-button b3-button--small" disabled={making} onclick={() => (checked = [])}>{t.batchCancel}</button>
             </div>
         {/if}
         <div class="lv-list">
@@ -314,4 +322,23 @@
     }
     .lv-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .lv-meta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    @media (max-width: 740px) {
+        .lv-batchbar {
+            align-items: stretch;
+            .fn__flex-1 { display: none; }
+            > .b3-button { flex: 1 1 auto; }
+        }
+        .lv-row { flex-wrap: wrap; }
+        .lv-row > .b3-button { margin-left: 28px; }
+    }
+    @media (max-width: 420px) {
+        .lv-row {
+            padding: var(--lv-sp-2) var(--lv-sp-3);
+            gap: var(--lv-sp-2);
+            .lv-content { flex-basis: calc(100% - 28px); }
+            > .b3-button { width: calc(100% - 28px); margin-left: 28px; }
+        }
+        .lv-batchbar > .b3-button { flex-basis: 45%; white-space: normal; }
+    }
 </style>
