@@ -1,6 +1,6 @@
 # 集市 PR 材料（提交前核对单与文案模板）
 
-> 状态：GitHub Release 待更新（当前为 v0.209.2）；**bazaar PR 前置条件仍未全部满足**。本文件的提交步骤已按 2026-10-10 的官方说明更新。
+> 状态：GitHub Release v0.209.2 已发布；[bazaar PR #2329](https://github.com/siyuan-note/bazaar/pull/2329) 已创建且 PR Check 通过，等待维护者审核与合并。真机与素材验收项仍未全部完成。
 
 ## 一、官方提交流程
 
@@ -35,7 +35,7 @@
 
 - [ ] **Anki .apkg 真机导入验证**（当前桌面版同时验证 node:sqlite 与 node:zlib；成功/失败都记录到 docs/34）
 - [ ] **真实脱敏截图 4 张**（P0-C3：复习 / 闪卡中心 / AI 制卡 / 设置；15~30s GIF 可后补）
-- [ ] **version 与 GitHub Release 一致**（候选 v0.209.2；待 Release workflow 产包并确认 `package.zip` 和 `package.zip.sha256`）
+- [x] **version 与 GitHub Release 一致**（v0.209.2；Release 已附 `package.zip` 和 `package.zip.sha256`）
 - [ ] **中英 README**：能力矩阵与五种状态标签口径一致（P0-C1 已做，提交前复核一遍）
 - [ ] **preview.png 实际展示验收**：现已按官方推荐尺寸调整为 1024×768、474,932 字节；仍待确认内容适合作为集市预览图。
 - [ ] **Gate L 其余上线条件**：核心闭环真机稳定两周、双语/无硬编码校验、性能预算、亮暗主题及移动设备验收、反馈渠道与差异化说明、平台 metadata 复核、发布后 48 小时响应安排。
