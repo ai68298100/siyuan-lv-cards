@@ -2,7 +2,7 @@
   "name": "siyuan-lv-cards",
   "author": "ai68298100",
   "url": "https://github.com/ai68298100/siyuan-lv-cards",
-  "version": "0.209.1",
+  "version": "0.209.2",
   "minAppVersion": "3.8.0",
   "kernels": [
     "windows",
@@ -11,8 +11,7 @@
     "ios",
     "android",
     "harmony",
-    "docker",
-    "all"
+    "docker"
   ],
   "disabledInPublish": true,
   "backends": [
@@ -45,14 +44,6 @@
   },
   "icon": "icon.png",
   "preview": "preview.png",
-  "funding": {
-    "openCollective": "",
-    "patreon": "",
-    "github": "",
-    "custom": [
-      "https://ld246.com/sponsor"
-    ]
-  },
   "keywords": [
     "flashcard",
     "闪卡",
