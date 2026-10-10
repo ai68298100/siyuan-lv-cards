@@ -19,9 +19,13 @@ The full-lifecycle flashcard learning platform for SiYuan — local-first, nativ
 
 > **Note**: The primary README and all design docs are in Chinese. This page covers the essentials; see [docs/](./docs/README.md) for full design material.
 
-Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current release is **v0.209.1** (2026-10-10), focused on clearer loading, empty, error, retry, and busy states across the plugin. It also prevents late challenge loads from starting a timer after exit and checks duplicate-card confirmation before creating a new deck. The previous release fixed core card creation, cloze masking, due queues, and AI safety issues. The full Android SiYuan host matrix remains pending.
+Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current release is **v0.209.2** (2026-10-10), a marketplace metadata compatibility update with no feature changes. The previous release clarified loading, empty, error, retry, and busy states, and fixed late challenge loads and duplicate-card confirmation. The full Android SiYuan host matrix remains pending.
 
-## What's New in v0.209.1
+## What's New in v0.209.2
+
+- **Marketplace compatibility:** Platform metadata now lists supported kernels without mixing in `all`; an unused sponsor placeholder was removed. No plugin behavior changed.
+
+## Previous Feature Update: v0.209.1
 
 - **Loading and recovery:** Dashboard refreshes preserve the last successful data with its timestamp. Deck, notebook, maintenance, challenge, pairing, and inbox actions now show clearer loading, empty, error, or retry states.
 - **Action feedback:** Review controls, settings saves, and batch operations prevent duplicate submissions while busy. AnkiConnect checks use the current draft credentials.
