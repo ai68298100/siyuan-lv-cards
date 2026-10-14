@@ -832,7 +832,20 @@ import { confirmDialog } from "@/libs/dialog";
 {/if}
 
 <style lang="scss">
-    .lv-filter { width: 200px; border-radius: 999px; padding-left: calc(var(--lv-space-unit) * 7); }
+    .lv-filter {
+        width: 220px;
+        min-height: 34px;
+        border-radius: var(--lv-r-pill);
+        padding: 0 var(--lv-sp-4) 0 calc(var(--lv-space-unit) * 7);
+        border: 1px solid var(--lv-border);
+        background: var(--lv-color-surface);
+        box-shadow: inset 0 1px 2px color-mix(in srgb, black 3%, transparent);
+        transition: border-color var(--lv-dur-1) var(--lv-ease), box-shadow var(--lv-dur-1) var(--lv-ease);
+        &:focus {
+            border-color: var(--lv-color-brand);
+            box-shadow: var(--lv-focus-ring);
+        }
+    }
     .lv-sort { font-size: var(--lv-type-control-size); padding: 4px 8px; }
     .lv-pager { font-size: var(--lv-type-control-size); color: var(--lv-color-text-muted); font-variant-numeric: tabular-nums; }
     .lv-loading {
@@ -847,6 +860,8 @@ import { confirmDialog } from "@/libs/dialog";
         gap: var(--lv-sp-2);
         border: 1px solid var(--lv-primary-border);
         border-radius: var(--lv-r-m);
+        background: var(--lv-primary-softer);
+        box-shadow: var(--lv-shadow-card), var(--lv-inset-shine);
         padding: var(--lv-sp-2) var(--lv-sp-3);
         margin-bottom: var(--lv-sp-2);
     }
@@ -907,8 +922,10 @@ import { confirmDialog } from "@/libs/dialog";
             background: var(--lv-color-surface);
             border: 1px solid var(--lv-border);
             border-radius: var(--lv-r-m);
+            box-shadow: var(--lv-shadow-card), var(--lv-inset-shine);
             transition: transform var(--lv-dur-2) var(--lv-ease),
                 border-color var(--lv-dur-2) var(--lv-ease),
+                background var(--lv-dur-2) var(--lv-ease),
                 box-shadow var(--lv-dur-2) var(--lv-ease);
             position: relative;
 
@@ -926,7 +943,8 @@ import { confirmDialog } from "@/libs/dialog";
             &:hover {
                 transform: translateY(-1px);
                 border-color: var(--lv-border-strong);
-                box-shadow: var(--lv-shadow-2);
+                background: color-mix(in srgb, var(--lv-primary-softer) 30%, var(--lv-color-surface));
+                box-shadow: var(--lv-shadow-card-hover), var(--lv-inset-shine);
                 &::before { opacity: 1; }
                 .lv-arrow { opacity: 1; transform: translateX(0); }
             }

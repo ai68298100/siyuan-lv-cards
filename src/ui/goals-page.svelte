@@ -347,19 +347,20 @@
         }
         .lv-step-num {
             flex: none;
-            width: 20px;
-            height: 20px;
+            width: 22px;
+            height: 22px;
             border-radius: var(--lv-r-circle);
             display: inline-flex;
             align-items: center;
             justify-content: center;
             border: 1px solid var(--lv-border-strong);
             font-size: var(--lv-type-caption-size);
+            font-weight: var(--lv-fw-bold);
         }
         .lv-step-done { color: var(--lv-color-brand); }
         .lv-step-num.lv-step-done {
             background: var(--lv-primary-soft);
-            border-color: transparent;
+            border-color: var(--lv-primary-border);
             color: var(--lv-color-brand);
         }
     }

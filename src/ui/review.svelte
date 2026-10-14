@@ -2240,17 +2240,16 @@
             overflow: auto;
             background: var(--lv-color-surface);
             border: 1px solid var(--lv-border);
-            border-radius: var(--lv-r-l);
-            /* R52 .study-card：静态浅阴影（5% ink 单层），不随主题翻转 */
-            box-shadow: var(--lv-shadow-review-card);
-            /* R52 卡面规范（starline .study-card）：48/44 内边距、min-height 300，窄屏收窄 */
+            border-radius: var(--lv-r-dialog);
+            box-shadow: var(--lv-shadow-review-card), var(--lv-inset-shine);
+            /* R54 卡面规范：48/44 内边距、min-height 320，窄屏收窄 */
             padding: calc(var(--lv-space-unit) * 24) calc(var(--lv-space-unit) * 22);
-            min-height: 300px;
+            min-height: 320px;
             @media (max-width: 740px) { padding: calc(var(--lv-space-unit) * 13) calc(var(--lv-space-unit) * 11); }
             position: relative;
-            transition: box-shadow var(--lv-dur-2) var(--lv-ease), transform var(--lv-dur-2) var(--lv-ease);
+            transition: box-shadow var(--lv-dur-2) var(--lv-ease), transform var(--lv-dur-2) var(--lv-ease), border-color var(--lv-dur-2) var(--lv-ease);
 
-            &:hover { box-shadow: var(--lv-shadow-2), var(--lv-shadow-1); }
+            &:hover { box-shadow: var(--lv-shadow-card-hover), var(--lv-inset-shine); }
 
             // 问题态遮罩规则已移至 index.scss 全局（scoped 编译会误剪 :global 结尾选择器）
 
@@ -2404,6 +2403,19 @@
                 flex: 1;
                 min-height: 48px;
                 font-weight: var(--lv-fw-semibold);
+                box-shadow: var(--lv-shadow-card);
+                transition: transform var(--lv-dur-1) var(--lv-ease),
+                    box-shadow var(--lv-dur-2) var(--lv-ease),
+                    filter var(--lv-dur-1) var(--lv-ease);
+
+                &:hover {
+                    transform: translateY(-1px);
+                    box-shadow: var(--lv-shadow-card-hover);
+                }
+                &:active {
+                    transform: scale(0.98);
+                }
+
                 .lv-btn-wide-kbd {
                     margin-left: calc(var(--lv-space-unit) * 5);
                     font-size: var(--lv-type-meta-size);
@@ -2414,17 +2426,25 @@
             .lv-btn-rate {
                 flex: 1;
                 max-width: 180px;
-                /* R52 .rating：高卡、左对齐、kbd 右置、间隔提示下沉 */
+                /* R54 rating：高卡、左对齐、kbd 右置、间隔提示下沉、物理微阴影与按压弹性 */
                 display: flex; flex-direction: column; align-items: stretch; gap: 5px;
                 text-align: left;
                 border-radius: var(--lv-r-m);
+                border: 1px solid var(--lv-border);
                 padding: calc(var(--lv-space-unit) * 7) calc(var(--lv-space-unit) * 8 + var(--lv-space-hairline));
-                min-height: 77px;
+                min-height: 80px;
+                background: var(--lv-color-surface);
+                box-shadow: var(--lv-shadow-card), var(--lv-inset-shine);
                 transition: transform var(--lv-dur-1) var(--lv-ease),
                     background var(--lv-dur-1) var(--lv-ease),
-                    box-shadow var(--lv-dur-2) var(--lv-ease);
+                    box-shadow var(--lv-dur-2) var(--lv-ease),
+                    border-color var(--lv-dur-1) var(--lv-ease);
 
-                &:hover { transform: translateY(-1px); }
+                &:hover {
+                    transform: translateY(-2px);
+                    box-shadow: var(--lv-shadow-card-hover), var(--lv-inset-shine);
+                    border-color: var(--lv-border-strong);
+                }
                 &:active { transform: scale(0.98); }
 
                 .lv-rate-top {
@@ -2440,15 +2460,15 @@
                 grid-template-columns: 1fr 1fr;
                 .lv-btn-rate { max-width: none; }
             }
-            // R52 .rating button：白面 1px 描边、ink 标签、muted 间隔——不做彩色底（对齐原型）
+            // R54 .rating button：白面 1px 描边、ink 标签、muted 间隔，hover 细微语义反馈
             .lv-b1, .lv-b2, .lv-b3, .lv-b4 {
                 background: var(--lv-color-surface);
                 color: var(--lv-color-text);
-                &:hover {
-                    background: var(--lv-surface-hover);
-                    border-color: var(--lv-border-strong);
-                }
             }
+            .lv-b1:hover { border-color: var(--lv-danger-border); }
+            .lv-b2:hover { border-color: color-mix(in srgb, var(--lv-color-warning) 35%, transparent); }
+            .lv-b3:hover { border-color: var(--lv-primary-border); }
+            .lv-b4:hover { border-color: var(--lv-primary-border); }
         }
 
         .lv-peek {

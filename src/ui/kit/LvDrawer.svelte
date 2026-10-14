@@ -61,6 +61,7 @@
         position: fixed;
         inset: 0;
         background: color-mix(in srgb, black 32%, transparent);
+        backdrop-filter: blur(2px);
         z-index: var(--lv-z-drawer, 300);
     }
     .lv-drawer {
@@ -73,8 +74,10 @@
         flex-direction: column;
         max-width: min(442px, calc(100vw - 28px));
         background: var(--lv-color-surface);
-        border-left: 1px solid var(--lv-border, rgba(128, 128, 128, 0.15));
-        box-shadow: var(--lv-shadow-2, 0 2px 6px rgba(0, 0, 0, 0.08));
+        border: 1px solid var(--lv-border);
+        border-radius: var(--lv-r-dialog, 20px);
+        box-shadow: var(--lv-shadow-float), var(--lv-inset-shine);
+        overflow: hidden;
     }
     .lv-drawer-head {
         display: flex;

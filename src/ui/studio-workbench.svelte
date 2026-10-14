@@ -330,12 +330,47 @@
     .lv-studio-heading h2 { margin: calc(var(--lv-space-unit) * 2) 0 calc(var(--lv-space-unit) * 2 + var(--lv-space-hairline)); font-size: 21px; line-height: var(--lv-lh-reading-tight); }
     .lv-studio-heading p { margin: 0; color: var(--lv-color-text-muted); font-size: var(--lv-type-body-size); line-height: 1.65; }
     .lv-studio-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: var(--lv-sp-3); }
-    .lv-studio-modes { display: inline-flex; gap: 4px; padding: calc(var(--lv-space-unit) * 2); border-radius: 12px; background: var(--lv-color-canvas); }
-    .lv-studio-modes .b3-button { min-height: 40px; border: 1px solid transparent; border-radius: var(--lv-r-notice); background: transparent; color: var(--lv-color-text-muted); }
-    .lv-studio-modes .lv-studio-mode-active { border-color: var(--lv-border); background: var(--lv-color-surface); color: var(--lv-color-brand); }
+    .lv-studio-modes {
+        display: inline-flex;
+        gap: 4px;
+        padding: calc(var(--lv-space-unit) * 2);
+        border-radius: var(--lv-r-m);
+        background: var(--lv-color-canvas);
+        border: 1px solid var(--lv-border);
+        box-shadow: inset 0 1px 2px color-mix(in srgb, black 3%, transparent);
+    }
+    .lv-studio-modes .b3-button {
+        min-height: 38px;
+        padding: 0 var(--lv-sp-4);
+        border: 1px solid transparent;
+        border-radius: var(--lv-r-control);
+        background: transparent;
+        color: var(--lv-color-text-muted);
+        font-size: var(--lv-type-body-size);
+        font-weight: var(--lv-fw-medium);
+        transition: color var(--lv-dur-1) var(--lv-ease), background var(--lv-dur-1) var(--lv-ease), border-color var(--lv-dur-1) var(--lv-ease), box-shadow var(--lv-dur-1) var(--lv-ease);
+    }
+    .lv-studio-modes .lv-studio-mode-active {
+        border-color: var(--lv-border);
+        background: var(--lv-color-surface);
+        color: var(--lv-color-brand);
+        font-weight: var(--lv-fw-semibold);
+        box-shadow: var(--lv-shadow-card), var(--lv-inset-shine);
+    }
     .lv-studio-tools { display: flex; align-items: center; gap: calc(var(--lv-space-unit) * 2); }
     .lv-studio-onboarding { min-height: 44px; }
-    .lv-studio-replace { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 0 0 calc(var(--lv-space-unit) * 7); padding: 12px 14px; border: 1px solid var(--lv-color-warning); border-radius: 6px; background: color-mix(in srgb, var(--lv-color-warning) 8%, var(--lv-color-surface)); }
+    .lv-studio-replace {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin: 0 0 calc(var(--lv-space-unit) * 7);
+        padding: 12px 14px;
+        border: 1px solid color-mix(in srgb, var(--lv-color-warning) 30%, transparent);
+        border-radius: var(--lv-r-m);
+        background: color-mix(in srgb, var(--lv-color-warning) 8%, var(--lv-color-surface));
+        box-shadow: var(--lv-shadow-card);
+    }
     .lv-studio-replace-copy { flex: 1 1 220px; min-width: 0; }
     .lv-studio-replace p { margin: calc(var(--lv-space-unit) * 2) 0 0; color: var(--lv-color-text-muted); font-size: var(--lv-type-control-size); line-height: 1.5; }
     .lv-studio-error { margin: calc(var(--lv-space-unit) * 6) 0; padding: 10px 12px; border-left: 3px solid var(--lv-color-danger); background: var(--lv-color-surface); color: var(--lv-color-danger); overflow-wrap: anywhere; }

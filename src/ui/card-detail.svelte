@@ -365,7 +365,16 @@
 </LvDrawer>
 
 <style>
-    .lv-detail-preview { margin-bottom: var(--lv-sp-4); overflow-wrap: anywhere; }
+    .lv-detail-preview {
+        margin-bottom: var(--lv-sp-4);
+        overflow-wrap: anywhere;
+        padding: calc(var(--lv-space-unit) * 8) calc(var(--lv-space-unit) * 9);
+        border: 1px solid var(--lv-border);
+        border-radius: var(--lv-r-m);
+        background: var(--lv-color-surface);
+        box-shadow: var(--lv-shadow-card), var(--lv-inset-shine);
+        line-height: var(--lv-lh-reading);
+    }
     .lv-detail-preview-state,
     .lv-detail-preview-error {
         display: flex;
@@ -383,26 +392,29 @@
         gap: calc(var(--lv-space-unit) * 1);
         padding: calc(var(--lv-space-unit) * 1 + var(--lv-space-hairline));
         border: 1px solid var(--lv-border);
-        border-radius: var(--lv-r-s);
-        background: color-mix(in srgb, var(--lv-color-text) 5%, transparent);
+        border-radius: var(--lv-r-m);
+        background: var(--lv-color-canvas);
+        box-shadow: inset 0 1px 2px color-mix(in srgb, black 3%, transparent);
         margin-bottom: var(--lv-sp-4);
     }
     .lv-facet {
         flex: 1;
-        border: none;
+        border: 1px solid transparent;
         background: transparent;
         color: var(--lv-color-text-muted);
         font-size: var(--lv-type-control-size);
+        font-weight: var(--lv-fw-medium);
         padding: calc(var(--lv-space-unit) * 2) calc(var(--lv-space-unit) * 4);
-        border-radius: var(--lv-r-compact);
+        border-radius: var(--lv-r-control);
         cursor: pointer;
-        transition: background var(--lv-dur-1) var(--lv-ease), color var(--lv-dur-1) var(--lv-ease);
+        transition: background var(--lv-dur-1) var(--lv-ease), color var(--lv-dur-1) var(--lv-ease), border-color var(--lv-dur-1) var(--lv-ease);
     }
     .lv-facet-active {
         background: var(--lv-color-surface);
         color: var(--lv-color-brand);
         font-weight: var(--lv-fw-semibold);
-        box-shadow: var(--lv-shadow-1);
+        border-color: var(--lv-border);
+        box-shadow: var(--lv-shadow-card), var(--lv-inset-shine);
     }
     .lv-hist-list { max-height: 320px; overflow: auto; }
 

@@ -200,7 +200,9 @@
         margin-bottom: var(--lv-sp-3);
         padding: var(--lv-sp-3);
         background: var(--lv-primary-softer);
+        border: 1px solid var(--lv-border);
         border-radius: var(--lv-r-m);
+        box-shadow: var(--lv-shadow-card);
     }
     .lv-ob-intro strong, .lv-ob-types strong { display: block; margin-bottom: var(--lv-sp-1); }
     .lv-ob-type-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--lv-sp-2); }
@@ -218,21 +220,22 @@
         padding: var(--lv-sp-3);
         cursor: pointer;
         border: 1px solid var(--lv-border);
-        background: var(--lv-color-canvas);
+        background: var(--lv-color-surface);
         text-align: left;
         border-radius: var(--lv-r-m);
+        box-shadow: var(--lv-shadow-card), var(--lv-inset-shine);
         transition: border-color var(--lv-dur-2) var(--lv-ease), transform var(--lv-dur-2) var(--lv-ease),
             box-shadow var(--lv-dur-2) var(--lv-ease);
     }
     .lv-persona:hover {
         transform: translateY(-2px);
-        box-shadow: var(--lv-shadow-2);
+        box-shadow: var(--lv-shadow-card-hover), var(--lv-inset-shine);
         border-color: var(--lv-border-strong);
     }
     .lv-persona-active {
-        border-color: var(--lv-primary-border);
-        background: var(--lv-primary-softer);
-        box-shadow: var(--lv-focus-ring);
+        border-color: var(--lv-color-brand);
+        background: var(--lv-primary-soft);
+        box-shadow: 0 0 0 1px var(--lv-color-brand), var(--lv-shadow-card);
     }
     .lv-persona-name {
         font-weight: var(--lv-fw-semibold);

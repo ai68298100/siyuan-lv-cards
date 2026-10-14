@@ -401,7 +401,10 @@
 
 <style>
     .lv-exam { display: flex; flex-direction: column; gap: var(--lv-sp-3); }
-    .lv-plan-cram { border-color: var(--lv-danger-border); }
+    .lv-plan-cram {
+        border-color: var(--lv-danger-border);
+        background: color-mix(in srgb, var(--lv-color-danger) 4%, var(--lv-color-surface));
+    }
     .lv-plan-head { align-items: center; gap: var(--lv-sp-2); }
     .lv-plan-name { font-weight: var(--lv-fw-bold); }
     .lv-plan-meta { margin: var(--lv-sp-1) 0; }
@@ -419,10 +422,17 @@
     .lv-editmask {
         position: fixed; inset: 0; z-index: var(--lv-z-host-overlay);
         background: color-mix(in srgb, black 32%, transparent);
+        backdrop-filter: blur(2px);
         display: flex; align-items: flex-start; justify-content: center;
         padding: var(--lv-sp-5);
     }
-    .lv-editcard { width: 520px; max-width: 94vw; margin-top: 6vh; }
+    .lv-editcard {
+        width: 520px;
+        max-width: 94vw;
+        margin-top: 6vh;
+        border-radius: var(--lv-r-dialog);
+        box-shadow: var(--lv-shadow-float), var(--lv-inset-shine);
+    }
     .lv-form-error {
         color: var(--lv-color-danger);
         font-size: var(--lv-type-control-size);

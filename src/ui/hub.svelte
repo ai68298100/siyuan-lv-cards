@@ -364,7 +364,9 @@
             <button class="lv-r54-sidebar-link" onclick={() => dashboardBase.openOnboarding()}>
                 <span class="lv-r54-sidebar-icon"><LvIcon name="question" size={18} /></span>{i18n.hubStudioOnboarding ?? "上手与示例"}
             </button>
-            <p class="lv-r54-sidebar-note">{i18n.hubLocalFirstNote ?? "一天一点，让理解留得更久。"}</p>
+            <div class="lv-r54-sidebar-note">
+                <strong>{i18n.hubLocalFirstNote ?? "一天一点，让理解留得更久。"}</strong>
+            </div>
             <p class="lv-r54-sidebar-version">{i18n.hubVersionNote ?? "内测版 · 本地优先"}</p>
             {#if !loadQuickCardView}<span id="lv-r54-new-card-hint" class="lv-sr-only">{i18n.hubManualUnavailable ?? "当前宿主未提供手工制卡入口"}</span>{/if}
         </aside>
@@ -606,7 +608,7 @@
         gap: calc(var(--lv-space-unit) * 11 + var(--lv-space-hairline));
         padding: calc(var(--lv-space-unit) * 13) calc(var(--lv-space-unit) * 7) calc(var(--lv-space-unit) * 9);
         border-right: 1px solid var(--lv-border);
-        background: var(--lv-color-surface);
+        background: color-mix(in srgb, var(--lv-color-canvas) 72%, var(--lv-color-surface));
     }
 
     .lv-r54-brand {
@@ -685,7 +687,18 @@
     .lv-r54-sidebar-link-active { background: var(--lv-primary-softer); color: var(--lv-color-brand); }
     .lv-r54-sidebar-icon { display: grid; width: 20px; height: 20px; flex: none; place-items: center; }
     .lv-r54-sidebar-link .lv-r54-nav-count { display: inline-flex; width: auto; height: auto; min-width: 20px; justify-content: center; margin-left: auto; padding: var(--lv-space-hairline) calc(var(--lv-space-unit) * 3); border: 0; border-radius: var(--lv-r-control); background: var(--lv-primary-soft); color: var(--lv-color-brand); font-size: 10px; font-variant-numeric: tabular-nums; }
-    .lv-r54-sidebar-note { margin: 0 calc(var(--lv-space-unit) * 4); color: var(--lv-color-text-muted); font-size: var(--lv-type-meta-size); line-height: 1.5; }
+    .lv-r54-sidebar-note {
+        margin: 0 calc(var(--lv-space-unit) * 2);
+        padding: calc(var(--lv-space-unit) * 5) calc(var(--lv-space-unit) * 6);
+        border-radius: var(--lv-r-m);
+        background: var(--lv-warn-soft);
+        color: var(--lv-color-text);
+        font-size: var(--lv-type-meta-size);
+        line-height: 1.5;
+        border: 1px solid color-mix(in srgb, var(--lv-color-warning) 20%, transparent);
+        box-shadow: var(--lv-shadow-card);
+        strong { font-weight: var(--lv-fw-emphasis); display: block; }
+    }
     .lv-r54-sidebar-version { margin: 0 calc(var(--lv-space-unit) * 4); color: var(--lv-color-text-muted); font-size: var(--lv-type-caption-size); line-height: 1.4; }
     .lv-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: calc(var(--lv-space-hairline) * -1); overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
     .lv-r54-content { display: flex; min-width: 0; min-height: 0; flex-direction: column; }
@@ -698,6 +711,7 @@
         padding: 0 calc(var(--lv-space-unit) * 15);
         border-bottom: 1px solid var(--lv-border);
         background: var(--lv-color-surface);
+        box-shadow: 0 1px 3px color-mix(in srgb, black 3%, transparent);
     }
 
     @container lv-hub (max-width: 1040px) {
@@ -712,22 +726,33 @@
     .lv-r54-search {
         display: flex;
         width: min(300px, 100%);
-        min-height: 34px;
+        min-height: 36px;
         align-items: center;
         justify-content: flex-start;
         gap: calc(var(--lv-space-unit) * 4);
         padding: calc(var(--lv-space-unit) * 2 + var(--lv-space-hairline)) calc(var(--lv-space-unit) * 5);
-        border: 1px solid transparent;
+        border: 1px solid var(--lv-border);
         border-radius: var(--lv-r-m);
         background: var(--lv-color-canvas);
+        box-shadow: inset 0 1px 2px color-mix(in srgb, black 3%, transparent);
         color: var(--lv-color-text-muted);
         font-size: var(--lv-type-control-size);
         font-weight: var(--lv-fw-normal);
         text-align: left;
+        transition: border-color var(--lv-dur-1) var(--lv-ease), background var(--lv-dur-1) var(--lv-ease);
     }
-    .lv-r54-search:not(:disabled):hover { border-color: var(--lv-border); background: var(--lv-primary-softer); }
+    .lv-r54-search:not(:disabled):hover { border-color: var(--lv-border-strong); background: var(--lv-color-surface); }
     .lv-r54-search:disabled { cursor: not-allowed; opacity: .62; }
-    .lv-r54-search kbd { margin-left: auto; }
+    .lv-r54-search kbd {
+        margin-left: auto;
+        padding: 2px 6px;
+        border-radius: 6px;
+        background: var(--lv-color-surface);
+        border: 1px solid var(--lv-border);
+        font-size: 10px;
+        font-family: inherit;
+        box-shadow: 0 1px 2px color-mix(in srgb, black 4%, transparent);
+    }
     .lv-r54-local-status { display: inline-flex; align-items: center; gap: calc(var(--lv-space-unit) * 3); color: var(--lv-color-text-muted); font-size: var(--lv-type-meta-size); white-space: nowrap; }
     .lv-r54-local-status i { width: 7px; height: 7px; border-radius: var(--lv-r-circle); background: var(--lv-color-success); }
     .lv-r54-inbox-action { position: relative; display: grid; width: 44px; height: 44px; flex: none; place-items: center; padding: 0; border: 1px solid transparent; border-radius: var(--lv-r-m); background: transparent; color: var(--lv-color-text-muted); cursor: pointer; }

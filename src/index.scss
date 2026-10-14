@@ -156,14 +156,20 @@
     --lv-border-strong: color-mix(in srgb, var(--lv-color-text) 14%, transparent);
 
     // 表面与海拔
-    --lv-shadow-1: 0 1px 2px color-mix(in srgb, black 5%, transparent),
-        0 2px 10px color-mix(in srgb, black 4%, transparent);
-    --lv-shadow-2: 0 2px 6px color-mix(in srgb, black 7%, transparent),
-        0 14px 36px color-mix(in srgb, black 9%, transparent);
+    --lv-shadow-1: 0 1px 2px color-mix(in srgb, black 4%, transparent),
+        0 2px 8px color-mix(in srgb, black 3%, transparent);
+    --lv-shadow-2: 0 2px 6px color-mix(in srgb, black 5%, transparent),
+        0 14px 36px color-mix(in srgb, black 7%, transparent);
+    --lv-shadow-card: 0 1px 3px color-mix(in srgb, black 4%, transparent),
+        0 4px 14px -2px color-mix(in srgb, black 4%, transparent);
+    --lv-shadow-card-hover: 0 2px 6px color-mix(in srgb, black 5%, transparent),
+        0 12px 28px -4px color-mix(in srgb, black 8%, transparent);
+    --lv-inset-shine: inset 0 1px 0 color-mix(in srgb, white 45%, transparent);
     --lv-glass: color-mix(in srgb, var(--lv-color-canvas) 76%, transparent);
     --lv-focus-ring: 0 0 0 3px color-mix(in srgb, var(--lv-color-brand) 32%, transparent);
-    --lv-shadow-review-card: 0 8px 28px color-mix(in srgb, black 5%, transparent);
-    --lv-shadow-dialog-scrim: 0 8px 28px color-mix(in srgb, black 5%, transparent);
+    --lv-shadow-review-card: 0 2px 6px color-mix(in srgb, black 3%, transparent),
+        0 12px 32px -4px color-mix(in srgb, black 6%, transparent);
+    --lv-shadow-dialog-scrim: 0 16px 60px color-mix(in srgb, black 12%, transparent);
 
     // 层级按宿主遮罩、复习局部面板和抽屉三个上下文命名。
     --lv-z-base: 0;
@@ -218,12 +224,12 @@
     }
 
     .lv-pagehead-title {
-        // docs/13 §1.3：页题 24/650（R52 口径），字距与行高对齐原型
+        // docs/13 §1.3：页题 24/650（R52 口径），光学负字距与行高对齐原型
         margin: calc(var(--lv-space-unit) * 2) 0 calc(var(--lv-space-unit) * 2 + var(--lv-space-hairline));
         font-size: var(--lv-type-display-size);
         font-weight: var(--lv-fw-heading);
         line-height: var(--lv-lh-body);
-        letter-spacing: 0;
+        letter-spacing: -0.025em;
     }
 
     .lv-pagehead-sub {
@@ -261,12 +267,13 @@
     }
 }
 
-// eyebrow：小节标签（R52 .eyebrow：11px/.16em 字距/650/muted）
+// eyebrow：小节标签（R52 .eyebrow：11px/.14em 字距/650/muted，全大写质感）
 .lv-eyebrow {
     font-size: var(--lv-type-meta-size);
-    letter-spacing: 0.16em;
+    letter-spacing: 0.14em;
     font-weight: var(--lv-fw-heading);
     color: var(--lv-color-text-muted);
+    text-transform: uppercase;
 }
 
 // 徽章（R52 .badge）：11px/550 软色底小签，brand/good/warn 三档
@@ -300,13 +307,14 @@
     &--good { background: var(--lv-good-soft); color: var(--lv-color-success); border-color: transparent; }
 }
 
-// 卡片：白工作面 + 1px 派生边框（R53 .panel：扁平分层，无静态阴影；hover 才升起）
+// 卡片：白工作面 + 现代精细多层微投影 + 1px 派生微边框 + 顶部微高光
 .lv-card2 {
     background: var(--lv-color-surface);
     border: 1px solid var(--lv-border);
     border-radius: var(--lv-card-radius);
     padding: var(--lv-card-padding);
     min-width: 0;
+    box-shadow: var(--lv-shadow-card), var(--lv-inset-shine);
     transition: box-shadow var(--lv-dur-2) var(--lv-ease), transform var(--lv-dur-2) var(--lv-ease),
         border-color var(--lv-dur-2) var(--lv-ease);
 
@@ -318,7 +326,7 @@
 
 .lv-card2--hover:hover {
     transform: translateY(-2px);
-    box-shadow: var(--lv-shadow-2), inset 0 1px 0 color-mix(in srgb, white 6%, transparent);
+    box-shadow: var(--lv-shadow-card-hover), var(--lv-inset-shine);
     border-color: var(--lv-border-strong);
 }
 
@@ -362,13 +370,13 @@
     .lv-anim-glow { animation: lv-glow var(--lv-dur-3) var(--lv-ease) both; }
 }
 
-// 展示数字（R52 .stat .num）：ink 实色、29px/650、-.035em、表格数字——不用主色渐变（原型口径）
+// 展示数字（R52 .stat .num）：ink 实色、29px/650、-.035em 光学字距、表格数字
 .lv-hero-num {
     font-size: var(--lv-type-metric-size);
     font-weight: var(--lv-fw-heading);
     line-height: var(--lv-lh-title);
     font-variant-numeric: tabular-nums;
-    letter-spacing: 0;
+    letter-spacing: -0.035em;
     color: var(--lv-color-text);
 
     // 零值态（R53 .stat .num.zero）：数字降透明度保留在原位，不隐藏不误读
@@ -782,6 +790,9 @@
 
 // T01 今日行动 hero（R53 .hero）：brand-soft 洗色面、左文右目标环、徽章行 + 24px 题 + muted 描述 + CTA 行
 .lv-hero {
+    position: relative;
+    overflow: hidden;
+    min-height: 220px;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -790,15 +801,41 @@
     margin-bottom: var(--lv-sp-5);
     border: 1px solid var(--lv-border);
     border-radius: var(--lv-r-l);
-    // R54 hero uses a flat semantic wash; keep hierarchy in spacing and the goal ring.
+    // R54 hero uses a flat semantic wash with composite ambient shadow and top shine
     background: var(--lv-primary-softer);
+    box-shadow: var(--lv-shadow-card), var(--lv-inset-shine);
     max-width: 100%;
 
-    .lv-hero-text { min-width: 0; flex: 1; }
+    .lv-hero-text {
+        position: relative;
+        z-index: 1;
+        min-width: 0;
+        flex: 1;
+        max-width: 68%;
+    }
+
+    // R54 矢量工坊艺术图元：半透明交叠纸质闪卡与金色点缀
+    .lv-hero-art {
+        position: absolute;
+        right: 14px;
+        bottom: 8px;
+        width: 205px;
+        height: 205px;
+        pointer-events: none;
+        color: var(--lv-color-brand);
+        opacity: 0.85;
+        z-index: 0;
+
+        svg {
+            width: 100%;
+            height: 100%;
+        }
+    }
 
     // R53 目标环（今日目标完成度；无目标不渲染）
     .lv-hero-ring {
         position: relative;
+        z-index: 1;
         width: 92px;
         height: 92px;
         flex: none;
@@ -849,7 +886,7 @@
         margin: calc(var(--lv-space-unit) * 7) 0 calc(var(--lv-space-unit) * 4);
         font-size: var(--lv-type-display-size);
         line-height: var(--lv-lh-reading-tight);
-        letter-spacing: 0;
+        letter-spacing: -0.025em;
         font-weight: var(--lv-fw-heading);
     }
     .lv-hero-desc {
@@ -874,6 +911,14 @@
         align-items: stretch;
         padding: calc(var(--lv-space-unit) * 11);
         gap: var(--lv-sp-4);
+        .lv-hero-text { max-width: 100%; }
+        .lv-hero-art {
+            width: 155px;
+            height: 155px;
+            right: -8px;
+            bottom: -6px;
+            opacity: 0.45;
+        }
         .lv-hero-title { font-size: var(--lv-type-page-size); }
         .lv-hero-ring { align-self: flex-start; }
     }
