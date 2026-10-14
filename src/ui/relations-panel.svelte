@@ -31,6 +31,17 @@
     };
     const typeName = (type: string) => (t.relations?.[TYPE_KEYS[type]] ?? type);
 
+    const TYPE_TONES: Record<string, "brand" | "warn" | "danger" | "good" | "neutral"> = {
+        prerequisite: "warn",
+        counterexample: "danger",
+        example: "good",
+        application: "good",
+        sibling: "brand",
+        source: "neutral",
+        alternative: "brand",
+    };
+    const typeTone = (type: string) => (TYPE_TONES[type] ?? "neutral");
+
     async function runAction(action: () => Promise<void>) {
         if (busy) return;
         actionError = "";
@@ -81,15 +92,17 @@
     {:else}
         {#each relations as { relation, direction } (relation.from + relation.to + relation.type)}
             <div class="lv-relations-row">
-                <span class="lv-relations-type b3-chip">{typeName(relation.type)}</span>
-                <span class="lv-relations-dir ft__smaller ft__on-surface">
+                <span class={`lv-relations-type b3-chip lv-rel-tag lv-rel-tag--${typeTone(relation.type)}`}>
+                    {typeName(relation.type)}
+                </span>
+                <span class="lv-relations-dir ft__smaller ft__on-surface" class:lv-dir-out={direction === "outgoing"} class:lv-dir-in={direction === "incoming"}>
                     {direction === "outgoing" ? "→" : "←"}
                 </span>
                 <span class="fn__flex-1 lv-relations-target">
                     {direction === "outgoing" ? relation.to : relation.from}
                 </span>
                 <button
-                    class="b3-button b3-button--small"
+                    class="b3-button b3-button--small lv-btn-ghost lv-relations-del"
                     title={t.relations.remove}
                     aria-label={t.relations.remove}
                     disabled={busy}
@@ -134,13 +147,54 @@
 
 <style>
     .lv-relations { font-size: var(--lv-type-body-size); }
-    .lv-relations-title { font-weight: var(--lv-fw-medium); margin-bottom: var(--lv-sp-2); }
+    .lv-relations-title { font-weight: var(--lv-fw-heading); margin-bottom: var(--lv-sp-2); font-size: var(--lv-type-label-size); }
     .lv-relations-empty { color: var(--lv-color-text-muted); opacity: .7; padding: var(--lv-sp-2) 0; }
     .lv-relations-row {
-        display: flex; align-items: center; gap: var(--lv-sp-2);
-        padding: var(--lv-sp-1) 0;
-        border-bottom: 1px dashed var(--b3-border-color);
+        display: flex;
+        align-items: center;
+        gap: var(--lv-sp-2);
+        padding: calc(var(--lv-space-unit) * 2 + var(--lv-space-hairline)) calc(var(--lv-space-unit) * 3);
+        margin-bottom: var(--lv-sp-1);
+        border: 1px solid var(--lv-border);
+        border-radius: var(--lv-r-m);
+        background: var(--lv-color-surface);
+        box-shadow: var(--lv-shadow-card), var(--lv-inset-shine);
+        transition: transform var(--lv-dur-1) var(--lv-ease), border-color var(--lv-dur-1) var(--lv-ease), box-shadow var(--lv-dur-1) var(--lv-ease);
+
+        &:hover {
+            transform: translateY(-1px);
+            border-color: var(--lv-border-strong);
+            box-shadow: var(--lv-shadow-card-hover), var(--lv-inset-shine);
+        }
     }
-    .lv-relations-target { font-family: var(--b3-font-family-code, monospace); font-size: 12px; word-break: break-all; }
-    .lv-relations-add { margin-top: var(--lv-sp-2); }
+    .lv-rel-tag {
+        font-weight: var(--lv-fw-semibold);
+        font-size: var(--lv-type-caption-size);
+        border-radius: var(--lv-r-tag);
+        padding: var(--lv-space-hairline) calc(var(--lv-space-unit) * 3);
+    }
+    .lv-rel-tag--brand { background: var(--lv-primary-soft); color: var(--lv-color-brand); }
+    .lv-rel-tag--warn { background: var(--lv-warn-soft); color: var(--lv-color-warning); }
+    .lv-rel-tag--good { background: var(--lv-good-soft); color: var(--lv-color-success); }
+    .lv-rel-tag--danger { background: var(--lv-danger-soft); color: var(--lv-color-danger); }
+    .lv-rel-tag--neutral { background: color-mix(in srgb, var(--lv-color-text) 8%, transparent); color: var(--lv-color-text-muted); }
+
+    .lv-relations-dir {
+        font-weight: var(--lv-fw-bold);
+        font-size: 13px;
+        &.lv-dir-out { color: var(--lv-color-brand); }
+        &.lv-dir-in { color: var(--lv-color-warning); }
+    }
+    .lv-relations-target {
+        font-family: var(--b3-font-family-code, monospace);
+        font-size: var(--lv-type-control-size);
+        word-break: break-all;
+        color: var(--lv-color-text);
+    }
+    .lv-relations-del {
+        padding: 0 calc(var(--lv-space-unit) * 2);
+        opacity: 0.7;
+        &:hover { opacity: 1; }
+    }
+    .lv-relations-add { margin-top: var(--lv-sp-3); }
 </style>

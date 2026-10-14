@@ -28,6 +28,7 @@
     import { reviewSwipeAction, shouldIgnoreSwipeTarget } from "@/core/review-gesture";
     import { playReviewSfx, speakReviewText, speakAnswerText, closeReviewAudio } from "@/core/review-audio";
     import { resolveReviewKeyAction } from "@/core/review-shortcuts";
+    import { createReviewCountdown, formatCountdown, type ReviewCountdownController } from "@/core/review-countdown";
     import { enqueueDelayedRequeue, nextRequeueDelay, SHORT_REQUEUE_DELAY_MS, takeDueRequeues, type DelayedRequeue } from "@/core/delayed-requeue";
     import { invalidateDueCache, dueCache } from "@/api/due-shared";
     import { nextHint, logHint, deriveHintLevels, availableLevels, type HintLevel, type HintLevelsInput } from "@/core/hint-ladder";
@@ -360,7 +361,7 @@
     let timeoutLeft = $state(0);
     // docs/13 §6：「遗忘」限时到点标记——揭示答案并提示自评，不自动记分
     let timeoutExpired = $state(false);
-    let timeoutTimer: ReturnType<typeof setInterval> | null = null;
+    let countdownCtrl: ReviewCountdownController | null = null;
     // AT-10：最近一次生效的超时参数（设置变更时对比决定是否重启计时）
     let lastTimeoutMode: "off" | "reveal" | "forget" = "off";
     let lastTimeoutSeconds = 60;
@@ -796,43 +797,29 @@
         }
         lastTimeoutMode = s.timeoutMode;
         lastTimeoutSeconds = s.timeoutSeconds;
-        timeoutLeft = s.timeoutSeconds;
-        // AR-7：deadline 持续计时政策——后台节流/休眠后按壁钟校正，恢复前台剩余时长可预期，不自动重复评分
-        const deadline = Date.now() + s.timeoutSeconds * 1000;
-        timeoutTimer = setInterval(() => {
-            if (!current || showAnswer) {
-                stopTimeout();
-                return;
-            }
-            timeoutLeft = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
-            if (timeoutLeft <= 0) {
-                stopTimeout();
-                // docs/13 §6 行为修正（2026-10-06）：任何限时模式到点都只揭示答案、不自动提交
-                // 正式评分——「遗忘」尤其不能被定时器塞进正式账本；评分必须由用户确认
+        countdownCtrl = createReviewCountdown({
+            timeoutMode: s.timeoutMode,
+            timeoutSeconds: s.timeoutSeconds,
+            onTick: (left) => {
+                timeoutLeft = left;
+            },
+            onExpire: (mode) => {
                 showAnswer = true;
-                if (s.timeoutMode === "forget") {
+                if (mode === "forget") {
                     timeoutExpired = true;
                 }
-            }
-        }, 250);
+            },
+        });
+        countdownCtrl.start();
     }
 
     function stopTimeout() {
-        if (timeoutTimer) {
-            clearInterval(timeoutTimer);
-            timeoutTimer = null;
-        }
+        countdownCtrl?.stop();
+        countdownCtrl = null;
     }
 
     function timeoutText(): string {
-        const total = Math.max(0, timeoutLeft);
-        const h = Math.floor(total / 3600);
-        const m = Math.floor((total % 3600) / 60);
-        const s = total % 60;
-        // >1 小时显示 H:MM:SS，否则 M:SS
-        return h > 0
-            ? `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
-            : `${m}:${String(s).padStart(2, "0")}`;
+        return formatCountdown(timeoutLeft);
     }
 
     /** 完成页会话时长（544）：本页面挂载即会话起点，恢复会话也从恢复点起算 */
