@@ -45,6 +45,27 @@ export const MODEL_REGISTRY: ModelCapability[] = [
     { id: "moonshot-v1-128k", label: "moonshot-v1-128k", provider: "moonshot", contextWindow: 131072, inputModalities: ["text"], status: "active" },
     { id: "glm-4-flash", label: "glm-4-flash", provider: "zhipu", contextWindow: 128000, inputModalities: ["text"], status: "active" },
     { id: "gemini-2.0-flash", label: "gemini-2.0-flash", provider: "google", contextWindow: 1000000, inputModalities: ["text", "image"], status: "active", pricePerM: { input: 0.1, output: 0.4 } },
+    // 本地开源离线模型（Ollama / LM Studio，零成本、本地隐私优先）
+    { id: "qwen2.5:7b", label: "qwen2.5:7b", provider: "ollama", contextWindow: 32768, inputModalities: ["text"], status: "active", pricePerM: { input: 0, output: 0 }, limits: ["local-offline"] },
+    { id: "qwen2.5:14b", label: "qwen2.5:14b", provider: "ollama", contextWindow: 32768, inputModalities: ["text"], status: "active", pricePerM: { input: 0, output: 0 }, limits: ["local-offline"] },
+    { id: "deepseek-r1:7b", label: "deepseek-r1:7b", provider: "ollama", contextWindow: 64000, inputModalities: ["text"], status: "active", pricePerM: { input: 0, output: 0 }, limits: ["local-offline", "reasoning-latency"] },
+    { id: "deepseek-r1:8b", label: "deepseek-r1:8b", provider: "ollama", contextWindow: 64000, inputModalities: ["text"], status: "active", pricePerM: { input: 0, output: 0 }, limits: ["local-offline", "reasoning-latency"] },
+    { id: "llama3.1:8b", label: "llama3.1:8b", provider: "ollama", contextWindow: 128000, inputModalities: ["text"], status: "active", pricePerM: { input: 0, output: 0 }, limits: ["local-offline"] },
+];
+
+export interface EndpointPreset {
+    id: string;
+    label: string;
+    apiBase: string;
+    defaultModel: string;
+    isLocal: boolean;
+}
+
+export const ENDPOINT_PRESETS: EndpointPreset[] = [
+    { id: "openai", label: "OpenAI", apiBase: "https://api.openai.com/v1", defaultModel: "gpt-4o-mini", isLocal: false },
+    { id: "deepseek", label: "DeepSeek", apiBase: "https://api.deepseek.com/v1", defaultModel: "deepseek-chat", isLocal: false },
+    { id: "ollama", label: "Ollama (本地离线 localhost:11434)", apiBase: "http://localhost:11434/v1", defaultModel: "qwen2.5:7b", isLocal: true },
+    { id: "lmstudio", label: "LM Studio (本地 localhost:1234)", apiBase: "http://localhost:1234/v1", defaultModel: "qwen2.5-7b-instruct", isLocal: true },
 ];
 
 /** ID 归一：trim + 小写（匹配口径统一在此，调用方不做自有变换） */

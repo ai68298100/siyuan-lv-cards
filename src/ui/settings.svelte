@@ -14,8 +14,8 @@
     import LvSelect from "./kit/LvSelect.svelte";
     import LvInput from "./kit/LvInput.svelte";
     import { PROMPT_TEMPLATES } from "@/core/prompt-templates";
-    // BU-18 模型能力注册表：快选列表 + 登记状态提示
-    import { lookupModel, selectableModelOptions, formatModelContext } from "@/core/ai-model-registry";
+    // BU-18 模型能力注册表：快选列表 + 登记状态提示 + 端点预设
+    import { lookupModel, selectableModelOptions, formatModelContext, ENDPOINT_PRESETS } from "@/core/ai-model-registry";
     // Anki M3：本地 .apkg 导入（docs/39 §3）——宿主适配 + 解析/预览/编排
     import { detectSqlite, openSqliteFile } from "@/api/anki-host";
     import { getNotebooks, createNotebook, createDocWithMd, sqlQuery } from "@/api/siyuan";
@@ -893,6 +893,31 @@
             {/snippet}
         </LvRow>
             {#if draft.aiMode === "custom"}
+                <LvRow label={t.settings.aiEndpointPreset ?? "服务商快速预设"}>
+                    {#snippet children()}
+                        <select
+                            class="b3-select b3-button--small"
+                            aria-label={t.settings.aiEndpointPreset ?? "服务商快速预设"}
+                            onchange={(e: Event) => {
+                                const val = (e.target as HTMLSelectElement).value;
+                                const p = ENDPOINT_PRESETS.find(x => x.id === val);
+                                if (p) {
+                                    draft.aiEndpoint = p.apiBase;
+                                    draft.aiModel = p.defaultModel;
+                                    if (p.isLocal && !draft.aiKey) {
+                                        draft.aiKey = "ollama";
+                                    }
+                                }
+                                (e.target as HTMLSelectElement).value = "";
+                            }}
+                        >
+                            <option value="">{t.settings.aiEndpointPresetSelect ?? "选择预设 (OpenAI / DeepSeek / Ollama 本地 / LM Studio...)"}</option>
+                            {#each ENDPOINT_PRESETS as p (p.id)}
+                                <option value={p.id}>{p.label}</option>
+                            {/each}
+                        </select>
+                    {/snippet}
+                </LvRow>
                 <LvRow label={t.settings.aiEndpoint}>
                 <LvInput bind:value={draft.aiEndpoint} placeholder="https://api.example.com/v1" width="200px" />
                 </LvRow>

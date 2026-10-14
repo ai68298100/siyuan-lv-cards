@@ -9,6 +9,7 @@ import {
     supportsInput,
     estimateCallCostUsd,
     formatModelContext,
+    ENDPOINT_PRESETS,
 } from "../src/core/ai-model-registry";
 
 // BU-18 模型能力注册表：能力探测与实际请求一致、失效模型不进可选列表、预算从注册表收紧
@@ -86,11 +87,30 @@ describe("ai-model-registry（BU-18）", () => {
         expect(supportsInput("whatever", "image")).toBeNull();
     });
 
-    it("成本估算：价格缺失/模型未知=null（不编数字）；有价按每百万计", () => {
+    it("成本估算：价格缺失/模型未知=null（不编数字）；有价按每百万计；本地模型免费返回 0", () => {
         expect(estimateCallCostUsd("moonshot-v1-8k", 1000, 1000)).toBeNull();
         expect(estimateCallCostUsd("nope", 1000, 1000)).toBeNull();
         // gpt-4o-mini: $0.15/M in + $0.60/M out → 1M+1M = 0.75
         expect(estimateCallCostUsd("gpt-4o-mini", 1e6, 1e6)).toBeCloseTo(0.75, 6);
+        // 本地离线模型零成本
+        expect(estimateCallCostUsd("qwen2.5:7b", 1e6, 1e6)).toBe(0);
+        expect(estimateCallCostUsd("deepseek-r1:7b", 1e6, 1e6)).toBe(0);
+    });
+
+    it("本地开源模型登记与服务商预设", () => {
+        const ollama = lookupModel("qwen2.5:7b");
+        expect(ollama).not.toBeNull();
+        expect(ollama?.provider).toBe("ollama");
+        expect(ollama?.status).toBe("active");
+        expect(ollama?.limits).toContain("local-offline");
+
+        const dsR1 = lookupModel("deepseek-r1:7b");
+        expect(dsR1).not.toBeNull();
+        expect(dsR1?.limits).toContain("reasoning-latency");
+
+        const localPresets = ENDPOINT_PRESETS.filter(p => p.isLocal);
+        expect(localPresets.length).toBeGreaterThanOrEqual(2);
+        expect(localPresets.some(p => p.apiBase.includes("11434"))).toBe(true);
     });
 
     it("窗口展示格式：M/K 两档", () => {

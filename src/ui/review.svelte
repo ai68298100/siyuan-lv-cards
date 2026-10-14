@@ -26,6 +26,7 @@
     import { triageReturn, RETURN_REASONS, type ReturnReason } from "@/core/return-triage";
     import { SESSION_PURPOSES, PURPOSE_PROFILES, type SessionPurpose } from "@/core/session-purpose";
     import { reviewSwipeAction, shouldIgnoreSwipeTarget } from "@/core/review-gesture";
+    import { playReviewSfx, speakReviewText, speakAnswerText, closeReviewAudio } from "@/core/review-audio";
     import { enqueueDelayedRequeue, nextRequeueDelay, SHORT_REQUEUE_DELAY_MS, takeDueRequeues, type DelayedRequeue } from "@/core/delayed-requeue";
     import { invalidateDueCache, dueCache } from "@/api/due-shared";
     import { nextHint, logHint, deriveHintLevels, availableLevels, type HintLevel, type HintLevelsInput } from "@/core/hint-ladder";
@@ -377,6 +378,18 @@
     function announce(msg: string, tone: "polite" | "assertive" = "polite") {
         liveMsg = msg;
         liveTone = tone;
+    }
+    // 移动端软键盘动态避让（visualViewport，防输入法遮挡题面与评分栏）
+    let keyboardInset = $state(0);
+    const isKeyboardOpen = $derived(keyboardInset > 120);
+
+    function onViewportChange() {
+        if (typeof window === "undefined" || !window.visualViewport) return;
+        const inset = Math.max(0, window.innerHeight - window.visualViewport.height);
+        keyboardInset = inset;
+        if (inset > 120 && document.activeElement && rootEl?.contains(document.activeElement)) {
+            (document.activeElement as HTMLElement).scrollIntoView?.({ block: "nearest", behavior: "smooth" });
+        }
     }
     let showReschedule = $state(false);
     /** BX-3 本场偏好：覆盖全局设置（仅当前复习面板生命周期内有效，切页后还原） */
@@ -746,77 +759,17 @@
 
     /** TTS 朗读（Web Speech，防御式） */
     function speakText(text: string) {
-        if (!("speechSynthesis" in window) || !text) {
-            return;
-        }
-        try {
-            const u = new SpeechSynthesisUtterance(text);
-            u.lang = /[\u4e00-\u9fa5]/.test(text) ? "zh-CN" : "en-US";
-            u.onend = u.onerror = () => { if (activeUtterance === u) activeUtterance = null; };
-            speechSynthesis.cancel();
-            activeUtterance = u;
-            speechSynthesis.speak(u);
-        } catch { /* 旁路 */ }
+        activeUtterance = speakReviewText(text, eff());
     }
 
     /** TTS 朗读答案（C9 朗读部分，Web Speech，防御式） */
     function speakAnswer() {
-        if (!eff().ttsEnabled || !("speechSynthesis" in window)) {
-            return;
-        }
-        try {
-            const text = expectedText || (cardHtml || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
-            if (!text) return;
-            const u = new SpeechSynthesisUtterance(text);
-            u.lang = /[\u4e00-\u9fa5]/.test(text) ? "zh-CN" : "en-US";
-            u.rate = eff().ttsRate || 1;
-            const voiceName = eff().ttsVoice;
-            if (voiceName) {
-                const voice = speechSynthesis.getVoices().find(v => v.name === voiceName);
-                if (voice) u.voice = voice;
-            }
-            u.onend = u.onerror = () => { if (activeUtterance === u) activeUtterance = null; };
-            speechSynthesis.cancel();
-            activeUtterance = u;
-            speechSynthesis.speak(u);
-        } catch { /* 旁路 */ }
+        activeUtterance = speakAnswerText(expectedText, cardHtml, eff());
     }
 
     /** 评分音效（Web Audio 合成，M 组 P2）：chime 清音 / wood 木鱼 / bell 铃；受 sfxEnabled 开关（250） */
     function playSfx(rating: Rating) {
-        if (!eff().sfxEnabled) {
-            return;
-        }
-        if (!audioCtx) audioCtx = new AudioContext();
-        try {
-            const style = eff().sfxStyle || "chime";
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.connect(gain); gain.connect(audioCtx.destination);
-            const now = audioCtx.currentTime;
-            if (style === "wood") {
-                // 木鱼：短促三角波单音，音高随评分微升
-                osc.type = "triangle";
-                osc.frequency.setValueAtTime(600 + rating * 45, now);
-                gain.gain.setValueAtTime(0.2, now);
-                gain.gain.exponentialRampToValueAtTime(0.005, now + 0.09);
-                osc.start(now);
-                osc.stop(now + 0.1);
-                return;
-            }
-            const freqs: Record<number, number[]> = { 1: [220], 2: [330, 392], 3: [440, 554], 4: [523, 659] };
-            const notes = (freqs[rating] ?? [440]).map(f => (style === "bell" ? f * 2 : f));
-            const step = 0.08;
-            const tail = style === "bell" ? 0.45 : 0.1;
-            osc.type = "sine";
-            notes.forEach((f, i) => {
-                osc.frequency.setValueAtTime(f, now + i * step);
-            });
-            gain.gain.setValueAtTime(0.15, now);
-            gain.gain.exponentialRampToValueAtTime(0.01, now + notes.length * step + tail);
-            osc.start(now);
-            osc.stop(now + notes.length * step + tail);
-        } catch { /* 旁路 */ }
+        audioCtx = playReviewSfx(rating, eff(), audioCtx);
     }
 
     /** 打字题提交：判分并亮出答案（评分仍由用户按键确认，建议值显示为 chip） */
@@ -1409,6 +1362,10 @@
         // 范围选择器数据源（失败静默：仅影响下拉项，不影响默认全部复习）
         getRiffDecks().then(d => (decks = d)).catch(() => { /* 旁路 */ });
         getNotebooks().then(n => (notebooks = n)).catch(() => { /* 旁路 */ });
+        if (typeof window !== "undefined" && window.visualViewport) {
+            window.visualViewport.addEventListener("resize", onViewportChange);
+            window.visualViewport.addEventListener("scroll", onViewportChange);
+        }
         // AT-10：设置保存后超时参数立即生效；评分风格/顺序等下一卡自然生效
         const offSettings = ctx.onSettingsChanged?.(() => {
             settingsRev++; // C-3：出题形态等 derived 以此为响应式信号，保存后立即生效
@@ -1430,15 +1387,16 @@
     onDestroy(() => {
         stopTimeout(); // AJ7：销毁时清理倒计时，防止泄漏
         stopRequeueTimers();
+        if (typeof window !== "undefined" && window.visualViewport) {
+            window.visualViewport.removeEventListener("resize", onViewportChange);
+            window.visualViewport.removeEventListener("scroll", onViewportChange);
+        }
         if (activeUtterance && "speechSynthesis" in window) {
             speechSynthesis.cancel();
             activeUtterance = null;
         }
-        if (audioCtx) {
-            const context = audioCtx;
-            audioCtx = null;
-            void context.close().catch(() => { /* 宿主可能已关闭音频上下文 */ });
-        }
+        closeReviewAudio(audioCtx);
+        audioCtx = null;
     });
 </script>
 
@@ -1448,6 +1406,8 @@
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 <div
     class="lv-review"
+    class:lv-keyboard-open={isKeyboardOpen}
+    style={isKeyboardOpen ? `--lv-keyboard-inset:${keyboardInset}px;` : undefined}
     bind:this={rootEl}
     role="presentation"
     onclick={onContainerClick}
@@ -2053,6 +2013,25 @@
         max-width: 880px;
         margin: 0 auto;
         width: 100%;
+
+        &.lv-keyboard-open {
+            padding-bottom: calc(var(--lv-sp-2) + env(safe-area-inset-bottom, 0));
+            gap: var(--lv-sp-2);
+
+            .lv-card {
+                min-height: 180px;
+                padding: calc(var(--lv-space-unit) * 12) calc(var(--lv-space-unit) * 11);
+            }
+
+            .lv-actions {
+                margin-top: 0;
+            }
+
+            .lv-btn-rate {
+                min-height: 60px;
+                padding: calc(var(--lv-space-unit) * 4) calc(var(--lv-space-unit) * 6);
+            }
+        }
 
         .lv-center { margin: auto; color: var(--lv-color-text-muted); }
         .lv-error-wrap { width: min(560px, 92vw); }
