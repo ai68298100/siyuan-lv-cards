@@ -4,6 +4,9 @@ import {
     queryNotebookBlockIDs,
     renderExamReportMarkdown,
     resolveTargetNotebook,
+    renderDashboardReportMarkdown,
+    computeWeekOverview,
+    computeCurveSvgPaths,
 } from "../src/core/report-writer";
 import type { ExamPlan } from "../src/core/exam";
 import type { RevlogData } from "../src/core/revlog";
@@ -152,6 +155,123 @@ describe("report-writer 考试复盘与周期报告生成引擎", () => {
             expect(payload.docTitle).toContain("小驴闪卡/学习周报/");
             expect(payload.markdown).toContain("小驴闪卡每周复盘");
             expect(payload.weekKey).toBeDefined();
+        });
+    });
+
+    describe("renderDashboardReportMarkdown 主仪表盘报告渲染", () => {
+        it("组装完整报告（包含到期、复习集、实测遗忘曲线与 AI 批次）", () => {
+            const md = renderDashboardReportMarkdown({
+                todayDateStr: "2026-10-15",
+                dueCount: 28,
+                newCount: 8,
+                oldCount: 20,
+                todayReview: 35,
+                targetReview: 50,
+                streak: 12,
+                totalCards: 640,
+                decks: [
+                    { name: "前端体系", size: 320, updated: "2026-10-14" },
+                    { name: "算法集训", size: 320, updated: "2026-10-15" },
+                ],
+                curve: [
+                    { days: 1, rate: 0.95, n: 120 },
+                    { days: 3, rate: 0.88, n: 80 },
+                    { days: 7, rate: 0.76, n: 45 },
+                ],
+                aiQuality: [
+                    { date: "2026-10-14", cards: 15, reviews: 12, rate: 0.83 },
+                ],
+                generatedAt: new Date(2026, 9, 15, 14, 30),
+            });
+
+            expect(md).toContain("# 小驴闪卡（内测版） · 学习报告（2026-10-15）");
+            expect(md).toContain("- 今日到期：28（新 8 / 复习 20）");
+            expect(md).toContain("- 今日已复习：35 / 目标 50");
+            expect(md).toContain("- 连续天数：12");
+            expect(md).toContain("## 保持曲线（实测）");
+            expect(md).toContain("- 间隔 1 天：95%（n=120）");
+            expect(md).toContain("## AI 批次质量");
+            expect(md).toContain("- 2026-10-14：15 张 / 复习 12 / 83%");
+        });
+
+        it("无曲线与无 AI 批次时生成简洁版", () => {
+            const md = renderDashboardReportMarkdown({
+                todayDateStr: "2026-10-15",
+                dueCount: 0,
+                newCount: 0,
+                oldCount: 0,
+                todayReview: 0,
+                targetReview: 0,
+                streak: 0,
+                totalCards: 0,
+                decks: [],
+            });
+
+            expect(md).not.toContain("## 保持曲线（实测）");
+            expect(md).not.toContain("## AI 批次质量");
+        });
+    });
+
+    describe("computeWeekOverview 周历复习数据计算", () => {
+        it("星期一至星期日严格输出 7 天，正确标记 past / today / future", () => {
+            // 2026-10-14 是周三 (weekday index = 2)
+            const wednesday = new Date(2026, 9, 14, 12, 0);
+            const heat = [
+                { date: "2026-10-12", stat: { review: 15, new: 5 } }, // 周一
+                { date: "2026-10-13", stat: { review: 10, new: 0 } }, // 周二
+                { date: "2026-10-14", stat: { review: 20, new: 2 } }, // 周三（今天）
+            ];
+
+            const result = computeWeekOverview({ heat, now: wednesday });
+
+            expect(result.days).toHaveLength(7);
+            // 周一 (index=0)
+            expect(result.days[0].today).toBe(false);
+            expect(result.days[0].future).toBe(false);
+            expect(result.days[0].reviews).toBe(15);
+            expect(result.days[0].active).toBe(true);
+
+            // 周三 (index=2)
+            expect(result.days[2].today).toBe(true);
+            expect(result.days[2].future).toBe(false);
+            expect(result.days[2].reviews).toBe(20);
+
+            // 周四 (index=3)
+            expect(result.days[3].today).toBe(false);
+            expect(result.days[3].future).toBe(true);
+            expect(result.days[3].active).toBe(false);
+
+            // 聚合
+            expect(result.activeDays).toBe(3);
+            expect(result.reviews).toBe(45);
+        });
+
+        it("跨月周历计算边界（例如 2026-10-01 周四，周一应落在 2026-09-28）", () => {
+            const oct1 = new Date(2026, 9, 1, 10, 0); // 10月1日周四
+            const result = computeWeekOverview({ heat: [], now: oct1 });
+
+            expect(result.days[0].date.getMonth()).toBe(8); // 9月
+            expect(result.days[0].date.getDate()).toBe(28); // 9月28日周一
+            expect(result.days[3].date.getMonth()).toBe(9); // 10月
+            expect(result.days[3].date.getDate()).toBe(1); // 10月1日周四
+        });
+    });
+
+    describe("computeCurveSvgPaths SVG 曲线计算", () => {
+        it("空数据点返回空字符串", () => {
+            expect(computeCurveSvgPaths([])).toEqual({ empirical: "", theoretical: "" });
+        });
+
+        it("按 maxD 等比缩放计算实测与理论折线坐标", () => {
+            const pts = [
+                { days: 0, rate: 1 },
+                { days: 5, rate: 0.5 },
+            ];
+            const paths = computeCurveSvgPaths(pts, { xMin: 10, xSpan: 290, yBase: 90, yAmp: 80 });
+
+            expect(paths.empirical).toContain("10,10"); // x=10+0, y=90-80
+            expect(paths.empirical).toContain("300,50"); // x=10+290, y=90-40
+            expect(paths.theoretical).toBeDefined();
         });
     });
 });

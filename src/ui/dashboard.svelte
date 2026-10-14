@@ -9,6 +9,7 @@
     import { getFlashcardStatistics, summarizeStatistics, type MigrationStatus } from "@/api/flashcardV2";
     import { calcStreak, lastNDays, localDate, studySecondsOn, coverageStats, deckCoverage, computeRetention, computeRetentionCurve, reviewStatsFor, weekCompare, calcMilestones, calcXp, type RevlogData, type RetentionResult, type CurvePoint, type WeekDelta, type Milestones, type XpResult, type CoverageStats, type DeckCoverage } from "@/core/revlog";
     import { buildForecast, buildMonthGrid, dueMapFromForecast, type ForecastResult, type CalendarCell } from "@/core/forecast";
+    import { renderDashboardReportMarkdown, computeWeekOverview, computeCurveSvgPaths } from "@/core/report-writer";
     import { openTab, showMessage } from "siyuan";
     import { friendlyError } from "@/api/errors";
     import { getMotionDuration } from "./kit/motion";
@@ -188,45 +189,28 @@
     let targets = $state({ new: 0, review: 0 });
 
     function curvePoints(pts: CurvePoint[]): string {
-        const maxD = Math.max(...pts.map(p => p.days), 1);
-        return pts.map(p => `${10 + (p.days / maxD) * 290},${90 - p.rate * 80}`).join(" ");
+        return computeCurveSvgPaths(pts).empirical;
     }
 
     /** 理论参考线：固定衰减 R=exp(-t/5d)（个人化 S 待 V2 Stability） */
     function theoryPoints(pts: CurvePoint[]): string {
-        const maxD = Math.max(...pts.map(p => p.days), 1);
-        return pts.map(p => `${10 + (p.days / maxD) * 290},${90 - Math.exp(-p.days / 5) * 80}`).join(" ");
+        return computeCurveSvgPaths(pts).theoretical;
     }
 
     /** 构建 Markdown 报告内容（总览+复习集+曲线+AI 批次） */
     function buildReportMd(): string {
-        const today = new Date().toLocaleDateString();
-        const rows: string[] = [
-            `# 小驴闪卡（内测版） · 学习报告（${today}）`, "",
-            "## 总览", "",
-            `- 今日到期：${dueCount}（新 ${newCount} / 复习 ${oldCount}）`,
-            `- 今日已复习：${todayReview} / 目标 ${ctx.getDailyTargets().review}`,
-            `- 连续天数：${streak}`,
-            `- 卡片总数：${totalCards}`, "",
-            "## 复习集", "",
-        ];
-        for (const d of decks) {
-            rows.push(`- ${d.name}：${d.size} 张（更新 ${d.updated}）`);
-        }
-        if (curve.length >= 2) {
-            rows.push("", "## 保持曲线（实测）", "");
-            for (const p of curve) {
-                rows.push(`- 间隔 ${p.days} 天：${Math.round(p.rate * 100)}%（n=${p.n}）`);
-            }
-        }
-        if (aiQuality.length > 0) {
-            rows.push("", "## AI 批次质量", "");
-            for (const q of aiQuality) {
-                rows.push(`- ${q.date}：${q.cards} 张 / 复习 ${q.reviews} / ${q.rate === null ? "样本积累中" : Math.round(q.rate * 100) + "%"}`);
-            }
-        }
-        rows.push("", `> 由小驴闪卡（内测版）生成 · ${new Date().toLocaleString()}`);
-        return rows.join("\n");
+        return renderDashboardReportMarkdown({
+            dueCount,
+            newCount,
+            oldCount,
+            todayReview,
+            targetReview: ctx.getDailyTargets().review,
+            streak,
+            totalCards,
+            decks,
+            curve,
+            aiQuality,
+        });
     }
 
     /** 学习报告下载 Markdown 文件 */
@@ -315,25 +299,7 @@
     /** 本周星期一至星期日的本地记录；未来日期和未知记录保持为空，不补造学习量。 */
     function weekOverview() {
         void dayTick;
-        const today = new Date();
-        const monday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-        const weekday = (today.getDay() + 6) % 7;
-        monday.setDate(monday.getDate() - weekday);
-        const days = Array.from({ length: 7 }, (_, index) => {
-            const date = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + index);
-            const key = localDate(date.getTime());
-            const stat = heat.find(item => item.date === key)?.stat;
-            const reviews = stat?.review ?? 0;
-            const newCards = stat?.new ?? 0;
-            return { date, index, reviews, newCards, active: reviews + newCards > 0, future: index > weekday, today: index === weekday };
-        });
-        return {
-            days,
-            start: days[0].date,
-            end: days[6].date,
-            activeDays: days.filter(day => day.active).length,
-            reviews: days.reduce((sum, day) => sum + day.reviews, 0),
-        };
+        return computeWeekOverview({ heat, localDateKey: localDate });
     }
     const currentWeek = $derived(weekOverview());
     const weekDateLabel = $derived.by(() => {

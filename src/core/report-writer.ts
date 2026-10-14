@@ -149,3 +149,140 @@ export function assembleWeeklyReportPayload(params: {
         weekKey: decision.weekKey,
     };
 }
+
+export interface DashboardReportParams {
+    todayDateStr?: string;
+    dueCount: number;
+    newCount: number;
+    oldCount: number;
+    todayReview: number;
+    targetReview: number;
+    streak: number;
+    totalCards: number;
+    decks: { name: string; size: number; updated: string }[];
+    curve?: { days: number; rate: number; n: number }[];
+    aiQuality?: { date: string; cards: number; reviews: number; rate: number | null }[];
+    generatedAt?: Date;
+}
+
+/**
+ * 组装主仪表盘学习报告 Markdown（纯函数，支持离线测试与格式定制）
+ */
+export function renderDashboardReportMarkdown(params: DashboardReportParams): string {
+    const today = params.todayDateStr || (params.generatedAt ? params.generatedAt.toLocaleDateString() : new Date().toLocaleDateString());
+    const now = params.generatedAt || new Date();
+    const rows: string[] = [
+        `# 小驴闪卡（内测版） · 学习报告（${today}）`, "",
+        "## 总览", "",
+        `- 今日到期：${params.dueCount}（新 ${params.newCount} / 复习 ${params.oldCount}）`,
+        `- 今日已复习：${params.todayReview} / 目标 ${params.targetReview}`,
+        `- 连续天数：${params.streak}`,
+        `- 卡片总数：${params.totalCards}`, "",
+        "## 复习集", "",
+    ];
+    for (const d of params.decks) {
+        rows.push(`- ${d.name}：${d.size} 张（更新 ${d.updated}）`);
+    }
+    if (params.curve && params.curve.length >= 2) {
+        rows.push("", "## 保持曲线（实测）", "");
+        for (const p of params.curve) {
+            rows.push(`- 间隔 ${p.days} 天：${Math.round(p.rate * 100)}%（n=${p.n}）`);
+        }
+    }
+    if (params.aiQuality && params.aiQuality.length > 0) {
+        rows.push("", "## AI 批次质量", "");
+        for (const q of params.aiQuality) {
+            rows.push(`- ${q.date}：${q.cards} 张 / 复习 ${q.reviews} / ${q.rate === null ? "样本积累中" : Math.round(q.rate * 100) + "%"}`);
+        }
+    }
+    rows.push("", `> 由小驴闪卡（内测版）生成 · ${now.toLocaleString()}`);
+    return rows.join("\n");
+}
+
+export interface WeekOverviewDay {
+    date: Date;
+    index: number;
+    reviews: number;
+    newCards: number;
+    active: boolean;
+    future: boolean;
+    today: boolean;
+}
+
+export interface WeekOverviewResult {
+    days: WeekOverviewDay[];
+    start: Date;
+    end: Date;
+    activeDays: number;
+    reviews: number;
+}
+
+/**
+ * 计算星期一至星期日的本地周历复习分布（纯函数，不构造未来虚假数据）
+ */
+export function computeWeekOverview(params: {
+    heat: { date: string; stat?: { review?: number; new?: number } }[];
+    now?: Date;
+    localDateKey?: (ts: number) => string;
+}): WeekOverviewResult {
+    const today = params.now ? new Date(params.now) : new Date();
+    const monday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const weekday = (today.getDay() + 6) % 7;
+    monday.setDate(monday.getDate() - weekday);
+
+    const defaultKey = (ts: number) => {
+        const d = new Date(ts);
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, "0");
+        const day = String(d.getDate()).padStart(2, "0");
+        return `${y}-${m}-${day}`;
+    };
+    const keyFn = params.localDateKey || defaultKey;
+
+    const days: WeekOverviewDay[] = Array.from({ length: 7 }, (_, index) => {
+        const date = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + index);
+        const key = keyFn(date.getTime());
+        const stat = params.heat.find(item => item.date === key)?.stat;
+        const reviews = stat?.review ?? 0;
+        const newCards = stat?.new ?? 0;
+        return {
+            date,
+            index,
+            reviews,
+            newCards,
+            active: reviews + newCards > 0,
+            future: index > weekday,
+            today: index === weekday,
+        };
+    });
+
+    return {
+        days,
+        start: days[0].date,
+        end: days[6].date,
+        activeDays: days.filter(day => day.active).length,
+        reviews: days.reduce((sum, day) => sum + day.reviews, 0),
+    };
+}
+
+/**
+ * 计算记忆保持曲线与理论衰减参考线的 SVG 折线坐标点
+ */
+export function computeCurveSvgPaths(
+    pts: { days: number; rate: number }[],
+    options: { xMin?: number; xSpan?: number; yBase?: number; yAmp?: number } = {},
+): { empirical: string; theoretical: string } {
+    if (!pts || pts.length === 0) {
+        return { empirical: "", theoretical: "" };
+    }
+    const xMin = options.xMin ?? 10;
+    const xSpan = options.xSpan ?? 290;
+    const yBase = options.yBase ?? 90;
+    const yAmp = options.yAmp ?? 80;
+
+    const maxD = Math.max(...pts.map(p => p.days), 1);
+    const empirical = pts.map(p => `${xMin + (p.days / maxD) * xSpan},${yBase - p.rate * yAmp}`).join(" ");
+    const theoretical = pts.map(p => `${xMin + (p.days / maxD) * xSpan},${yBase - Math.exp(-p.days / 5) * yAmp}`).join(" ");
+
+    return { empirical, theoretical };
+}
