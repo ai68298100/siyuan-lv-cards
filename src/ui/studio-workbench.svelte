@@ -1,7 +1,9 @@
 <script lang="ts">
+    import { onDestroy } from "svelte";
     type StudioSource = { label: string; content: string; docId?: string; nbId?: string; inboxId?: string };
     type InboxRequest = { id: number; sources: StudioSource[]; onImportComplete: (ids: string[]) => void };
-    type LoadedView = { Component: any; props: Record<string, any> };
+    type ViewMount = (component: any, target: HTMLElement, props: Record<string, any>) => { destroy(): void };
+    type LoadedView = { Component: any; props: Record<string, any>; mount?: ViewMount };
 
     let {
         i18n,
@@ -33,8 +35,12 @@
     let mode = $state<"manual" | "ai">("manual");
     let QuickCard = $state<any>(null);
     let quickCardProps = $state<Record<string, any>>({});
+    let quickCardMount = $state<ViewMount | null>(null);
+    let quickCardHost = $state<HTMLElement | null>(null);
     let AIWizard = $state<any>(null);
     let aiWizardProps = $state<Record<string, any>>({});
+    let aiWizardMount = $state<ViewMount | null>(null);
+    let aiWizardHost = $state<HTMLElement | null>(null);
     let loading = $state(false);
     let error = $state("");
     let pendingRequest = $state<InboxRequest | null>(null);
@@ -44,6 +50,50 @@
     let handledManualRequest = 0;
     let handledAiRequest = 0;
     let initialLoadStarted = false;
+    // The hub chunk and dialogs chunk have separate Svelte runtimes. Keep the
+    // returned handles outside reactive state; only the host DOM node is reactive.
+    let quickCardHandle: { destroy(): void } | null = null;
+    let aiWizardHandle: { destroy(): void } | null = null;
+
+    $effect(() => {
+        const host = quickCardHost;
+        const Component = QuickCard;
+        const mount = quickCardMount;
+        if (!host || !Component || !mount) return;
+        quickCardHandle?.destroy();
+        quickCardHandle = mount(Component, host, {
+            ...quickCardProps,
+            embedded: true,
+            onClose: () => (mode = "manual"),
+        });
+        return () => {
+            quickCardHandle?.destroy();
+            quickCardHandle = null;
+        };
+    });
+
+    $effect(() => {
+        const host = aiWizardHost;
+        const Component = AIWizard;
+        const mount = aiWizardMount;
+        if (!host || !Component || !mount) return;
+        aiWizardHandle?.destroy();
+        aiWizardHandle = mount(Component, host, {
+            ...aiWizardProps,
+            embedded: true,
+            closeLabel: i18n.hubStudioReturnManual ?? "返回手工制卡",
+            onClose: () => (mode = "manual"),
+        });
+        return () => {
+            aiWizardHandle?.destroy();
+            aiWizardHandle = null;
+        };
+    });
+
+    onDestroy(() => {
+        quickCardHandle?.destroy();
+        aiWizardHandle?.destroy();
+    });
 
     async function startManual() {
         error = "";
@@ -59,6 +109,7 @@
                 const view = await loadQuickCard();
                 QuickCard = view.Component;
                 quickCardProps = view.props;
+                quickCardMount = view.mount ?? null;
             } catch (e: any) {
                 error = e?.message ?? String(e);
             } finally {
@@ -85,6 +136,7 @@
             const view = await loadWizard(sources, onImportComplete);
             AIWizard = view.Component;
             aiWizardProps = view.props;
+            aiWizardMount = view.mount ?? null;
             wizardRun++;
             mode = "ai";
         } catch (e: any) {
@@ -107,6 +159,7 @@
             const view = await loadWizard(undefined, undefined, jobId);
             AIWizard = view.Component;
             aiWizardProps = view.props;
+            aiWizardMount = view.mount ?? null;
             wizardRun++;
             pendingRecoveryJobId = "";
             mode = "ai";
@@ -229,7 +282,11 @@
 
     {#if QuickCard}
         <section hidden={mode !== "manual"} class="lv-studio-tool">
-            <QuickCard {...quickCardProps} embedded={true} onClose={() => (mode = "manual")} />
+            {#if quickCardMount}
+                <div bind:this={quickCardHost}></div>
+            {:else}
+                <QuickCard {...quickCardProps} embedded={true} onClose={() => (mode = "manual")} />
+            {/if}
         </section>
     {/if}
 
@@ -250,12 +307,16 @@
                 </div>
             {/if}
             {#key wizardRun}
-                <AIWizard
-                    {...aiWizardProps}
-                    embedded={true}
-                    closeLabel={i18n.hubStudioReturnManual ?? "返回手工制卡"}
-                    onClose={() => (mode = "manual")}
-                />
+                {#if aiWizardMount}
+                    <div bind:this={aiWizardHost}></div>
+                {:else}
+                    <AIWizard
+                        {...aiWizardProps}
+                        embedded={true}
+                        closeLabel={i18n.hubStudioReturnManual ?? "返回手工制卡"}
+                        onClose={() => (mode = "manual")}
+                    />
+                {/if}
             {/key}
         </section>
     {/if}

@@ -203,4 +203,29 @@ describe("R54 manual card workspace", () => {
         await screen.findByRole("textbox", { name: "问题" });
         expect(loadQuickCard).toHaveBeenCalledOnce();
     });
+
+    it("mounts a standalone chunk view through its own mounter", async () => {
+        const destroy = vi.fn();
+        const mount = vi.fn((_component, target: HTMLElement) => {
+            target.textContent = "standalone quick card";
+            return { destroy };
+        });
+        const loadQuickCard = vi.fn(async () => ({
+            Component: QuickCard,
+            mount,
+            props: { i18n, onCreate: vi.fn(), onClose: vi.fn() },
+        }));
+        const { unmount } = render(StudioWorkbench, {
+            i18n,
+            isActive: true,
+            openOnboarding: vi.fn(),
+            loadQuickCard,
+        });
+
+        expect(await screen.findByText("standalone quick card")).toBeTruthy();
+        expect(mount).toHaveBeenCalledOnce();
+        expect(screen.queryByRole("textbox", { name: "问题" })).toBeNull();
+        unmount();
+        expect(destroy).toHaveBeenCalledOnce();
+    });
 });

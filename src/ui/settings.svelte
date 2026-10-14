@@ -1217,8 +1217,11 @@
 <style lang="scss">
     .lv-settings {
         padding: var(--lv-sp-4);
-        height: 100%;
-        overflow: auto;
+        flex: 1 1 auto;
+        min-height: 0;
+        height: auto;
+        overflow-y: auto;
+        overscroll-behavior: contain;
         box-sizing: border-box;
         max-width: 720px;
         margin: 0 auto;

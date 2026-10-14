@@ -19,14 +19,14 @@ The full-lifecycle flashcard learning platform for SiYuan — local-first, nativ
 
 > **Note**: The primary README and all design docs are in Chinese. This page covers the essentials; see [docs/](./docs/README.md) for full design material.
 
-Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current release is **v0.209.4** (2026-10-14), focused on a unified visual-token system, theme semantics, and release-quality validation. The full Android SiYuan host matrix remains pending.
+Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current release is **v0.209.5** (2026-10-14), focused on settings scrolling and split-dialog lifecycle stability. The full Android SiYuan host matrix remains pending.
 
-## What's New in v0.209.4
+## What's New in v0.209.5
 
-- **New:** Semantic `--lv-*` tokens for colors, type, spacing, radii, elevation, z-index, component sizes, focus rings, and motion; token audit and migration scripts; consolidated component and prototype guidance.
-- **Improved:** Styles now use semantic theme aliases and reusable type/spacing/radius tokens while preserving documented geometry exceptions. Token coverage increased from **56.7% (691/1219)** to **92.6% (1129/1219)**; type, weight, line-height, gap, and z-index declarations are fully tokenized.
-- **Fixed:** Migration handling for pseudo-selectors, Svelte `global` attributes, inline styles, missing loose-reading line-height, and exact-size typography tokens. `LvSection` no longer duplicates global heading layout.
-- **Validation:** Svelte and TypeScript checks, 856 unit tests, i18n/documentation/governance checks, production build, and package smoke pass. Android host testing remains pending.
+- **New:** Viewport-bounded settings scrolling and regression coverage for embedded quick-card and AI-wizard chunk mounting.
+- **Improved:** Long settings forms keep a single scroll surface across short windows and narrow layouts; split dialog components now mount and unmount through their own chunk runtime.
+- **Fixed:** Settings content no longer gets trapped below the fold, and cross-runtime Svelte rendering no longer risks `effect_orphan` state leaks.
+- **Validation:** Svelte and TypeScript checks, 857 unit tests, i18n/documentation/governance checks, production build, and package smoke pass. Android host testing remains pending.
 
 <details>
 <summary>Previous releases</summary>

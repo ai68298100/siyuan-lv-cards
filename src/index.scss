@@ -474,6 +474,29 @@
     &::-webkit-scrollbar-track { background: transparent; }
 }
 
+// 完整设置是长表单：弹窗本身提供固定视口高度，面板承担唯一纵向滚动。
+// min-height: 0 是 flex 子项能够收缩并出现滚动条的必要约束。
+.lv-dialog.lv-dialog--settings {
+    // simpleDialog 的宿主内容节点是 b3-dialog__body；把宿主滚动交给设置根面板。
+    .b3-dialog__body {
+        display: flex;
+        flex-direction: column;
+        flex: 1 1 auto;
+        min-height: 0;
+        min-width: 0;
+        overflow: hidden;
+    }
+
+    .dialog-content {
+        display: flex;
+        flex: 1 1 auto;
+        flex-direction: column;
+        min-height: 0;
+        min-width: 0;
+        width: 100%;
+    }
+}
+
 // 细滚动条（插件容器内）
 .lv-page,
 .lv-list,

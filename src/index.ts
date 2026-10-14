@@ -120,22 +120,44 @@ const loadReviewMount: () => Promise<ChunkMount["mount"]> = process.env.DEV_MODE
  * 实参位置的动态 import；包装函数的实参会被无条件打包）。
  */
 let dialogsChunkReady: Promise<void> | null = null;
+async function loadDialogsModule(): Promise<Record<string, any>> {
+    // 失败可重试：rejected 不驻留缓存（否则一次网络瞬断后对话框永久失败）
+    dialogsChunkReady ??= loadChunk("dialogs")
+        .then(m => {
+            setDialogMounter(m.mountDialogComponent);
+        })
+        .catch(e => {
+            dialogsChunkReady = null;
+            throw e;
+        });
+    await dialogsChunkReady;
+    return loadChunk("dialogs");
+}
+
 function loadDialogsComp(compName: string): () => Promise<any> {
     return async () => {
-        // 失败可重试：rejected 不驻留缓存（否则一次网络瞬断后对话框永久失败）
-        dialogsChunkReady ??= loadChunk("dialogs")
-            .then(m => {
-                setDialogMounter(m.mountDialogComponent);
-            })
-            .catch(e => {
-                dialogsChunkReady = null;
-                throw e;
-            });
-        await dialogsChunkReady;
-        const m = await loadChunk("dialogs");
+        const m = await loadDialogsModule();
         const Comp = m.components?.[compName];
         if (!Comp) throw new Error(`lv dialogs chunk missing component: ${compName}`);
         return Comp;
+    };
+}
+
+/**
+ * Embedded views (the R54 studio) must not render a component compiled by the
+ * dialogs chunk directly from the hub chunk. Each standalone chunk carries its
+ * own Svelte runtime; invoking a foreign constructor from the hub runtime makes
+ * rune effects orphaned (https://svelte.dev/e/effect_orphan). Return the
+ * chunk's mounter so the host can mount into a plain DOM container instead.
+ */
+function loadDialogsEmbeddedView(compName: string): () => Promise<{ Component: any; mount: any }> {
+    return async () => {
+        const m = await loadDialogsModule();
+        const Component = m.components?.[compName];
+        if (!Component || typeof m.mountDialogComponent !== "function") {
+            throw new Error(`lv dialogs chunk missing embedded component: ${compName}`);
+        }
+        return { Component, mount: m.mountDialogComponent };
     };
 }
 
@@ -150,6 +172,12 @@ const loadDeckPicker = process.env.DEV_MODE ? lazyComp(() => import("./ui/deck-p
 const loadQuickCard = process.env.DEV_MODE ? lazyComp(() => import("./ui/quick-card.svelte")) : loadDialogsComp("QuickCard");
 const loadRepairDrill = process.env.DEV_MODE ? lazyComp(() => import("./ui/repair-drill.svelte")) : loadDialogsComp("Drill"); // T10 修卡演练
 const loadPalette = process.env.DEV_MODE ? lazyComp(() => import("./ui/kit/LvPalette.svelte")) : loadDialogsComp("LvPalette"); // T13 ⌘K 命令面板
+const loadAIWizardEmbedded = process.env.DEV_MODE
+    ? async () => ({ Component: await loadAIWizard() })
+    : loadDialogsEmbeddedView("AIWizard");
+const loadQuickCardEmbedded = process.env.DEV_MODE
+    ? async () => ({ Component: await loadQuickCard() })
+    : loadDialogsEmbeddedView("QuickCard");
 
 /**
  * chunk 加载/挂载失败的页签兜底（v0.185.1 真机空白教训：无 .catch 时静默 reject，
@@ -656,8 +684,8 @@ export default class LvCardsPlugin extends Plugin {
                         // 不在 Hub 内复制文档创建、卡组和知识对象逻辑。
                         openQuickCard: () => plugin.openQuickCard(),
                         loadWizardView: (sources?: { label: string; content: string; docId?: string; nbId?: string; inboxId?: string }[], onImportComplete?: (ids: string[]) => void, recoveryJobId?: string) =>
-                            plugin.createAIWizardView("", undefined, sources, onImportComplete, recoveryJobId),
-                        loadQuickCardView: () => plugin.createQuickCardView(),
+                            plugin.createAIWizardView("", undefined, sources, onImportComplete, recoveryJobId, true),
+                        loadQuickCardView: () => plugin.createQuickCardView(true),
                         // 设置仍保持 dialogs chunk 的完整保存/备份/撤销语义。
                         openSettings: (onSaved?: () => void) => plugin.openSettingsDialog(onSaved),
                         getSettingsHealth: () => ({
@@ -2081,10 +2109,13 @@ export default class LvCardsPlugin extends Plugin {
         showMessage(this.i18n.quickCardDone, 2000, "info");
     }
 
-    private async createQuickCardView() {
-        const Component = await loadQuickCard();
+    private async createQuickCardView(embedded = false) {
+        const view: { Component: any; mount?: (comp: any, target: HTMLElement, props: Record<string, any>) => { destroy(): void } } = embedded
+            ? await loadQuickCardEmbedded()
+            : { Component: await loadQuickCard() };
         return {
-            Component,
+            Component: view.Component,
+            ...(view.mount ? { mount: view.mount } : {}),
             props: {
                 i18n: this.i18n,
                 onCreate: (markdown: string, deckID: string, deckName: string, q?: string, a?: string) =>
@@ -2497,14 +2528,19 @@ export default class LvCardsPlugin extends Plugin {
         initialSources: { label: string; content: string; docId?: string; nbId?: string; inboxId?: string }[] = [],
         onImportComplete?: (ids: string[]) => void,
         recoveryJobId?: string,
-    ): Promise<{ Component: any; props: Record<string, any> }> {
-        const Component = await loadAIWizard();
+        embedded = false,
+    ): Promise<{ Component: any; props: Record<string, any>; mount?: (comp: any, target: HTMLElement, props: Record<string, any>) => { destroy(): void } }> {
+        const view: { Component: any; mount?: (comp: any, target: HTMLElement, props: Record<string, any>) => { destroy(): void } } = embedded
+            ? await loadAIWizardEmbedded()
+            : { Component: await loadAIWizard() };
+        const Component = view.Component;
         const recoveryJob = recoveryJobId ? await this.getReviewableAIJob(recoveryJobId) : null;
         if (recoveryJobId && !recoveryJob) {
             throw new Error((this.i18n as any).recoveryCenter?.aiReviewUnavailable ?? "This AI review can no longer be restored safely.");
         }
         return {
             Component,
+            ...(view.mount ? { mount: view.mount } : {}),
             props: {
                 i18n: this.i18n,
                 initialSource,
@@ -3435,12 +3471,14 @@ export default class LvCardsPlugin extends Plugin {
     private async openSettingsDialog(onSaved?: () => void) {
         try {
             const SettingsPanel = await loadSettingsPanel();
-            const { close } = svelteDialog({
-            title: this.i18n.settingsTitle,
-            component: SettingsPanel,
-            width: "min(620px, 94vw)",
-            props: {
-                ctx: {
+            const { close, dialog } = svelteDialog({
+                title: this.i18n.settingsTitle,
+                component: SettingsPanel,
+                width: "min(620px, 94vw)",
+                // 完整设置内容远超一屏；明确限制弹窗高度后，设置面板才能建立可滚动边界。
+                height: "min(860px, calc(100vh - 48px))",
+                props: {
+                    ctx: {
                     i18n: this.i18n,
                     settings: this.settings,
                     close: () => close(),
@@ -3610,9 +3648,10 @@ export default class LvCardsPlugin extends Plugin {
                         });
                         return result;
                     },
+                    },
                 },
-            },
             });
+            dialog.element.classList.add("lv-dialog--settings");
         } catch (e) {
             this.reportDialogOpenFailure(this.i18n.settingsTitle, e);
         }
