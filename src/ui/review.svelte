@@ -25,7 +25,7 @@
     import { recoveryOptions, type RecoveryOption, type RecoverySnapshot } from "@/core/session-recovery";
     import { triageReturn, RETURN_REASONS, type ReturnReason } from "@/core/return-triage";
     import { SESSION_PURPOSES, PURPOSE_PROFILES, type SessionPurpose } from "@/core/session-purpose";
-    import { reviewSwipeAction } from "@/core/review-gesture";
+    import { reviewSwipeAction, shouldIgnoreSwipeTarget } from "@/core/review-gesture";
     import { enqueueDelayedRequeue, nextRequeueDelay, SHORT_REQUEUE_DELAY_MS, takeDueRequeues, type DelayedRequeue } from "@/core/delayed-requeue";
     import { invalidateDueCache, dueCache } from "@/api/due-shared";
     import { nextHint, logHint, deriveHintLevels, availableLevels, type HintLevel, type HintLevelsInput } from "@/core/hint-ladder";
@@ -1358,8 +1358,7 @@
     }
 
     function onTouchEnd(e: TouchEvent) {
-        const el = e.target as HTMLElement;
-        if (el.closest("input,textarea,select,button,a,[contenteditable]")) return;
+        if (shouldIgnoreSwipeTarget(e.target)) return;
         const dx = e.changedTouches[0].clientX - touchStartX;
         const dy = e.changedTouches[0].clientY - touchStartY;
         if (!current) return;
@@ -1370,8 +1369,7 @@
     }
 
     function onContainerClick(e: MouseEvent) {
-        const el = e.target as HTMLElement;
-        if (el.closest("input,textarea,select,button,a,[contenteditable]")) {
+        if (shouldIgnoreSwipeTarget(e.target)) {
             return;
         }
         if (!showAnswer && current && faceReady) {
