@@ -27,6 +27,7 @@
     import { SESSION_PURPOSES, PURPOSE_PROFILES, type SessionPurpose } from "@/core/session-purpose";
     import { reviewSwipeAction, shouldIgnoreSwipeTarget } from "@/core/review-gesture";
     import { playReviewSfx, speakReviewText, speakAnswerText, closeReviewAudio } from "@/core/review-audio";
+    import { resolveReviewKeyAction } from "@/core/review-shortcuts";
     import { enqueueDelayedRequeue, nextRequeueDelay, SHORT_REQUEUE_DELAY_MS, takeDueRequeues, type DelayedRequeue } from "@/core/delayed-requeue";
     import { invalidateDueCache, dueCache } from "@/api/due-shared";
     import { nextHint, logHint, deriveHintLevels, availableLevels, type HintLevel, type HintLevelsInput } from "@/core/hint-ladder";
@@ -1207,64 +1208,68 @@
     }
 
     function onKeydown(e: KeyboardEvent) {
-        if (peek) {
-            if (e.key === "Escape" || e.key === "[") {
-                e.preventDefault();
+        const action = resolveReviewKeyAction(e, {
+            peekOpen: Boolean(peek),
+            helpOpen,
+            showAnswer,
+            faceReady,
+            hasCurrent: Boolean(current),
+            hasLastAnswered: Boolean(lastAnswered),
+            ratingStyle: eff().ratingStyle,
+            isTargetInsideRoot: Boolean(rootEl && e.target instanceof Node && rootEl.contains(e.target)),
+        });
+
+        if (!action) return;
+
+        switch (action) {
+            case "close-peek":
                 peek = null;
                 returnFocus();
-            }
-            return;
-        }
-        if (e.key === "?") {
-            helpOpen = !helpOpen;
-            return;
-        }
-        if (helpOpen) {
-            if (e.key === "Escape") {
+                break;
+            case "toggle-help":
+                helpOpen = !helpOpen;
+                break;
+            case "close-help":
                 helpOpen = false;
                 returnFocus();
-            }
-            return;
+                break;
+            case "reveal":
+                showAnswer = true;
+                break;
+            case "rate-default":
+                rate(3);
+                break;
+            case "advance-hint":
+                advanceHint();
+                break;
+            case "toggle-peek":
+                togglePeek();
+                break;
+            case "skip":
+                skip();
+                break;
+            case "toggle-reschedule":
+                showReschedule = !showReschedule;
+                break;
+            case "suspend":
+                suspendToday();
+                break;
+            case "rate-1":
+                rate(1);
+                break;
+            case "rate-2":
+                rate(2);
+                break;
+            case "rate-3":
+                rate(3);
+                break;
+            case "rate-4":
+                rate(4);
+                break;
+            case "undo":
+                undoHistory();
+                break;
         }
-        if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || (e.target as HTMLElement)?.isContentEditable) {
-            return;
-        }
-        // 交互控件防护（541）：焦点在按钮/下拉/链接上时不抢按键——
-        // 面板外的控件（如思源工具栏按钮）Space 触发其自身行为；面板内的由下方 preventDefault 接管避免双动作
-        const el = e.target as HTMLElement;
-        const interactive = el instanceof HTMLButtonElement || el instanceof HTMLSelectElement || el instanceof HTMLAnchorElement;
-        if (interactive && !(rootEl && rootEl.contains(el))) {
-            return;
-        }
-        if (e.code === "Space" || e.code === "Enter") {
-            e.preventDefault();
-            if (!showAnswer) { if (faceReady) showAnswer = true; } else { rate(3); }
-            return;
-        }
-        // BJ-2：h 键推进分级提示（仅问题态）
-        if (e.key === "h" && !showAnswer && current) {
-            e.preventDefault();
-            advanceHint();
-            return;
-        }
-        if (e.key === "[") {
-            if (lastAnswered) { togglePeek(); }
-            return;
-        }
-        // F-7：x 跳过 / f 改期 / s 暂停在问题态同样可用（与工具行按钮对齐；
-        // 原先被 !showAnswer 早退挡住，问题态按键无响应而按钮可用，行为不一致）
-        if (e.key === "x" || e.key === "0") { skip(); }
-        if (e.key === "f") { showReschedule = !showReschedule; return; }
-        if (e.key === "s") { suspendToday(); }
-        if (!showAnswer) { return; }
-        if (eff().ratingStyle === "three") {
-            if (e.key === "1") { rate(1); }
-            if (e.key === "2") { rate(2); }
-            if (e.key === "3") { rate(3); }
-        } else {
-            if (["1", "2", "3", "4"].includes(e.key)) { rate(Number(e.key) as Rating); }
-        }
-        if (e.key === "p" || e.key === "q") { undoHistory(); }
     }
 
     /** 点击翻面热区：卡面空白处才翻面（输入控件/链接/按钮不触发，为打字题预留） */
