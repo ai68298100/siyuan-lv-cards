@@ -1,7 +1,7 @@
 /**
  * AI 批次作业状态机（AQ-17 / 候选 ADR-7 第 1 步，零依赖纯模块）。
  * 设计定稿见 docs/24 候选 ADR-7；本模块只负责状态迁移与数据清洗，
- * 不做任何网络调用/内核写入——接入层（向导 UI + 存储）按 ADR 实现顺序另行接线。
+ * 不做网络调用/内核写入；向导与存储接线位于 src/index.ts 和 src/ui/ai-wizard.svelte。
  *
  * 六态：drafting → generating → reviewing → committing → done；
  *       generating/committing 可落 failed；generating/committing/reviewing 可落 canceled。
@@ -37,6 +37,8 @@ export interface AIJob {
     source: { type: string; label: string; excerpt: string };
     cfg: { count: number; language: string; type: "qa" | "cloze" };
     deckID: string;
+    /** Deterministic resume anchor: the document created for this commit. */
+    targetDocID?: string;
     status: AIJobStatus;
     /** failed/canceled 时记录中断前所处状态，供「继续」回迁 */
     resumeTo?: Exclude<AIJobStatus, "failed" | "canceled">;
@@ -183,6 +185,7 @@ export function createJob(
         },
         cfg: { ...cfg },
         deckID: "",
+        targetDocID: undefined,
         status: "drafting",
         candidates: [],
     };
@@ -248,6 +251,7 @@ function sanitizeJob(raw: any): AIJob | null {
             type: raw.cfg?.type === "cloze" ? "cloze" : "qa",
         },
         deckID: typeof raw.deckID === "string" ? raw.deckID : "",
+        ...(typeof raw.targetDocID === "string" && raw.targetDocID ? { targetDocID: raw.targetDocID } : {}),
         status,
         resumeTo: STATUS_WHITELIST.includes(raw.resumeTo) && raw.resumeTo !== "failed" && raw.resumeTo !== "canceled"
             ? raw.resumeTo
@@ -262,10 +266,15 @@ export function normalizeAIJobs(raw: unknown): AIJobsData {
     if (!raw || typeof raw !== "object" || !Array.isArray((raw as any).jobs)) {
         return emptyAIJobs();
     }
-    const jobs = ((raw as any).jobs as any[])
+    const normalized = ((raw as any).jobs as any[])
         .map(sanitizeJob)
-        .filter((j): j is AIJob => j !== null)
-        .slice(-20);
+        .filter((j): j is AIJob => j !== null);
+    const unique = new Map<string, AIJob>();
+    for (const job of normalized) {
+        const previous = unique.get(job.id);
+        if (!previous || job.updatedAt >= previous.updatedAt) unique.set(job.id, job);
+    }
+    const jobs = [...unique.values()].slice(-20);
     return { version: 1, jobs };
 }
 

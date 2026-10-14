@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { onMount } from "svelte";
+    import { onDestroy, onMount } from "svelte";
     import { showMessage } from "siyuan";
     import { MODULE_DEFS } from "@/core/modules";
     import { PERSONA_PRESETS, type PersonaPreset } from "@/core/personas";
@@ -65,7 +65,7 @@
         redetectV2: () => Promise<string>;
         getV2Status: () => string;
         getSuspendedCount: () => number;
-        restoreAllSuspended: () => void;
+        restoreAllSuspended: () => void | Promise<void>;
         testAnkiClient: (url?: string, key?: string) => Promise<string>;
         storageStats: () => { file: string; size: string; lastWrite: number }[];
         exportSettings: () => void;
@@ -101,6 +101,10 @@
     // Anki M3：本地 .apkg 导入（docs/39 §3）——解析/预览/建文档/配对/制卡/台账，幂等重导
     let ankiBusy = $state(false);
     let ankiTestBusy = $state(false);
+    let revlogImportBusy = $state(false);
+    let revlogImportStatus = $state("");
+    let restoreSuspendedBusy = $state(false);
+    let restoreSuspendedError = $state("");
     const ankiHost = detectSqlite();
     let ankiStatus = $state<{ kind: "info" | "warn" | "error"; text: string } | null>(null);
     // Anki M3：损失明细（导入完成时可一键复制）
@@ -297,19 +301,59 @@
     }
     // svelte-ignore state_referenced_locally
     let v2Label = $state(ctx.getV2Status());
+    // 重新探测是异步读操作：锁定重复点击并把失败留在页面上，避免未处理 rejection。
+    let v2Busy = $state(false);
+    let v2Error = $state("");
     let voices = $state<{ name: string }[]>([]);
     /** 笔记本清单（605） */
     let notebooks = $state<{ id: string; name: string }[]>([]);
+    let notebookLoading = $state(true);
+    let notebookHasSnapshot = $state(false);
+    let notebookError = $state("");
+    let notebookRequestSeq = 0;
+
+    async function loadNotebooks() {
+        const seq = ++notebookRequestSeq;
+        notebookLoading = true;
+        try {
+            const result = await ctx.getNotebooks();
+            if (seq !== notebookRequestSeq) return;
+            notebooks = Array.isArray(result)
+                ? result.filter(n => n && typeof n.id === "string" && n.id.length > 0 && typeof n.name === "string")
+                : [];
+            notebookHasSnapshot = true;
+            notebookError = "";
+        } catch (e) {
+            if (seq === notebookRequestSeq) {
+                const reason = e instanceof Error ? e.message : String(e);
+                notebookError = `${t.settings.targetNotebookLoadFail ?? "读取笔记本失败"}: ${reason}`;
+            }
+        } finally {
+            if (seq === notebookRequestSeq) notebookLoading = false;
+        }
+    }
+
+    let voiceSynthesis: SpeechSynthesis | null = null;
+    let onVoicesChanged: (() => void) | null = null;
 
     onMount(() => {
         try {
             if ("speechSynthesis" in window) {
-                const load = () => (voices = speechSynthesis.getVoices().map(v => ({ name: v.name })));
-                load();
-                speechSynthesis.onvoiceschanged = load;
+                voiceSynthesis = window.speechSynthesis;
+                onVoicesChanged = () => (voices = voiceSynthesis?.getVoices().map(v => ({ name: v.name })) ?? []);
+                onVoicesChanged();
+                voiceSynthesis.addEventListener("voiceschanged", onVoicesChanged);
             }
         } catch { /* 旁路 */ }
-        ctx.getNotebooks().then(n => (notebooks = n)).catch(() => { /* 旁路 */ });
+        void loadNotebooks();
+    });
+
+    onDestroy(() => {
+        if (voiceSynthesis && onVoicesChanged) {
+            voiceSynthesis.removeEventListener("voiceschanged", onVoicesChanged);
+        }
+        voiceSynthesis = null;
+        onVoicesChanged = null;
     });
     let ankiLabel = $state("");
 
@@ -362,8 +406,8 @@
         }
         const diffHtml = [...modLines, ...paramLines].join("");
         const diffBlock = diffHtml
-            ? `<hr style="margin:8px 0"><div style="max-height:180px;overflow:auto;font-size:12px">${diffHtml}</div>`
-            : `<hr style="margin:8px 0"><div style="font-size:12px">${t.settings.personaNoChange}</div>`;
+            ? `<hr style="margin: calc(var(--lv-space-unit) * 4) 0"><div style="max-height:180px;overflow:auto;font-size: var(--lv-type-control-size)">${diffHtml}</div>`
+            : `<hr style="margin: calc(var(--lv-space-unit) * 4) 0"><div style="font-size: var(--lv-type-control-size)">${t.settings.personaNoChange}</div>`;
         confirmDialog({
             title: t.personaApplyTitle,
             content: `<div class="b3-typography">${t[preset.nameKey]}：${t[preset.descKey]}<br><small>${t.personaApplyHint}</small></div>${diffBlock}`,
@@ -433,14 +477,40 @@
     }
 
     async function redetectV2() {
-        v2Label = await ctx.redetectV2();
-        showMessage(t.settings.redetectOk, 1500, "info");
+        if (v2Busy) return;
+        v2Busy = true;
+        v2Error = "";
+        try {
+            v2Label = await ctx.redetectV2();
+            showMessage(t.settings.redetectOk, 1500, "info");
+        } catch (e: any) {
+            const reason = e?.message ?? String(e);
+            v2Error = `${t.settings.redetectFail ?? "探测失败，请重试"}${reason ? `：${reason}` : ""}`;
+            showMessage(v2Error, 3000, "error");
+        } finally {
+            v2Busy = false;
+        }
     }
 
-    function importCsv(ev: Event) {
+    async function restoreAllSuspended() {
+        if (restoreSuspendedBusy || ctx.getSuspendedCount() === 0) return;
+        restoreSuspendedBusy = true;
+        restoreSuspendedError = "";
+        try {
+            await ctx.restoreAllSuspended();
+            showMessage(t.settings.suspendedRestored ?? "已恢复今日暂缓卡", 2000, "info");
+        } catch (e: any) {
+            restoreSuspendedError = `${t.settings.suspendedRestoreFail ?? "恢复失败，请重试"}${e?.message ? `：${e.message}` : ""}`;
+            showMessage(restoreSuspendedError, 3000, "error");
+        } finally {
+            restoreSuspendedBusy = false;
+        }
+    }
+
+    async function importCsv(ev: Event) {
         const input = ev.target as HTMLInputElement;
         const file = input.files?.[0];
-        if (!file) {
+        if (!file || revlogImportBusy) {
             return;
         }
         if (file.size > 5 * 1024 * 1024) {
@@ -448,15 +518,19 @@
             input.value = "";
             return;
         }
-        file.text().then(async (text) => {
-            try {
-                const r = await ctx.importRevlogCsv(text);
-                showMessage(t.settings.importResult.replace("${a}", String(r.added)).replace("${s}", String(r.skipped)), 3000, "info");
-            } catch (e: any) {
-                showMessage(e?.message || t.settings.importInvalid, 3000, "error");
-            }
+        revlogImportBusy = true;
+        revlogImportStatus = t.settings.importing ?? "正在导入…";
+        try {
+            const r = await ctx.importRevlogCsv(await file.text());
+            revlogImportStatus = t.settings.importResult.replace("${a}", String(r.added)).replace("${s}", String(r.skipped));
+            showMessage(revlogImportStatus, 3000, "info");
+        } catch (e: any) {
+            revlogImportStatus = e?.message || t.settings.importInvalid;
+            showMessage(revlogImportStatus, 3000, "error");
+        } finally {
             input.value = "";
-        });
+            revlogImportBusy = false;
+        }
     }
 
     /** 备份与恢复中心：从 bundle 文件恢复（宿主内预览→确认→应用；失败 toast 可读原因） */
@@ -483,10 +557,10 @@
         }
     }
 
-    function importMerge(ev: Event) {
+    async function importMerge(ev: Event) {
         const input = ev.target as HTMLInputElement;
         const file = input.files?.[0];
-        if (!file) {
+        if (!file || revlogImportBusy) {
             return;
         }
         if (file.size > 5 * 1024 * 1024) {
@@ -494,26 +568,29 @@
             input.value = "";
             return;
         }
-        file.text().then(async (text) => {
-            try {
-                const r = await ctx.importRevlogMerge(text);
-                if (r.forks > 0) {
-                    // 分叉预览（M10·FR3）：检测到多设备评分冲突，用户可选以导入为准重放合并（合并幂等，重复条目自动跳过）
-                    confirmDialog({
-                        title: t.settings.forkTitle,
-                        content: `<div class="b3-typography">${t.settings.forkConfirm.replace("${n}", String(r.forks))}</div>`,
-                        confirm: async () => {
-                            const r2 = await ctx.importRevlogMerge(text, "preferImport");
-                            showMessage(t.settings.importResult.replace("${a}", String(r2.added)).replace("${s}", String(r2.skipped)), 3000, "info");
-                        },
-                    });
-                }
-                showMessage(t.settings.importResult.replace("${a}", String(r.added)).replace("${s}", String(r.skipped)), 3000, "info");
-            } catch (e: any) {
-                showMessage(e?.message || t.settings.importInvalid, 3000, "error");
+        revlogImportBusy = true;
+        revlogImportStatus = t.settings.importing ?? "正在导入…";
+        try {
+            const text = await file.text();
+            const result = await ctx.importRevlogMerge(text);
+            let finalResult = result;
+            if (result.forks > 0) {
+                // 等待分叉确认及第二次合并完成后再解锁，避免重复导入覆盖正在确认的操作。
+                const preferImport = await confirmDialogBool({
+                    title: t.settings.forkTitle,
+                    content: `<div class="b3-typography">${t.settings.forkConfirm.replace("${n}", String(result.forks))}</div>`,
+                });
+                if (preferImport) finalResult = await ctx.importRevlogMerge(text, "preferImport");
             }
+            revlogImportStatus = t.settings.importResult.replace("${a}", String(finalResult.added)).replace("${s}", String(finalResult.skipped));
+            showMessage(revlogImportStatus, 3000, "info");
+        } catch (e: any) {
+            revlogImportStatus = e?.message || t.settings.importInvalid;
+            showMessage(revlogImportStatus, 3000, "error");
+        } finally {
             input.value = "";
-        });
+            revlogImportBusy = false;
+        }
     }
 
     function requestClose() {
@@ -559,12 +636,12 @@
     <div class="lv-notice" style="display: flex; gap: var(--lv-sp-4); align-items: center; flex-wrap: wrap">
         <div style="flex: 1; min-width: 240px">
             <div class="lv-eyebrow">{t.settings.previewTitle}</div>
-            <div class="ft__smaller ft__on-surface" style="margin-top: 4px">{t.settings.previewSub}</div>
+            <div class="ft__smaller ft__on-surface" style="margin-top: calc(var(--lv-space-unit) * 2)">{t.settings.previewSub}</div>
         </div>
         <div class="lv-card2" style="max-width: 320px; font-size: ${draft.cardFontScale || 1}em; flex: 1">
-            <div style="padding: 12px 16px">
+            <div style="padding: calc(var(--lv-space-unit) * 6) calc(var(--lv-space-unit) * 8)">
                 <strong>{t.settings.previewQ}</strong>
-                <div class="ft__smaller ft__on-surface" style="margin-top: 4px">{t.settings.previewA}</div>
+                <div class="ft__smaller ft__on-surface" style="margin-top: calc(var(--lv-space-unit) * 2)">{t.settings.previewA}</div>
             </div>
         </div>
     </div>
@@ -765,7 +842,7 @@
             <LvSwitch bind:checked={draft.reminderEnabled} />
         </LvRow>
         {#if draft.weeklyReportEnabled}
-            <p class="hint" style="margin: 0 0 8px">{t.settings.weeklyReportHint}</p>
+            <p class="hint" style="margin: 0 0 calc(var(--lv-space-unit) * 4)">{t.settings.weeklyReportHint}</p>
         {/if}
         <LvRow label={t.settings.weeklyReportEnabled}>
             <LvSwitch bind:checked={draft.weeklyReportEnabled} />
@@ -784,10 +861,22 @@
     {#if sectionMatches("aiSection")}
     <LvSection title={t.settings.aiSection} sub={t.settings.aiSectionHint}>
         <LvRow label={t.settings.targetNotebook} hint={t.settings.targetNotebookHint}>
-            <LvSelect
-                bind:value={draft.targetNotebookId}
-                options={[{ value: "", label: t.settings.targetNotebookFirst }, ...notebooks.map(n => ({ value: n.id, label: n.name }))]}
-            />
+            <div style="display:flex;flex-direction:column;align-items:flex-start;gap:var(--lv-sp-1);max-width:320px">
+                <LvSelect
+                    bind:value={draft.targetNotebookId}
+                    disabled={notebookLoading && !notebookHasSnapshot || notebooks.length === 0}
+                    options={[{ value: "", label: t.settings.targetNotebookFirst }, ...notebooks.map(n => ({ value: n.id, label: n.name }))]}
+                />
+                {#if notebookLoading}<span class="ft__smaller ft__on-surface" role="status" aria-busy="true">{t.settings.targetNotebookLoading}</span>{/if}
+                {#if notebookError}
+                    <div role="alert" style="display:flex;flex-wrap:wrap;align-items:center;gap:var(--lv-sp-2);color: var(--lv-color-danger);overflow-wrap:anywhere">
+                        <span>{notebookError}</span>
+                        <button class="b3-button b3-button--small" disabled={notebookLoading} onclick={loadNotebooks}>{t.settings.targetNotebookRetry}</button>
+                    </div>
+                {:else if notebookHasSnapshot && notebooks.length === 0}
+                    <span class="ft__smaller ft__on-surface" role="status">{t.settings.targetNotebookEmpty}</span>
+                {/if}
+            </div>
         </LvRow>
         <LvRow label={t.settings.markerEnabled} hint={t.settings.markerEnabledHint}>
             <LvSwitch bind:checked={draft.markerEnabled} />
@@ -809,7 +898,7 @@
                 </LvRow>
             <LvRow label={t.settings.aiModel} hint={modelRegistryHint()}>
                 {#snippet children()}
-                    <div class="fn__flex" style="gap: 6px; align-items: center; flex-wrap: wrap">
+                    <div class="fn__flex" style="gap: calc(var(--lv-space-unit) * 3); align-items: center; flex-wrap: wrap">
                         <LvInput bind:value={draft.aiModel} placeholder="gpt-4o-mini" width="160px" />
                         <!-- BU-18 模型能力注册表：快选只列 active 在册模型（失效模型不出现） -->
                         <select
@@ -846,7 +935,7 @@
             <LvRow label={t.settings.aiPromptTemplate} hint={t.settings.aiPromptTemplateHint}>
                 {#snippet children()}
                     <!-- BU-5 收口（v0.163.0）：预置模板单一事实源=注册表（10 模板），不再散落 i18n 字符串 -->
-                    <div class="fn__flex fn__flex-wrap" style="gap: 6px; margin-bottom: 6px">
+                    <div class="fn__flex fn__flex-wrap" style="gap: calc(var(--lv-space-unit) * 3); margin-bottom: 6px">
                         <select
                             class="b3-select b3-button--small"
                             aria-label={t.settings.aiPromptTemplate}
@@ -872,7 +961,7 @@
                      安全阀对思源内置 AI 同样有意义，不能随 custom 模式条件块隐藏（审计 F-2 修复） -->
                 <LvRow label={t.settings.aiKillTitle} hint={t.settings.aiKillHint}>
                     {#snippet children()}
-                        <div class="fn__flex fn__flex-wrap" style="gap: 6px; align-items: center">
+                        <div class="fn__flex fn__flex-wrap" style="gap: calc(var(--lv-space-unit) * 3); align-items: center">
                             {#if ks.revoked}
                                 <button class="b3-button b3-button--small" onclick={() => applyKill("grant")}>{t.settings.aiKillGrant}</button>
                                 <LvChip tone="error">{t.settings.aiKillRevokedChip}</LvChip>
@@ -886,7 +975,7 @@
                                 <button class="b3-button b3-button--small" onclick={() => applyKill("stopCurrent")}>{t.settings.aiKillStop}</button>
                             {/if}
                         </div>
-                        <div class="ft__smaller ft__on-surface" style="margin-top: 4px">
+                        <div class="ft__smaller ft__on-surface" style="margin-top: calc(var(--lv-space-unit) * 2)">
                             {t.settings.aiKillLast}{lastEventText()}
                         </div>
                     {/snippet}
@@ -900,7 +989,7 @@
                 <!-- BU-24：月度 token 预算（超限阻断出卡；手工路径不受限；账本只记 token/模型，不含内容） -->
                 <LvRow label={t.settings.aiCostBudget} hint={t.settings.aiCostBudgetHint}>
                     {#snippet children()}
-                        <div class="fn__flex" style="gap: 8px; align-items: center; flex-wrap: wrap">
+                        <div class="fn__flex" style="gap: calc(var(--lv-space-unit) * 4); align-items: center; flex-wrap: wrap">
                             <LvSwitch bind:checked={draft.aiCostBudgetEnabled} />
                             <span class="ft__smaller ft__on-surface">{t.settings.aiCostMonthlyCap}</span>
                             <input class="b3-text-field fn__size-60" type="number" min="0" bind:value={draft.aiCostMonthlyCap} />
@@ -956,7 +1045,7 @@
         </LvRow>
         {#if ankiStatus}
             <div class="lv-notice {ankiStatus.kind === 'info' ? '' : 'lv-notice--warn'}" style="max-height: 180px; overflow: auto">
-                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap">
+                <div style="display: flex; align-items: center; gap: calc(var(--lv-space-unit) * 4); flex-wrap: wrap">
                     <span style="flex: 1; min-width: 200px">{ankiStatus.text}</span>
                     {#if ankiStatus.kind === "warn" && ankiLosses.length > 0}
                         <!-- Anki M3：损失明细一键复制（诊断对账用） -->
@@ -1028,16 +1117,18 @@
         <LvRow label="Flashcard V2" hint={t.dashboard.v2Active}>
             {#snippet children()}
                 <LvChip tone={v2Label.startsWith("Active") ? "primary" : v2Label === "N/A (<3.9.0)" ? "default" : "warn"}>{v2Label}</LvChip>
-                <button class="b3-button b3-button--outline" onclick={redetectV2}>{t.settings.redetectV2}</button>
+                <button class="b3-button b3-button--outline" disabled={v2Busy} aria-busy={v2Busy} onclick={redetectV2}>{v2Busy ? "…" : t.settings.redetectV2}</button>
             {/snippet}
         </LvRow>
+        {#if v2Error}<div class="lv-notice lv-notice--warn" role="alert">{v2Error}</div>{/if}
         <LvRow label={t.settings.suspendedManage} hint={t.settings.suspendedHint.replace("${n}", String(ctx.getSuspendedCount()))}>
             {#snippet children()}
-                <button class="b3-button b3-button--outline" disabled={ctx.getSuspendedCount() === 0} onclick={ctx.restoreAllSuspended}>
-                    {t.settings.suspendedRestore}
+                <button class="b3-button b3-button--outline" disabled={restoreSuspendedBusy || ctx.getSuspendedCount() === 0} aria-busy={restoreSuspendedBusy} onclick={restoreAllSuspended}>
+                    {restoreSuspendedBusy ? (t.settings.suspendedRestoring ?? "恢复中…") : t.settings.suspendedRestore}
                 </button>
             {/snippet}
         </LvRow>
+        {#if restoreSuspendedError}<div class="lv-notice lv-notice--warn" role="alert">{restoreSuspendedError} <button class="b3-button b3-button--text" disabled={restoreSuspendedBusy} onclick={restoreAllSuspended}>{t.settings.retry ?? "重试"}</button></div>{/if}
         <LvRow label={t.settings.exportRevlog} hint={t.settings.storageNote}>
             {#snippet children()}
                 <button class="b3-button b3-button--outline" onclick={ctx.exportRevlog}>JSON</button>
@@ -1051,8 +1142,9 @@
         </LvRow>
         <LvRow label={t.settings.importMerge} hint={t.settings.importMergeHint}>
             {#snippet children()}
-                <input class="b3-button b3-button--outline" type="file" accept=".json,application/json" onchange={importMerge} />
-                <input class="b3-button b3-button--outline" type="file" accept=".csv,text/csv" onchange={importCsv} />
+                <input class="b3-button b3-button--outline" type="file" accept=".json,application/json" disabled={revlogImportBusy} onchange={importMerge} />
+                <input class="b3-button b3-button--outline" type="file" accept=".csv,text/csv" disabled={revlogImportBusy} onchange={importCsv} />
+                {#if revlogImportStatus}<span class="ft__smaller ft__on-surface" role={revlogImportBusy ? "status" : "alert"} aria-busy={revlogImportBusy}>{revlogImportStatus}</span>{/if}
             {/snippet}
         </LvRow>
         {#if ctx.backup}
@@ -1137,7 +1229,7 @@
             border: 1px solid var(--lv-border);
             border-radius: var(--lv-r-s);
             padding: var(--lv-sp-2) var(--lv-sp-3);
-            .lv-st-head, .lv-st-row { gap: var(--lv-sp-3); align-items: center; padding: 2px 0; }
+            .lv-st-head, .lv-st-row { gap: var(--lv-sp-3); align-items: center; padding: calc(var(--lv-space-unit) * 1) 0; }
             .lv-st-head { border-bottom: 1px solid var(--lv-border); padding-bottom: var(--lv-sp-1); }
             .lv-lw { margin-left: var(--lv-sp-3); font-variant-numeric: tabular-nums; }
         }
@@ -1148,7 +1240,7 @@
             padding: var(--lv-sp-3);
             cursor: pointer;
             border: 1px solid var(--lv-border);
-            background: var(--b3-theme-background);
+            background: var(--lv-color-canvas);
             text-align: left;
             border-radius: var(--lv-r-m);
             transition: border-color var(--lv-dur-2) var(--lv-ease),
@@ -1166,6 +1258,6 @@
             background: var(--lv-primary-softer);
             box-shadow: var(--lv-focus-ring);
         }
-        .lv-persona-name { font-weight: 600; margin-bottom: 2px; }
+        .lv-persona-name { font-weight: var(--lv-fw-semibold); margin-bottom: 2px; }
     }
 </style>

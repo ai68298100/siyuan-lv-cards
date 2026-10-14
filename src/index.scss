@@ -5,40 +5,174 @@
 // =============================================================
 
 :root {
+    // 颜色语义层：基础色由思源主题提供，派生色在本文件统一维护。
+    --lv-color-brand: var(--b3-theme-primary);
+    --lv-color-on-brand: var(--b3-theme-on-primary);
+    --lv-color-text: var(--b3-theme-on-background);
+    --lv-color-text-muted: var(--b3-theme-on-surface);
+    --lv-color-canvas: var(--b3-theme-background);
+    --lv-color-canvas-subtle: var(--b3-theme-background-light, var(--b3-theme-background));
+    --lv-color-surface: var(--b3-theme-surface);
+    --lv-color-danger: var(--b3-theme-error);
+    --lv-color-warning: var(--b3-theme-warning);
+    --lv-color-success: var(--b3-theme-success, var(--b3-theme-primary));
+    --lv-color-on-danger: var(--lv-color-canvas);
+    --lv-surface-hover: color-mix(in srgb, var(--lv-color-text) 4%, transparent);
+
+    // 类型档位：组件默认组合与字号清单见 docs/47。
+    --lv-type-caption-size: 10px;
+    --lv-type-caption-line: 1.4;
+    --lv-type-caption-weight: 400;
+    --lv-type-meta-size: 11px;
+    --lv-type-meta-line: 1.5;
+    --lv-type-meta-weight: 400;
+    --lv-type-control-size: 12px;
+    --lv-type-control-line: 1.5;
+    --lv-type-control-weight: 500;
+    --lv-type-body-size: 13px;
+    --lv-type-body-line: 1.6;
+    --lv-type-body-weight: 400;
+    --lv-type-title-size: 16px;
+    --lv-type-title-line: 1.45;
+    --lv-type-title-weight: 600;
+    --lv-type-section-size: 18px;
+    --lv-type-section-line: 1.35;
+    --lv-type-section-weight: 600;
+    --lv-type-heading-size: 20px;
+    --lv-type-heading-line: 1.4;
+    --lv-type-heading-weight: 600;
+    --lv-type-display-size: 24px;
+    --lv-type-display-line: 1.4;
+    --lv-type-display-weight: 600;
+    --lv-type-hero-size: 28px;
+    --lv-type-hero-line: 1.35;
+    --lv-type-hero-weight: 600;
+    --lv-type-hero-lg-size: 32px;
+    // 页面/指标中的几何字号特例：保留原值，避免迁移时发生视觉跳变。
+    --lv-type-micro-size: 9px;
+    --lv-type-body-sm-size: 14px;
+    --lv-type-label-size: 15px;
+    --lv-type-title-lg-size: 17px;
+    --lv-type-section-lg-size: 19px;
+    --lv-type-page-size: 22px;
+    --lv-type-metric-size: 29px;
+    --lv-type-fluid-size: 0.9em;
+
+    // 行高以用途分档；固定像素行高仅用于与控件高度对齐。
+    --lv-lh-tight: 1;
+    --lv-lh-icon: 1.1;
+    --lv-lh-title: 1.35;
+    --lv-lh-body: 1.4;
+    --lv-lh-reading-tight: 1.45;
+    --lv-lh-meta: 1.5;
+    --lv-lh-reading: 1.6;
+    --lv-lh-reading-loose: 1.95;
+    --lv-lh-relaxed: 1.7;
+    --lv-lh-loose: 1.8;
+    --lv-lh-control: 15px;
+    --lv-lh-control-lg: 20px;
+
+    // 字重沿用思源当前使用的 400/500/550/600/650/700 六档。
+    --lv-fw-normal: 400;
+    --lv-fw-medium: 500;
+    --lv-fw-emphasis: 550;
+    --lv-fw-semibold: 600;
+    --lv-fw-heading: 650;
+    --lv-fw-bold: 700;
+
+    // 2px 基础栅格；常用语义间距由 --lv-sp-* 提供，奇数像素作光学校准。
+    --lv-space-unit: 2px;
+    --lv-space-hairline: 1px;
+    --lv-space-1: calc(var(--lv-space-unit) * 1);
+    --lv-space-2: calc(var(--lv-space-unit) * 2);
+    --lv-space-3: calc(var(--lv-space-unit) * 3);
+    --lv-space-4: calc(var(--lv-space-unit) * 4);
+    --lv-space-5: calc(var(--lv-space-unit) * 5);
+    --lv-space-6: calc(var(--lv-space-unit) * 6);
+    --lv-space-7: calc(var(--lv-space-unit) * 7);
+    --lv-space-8: calc(var(--lv-space-unit) * 8);
+    --lv-space-9: calc(var(--lv-space-unit) * 9);
+    --lv-space-10: calc(var(--lv-space-unit) * 10);
+    --lv-space-11: calc(var(--lv-space-unit) * 11);
+    --lv-space-12: calc(var(--lv-space-unit) * 12);
+
     // 缓动与时长
     --lv-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
     --lv-dur-1: 120ms;
     --lv-dur-2: 180ms;
     --lv-dur-3: 240ms;
+    --lv-dur-shimmer: 1200ms;
 
-    // 圆角与间距（8pt 网格）
+    // 圆角语义档：细线、标签、控件、卡片、弹窗和胶囊/圆形。
+    --lv-r-track: 2px;
+    --lv-r-optical: 3px;
+    --lv-r-xs: 4px;
+    --lv-r-tag: 5px;
+    --lv-r-compact: 6px;
     --lv-r-s: 8px;
+    --lv-r-notice: 9px;
+    --lv-r-control: 10px;
     --lv-r-m: 12px;
     --lv-r-l: 16px;
-    --lv-sp-1: 4px;
-    --lv-sp-2: 8px;
-    --lv-sp-3: 12px;
-    --lv-sp-4: 16px;
-    --lv-sp-5: 24px;
+    --lv-r-dialog: 20px;
+    --lv-r-pill: 999px;
+    --lv-r-circle: 50%;
+    --lv-sp-1: var(--lv-space-2);
+    --lv-sp-2: var(--lv-space-4);
+    --lv-sp-3: var(--lv-space-6);
+    --lv-sp-4: var(--lv-space-8);
+    --lv-sp-5: var(--lv-space-12);
+
+    // 控件尺寸：只保留紧凑、标准、主动作三档；不同语义变体共用尺寸。
+    --lv-control-height-compact: 32px;
+    --lv-control-height: 40px;
+    --lv-control-height-primary: 48px;
+    --lv-control-radius: var(--lv-r-control);
+    --lv-control-gap: var(--lv-space-4);
+
+    // 通用控件组件令牌；b3 语义变体复用尺寸，仅保留 small/standard/primary。
+    --lv-button-height: 40px;
+    --lv-button-height-small: 32px;
+    --lv-button-height-primary: 48px;
+    --lv-button-gap: var(--lv-space-4);
+    --lv-button-padding-inline: var(--lv-space-8);
+    --lv-input-height: 40px;
+    --lv-input-padding-inline: var(--lv-space-6);
+    --lv-input-radius: var(--lv-r-control);
+    --lv-tag-radius: var(--lv-r-xs);
+    --lv-card-radius: var(--lv-r-l);
+    --lv-card-padding: var(--lv-space-10);
+    --lv-card-max: 880px;
 
     // 语义派生面
-    --lv-primary-soft: color-mix(in srgb, var(--b3-theme-primary) 10%, transparent);
-    --lv-primary-softer: color-mix(in srgb, var(--b3-theme-primary) 5%, transparent);
-    --lv-primary-border: color-mix(in srgb, var(--b3-theme-primary) 32%, transparent);
-    --lv-danger-soft: color-mix(in srgb, var(--b3-theme-error) 10%, transparent);
-    --lv-danger-border: color-mix(in srgb, var(--b3-theme-error) 32%, transparent);
-    --lv-warn-soft: color-mix(in srgb, var(--b3-theme-warning) 12%, transparent);
-    --lv-good-soft: color-mix(in srgb, var(--b3-theme-success, var(--b3-theme-primary)) 12%, transparent);
-    --lv-border: color-mix(in srgb, var(--b3-theme-on-background) 8%, transparent);
-    --lv-border-strong: color-mix(in srgb, var(--b3-theme-on-background) 14%, transparent);
+    --lv-primary-soft: color-mix(in srgb, var(--lv-color-brand) 10%, transparent);
+    --lv-primary-softer: color-mix(in srgb, var(--lv-color-brand) 5%, transparent);
+    --lv-primary-border: color-mix(in srgb, var(--lv-color-brand) 32%, transparent);
+    --lv-danger-soft: color-mix(in srgb, var(--lv-color-danger) 10%, transparent);
+    --lv-danger-border: color-mix(in srgb, var(--lv-color-danger) 32%, transparent);
+    --lv-warn-soft: color-mix(in srgb, var(--lv-color-warning) 12%, transparent);
+    --lv-good-soft: color-mix(in srgb, var(--lv-color-success) 12%, transparent);
+    --lv-border: color-mix(in srgb, var(--lv-color-text) 8%, transparent);
+    --lv-border-strong: color-mix(in srgb, var(--lv-color-text) 14%, transparent);
 
     // 表面与海拔
     --lv-shadow-1: 0 1px 2px color-mix(in srgb, black 5%, transparent),
         0 2px 10px color-mix(in srgb, black 4%, transparent);
     --lv-shadow-2: 0 2px 6px color-mix(in srgb, black 7%, transparent),
         0 14px 36px color-mix(in srgb, black 9%, transparent);
-    --lv-glass: color-mix(in srgb, var(--b3-theme-background) 76%, transparent);
-    --lv-focus-ring: 0 0 0 3px color-mix(in srgb, var(--b3-theme-primary) 32%, transparent);
+    --lv-glass: color-mix(in srgb, var(--lv-color-canvas) 76%, transparent);
+    --lv-focus-ring: 0 0 0 3px color-mix(in srgb, var(--lv-color-brand) 32%, transparent);
+    --lv-shadow-review-card: 0 8px 28px color-mix(in srgb, black 5%, transparent);
+    --lv-shadow-dialog-scrim: 0 8px 28px color-mix(in srgb, black 5%, transparent);
+
+    // 层级按宿主遮罩、复习局部面板和抽屉三个上下文命名。
+    --lv-z-base: 0;
+    --lv-z-card-control: 1;
+    --lv-z-review-peek: 10;
+    --lv-z-review-help: 11;
+    --lv-z-host-overlay: 40;
+    --lv-z-drawer: 300;
+    --lv-z-drawer-content: 301;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -53,19 +187,19 @@
 
 // 页面容器：居中最大宽（docs/13 §3 宽屏线框 1200px）+ 呼吸留白
 .lv-page {
-    max-width: 1200px;
+    max-width: 1240px;
     margin: 0 auto;
-    padding: var(--lv-sp-5);
+    padding: calc(var(--lv-space-unit) * 14) calc(var(--lv-space-unit) * 15) calc(var(--lv-space-unit) * 16);
     height: 100%;
     overflow: auto;
     box-sizing: border-box;
 
-    // 窄屏保留必要的阅读边距，给中文标题和主要操作留出实际宽度。
-    @media (max-width: 740px) {
-        padding: var(--lv-sp-4);
+    // R54 主工作区边距按插件容器宽度变化，不受宿主窗口外层尺寸影响。
+    @container lv-hub (max-width: 1040px) {
+        padding: calc(var(--lv-space-unit) * 12);
     }
-    @media (max-width: 420px) {
-        padding: var(--lv-sp-3);
+    @container lv-hub (max-width: 780px) {
+        padding: calc(var(--lv-space-unit) * 11 + var(--lv-space-hairline)) calc(var(--lv-space-unit) * 9 + var(--lv-space-hairline)) calc(var(--lv-space-unit) * 13 + var(--lv-space-hairline));
     }
 }
 
@@ -85,16 +219,16 @@
 
     .lv-pagehead-title {
         // docs/13 §1.3：页题 24/650（R52 口径），字距与行高对齐原型
-        margin: 4px 0 5px;
-        font-size: 24px;
-        font-weight: 650;
-        line-height: 1.4;
+        margin: calc(var(--lv-space-unit) * 2) 0 calc(var(--lv-space-unit) * 2 + var(--lv-space-hairline));
+        font-size: var(--lv-type-display-size);
+        font-weight: var(--lv-fw-heading);
+        line-height: var(--lv-lh-body);
         letter-spacing: 0;
     }
 
     .lv-pagehead-sub {
         margin: 0;
-        font-size: 13px;
+        font-size: var(--lv-type-body-size);
     }
 
     // 动作组：与题面基线对齐（顶部对齐 + 4px 视觉补偿），行内不换行挤压题面
@@ -104,7 +238,7 @@
         gap: var(--lv-sp-2);
         flex-wrap: wrap;
         justify-content: flex-end;
-        padding-top: 14px;
+        padding-top: calc(var(--lv-space-unit) * 7);
         flex: none;
         max-width: 60%;
 
@@ -116,7 +250,7 @@
         flex-direction: column;
         gap: var(--lv-sp-2);
 
-        .lv-pagehead-title { font-size: 22px; }
+        .lv-pagehead-title { font-size: var(--lv-type-page-size); }
         .lv-pagehead-actions {
             width: 100%;
             padding-top: 0;
@@ -129,49 +263,49 @@
 
 // eyebrow：小节标签（R52 .eyebrow：11px/.16em 字距/650/muted）
 .lv-eyebrow {
-    font-size: 11px;
+    font-size: var(--lv-type-meta-size);
     letter-spacing: 0.16em;
-    font-weight: 650;
-    color: var(--b3-theme-on-surface);
+    font-weight: var(--lv-fw-heading);
+    color: var(--lv-color-text-muted);
 }
 
 // 徽章（R52 .badge）：11px/550 软色底小签，brand/good/warn 三档
 .lv-tag {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 3px 8px;
+    gap: calc(var(--lv-space-unit) * 3);
+    padding: calc(var(--lv-space-unit) * 1 + var(--lv-space-hairline)) calc(var(--lv-space-unit) * 4);
     border: 1px solid var(--lv-border);
-    border-radius: 5px;
-    font-size: 11px;
-    font-weight: 550;
-    color: var(--b3-theme-on-surface);
+    border-radius: var(--lv-tag-radius);
+    font-size: var(--lv-type-meta-size);
+    font-weight: var(--lv-fw-emphasis);
+    color: var(--lv-color-text-muted);
 
-    &--brand { color: var(--b3-theme-primary); background: var(--lv-primary-soft); border-color: transparent; }
-    &--good { color: var(--b3-theme-success, var(--b3-theme-primary)); background: var(--lv-good-soft); border-color: transparent; }
-    &--warn { color: var(--b3-theme-warning); background: var(--lv-warn-soft); border-color: transparent; }
+    &--brand { color: var(--lv-color-brand); background: var(--lv-primary-soft); border-color: transparent; }
+    &--good { color: var(--lv-color-success); background: var(--lv-good-soft); border-color: transparent; }
+    &--warn { color: var(--lv-color-warning); background: var(--lv-warn-soft); border-color: transparent; }
 }
 
 // 通知框（R52 .notice）：12px muted 软面板，warn/good 语义档
 .lv-notice {
-    padding: 12px 15px;
-    background: color-mix(in srgb, var(--b3-theme-on-background) 4%, transparent);
+    padding: calc(var(--lv-space-unit) * 6) calc(var(--lv-space-unit) * 7 + var(--lv-space-hairline));
+    background: var(--lv-surface-hover);
     border: 1px solid var(--lv-border);
-    border-radius: 9px;
-    font-size: 12px;
-    color: var(--b3-theme-on-surface);
+    border-radius: var(--lv-r-notice);
+    font-size: var(--lv-type-control-size);
+    color: var(--lv-color-text-muted);
     margin: var(--lv-sp-4) 0;
 
-    &--warn { background: var(--lv-warn-soft); color: var(--b3-theme-warning); border-color: transparent; }
-    &--good { background: var(--lv-good-soft); color: var(--b3-theme-success, var(--b3-theme-primary)); border-color: transparent; }
+    &--warn { background: var(--lv-warn-soft); color: var(--lv-color-warning); border-color: transparent; }
+    &--good { background: var(--lv-good-soft); color: var(--lv-color-success); border-color: transparent; }
 }
 
 // 卡片：白工作面 + 1px 派生边框（R53 .panel：扁平分层，无静态阴影；hover 才升起）
 .lv-card2 {
-    background: var(--b3-theme-surface);
+    background: var(--lv-color-surface);
     border: 1px solid var(--lv-border);
-    border-radius: var(--lv-r-l);
-    padding: 20px;
+    border-radius: var(--lv-card-radius);
+    padding: var(--lv-card-padding);
     min-width: 0;
     transition: box-shadow var(--lv-dur-2) var(--lv-ease), transform var(--lv-dur-2) var(--lv-ease),
         border-color var(--lv-dur-2) var(--lv-ease);
@@ -191,15 +325,15 @@
 // 迷你进度条（统计卡/目标）
 .lv-mini-track {
     height: 4px;
-    border-radius: 2px;
-    background: color-mix(in srgb, var(--b3-theme-on-background) 8%, transparent);
+    border-radius: var(--lv-r-track);
+    background: color-mix(in srgb, var(--lv-color-text) 8%, transparent);
     overflow: hidden;
 
     .lv-mini-fill {
         height: 100%;
-        border-radius: 2px;
-        background: linear-gradient(90deg, var(--b3-theme-primary),
-                color-mix(in srgb, var(--b3-theme-primary) 55%, var(--b3-theme-warning)));
+        border-radius: var(--lv-r-track);
+        background: linear-gradient(90deg, var(--lv-color-brand),
+                color-mix(in srgb, var(--lv-color-brand) 55%, var(--lv-color-warning)));
         transition: width var(--lv-dur-3) var(--lv-ease);
     }
 }
@@ -230,12 +364,12 @@
 
 // 展示数字（R52 .stat .num）：ink 实色、29px/650、-.035em、表格数字——不用主色渐变（原型口径）
 .lv-hero-num {
-    font-size: 29px;
-    font-weight: 650;
-    line-height: 1.35;
+    font-size: var(--lv-type-metric-size);
+    font-weight: var(--lv-fw-heading);
+    line-height: var(--lv-lh-title);
     font-variant-numeric: tabular-nums;
     letter-spacing: 0;
-    color: var(--b3-theme-on-background);
+    color: var(--lv-color-text);
 
     // 零值态（R53 .stat .num.zero）：数字降透明度保留在原位，不隐藏不误读
     &.lv-num-zero { opacity: 0.55; }
@@ -246,14 +380,14 @@
     display: flex;
     align-items: center;
     gap: var(--lv-sp-2);
-    font-weight: 650;
-    font-size: 15px;
+    font-weight: var(--lv-fw-heading);
+    font-size: var(--lv-type-label-size);
     margin-bottom: var(--lv-sp-3);
 
     .lv-secthead-sub {
-        font-weight: 400;
-        font-size: 12px;
-        color: var(--b3-theme-on-surface);
+        font-weight: var(--lv-fw-normal);
+        font-size: var(--lv-type-control-size);
+        color: var(--lv-color-text-muted);
     }
 }
 
@@ -261,18 +395,18 @@
 .lv-dot {
     width: 8px;
     height: 8px;
-    border-radius: 50%;
+    border-radius: var(--lv-r-circle);
     display: inline-block;
-    background: var(--b3-theme-primary);
+    background: var(--lv-color-brand);
 }
 
 // 主操作按钮：实底主色 + 悬浮抬升（R52：光泽扫过默认不启用，docs/15 §6）
 .lv-btn-primary {
     position: relative;
     overflow: hidden;
-    background: var(--b3-theme-primary);
-    color: var(--b3-theme-on-primary);
-    font-weight: 550;
+    background: var(--lv-color-brand);
+    color: var(--lv-color-on-brand);
+    font-weight: var(--lv-fw-emphasis);
     transition: transform var(--lv-dur-1) var(--lv-ease),
         box-shadow var(--lv-dur-2) var(--lv-ease), filter var(--lv-dur-1) var(--lv-ease);
 
@@ -288,12 +422,12 @@
 .lv-btn-ghost {
     background: transparent;
     border-color: transparent;
-    color: var(--b3-theme-on-surface);
+    color: var(--lv-color-text-muted);
 
     &:not(:disabled):hover {
-        background: color-mix(in srgb, var(--b3-theme-on-background) 5%, transparent);
+        background: color-mix(in srgb, var(--lv-color-text) 5%, transparent);
         border-color: transparent;
-        color: var(--b3-theme-on-background);
+        color: var(--lv-color-text);
     }
 }
 
@@ -302,8 +436,8 @@
 // :not 白名单 = 宿主已有语义档 + 插件自有语义类（ghost/主色/挑战软色）。
 :is(.lv-page, .lv-hub, .lv-dialog, .lv-peek-body) {
     .b3-button:not(.b3-button--outline):not(.b3-button--text):not(.b3-button--cancel):not(.lv-btn-primary):not(.lv-btn-ghost):not(.lv-chal-btn) {
-        background: var(--b3-theme-surface);
-        color: var(--b3-theme-on-background);
+        background: var(--lv-color-surface);
+        color: var(--lv-color-text);
     }
 }
 
@@ -351,7 +485,7 @@
     &::-webkit-scrollbar { width: 8px; height: 8px; }
     &::-webkit-scrollbar-thumb {
         background: var(--lv-border-strong);
-        border-radius: 4px;
+        border-radius: var(--lv-r-xs);
     }
     &::-webkit-scrollbar-track { background: transparent; }
 }
@@ -360,7 +494,7 @@
 .lv-tabs {
     display: flex;
     align-items: stretch;
-    gap: 2px;
+    gap: calc(var(--lv-space-unit) * 1);
     border-bottom: 1px solid var(--lv-border);
     margin-bottom: var(--lv-sp-4);
 
@@ -375,24 +509,24 @@
         border: none;
         background: transparent;
         white-space: nowrap;
-        color: var(--b3-theme-on-surface);
-        font-size: 13px;
-        padding: 9px 16px;
+        color: var(--lv-color-text-muted);
+        font-size: var(--lv-type-body-size);
+        padding: calc(var(--lv-space-unit) * 4 + var(--lv-space-hairline)) calc(var(--lv-space-unit) * 8);
         border-radius: 0;
         position: relative;
         cursor: pointer;
         transition: color var(--lv-dur-2) var(--lv-ease);
 
-        &:hover { color: var(--b3-theme-on-background); }
+        &:hover { color: var(--lv-color-text); }
 
-        &.lv-tab-active { color: var(--b3-theme-on-background); font-weight: 650; }
+        &.lv-tab-active { color: var(--lv-color-text); font-weight: 650; }
 
         // 2px 主色底线（R52 .app-tabs button.active:after，左右 16px 内缩）
         &.lv-tab-active::after {
             content: "";
             position: absolute;
             height: 2px;
-            background: var(--b3-theme-primary);
+            background: var(--lv-color-brand);
             bottom: -1px;
             left: 16px;
             right: 16px;
@@ -404,17 +538,17 @@
 .lv-chip2 {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    font-size: 11px;
-    font-weight: 600;
-    line-height: 1;
-    padding: 4px 10px;
-    border-radius: 999px;
+    gap: calc(var(--lv-space-unit) * 2);
+    font-size: var(--lv-type-meta-size);
+    font-weight: var(--lv-fw-semibold);
+    line-height: var(--lv-lh-tight);
+    padding: calc(var(--lv-space-unit) * 2) calc(var(--lv-space-unit) * 5);
+    border-radius: var(--lv-r-pill);
 
-    &.lv-chip2--primary { background: var(--lv-primary-soft); color: var(--b3-theme-primary); }
-    &.lv-chip2--warn { background: var(--lv-warn-soft); color: var(--b3-theme-warning); }
-    &.lv-chip2--error { background: var(--lv-danger-soft); color: var(--b3-theme-error); }
-    &.lv-chip2--default { background: var(--lv-border); color: var(--b3-theme-on-surface); }
+    &.lv-chip2--primary { background: var(--lv-primary-soft); color: var(--lv-color-brand); }
+    &.lv-chip2--warn { background: var(--lv-warn-soft); color: var(--lv-color-warning); }
+    &.lv-chip2--error { background: var(--lv-danger-soft); color: var(--lv-color-danger); }
+    &.lv-chip2--default { background: var(--lv-border); color: var(--lv-color-text-muted); }
 }
 
 // ---- 工具行（R53 .flex.between 口径：筛选 chips + 结果 caption，两端对齐） ----
@@ -428,8 +562,8 @@
 
     .lv-toolbar-caption {
         margin-left: auto;
-        font-size: 12px;
-        color: var(--b3-theme-on-surface);
+        font-size: var(--lv-type-control-size);
+        color: var(--lv-color-text-muted);
         font-variant-numeric: tabular-nums;
     }
 }
@@ -438,45 +572,45 @@
 .lv-chipbtn {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: calc(var(--lv-space-unit) * 3);
     min-height: 30px;
-    padding: 3px 12px;
+    padding: calc(var(--lv-space-unit) * 1 + var(--lv-space-hairline)) calc(var(--lv-space-unit) * 6);
     border: 1px solid var(--lv-border);
-    border-radius: 999px;
+    border-radius: var(--lv-r-pill);
     background: transparent;
-    color: var(--b3-theme-on-surface);
-    font-size: 12px;
-    font-weight: 550;
+    color: var(--lv-color-text-muted);
+    font-size: var(--lv-type-control-size);
+    font-weight: var(--lv-fw-emphasis);
     cursor: pointer;
     transition: background var(--lv-dur-1) var(--lv-ease),
         border-color var(--lv-dur-1) var(--lv-ease), color var(--lv-dur-1) var(--lv-ease);
 
     &:not(:disabled):hover {
-        background: color-mix(in srgb, var(--b3-theme-on-background) 4%, transparent);
+        background: var(--lv-surface-hover);
         border-color: var(--lv-border-strong);
-        color: var(--b3-theme-on-background);
+        color: var(--lv-color-text);
     }
 
     &.lv-chipbtn-active {
         background: var(--lv-primary-soft);
         border-color: transparent;
-        color: var(--b3-theme-primary);
-        font-weight: 600;
+        color: var(--lv-color-brand);
+        font-weight: var(--lv-fw-semibold);
     }
 
-    .lv-chipbtn-count { font-variant-numeric: tabular-nums; opacity: 0.75; font-weight: 550; }
+    .lv-chipbtn-count { font-variant-numeric: tabular-nums; opacity: 0.75; font-weight: var(--lv-fw-emphasis); }
 }
 
 // 危险 ghost 钮（破坏性动作：删除/移除；保留 ghost 形态 + error 色）
 .lv-btn-danger {
     background: transparent;
     border-color: transparent;
-    color: var(--b3-theme-error);
+    color: var(--lv-color-danger);
 
     &:not(:disabled):hover {
         background: var(--lv-danger-soft);
         border-color: transparent;
-        color: var(--b3-theme-error);
+        color: var(--lv-color-danger);
     }
 }
 
@@ -493,7 +627,7 @@
 
 .lv-dialog.lv-dialog--panel {
     .b3-dialog__container {
-        border-radius: 20px;
+        border-radius: var(--lv-r-dialog);
         overflow: hidden;
         box-shadow: var(--lv-shadow-2);
         transform-origin: 50% 0; /* 面板自顶部展开（⌘K 惯例） */
@@ -504,7 +638,7 @@
     .b3-dialog__content { padding: 0; overflow: visible; }
 
     .b3-dialog__scrim {
-        background: color-mix(in srgb, var(--b3-theme-on-background) 26%, transparent);
+        background: color-mix(in srgb, var(--lv-color-text) 26%, transparent);
         backdrop-filter: blur(2px);
     }
 }
@@ -513,11 +647,11 @@
 .lv-kbd2 {
     display: inline-flex;
     align-items: center;
-    font-size: 10px;
-    padding: 1px 5px;
-    border-radius: 4px;
+    font-size: var(--lv-type-caption-size);
+    padding: var(--lv-space-hairline) calc(var(--lv-space-unit) * 2 + var(--lv-space-hairline));
+    border-radius: var(--lv-r-xs);
     border: 1px solid var(--lv-border-strong);
-    color: var(--b3-theme-on-surface);
+    color: var(--lv-color-text-muted);
     opacity: 0.85;
     font-family: inherit;
 }
@@ -529,9 +663,9 @@
 
     th {
         text-align: left;
-        font-size: 12px;
-        font-weight: 600;
-        color: var(--b3-theme-on-surface);
+        font-size: var(--lv-type-control-size);
+        font-weight: var(--lv-fw-semibold);
+        color: var(--lv-color-text-muted);
         padding: var(--lv-sp-2) var(--lv-sp-3);
         border-bottom: 1px solid var(--lv-border);
     }
@@ -547,11 +681,11 @@
 .lv-skeleton {
     border-radius: var(--lv-r-s);
     background: linear-gradient(90deg,
-            color-mix(in srgb, var(--b3-theme-on-background) 6%, transparent) 25%,
-            color-mix(in srgb, var(--b3-theme-on-background) 12%, transparent) 50%,
-            color-mix(in srgb, var(--b3-theme-on-background) 6%, transparent) 75%);
+            color-mix(in srgb, var(--lv-color-text) 6%, transparent) 25%,
+            color-mix(in srgb, var(--lv-color-text) 12%, transparent) 50%,
+            color-mix(in srgb, var(--lv-color-text) 6%, transparent) 75%);
     background-size: 200% 100%;
-    animation: lv-shimmer 1.2s linear infinite;
+    animation: lv-shimmer var(--lv-dur-shimmer) linear infinite;
 }
 
 @keyframes lv-shimmer {
@@ -590,20 +724,20 @@
     right: -2px;
     min-width: 15px;
     height: 15px;
-    line-height: 15px;
-    padding: 0 4px;
-    border-radius: 8px;
-    font-size: 10px;
-    font-weight: 600;
+    line-height: var(--lv-lh-control);
+    padding: 0 calc(var(--lv-space-unit) * 2);
+    border-radius: var(--lv-r-s);
+    font-size: var(--lv-type-caption-size);
+    font-weight: var(--lv-fw-semibold);
     text-align: center;
-    background: var(--b3-theme-error);
-    color: var(--b3-theme-on-primary);
+    background: var(--lv-color-danger);
+    color: var(--lv-color-on-brand);
     box-shadow: var(--lv-shadow-1);
     pointer-events: none;
 
     // 颜色语义（313）：今日目标达成→绿
     &.lv-badge--done {
-        background: var(--b3-theme-primary);
+        background: var(--lv-color-brand);
     }
 }
 
@@ -619,7 +753,7 @@
     // R52 .stat：radius 12 + 19/20 留白（嵌套时外大内小）
     .lv-card2 {
         border-radius: var(--lv-r-m);
-        padding: 19px 20px;
+        padding: calc(var(--lv-space-unit) * 9 + var(--lv-space-hairline)) calc(var(--lv-space-unit) * 10);
     }
 }
 
@@ -629,13 +763,12 @@
     align-items: center;
     justify-content: space-between;
     gap: var(--lv-sp-5);
-    padding: 30px;
+    padding: calc(var(--lv-space-unit) * 15);
     margin-bottom: var(--lv-sp-5);
     border: 1px solid var(--lv-border);
     border-radius: var(--lv-r-l);
-    background: linear-gradient(135deg,
-            var(--lv-primary-softer),
-            color-mix(in srgb, var(--lv-primary-softer) 35%, var(--b3-theme-surface)) 70%);
+    // R54 hero uses a flat semantic wash; keep hierarchy in spacing and the goal ring.
+    background: var(--lv-primary-softer);
     max-width: 100%;
 
     .lv-hero-text { min-width: 0; flex: 1; }
@@ -652,9 +785,9 @@
         circle {
             fill: none;
             stroke-width: 7;
-            &.lv-hero-ring-track { stroke: color-mix(in srgb, var(--b3-theme-on-background) 8%, transparent); }
+            &.lv-hero-ring-track { stroke: color-mix(in srgb, var(--lv-color-text) 8%, transparent); }
             &.lv-hero-ring-fill {
-                stroke: var(--b3-theme-primary);
+                stroke: var(--lv-color-brand);
                 stroke-linecap: round;
                 transition: stroke-dasharray var(--lv-dur-3) var(--lv-ease);
             }
@@ -667,17 +800,17 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            font-size: 19px;
-            font-weight: 650;
+            font-size: var(--lv-type-section-lg-size);
+            font-weight: var(--lv-fw-heading);
             font-variant-numeric: tabular-nums;
             letter-spacing: -0.02em;
 
             i {
                 font-style: normal;
-                font-size: 10px;
-                color: var(--b3-theme-on-surface);
-                font-weight: 550;
-                margin-top: 1px;
+                font-size: var(--lv-type-caption-size);
+                color: var(--lv-color-text-muted);
+                font-weight: var(--lv-fw-emphasis);
+                margin-top: var(--lv-space-hairline);
             }
         }
     }
@@ -690,17 +823,17 @@
         flex-wrap: wrap;
     }
     .lv-hero-title {
-        margin: 14px 0 8px;
-        font-size: 24px;
-        line-height: 1.45;
+        margin: calc(var(--lv-space-unit) * 7) 0 calc(var(--lv-space-unit) * 4);
+        font-size: var(--lv-type-display-size);
+        line-height: var(--lv-lh-reading-tight);
         letter-spacing: 0;
-        font-weight: 650;
+        font-weight: var(--lv-fw-heading);
     }
     .lv-hero-desc {
-        margin: 0 0 20px;
+        margin: 0 0 calc(var(--lv-space-unit) * 10);
         max-width: 42em;
-        font-size: 13px;
-        color: var(--b3-theme-on-surface);
+        font-size: var(--lv-type-body-size);
+        color: var(--lv-color-text-muted);
     }
     .lv-hero-cta {
         display: flex;
@@ -708,7 +841,7 @@
         justify-content: space-between;
         gap: var(--lv-sp-3);
         flex-wrap: wrap;
-        .lv-hero-remaining { font-size: 12px; color: var(--b3-theme-on-surface); }
+        .lv-hero-remaining { font-size: var(--lv-type-control-size); color: var(--lv-color-text-muted); }
         /* 原型主动作：48px 高的明确主按钮 */
         .lv-btn-primary { min-height: 48px; padding: 0 22px; }
     }
@@ -716,9 +849,9 @@
     @media (max-width: 740px) {
         flex-direction: column;
         align-items: stretch;
-        padding: 22px;
+        padding: calc(var(--lv-space-unit) * 11);
         gap: var(--lv-sp-4);
-        .lv-hero-title { font-size: 22px; }
+        .lv-hero-title { font-size: var(--lv-type-page-size); }
         .lv-hero-ring { align-self: flex-start; }
     }
 }
@@ -734,15 +867,15 @@
     border-top: 1px solid var(--lv-border);
     border-bottom: 1px solid var(--lv-border);
     border-radius: 0;
-    color: var(--b3-theme-on-surface);
-    font-size: 12px;
+    color: var(--lv-color-text-muted);
+    font-size: var(--lv-type-control-size);
     letter-spacing: 0.08em;
 
     &:not(:disabled):hover {
-        background: color-mix(in srgb, var(--b3-theme-on-background) 4%, transparent);
+        background: var(--lv-surface-hover);
         border-color: transparent;
         border-top: 1px solid var(--lv-border);
         border-bottom: 1px solid var(--lv-border);
-        color: var(--b3-theme-on-background);
+        color: var(--lv-color-text);
     }
 }

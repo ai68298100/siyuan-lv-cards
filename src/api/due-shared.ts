@@ -15,6 +15,12 @@ export const cachedDueCount = async (): Promise<number> => {
     return data?.unreviewedCount ?? 0;
 };
 
+/** 今日到期块 ID 清单：保留共享缓存读取错误，让依赖它的界面展示重试而非空结果。 */
+export const cachedDueBlockIDs = async (scope = ""): Promise<string[]> => {
+    const data = await dueCache.get(scope);
+    return (data.cards ?? []).map(card => card.blockID).filter((id): id is string => Boolean(id));
+};
+
 /** 任何改变内核 due 的事实（评分/建卡/改期）发生后调用：下一次读取立即拉新 */
 export const invalidateDueCache = () => dueCache.invalidate();
 

@@ -22,6 +22,14 @@ describe("闪卡管理器行语义", () => {
         expect(en).toContain('"selectCard": "Select card ${id}"');
     });
 
+    it("管理器搜索框始终提供本地化的可访问名称", () => {
+        expect(manager).toContain('aria-label={t.manager.filterLabel}');
+        const zh = readFileSync(resolve(import.meta.dirname, "../public/i18n/zh-CN.json"), "utf8");
+        expect(zh).toContain('"filterLabel": "搜索当前卡片库"');
+        const en = readFileSync(resolve(import.meta.dirname, "../public/i18n/en.json"), "utf8");
+        expect(en).toContain('"filterLabel": "Search the current card library"');
+    });
+
     it("主行提供键盘导航、删除快捷键和可见的快捷键语义", () => {
         expect(manager).toContain("{#each filteredBlocks as b, rowIndex (b.id)}");
         expect(manager).toContain("onkeydown={(event) => onRowKeydown(event, b, rowIndex)}");
@@ -41,5 +49,21 @@ describe("闪卡管理器行语义", () => {
             expect(zh.manager[key].length).toBeGreaterThan(0);
             expect(en.manager[key].length).toBeGreaterThan(0);
         }
+    });
+
+    it("搜索、状态与遗忘卡筛选变更回到第 1 页并重新加载", () => {
+        expect(manager).toMatch(/deferredFilter = nextFilter;[\s\S]*?page = 1;[\s\S]*?filterDirty = false;\s*void load\(\);/);
+        expect(manager).toContain("oninput={() => { selected = []; filterDirty = true; }}");
+        expect(manager).toMatch(/function applyStatusFilter\(event: Event\)[\s\S]*?page = 1;[\s\S]*?selected = \[\];\s*void onStatusChange\(\);/);
+        expect(manager).toMatch(/function toggleLeechFilter\(\)[\s\S]*?leechOnly = !leechOnly;[\s\S]*?page = 1;[\s\S]*?void load\(\);/);
+        expect(manager).toContain("onchange={applyStatusFilter}");
+        expect(manager).toContain("onclick={toggleLeechFilter}");
+    });
+
+    it("筛选空态说明只检查已加载页，删除保存筛选不改搜索词", () => {
+        expect(manager).toContain("当前页无匹配项，筛选仅作用于已加载页");
+        const deleteSaved = manager.slice(manager.indexOf("function deleteSaved()"), manager.indexOf("</script>"));
+        expect(deleteSaved).toContain("ctx.deleteFilter(pickedSaved)");
+        expect(deleteSaved).not.toContain("filterText = \"\"");
     });
 });

@@ -15,6 +15,8 @@ const t = {
             remove: "移除",
             derive: "派生实例",
             deriving: "派生中…",
+            deriveFailed: "派生失败，请重试。卡片数据未更改。",
+            retryDerive: "重试派生",
             deriveLabel: "派生卡型",
             revise: "修订事实",
             reviseLabel: "核心事实（修订）",
@@ -87,6 +89,21 @@ describe("ko-panel（BK-1 UI）", () => {
             fact: "F", instances: [], deriving: true, t, ontoggle: vi.fn(), onremove: vi.fn(), onderive: vi.fn(),
         });
         expect((getByText("派生中…") as HTMLButtonElement).disabled).toBe(true);
+    });
+
+    it("派生失败展示原因并提供重试入口", async () => {
+        const onderive = vi.fn()
+            .mockRejectedValueOnce(new Error("内核读取失败"))
+            .mockResolvedValueOnce(undefined);
+        const { getByText, findByRole, queryByRole } = render(KoPanel, {
+            fact: "F", instances: [], t, ontoggle: vi.fn(), onremove: vi.fn(), onderive,
+        });
+
+        await fireEvent.click(getByText("派生实例"));
+        expect((await findByRole("alert")).textContent).toContain("内核读取失败");
+        await fireEvent.click(getByText("重试派生"));
+        expect(onderive).toHaveBeenCalledTimes(2);
+        expect(queryByRole("alert")).toBeNull();
     });
 });
 

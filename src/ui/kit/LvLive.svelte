@@ -16,7 +16,7 @@
         position: absolute;
         width: 1px;
         height: 1px;
-        margin: -1px;
+        margin: calc(var(--lv-space-hairline) * -1);
         padding: 0;
         overflow: hidden;
         clip: rect(0 0 0 0);

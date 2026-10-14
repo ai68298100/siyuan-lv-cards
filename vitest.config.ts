@@ -17,6 +17,7 @@ export default defineConfig({
         // 会触发 optimizeDeps 启动崩溃（"reading length"，v0.101 实测）
         alias: {
             "@": resolve(import.meta.dirname, "src"),
+            siyuan: resolve(import.meta.dirname, "tests/stubs/siyuan.ts"),
         },
         // svelte 5 需 browser 条件才会编译客户端组件（否则 mount 不可用）
         conditions: ["browser"],

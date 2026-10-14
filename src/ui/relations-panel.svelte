@@ -9,13 +9,16 @@
         /** 该实体的全部关系（宿主预过滤，双向） */
         relations: { relation: { from: string; to: string; type: string; createdAt: number }; direction: "outgoing" | "incoming" }[];
         t: any;
-        onadd: (from: string, to: string, type: string) => void;
-        onremove: (from: string, to: string, type: string) => void;
+        onadd: (from: string, to: string, type: string) => void | Promise<void>;
+        onremove: (from: string, to: string, type: string) => void | Promise<void>;
     } = $props();
 
     let newTarget = $state("");
     let newType = $state("sibling");
     let formError = $state("");
+    let actionError = $state("");
+    let busy = $state(false);
+    let retryAction = $state<(() => Promise<void>) | null>(null);
 
     const TYPE_KEYS: Record<string, string> = {
         sibling: "relSibling",
@@ -28,7 +31,23 @@
     };
     const typeName = (type: string) => (t.relations?.[TYPE_KEYS[type]] ?? type);
 
+    async function runAction(action: () => Promise<void>) {
+        if (busy) return;
+        actionError = "";
+        busy = true;
+        try {
+            await action();
+            retryAction = null;
+        } catch (error) {
+            actionError = error instanceof Error && error.message ? error.message : (t.relations.saveFailed ?? "保存关系失败，请重试。");
+            retryAction = action;
+        } finally {
+            busy = false;
+        }
+    }
+
     function submit() {
+        if (busy) return;
         const target = newTarget.trim();
         formError = "";
         if (!target) {
@@ -39,8 +58,18 @@
             formError = t.relations.errSelfRelation;
             return;
         }
-        onadd(entityId, target, newType);
-        newTarget = "";
+        const type = newType;
+        void runAction(async () => {
+            await onadd(entityId, target, type);
+            newTarget = "";
+        });
+    }
+
+    function remove(relation: { from: string; to: string; type: string }) {
+        if (busy) return;
+        const message = t.relations.removeConfirm ?? "确定删除这条关系？此操作不可撤销。";
+        if (typeof window !== "undefined" && typeof window.confirm === "function" && !window.confirm(message)) return;
+        void runAction(() => Promise.resolve(onremove(relation.from, relation.to, relation.type)));
     }
 </script>
 
@@ -63,41 +92,50 @@
                     class="b3-button b3-button--small"
                     title={t.relations.remove}
                     aria-label={t.relations.remove}
-                    onclick={() => onremove(relation.from, relation.to, relation.type)}
-                >✕</button>
+                    disabled={busy}
+                    aria-busy={busy}
+                    onclick={() => remove(relation)}
+                >{busy ? "…" : "✕"}</button>
             </div>
         {/each}
     {/if}
 
     <div class="lv-relations-add">
         {#if formError}<LvError message={formError} />{/if}
+        {#if actionError}
+            <div role="alert"><LvError message={actionError} />
+                {#if retryAction}<button class="b3-button b3-button--text" disabled={busy} onclick={() => retryAction && void runAction(retryAction)}>{t.relations.retry ?? "重试"}</button>{/if}
+            </div>
+        {/if}
         <div class="fn__flex" style="gap: var(--lv-sp-2)">
             <input
                 class="b3-text-field fn__flex-1"
                 placeholder={t.relations.targetPlaceholder}
                 aria-label={t.relations.targetPlaceholder}
                 bind:value={newTarget}
+                disabled={busy}
                 onkeydown={(e) => { if (e.key === "Enter") { submit(); } }}
             />
             <select
                 class="b3-select"
                 aria-label={t.relations.typeLabel}
                 value={newType}
+                disabled={busy}
                 onchange={(e) => (newType = (e.target as HTMLSelectElement).value)}
             >
                 {#each Object.keys(TYPE_KEYS) as type}
                     <option value={type}>{typeName(type)}</option>
                 {/each}
             </select>
-            <button class="b3-button b3-button--text" onclick={submit}>{t.relations.add}</button>
+            <button class="b3-button b3-button--text" disabled={busy} aria-busy={busy} onclick={submit}>{busy ? (t.relations.saving ?? "保存中…") : t.relations.add}</button>
         </div>
     </div>
 </div>
 
 <style>
-    .lv-relations { font-size: 13px; }
-    .lv-relations-title { font-weight: 500; margin-bottom: var(--lv-sp-2); }
-    .lv-relations-empty { color: var(--b3-theme-on-surface); opacity: .7; padding: var(--lv-sp-2) 0; }
+    .lv-relations { font-size: var(--lv-type-body-size); }
+    .lv-relations-title { font-weight: var(--lv-fw-medium); margin-bottom: var(--lv-sp-2); }
+    .lv-relations-empty { color: var(--lv-color-text-muted); opacity: .7; padding: var(--lv-sp-2) 0; }
     .lv-relations-row {
         display: flex; align-items: center; gap: var(--lv-sp-2);
         padding: var(--lv-sp-1) 0;

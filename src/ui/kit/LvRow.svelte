@@ -33,13 +33,13 @@
         min-width: 0;
     }
     .lv-row2-name {
-        font-size: 13px;
-        font-weight: 600;
+        font-size: var(--lv-type-body-size);
+        font-weight: var(--lv-fw-semibold);
     }
     .lv-row2-hint {
-        margin-top: 2px;
+        margin-top: calc(var(--lv-space-unit) * 1);
         max-width: 34em;
-        line-height: 1.6;
+        line-height: var(--lv-lh-reading);
     }
     .lv-row2-control {
         display: flex;

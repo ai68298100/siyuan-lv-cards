@@ -2,15 +2,43 @@
  * 思源内核 /api/riff/* 闪卡 API 的类型化封装。
  * 端点与字段名均按内核源码 kernel/apicontract/riff.go 建模（3.8.x）。
  */
-import { postJSON } from "@/libs/request";
+import { postJSON, type RequestOptions } from "@/libs/request";
 
-async function riff<T>(endpoint: string, payload: Record<string, unknown> = {}): Promise<T> {
-    const resp = await postJSON<{ code: number; msg: string; data: T }>(`/api/riff/${endpoint}`, payload);
+async function riff<T>(endpoint: string, payload: Record<string, unknown> = {}, options: RequestOptions = {}): Promise<T> {
+    const resp = await postJSON<{ code: number; msg: string; data: T }>(`/api/riff/${endpoint}`, payload, options);
     // AJ5：统一内核响应校验，非 0 一律抛本地化错误，禁止下游渲染 undefined
     if (!resp || resp.code !== 0) {
         throw new Error(resp?.msg || `kernel error (code=${resp?.code ?? "unknown"})`);
     }
     return resp.data as T;
+}
+
+/** 同一前端生命周期内的写入单飞：双击/重复事件共享结果，失败后自动移除以便用户重试。 */
+const writeFlights = new Map<string, Promise<unknown>>();
+function riffWrite<T>(endpoint: string, payload: Record<string, unknown> = {}): Promise<T> {
+    const key = `riff-write:${endpoint}:${JSON.stringify(payload)}`;
+    const existing = writeFlights.get(key) as Promise<T> | undefined;
+    if (existing) return existing;
+    const pending = riff<T>(endpoint, payload).finally(() => {
+        if (writeFlights.get(key) === pending) writeFlights.delete(key);
+    });
+    writeFlights.set(key, pending);
+    void pending.catch(() => undefined);
+    return pending;
+}
+
+/** Read-only calls may be coalesced and retried once for transient transport failures. */
+function riffRead<T>(endpoint: string, payload: Record<string, unknown> = {}): Promise<T> {
+    // Scope the latest-wins guard to the visible resource. Page/cursor changes
+    // supersede an older response, while independent decks/scopes can load in
+    // parallel during an aggregate due query.
+    const scope = String(payload.deckID ?? payload.id ?? payload.rootID ?? payload.notebook ?? "");
+    return riff<T>(endpoint, payload, {
+        readOnly: true,
+        retries: 1,
+        dedupeKey: `${endpoint}:${JSON.stringify(payload)}`,
+        latestKey: `riff:${endpoint}:${scope}`,
+    });
 }
 
 export interface RiffDeck {
@@ -67,21 +95,21 @@ export interface RiffCardsData {
 
 // ---- 卡包管理 ----
 
-export const getRiffDecks = () => riff<RiffDeck[]>("getRiffDecks");
+export const getRiffDecks = () => riffRead<RiffDeck[]>("getRiffDecks");
 
-export const createRiffDeck = (name: string) => riff<RiffDeck>("createRiffDeck", { name });
+export const createRiffDeck = (name: string) => riffWrite<RiffDeck>("createRiffDeck", { name });
 
-export const renameRiffDeck = (deckID: string, name: string) => riff<null>("renameRiffDeck", { deckID, name });
+export const renameRiffDeck = (deckID: string, name: string) => riffWrite<null>("renameRiffDeck", { deckID, name });
 
-export const removeRiffDeck = (deckID: string) => riff<null>("removeRiffDeck", { deckID });
+export const removeRiffDeck = (deckID: string) => riffWrite<null>("removeRiffDeck", { deckID });
 
 // ---- 制卡 / 移除 ----
 
 export const addRiffCards = (deckID: string, blockIDs: string[]) =>
-    riff<RiffDeck | null>("addRiffCards", { deckID, blockIDs });
+    riffWrite<RiffDeck | null>("addRiffCards", { deckID, blockIDs });
 
 export const removeRiffCards = (deckID: string, blockIDs: string[]) =>
-    riff<RiffDeck | null>("removeRiffCards", { deckID, blockIDs });
+    riffWrite<RiffDeck | null>("removeRiffCards", { deckID, blockIDs });
 
 // ---- 到期队列与复习 ----
 
@@ -89,7 +117,7 @@ export const removeRiffCards = (deckID: string, blockIDs: string[]) =>
  * 合并各卡组 due 查询结果：同卡多组只保留一次（内核按 (deckID,cardID) 计数，
  * 同块加入多组时逐组查询会重复返回），新/旧计数从合并后的卡面状态重算。
  */
-export const mergeDeckDueResults = (parts: (RiffDueCardsData | null | undefined)[]): RiffDueCardsData => {
+export const mergeDeckDueResults = (parts: RiffDueCardsData[]): RiffDueCardsData => {
     const seen = new Set<string>();
     const cards: RiffDueCard[] = [];
     for (const part of parts) {
@@ -115,20 +143,21 @@ export const mergeDeckDueResults = (parts: (RiffDueCardsData | null | undefined)
  * 「全部卡包」按组遍历合并：内核 3.8.6 的 deckID="" 全局查询不返回任何到期卡
  * （宿主自带闪卡面板同样为 0；API/UI 建卡、新卡与已排期到期卡均不可见，deck 域正常，
  * 隔离靶场已复现定性）。逐组查询 + 去重合并让角标/总览/复习在全局口径下保持可用；
- * 单组查询失败按 null 跳过（与 AT-3 有界降级语义一致，不拖垮整体）。
+ * 任一非空卡组查询失败时整体拒绝，避免把不完整队列伪装成完整结果并进入共享缓存。
+ * 没有非空卡组时返回空集合。
  */
 export const getRiffDueCards = async (deckID = "", reviewedCardIDs: string[] = []): Promise<RiffDueCardsData> => {
     const reviewedCards = reviewedCardIDs.map(id => ({ cardID: id }));
     if (deckID) {
-        return riff<RiffDueCardsData>("getRiffDueCards", { deckID, reviewedCards });
+        return riffRead<RiffDueCardsData>("getRiffDueCards", { deckID, reviewedCards });
     }
     const decks = (await getRiffDecks()).filter(d => d.size > 0);
     const CONCURRENCY = 6;
-    const parts: (RiffDueCardsData | null)[] = [];
+    const parts: RiffDueCardsData[] = [];
     for (let i = 0; i < decks.length; i += CONCURRENCY) {
         const batch = await Promise.all(
             decks.slice(i, i + CONCURRENCY).map(d =>
-                riff<RiffDueCardsData>("getRiffDueCards", { deckID: d.id, reviewedCards }).catch(() => null),
+                riffRead<RiffDueCardsData>("getRiffDueCards", { deckID: d.id, reviewedCards }),
             ),
         );
         parts.push(...batch);
@@ -143,18 +172,18 @@ export const getDueCount = async (): Promise<number> => {
 };
 
 export const getTreeRiffDueCards = (rootID: string, reviewedCardIDs: string[] = []) =>
-    riff<RiffDueCardsData>("getTreeRiffDueCards", { rootID, reviewedCards: reviewedCardIDs.map(id => ({ cardID: id })) });
+    riffRead<RiffDueCardsData>("getTreeRiffDueCards", { rootID, reviewedCards: reviewedCardIDs.map(id => ({ cardID: id })) });
 
 export const getNotebookRiffDueCards = (notebook: string, reviewedCardIDs: string[] = []) =>
-    riff<RiffDueCardsData>("getNotebookRiffDueCards", { notebook, reviewedCards: reviewedCardIDs.map(id => ({ cardID: id })) });
+    riffRead<RiffDueCardsData>("getNotebookRiffDueCards", { notebook, reviewedCards: reviewedCardIDs.map(id => ({ cardID: id })) });
 
 export type Rating = 1 | 2 | 3 | 4;
 
 export const reviewRiffCard = (deckID: string, cardID: string, rating: Rating, reviewedCardIDs: string[] = []) =>
-    riff<null>("reviewRiffCard", { deckID, cardID, rating, reviewedCards: reviewedCardIDs.map(id => ({ cardID: id })) });
+    riffWrite<null>("reviewRiffCard", { deckID, cardID, rating, reviewedCards: reviewedCardIDs.map(id => ({ cardID: id })) });
 
 export const skipReviewRiffCard = (deckID: string, cardID: string) =>
-    riff<null>("skipReviewRiffCard", { deckID, cardID });
+    riffWrite<null>("skipReviewRiffCard", { deckID, cardID });
 
 // ---- 浏览 / 管理 ----
 
@@ -170,26 +199,26 @@ function dedupBlocks(blocks: SearchBlock[]): SearchBlock[] {
 
 /** 全局/文档/笔记本三种粒度的卡片浏览；id 为空时全局。块按 ID 去重（防 Svelte each 重复键）。 */
 export const getRiffCards = async (id = "", page = 1, pageSize = 20): Promise<RiffCardsData> => {
-    const data = await riff<RiffCardsData>("getRiffCards", { id, page, pageSize });
+    const data = await riffRead<RiffCardsData>("getRiffCards", { id, page, pageSize });
     return { ...data, blocks: dedupBlocks(data.blocks) };
 };
 
 export const getTreeRiffCards = async (id: string, page = 1, pageSize = 20): Promise<RiffCardsData> => {
-    const data = await riff<RiffCardsData>("getTreeRiffCards", { id, page, pageSize });
+    const data = await riffRead<RiffCardsData>("getTreeRiffCards", { id, page, pageSize });
     return { ...data, blocks: dedupBlocks(data.blocks) };
 };
 
 export const getNotebookRiffCards = async (id: string, page = 1, pageSize = 20): Promise<RiffCardsData> => {
-    const data = await riff<RiffCardsData>("getNotebookRiffCards", { id, page, pageSize });
+    const data = await riffRead<RiffCardsData>("getNotebookRiffCards", { id, page, pageSize });
     return { ...data, blocks: dedupBlocks(data.blocks) };
 };
 
 export const getRiffCardsByBlockIDs = (blockIDs: string[]) =>
-    riff<{ blocks: SearchBlock[] }>("getRiffCardsByBlockIDs", { blockIDs });
+    riffRead<{ blocks: SearchBlock[] }>("getRiffCardsByBlockIDs", { blockIDs });
 
 /** type: "0" 全部 / "1" 笔记本(id) / "2" 文档(id)；deckID 可选限定卡包 */
 export const resetRiffCards = (type: "0" | "1" | "2", id: string, deckID = "", blockIDs: string[] = []) =>
-    riff<null>("resetRiffCards", { type, id, deckID, blockIDs });
+    riffWrite<null>("resetRiffCards", { type, id, deckID, blockIDs });
 
 export const batchSetRiffCardsDueTime = (cardDues: { id: string; due: string }[]) =>
-    riff<null>("batchSetRiffCardsDueTime", { cardDues });
+    riffWrite<null>("batchSetRiffCardsDueTime", { cardDues });

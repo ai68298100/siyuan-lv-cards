@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { onDestroy } from "svelte";
     import { dueCache } from "@/api/due-shared";
     import { getBlockDOM } from "@/api/siyuan";
     import { extractMarkTexts, MARK_SELECTOR } from "@/core/card-face";
@@ -29,13 +30,30 @@
     let mistakes = $state(0);
     let seconds = $state(0);
     let timer: ReturnType<typeof setInterval> | null = null;
+    let disposed = false;
+    let loadGeneration = 0;
+    let loadBusy = $state(false);
+    let requestBusy = false;
 
     $effect(() => {
         load();
         return () => {
-            if (timer) { clearInterval(timer); }
+            stopTimer();
         };
     });
+
+    onDestroy(() => {
+        disposed = true;
+        loadGeneration += 1;
+        stopTimer();
+    });
+
+    function stopTimer() {
+        if (timer) {
+            clearInterval(timer);
+            timer = null;
+        }
+    }
 
     function shuffle<T>(arr: T[]): T[] {
         const a = [...arr];
@@ -47,10 +65,16 @@
     }
 
     async function load() {
+        if (requestBusy) return;
+        requestBusy = true;
+        loadBusy = true;
+        const generation = ++loadGeneration;
+        stopTimer();
         phase = "loading";
         errorMsg = "";
         try {
             const due = await dueCache.get("");
+            if (disposed || generation !== loadGeneration) return;
             const candidates = (due.cards ?? []).slice(0, 12);
             const found: Pair[] = [];
             let failedCards = 0;
@@ -59,6 +83,7 @@
                 try {
                     // AQ-20：统一内核响应校验，非 0 视为单卡失败跳过
                     const html = await getBlockDOM(c.blockID);
+                    if (disposed || generation !== loadGeneration) return;
                     const holder = document.createElement("div");
                     holder.innerHTML = html;
                     const marks = extractMarkTexts(holder);
@@ -68,7 +93,10 @@
                     const prompt = (holder.textContent ?? "").trim().replace(/\s+/g, " ");
                     if (prompt.length < 4) { continue; }
                     found.push({ cardID: c.cardID, prompt, answer: marks.join(" / ") });
-                } catch { failedCards += 1; }
+                } catch {
+                    if (disposed || generation !== loadGeneration) return;
+                    failedCards += 1;
+                }
             }
             if (found.length < 4) {
                 if (failedCards > 0) {
@@ -85,14 +113,18 @@
             startTimer();
             phase = "running";
         } catch (e: any) {
+            if (disposed || generation !== loadGeneration) return;
             errorMsg = e?.message ?? String(e);
             phase = "error";
+        } finally {
+            requestBusy = false;
+            loadBusy = false;
         }
     }
 
     function startTimer() {
         seconds = 0;
-        if (timer) { clearInterval(timer); }
+        stopTimer();
         timer = setInterval(() => { seconds += 1; }, 1000);
     }
 
@@ -120,9 +152,14 @@
         pickedLeft = "";
         pickedRight = "";
         if (matched.size === pairs.length) {
-            if (timer) { clearInterval(timer); }
+            stopTimer();
             phase = "done";
         }
+    }
+
+    function exit() {
+        if (phase === "running" && !window.confirm(t.pairing.exitConfirm ?? "当前配对进度不会保存，确定退出吗？")) return;
+        onExit();
     }
 </script>
 
@@ -146,7 +183,7 @@
             <span class="b3-chip">{t.pairing.pairs}: {matched.size} / {pairs.length}</span>
             <span class="b3-chip b3-chip--error">{t.pairing.mistakes}: {mistakes}</span>
             <div class="fn__flex-1"></div>
-            <button class="b3-button b3-button--small" onclick={onExit}>{t.pairing.exit}</button>
+            <button class="b3-button b3-button--small" onclick={exit}>{t.pairing.exit}</button>
         </div>
         <div class="lv-pair-grid">
             <div class="lv-pair-col">
@@ -171,9 +208,9 @@
             <div class="ft__smaller ft__on-surface">
                 {t.pairing.doneTime.replace("${s}", String(seconds))} · {t.pairing.mistakes}: {mistakes}
             </div>
-            <div class="fn__flex" style="gap: 8px; margin-top: 12px; justify-content: center">
-                <button class="b3-button b3-button--text" onclick={load}>{t.pairing.again}</button>
-                <button class="b3-button b3-button--cancel" onclick={onExit}>{t.pairing.exit}</button>
+            <div class="fn__flex" style="gap: calc(var(--lv-space-unit) * 4); margin-top: 12px; justify-content: center">
+                <button class="b3-button b3-button--text" disabled={loadBusy} aria-busy={loadBusy} onclick={load}>{loadBusy ? (t.pairing.loading ?? t.dashboard.loading) : t.pairing.again}</button>
+                <button class="b3-button b3-button--cancel" onclick={exit}>{t.pairing.exit}</button>
             </div>
         </div>
     {/if}
@@ -188,7 +225,7 @@
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        gap: 6px;
+        gap: calc(var(--lv-space-unit) * 3);
         padding: var(--lv-sp-5);
         text-align: center;
     }
@@ -200,14 +237,14 @@
         padding: var(--lv-sp-3);
         border: 1px solid var(--lv-border);
         border-radius: var(--lv-r-m);
-        background: var(--b3-theme-surface);
+        background: var(--lv-color-surface);
         cursor: pointer;
-        font-size: 13px;
-        line-height: 1.5;
+        font-size: var(--lv-type-body-size);
+        line-height: var(--lv-lh-meta);
         transition: border-color var(--lv-dur-1) var(--lv-ease), background var(--lv-dur-1) var(--lv-ease);
     }
     .lv-pair-cell:hover { border-color: var(--lv-border-strong); }
-    .lv-pair-on { border-color: var(--b3-theme-primary); background: var(--lv-primary-soft); }
-    .lv-pair-ans { color: var(--b3-theme-on-surface); }
-    .lv-pair-result { font-size: 18px; font-weight: 700; }
+    .lv-pair-on { border-color: var(--lv-color-brand); background: var(--lv-primary-soft); }
+    .lv-pair-ans { color: var(--lv-color-text-muted); }
+    .lv-pair-result { font-size: var(--lv-type-section-size); font-weight: 700; }
 </style>

@@ -16,8 +16,8 @@
         i18n: any;
         goals: {
             get: () => LearningGoalsData;
-            save: (goal: LearningGoal) => LearningGoalsData;
-            remove: (id: string) => LearningGoalsData;
+            save: (goal: LearningGoal) => LearningGoalsData | Promise<LearningGoalsData>;
+            remove: (id: string) => LearningGoalsData | Promise<LearningGoalsData>;
             /** BI-15：目标材料的内容状态计数（只读；缺省=不显示叙事行） */
             narrate?: (blockIDs: string[]) => Record<string, number> | null;
         };
@@ -30,6 +30,10 @@
     let editing = $state(false);
     let form = $state<LearningGoal>(blankGoal());
     let live = $state("");
+    let saving = $state(false);
+    let actionBusy = $state(false);
+    let formError = $state("");
+    let editBaseline = $state("");
     // BI-16：完成定义（表单草稿；保存时经 setCriteria 追加历史，旧定义保留）
     let criteriaDraft = $state("");
 
@@ -44,7 +48,16 @@
         criteriaDraft = "";
         form = blankGoal();
         form.minutesPerDay = suggestedMinutes(form.purpose, form.level);
+        editBaseline = JSON.stringify({ ...form, criteria: criteriaDraft });
+        formError = "";
         editing = true;
+    }
+
+    function cancelEdit() {
+        const current = JSON.stringify({ ...form, criteria: criteriaDraft });
+        if (current !== editBaseline && !window.confirm(t.discardConfirm ?? "当前填写内容尚未保存，确定退出吗？")) return;
+        editing = false;
+        formError = "";
     }
 
     function onPurposeChange() {
@@ -52,20 +65,53 @@
         form.minutesPerDay = suggestedMinutes(form.purpose, form.level);
     }
 
-    function save() {
-        if (criteriaDraft.trim()) setCriteria(form, criteriaDraft);
-        snapshot = goals.save({ ...form, createdAt: form.createdAt || Date.now() });
-        editing = false;
-        announce(t.saved);
+    async function save() {
+        if (saving) return;
+        const minutes = Number(form.minutesPerDay);
+        if (!Number.isFinite(minutes) || minutes < 0 || minutes > 1440) {
+            formError = "每日可用时间需为 0 到 1440 之间的有效数字。";
+            return;
+        }
+        if (form.deadline !== null && !/^\d{4}-\d{2}-\d{2}$/.test(form.deadline)) {
+            formError = "截止日期格式无效，请重新选择日期。";
+            return;
+        }
+        if (criteriaDraft.trim().length > 100) {
+            formError = "完成定义最多 100 个字符。";
+            return;
+        }
+        formError = "";
+        saving = true;
+        try {
+            if (criteriaDraft.trim()) setCriteria(form, criteriaDraft);
+            snapshot = await goals.save({ ...form, minutesPerDay: Math.floor(minutes), createdAt: form.createdAt || Date.now() });
+            editing = false;
+            announce(t.saved);
+        } catch (e) {
+            formError = e instanceof Error ? e.message : "保存目标失败，请重试。";
+        } finally {
+            saving = false;
+        }
     }
 
     function remove(id: string) {
+        if (actionBusy) return;
         confirmDialog({
             title: t.delete,
             content: `<div class="b3-typography">${t.deleteConfirm}</div>`,
             confirm: () => {
-                snapshot = goals.remove(id);
-                announce(t.deleted);
+                actionBusy = true;
+                formError = "";
+                void (async () => {
+                    try {
+                        snapshot = await goals.remove(id);
+                        announce(t.deleted);
+                    } catch (e) {
+                        formError = e instanceof Error ? e.message : "删除目标失败，请重试。";
+                    } finally {
+                        actionBusy = false;
+                    }
+                })();
             },
         });
     }
@@ -95,11 +141,21 @@
 
     // BI-11：切换优先级（主目标→维持→暂缓循环）；排序只影响展示与建议入口
     function cyclePriority(g: LearningGoal) {
+        if (actionBusy) return;
         const order = GOAL_PRIORITIES;
         const cur = order.indexOf(g.priority ?? "keep");
         const next = order[(cur + 1) % order.length];
-        snapshot = goals.save({ ...g, priority: next as GoalPriority, updatedAt: Date.now() });
-        announce((t.priority as Record<string, string>)[next]);
+        actionBusy = true;
+        void (async () => {
+            try {
+                snapshot = await goals.save({ ...g, priority: next as GoalPriority, updatedAt: Date.now() });
+                announce((t.priority as Record<string, string>)[next]);
+            } catch (e) {
+                formError = e instanceof Error ? e.message : "更新目标优先级失败，请重试。";
+            } finally {
+                actionBusy = false;
+            }
+        })();
     }
 
     function priorityText(g: LearningGoal): string {
@@ -138,6 +194,8 @@
         {/if}
     {/snippet}
 
+    {#if formError && !editing}<div class="lv-form-error" role="alert">{formError}</div>{/if}
+
     {#if editing}
         <div class="lv-card2 lv-form">
             <label class="lv-field">
@@ -154,7 +212,7 @@
             </label>
             <label class="lv-field">
                 <span>{t.minutes}</span>
-                <input class="b3-text-field" type="number" min="5" step="5" bind:value={form.minutesPerDay} />
+                <input class="b3-text-field" type="number" min="0" step="5" bind:value={form.minutesPerDay} />
             </label>
             <label class="lv-field">
                 <span>{t.criteriaLabel}</span>
@@ -171,8 +229,9 @@
             </label>
             <div class="lv-form-hint">💡 {t.suggested.replace("${n}", String(suggestedMinutes(form.purpose, form.level)))}</div>
             <div class="lv-form-actions">
-                <button class="b3-button b3-button--text" onclick={save}>{t.save}</button>
-                <button class="b3-button" onclick={() => (editing = false)}>{t.cancel}</button>
+                {#if formError}<div class="lv-form-error" role="alert">{formError}</div>{/if}
+                <button class="b3-button b3-button--text" disabled={saving || actionBusy} onclick={() => void save()}>{saving ? "保存中…" : t.save}</button>
+                <button class="b3-button" disabled={saving || actionBusy} onclick={cancelEdit}>{t.cancel}</button>
             </div>
         </div>
     {:else if sorted.length === 0}
@@ -221,12 +280,12 @@
                             </div>
                         </div>
                         {#if goalGaps(g).length > 0}
-                            <div class="lv-notice lv-notice--warn" style="margin-top: 8px">{t.gapPrefix}{goalGaps(g).join("；")}</div>
+                            <div class="lv-notice lv-notice--warn" style="margin-top: calc(var(--lv-space-unit) * 4)">{t.gapPrefix}{goalGaps(g).join("；")}</div>
                         {/if}
                     </div>
                     <div class="lv-goal-side">
-                        <button class="lv-chipbtn" title={t.priorityTitle} onclick={() => cyclePriority(g)}>{priorityText(g)}</button>
-                        <button class="b3-button b3-button--small lv-btn-danger" title={t.delete} onclick={() => remove(g.id)}>{t.delete}</button>
+                        <button class="lv-chipbtn" disabled={actionBusy} title={t.priorityTitle} onclick={() => cyclePriority(g)}>{priorityText(g)}</button>
+                        <button class="b3-button b3-button--small lv-btn-danger" disabled={actionBusy} title={t.delete} onclick={() => remove(g.id)}>{t.delete}</button>
                     </div>
                 </div>
             {/each}
@@ -248,20 +307,20 @@
         display: flex;
         align-items: center;
         gap: var(--lv-sp-3);
-        font-size: 13px;
+        font-size: var(--lv-type-body-size);
     }
     .lv-field > span {
         flex: none;
         width: 72px;
-        color: var(--b3-theme-on-surface);
+        color: var(--lv-color-text-muted);
     }
     .lv-field > select,
     .lv-field > input {
         flex: 1;
     }
     .lv-form-hint {
-        color: var(--b3-theme-on-surface);
-        font-size: 12px;
+        color: var(--lv-color-text-muted);
+        font-size: var(--lv-type-control-size);
     }
     .lv-form-actions {
         display: flex;
@@ -276,32 +335,32 @@
         .lv-goal-steps {
             display: flex;
             flex-direction: column;
-            gap: 4px;
+            gap: calc(var(--lv-space-unit) * 2);
             margin-top: var(--lv-sp-2);
         }
         .lv-step {
             display: flex;
             align-items: center;
-            gap: 8px;
-            font-size: 12px;
-            color: var(--b3-theme-on-surface);
+            gap: calc(var(--lv-space-unit) * 4);
+            font-size: var(--lv-type-control-size);
+            color: var(--lv-color-text-muted);
         }
         .lv-step-num {
             flex: none;
             width: 20px;
             height: 20px;
-            border-radius: 50%;
+            border-radius: var(--lv-r-circle);
             display: inline-flex;
             align-items: center;
             justify-content: center;
             border: 1px solid var(--lv-border-strong);
-            font-size: 10px;
+            font-size: var(--lv-type-caption-size);
         }
-        .lv-step-done { color: var(--b3-theme-primary); }
+        .lv-step-done { color: var(--lv-color-brand); }
         .lv-step-num.lv-step-done {
             background: var(--lv-primary-soft);
             border-color: transparent;
-            color: var(--b3-theme-primary);
+            color: var(--lv-color-brand);
         }
     }
     .lv-goal-row {
@@ -334,17 +393,17 @@
         display: flex;
         align-items: center;
         gap: var(--lv-sp-2);
-        font-size: 13px;
-        font-weight: 600;
+        font-size: var(--lv-type-body-size);
+        font-weight: var(--lv-fw-semibold);
     }
     .lv-goal-meta {
-        margin-top: 2px;
+        margin-top: calc(var(--lv-space-unit) * 1);
     }
     .lv-visually-hidden {
         position: absolute;
         width: 1px;
         height: 1px;
-        margin: -1px;
+        margin: calc(var(--lv-space-hairline) * -1);
         padding: 0;
         overflow: hidden;
         clip: rect(0 0 0 0);

@@ -56,6 +56,10 @@
     let titles = $state<Map<string, string>>(new Map());
     let making = $state(false);
     let makeError = $state("");
+    // 来源打开是异步宿主操作：逐行锁定重复点击，并保留可重试错误。
+    let sourcePendingId = $state("");
+    let sourceError = $state("");
+    let sourceErrorId = $state("");
     let live = $state("");
 
     const visible = $derived(
@@ -63,13 +67,14 @@
             .filter(i => i.status === filter)
             .sort((a, b) => a.addedAt - b.addedAt),
     );
+    const checkedSet = $derived(new Set(checked));
     const counts = $derived(
         snapshot.items.reduce(
             (acc, i) => { acc[i.status]++; return acc; },
             { inbox: 0, staged: 0, selected: 0, dismissed: 0 } as Record<InboxStatus, number>,
         ),
     );
-    const allChecked = $derived(visible.length > 0 && visible.every(i => checked.includes(i.blockID)));
+    const allChecked = $derived(visible.length > 0 && visible.every(i => checkedSet.has(i.blockID)));
 
     // 块菜单或向导可能在当前页打开时更新收件箱；清理已经不存在的选择，
     // 避免批量操作误作用于隐藏或已删除的记录。
@@ -125,7 +130,7 @@
     }
 
     function toggle(id: string) {
-        checked = checked.includes(id) ? checked.filter(x => x !== id) : [...checked, id];
+        checked = checkedSet.has(id) ? checked.filter(x => x !== id) : [...checked, id];
     }
 
     function toggleAll() {
@@ -188,6 +193,23 @@
         making = false;
     }
 
+    async function openSource(blockID: string) {
+        if (sourcePendingId) return;
+        sourcePendingId = blockID;
+        sourceError = "";
+        sourceErrorId = "";
+        try {
+            await inbox.openSource(blockID);
+        } catch (e) {
+            const detail = e instanceof Error ? e.message : String(e);
+            sourceError = (t.openFailed ?? "打开来源失败：${error}，请重试").replace("${error}", detail);
+            sourceErrorId = blockID;
+            showMessage(sourceError, 3500, "error");
+        } finally {
+            sourcePendingId = "";
+        }
+    }
+
     function refresh() {
         snapshot = inbox.get();
         checked = [];
@@ -208,6 +230,14 @@
     {/snippet}
 
     {#if makeError}<div class="lv-inbox-error" role="alert">{makeError}</div>{/if}
+    {#if sourceError}
+        <div class="lv-inbox-error" role="alert">
+            <span>{sourceError}</span>
+            {#if sourceErrorId && !sourcePendingId}
+                <button class="b3-button b3-button--small" onclick={() => openSource(sourceErrorId)}>{t.retry ?? "重试"}</button>
+            {/if}
+        </div>
+    {/if}
     {#if visible.length === 0}
         <LvEmpty text={t.empty} />
     {:else}
@@ -240,7 +270,7 @@
                         type="checkbox"
                         class="lv-check"
                         aria-label={t.selectItem}
-                        checked={checked.includes(item.blockID)}
+                        checked={checkedSet.has(item.blockID)}
                         onclick={(e: Event) => { e.stopPropagation(); toggle(item.blockID); }}
                     />
                     <button type="button" class="lv-content" onclick={() => toggle(item.blockID)}>
@@ -251,7 +281,13 @@
                         {/if}
                         <div class="lv-meta ft__smaller ft__on-surface">{new Date(item.addedAt).toLocaleString()}</div>
                     </button>
-                    <button class="b3-button b3-button--small lv-btn-ghost" title={t.openSource} onclick={(e: Event) => { e.stopPropagation(); inbox.openSource(item.blockID); }}>{t.openSource}</button>
+                    <button
+                        class="b3-button b3-button--small lv-btn-ghost"
+                        title={t.openSource}
+                        disabled={Boolean(sourcePendingId)}
+                        aria-busy={sourcePendingId === item.blockID}
+                        onclick={(e: Event) => { e.stopPropagation(); void openSource(item.blockID); }}
+                    >{sourcePendingId === item.blockID ? (t.opening ?? "打开中…") : t.openSource}</button>
                 </div>
             {/each}
         </div>
@@ -262,13 +298,13 @@
 
 <style>
     .lv-inbox-error {
-        color: var(--b3-theme-error);
+        color: var(--lv-color-danger);
         background: var(--lv-danger-soft);
         border: 1px solid var(--lv-danger-border);
         border-radius: var(--lv-r-m);
         padding: var(--lv-sp-2) var(--lv-sp-3);
         margin-bottom: var(--lv-sp-3);
-        font-size: 13px;
+        font-size: var(--lv-type-body-size);
     }
     .lv-batchbar {
         display: flex;
@@ -291,7 +327,7 @@
         gap: var(--lv-sp-3);
         padding: var(--lv-sp-3) var(--lv-sp-4);
         /* R53 .panel 口径：纯 surface + 1px 派生描边，无静态阴影（阴影只给 hover） */
-        background: var(--b3-theme-surface);
+        background: var(--lv-color-surface);
         border: 1px solid var(--lv-border);
         border-radius: var(--lv-r-m);
         transition: border-color var(--lv-dur-2) var(--lv-ease),
@@ -316,7 +352,7 @@
         cursor: pointer;
     }
     .lv-content:focus-visible {
-        outline: 2px solid var(--b3-theme-primary);
+        outline: 2px solid var(--lv-color-brand);
         outline-offset: 2px;
         border-radius: var(--lv-r-s);
     }
@@ -330,7 +366,7 @@
             > .b3-button { flex: 1 1 auto; }
         }
         .lv-row { flex-wrap: wrap; }
-        .lv-row > .b3-button { margin-left: 28px; }
+        .lv-row > .b3-button { margin-left: calc(var(--lv-space-unit) * 14); }
     }
     @media (max-width: 420px) {
         .lv-row {

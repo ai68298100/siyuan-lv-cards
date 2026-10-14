@@ -126,6 +126,11 @@
         }
         phase = "done";
     }
+
+    function requestFinish() {
+        if (phase === "running" && !window.confirm(t.challenge.stopConfirm ?? "当前挑战进度不会保存，确定结束吗？")) return;
+        finish();
+    }
 </script>
 
 <div class="lv-chal b3-typography">
@@ -135,7 +140,7 @@
             <div class="lv-chal-title">{t.challenge.title}</div>
             <div class="lv-chal-desc">{t.challenge.desc.replace("${n}", "3")}</div>
             <button class="b3-button b3-button--text lv-btn-primary" onclick={start}>{t.challenge.start}</button>
-            <div style="margin-top:var(--lv-sp-3)">
+            <div style="margin-top: var(--lv-sp-3)">
                 <button class="b3-button b3-button--cancel" onclick={exit}>{window.siyuan.languages.cancel}</button>
             </div>
         </div>
@@ -170,7 +175,7 @@
                 ⏱ {Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, "0")}
             </span>
             <span class="lv-chal-score">✓ {known} · ✗ {unknown}</span>
-            <button class="b3-button b3-button--small" onclick={finish}>{t.challenge.stop}</button>
+            <button class="b3-button b3-button--small" onclick={requestFinish}>{t.challenge.stop}</button>
         </div>
         {#if readFailures > 0}
             <div class="lv-notice lv-notice--warn" role="status">
@@ -203,16 +208,16 @@
 <style>
     .lv-chal { padding: var(--lv-sp-5); text-align: center; }
     .lv-chal-center { display: flex; flex-direction: column; align-items: center; gap: var(--lv-sp-3); padding: var(--lv-sp-5); }
-    .lv-chal-icon { font-size: 32px; }
-    .lv-chal-title { font-size: 18px; font-weight: 700; }
-    .lv-chal-desc { color: var(--b3-theme-on-surface); margin-bottom: var(--lv-sp-3); }
+    .lv-chal-icon { font-size: var(--lv-type-hero-lg-size); }
+    .lv-chal-title { font-size: var(--lv-type-section-size); font-weight: 700; }
+    .lv-chal-desc { color: var(--lv-color-text-muted); margin-bottom: var(--lv-sp-3); }
     .lv-chal-head { display: flex; align-items: center; gap: var(--lv-sp-3); }
-    .lv-chal-timer { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--b3-theme-primary); }
-    .lv-chal-low { color: var(--b3-theme-error) !important; }
+    .lv-chal-timer { font-size: var(--lv-type-section-size); font-weight: 700; font-variant-numeric: tabular-nums; color: var(--lv-color-brand); }
+    .lv-chal-low { color: var(--lv-color-danger) !important; }
     .lv-chal-score { font-variant-numeric: tabular-nums; margin-left: auto; }
     .lv-chal-card { text-align: left; margin: var(--lv-sp-3) 0; }
     .lv-chal-actions { display: flex; gap: var(--lv-sp-3); justify-content: center; }
-    .lv-chal-btn { flex: 1; max-width: 160px; font-weight: 600; }
-    .lv-chal-known { background: var(--lv-primary-soft); color: var(--b3-theme-primary); }
-    .lv-chal-unknown { background: var(--lv-danger-soft); color: var(--b3-theme-error); }
+    .lv-chal-btn { flex: 1; max-width: 160px; font-weight: var(--lv-fw-semibold); }
+    .lv-chal-known { background: var(--lv-primary-soft); color: var(--lv-color-brand); }
+    .lv-chal-unknown { background: var(--lv-danger-soft); color: var(--lv-color-danger); }
 </style>

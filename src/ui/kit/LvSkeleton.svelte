@@ -9,7 +9,7 @@
     } = $props();
 </script>
 
-<div class="lv-skel" style={`display:flex;flex-direction:column;gap:${gap}px`}>
+<div class="lv-skel" style={`display:flex;flex-direction:column;gap: ${gap}px`}>
     {#each Array(count) as _, i (i)}
         <div
             class="lv-skeleton"

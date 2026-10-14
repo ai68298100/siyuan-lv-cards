@@ -2,12 +2,14 @@
     import { onMount } from "svelte";
     import { getRiffDecks, createRiffDeck, type RiffDeck } from "@/api/riff";
 
-    let { newNamePlaceholder = "", firstDeckNamePlaceholder = newNamePlaceholder, emptyDeckText = "", retryLabel = "Retry", confirmLabel = "OK", decks: initialDecks = null, onBeforeConfirm = () => undefined, onConfirm, onClose }: {
+    let { newNamePlaceholder = "", firstDeckNamePlaceholder = newNamePlaceholder, emptyDeckText = "", retryLabel = "Retry", confirmLabel = "OK", loadingLabel = "Loading…", busyLabel = "Saving…", decks: initialDecks = null, onBeforeConfirm = () => undefined, onConfirm, onClose }: {
         newNamePlaceholder?: string;
         firstDeckNamePlaceholder?: string;
         emptyDeckText?: string;
         retryLabel?: string;
         confirmLabel?: string;
+        loadingLabel?: string;
+        busyLabel?: string;
         /** 调用方已持有卡组列表时直传，避免重复请求 */
         decks?: RiffDeck[] | null;
         /** AR-2：支持 Promise——成功后才关闭，失败保留选择与输入 */
@@ -27,6 +29,8 @@
     let loading = $state(!initialDecks);
     let errorMsg = $state("");
     let loadError = $state("");
+    // 创建卡组成功但后续加卡失败时保留创建结果；重试不能再创建一个同名卡组。
+    const createdDraftDecks = new Map<string, RiffDeck>();
 
     async function loadDecks() {
         loading = true;
@@ -62,9 +66,14 @@
             let deckID = selected;
             let deckName = decks.find(d => d.id === deckID)?.name ?? "";
             if (newName.trim()) {
-                const deck = await createRiffDeck(newName.trim());
-                deckID = deck.id;
-                deckName = deck.name;
+                const name = newName.trim();
+                let createdDeck = createdDraftDecks.get(name);
+                if (!createdDeck) {
+                    createdDeck = await createRiffDeck(name);
+                    createdDraftDecks.set(name, createdDeck);
+                }
+                deckID = createdDeck.id;
+                deckName = createdDeck.name;
             }
             if (!deckID) {
                 return;
@@ -84,7 +93,7 @@
 
 <div class="lv-deckpicker b3-typography">
     {#if loading}
-        <div class="ft__on-surface">…</div>
+        <div class="ft__on-surface" role="status" aria-busy="true">{loadingLabel}</div>
     {:else}
         <div class="lv-dp-list" role="radiogroup">
             {#each decks as d (d.id)}
@@ -95,7 +104,7 @@
                 </label>
             {/each}
             {#if loadError}
-                <div class="ft__smaller" style="color: var(--b3-theme-error)" role="alert">{loadError}</div>
+                <div class="ft__smaller" style="color: var(--lv-color-danger)" role="alert">{loadError}</div>
                 <button class="b3-button b3-button--small" disabled={loading || busy} onclick={loadDecks}>{retryLabel}</button>
             {:else if decks.length === 0}
                 <div class="ft__smaller ft__on-surface">{emptyDeckText}</div>
@@ -105,12 +114,12 @@
             <input class="b3-text-field fn__block" placeholder={decks.length === 0 ? firstDeckNamePlaceholder : newNamePlaceholder} bind:value={newName} />
         </div>
         {#if errorMsg}
-            <div class="ft__smaller" style="color: var(--b3-theme-error)" role="alert">{errorMsg}</div>
+            <div class="ft__smaller" style="color: var(--lv-color-danger)" role="alert">{errorMsg}</div>
         {/if}
         <div class="b3-dialog__action">
             <button class="b3-button b3-button--cancel" aria-label={window.siyuan.languages.cancel} disabled={busy} onclick={onClose}>✕</button>
             <div class="fn__space"></div>
-            <button class="b3-button b3-button--text lv-btn-primary" disabled={busy || !!loadError || (!selected && !newName.trim())} onclick={confirm}>{confirmLabel} ↵</button>
+            <button class="b3-button b3-button--text lv-btn-primary" disabled={busy || !!loadError || (!selected && !newName.trim())} aria-busy={busy} onclick={confirm}>{busy ? busyLabel : `${confirmLabel} ↵`}</button>
         </div>
     {/if}
 </div>

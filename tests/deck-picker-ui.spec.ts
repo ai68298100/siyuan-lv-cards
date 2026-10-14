@@ -28,6 +28,8 @@ describe("deck picker interaction states", () => {
         emptyDeckText: "No decks yet. Enter a name to create one.",
         retryLabel: "Retry",
         confirmLabel: "OK",
+        loadingLabel: "Loading decks…",
+        busyLabel: "Adding…",
         onBeforeConfirm: vi.fn(async () => undefined),
         onConfirm: vi.fn(async () => undefined),
         onClose: vi.fn(),
@@ -86,5 +88,22 @@ describe("deck picker interaction states", () => {
         expect(createRiffDeck).not.toHaveBeenCalled();
         expect(p.onConfirm).not.toHaveBeenCalled();
         expect(p.onClose).not.toHaveBeenCalled();
+    });
+
+    it("reuses a newly created deck when adding cards fails and the user retries", async () => {
+        getRiffDecks.mockResolvedValue([]);
+        createRiffDeck.mockResolvedValue({ id: "new-id", name: "New deck", size: 0 });
+        const onConfirm = vi.fn().mockRejectedValueOnce(new Error("add failed")).mockResolvedValueOnce(undefined);
+        const p = props({ onConfirm });
+        render(DeckPicker, p);
+        await fireEvent.input(await screen.findByPlaceholderText("Name the first deck"), { target: { value: "New deck" } });
+
+        await fireEvent.click(screen.getByRole("button", { name: "OK ↵" }));
+        expect(await screen.findByText("add failed")).toBeTruthy();
+        await fireEvent.click(screen.getByRole("button", { name: "OK ↵" }));
+
+        await waitFor(() => expect(p.onClose).toHaveBeenCalledOnce());
+        expect(createRiffDeck).toHaveBeenCalledOnce();
+        expect(onConfirm).toHaveBeenNthCalledWith(2, "new-id", "New deck");
     });
 });

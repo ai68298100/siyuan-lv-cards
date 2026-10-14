@@ -55,6 +55,19 @@ describe("card-editor（BX-2 W2）", () => {
         await waitFor(() => expect(getByText("保存失败，请重试")).toBeTruthy());
     });
 
+    it("写入回调抛出异常时也显示可读错误并保留面板", async () => {
+        const onsave = vi.fn(async () => { throw new Error("内核不可用"); });
+        const { getByLabelText, getByText } = render(CardEditor, {
+            t, original: "A", onsave, oncancel: vi.fn(),
+        });
+        const box = getByLabelText("卡片内容（markdown）") as HTMLTextAreaElement;
+        await fireEvent.input(box, { target: { value: "B" } });
+        await flushDebounce();
+        await fireEvent.click(getByText("保存"));
+        await waitFor(() => expect(getByText("保存失败，请重试：内核不可用")).toBeTruthy());
+        expect((box as HTMLTextAreaElement).value).toBe("B");
+    });
+
     it("取消回调不触发保存；保存中按钮禁用", async () => {
         const oncancel = vi.fn();
         let resolveSave: (v: boolean) => void = () => { };

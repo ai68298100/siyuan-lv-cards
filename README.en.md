@@ -19,24 +19,31 @@ The full-lifecycle flashcard learning platform for SiYuan — local-first, nativ
 
 > **Note**: The primary README and all design docs are in Chinese. This page covers the essentials; see [docs/](./docs/README.md) for full design material.
 
-Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current release is **v0.209.3** (2026-10-10), focused on recoverable AI errors, review fallbacks, cross-page sync, onboarding, and keyboard-first management. The full Android SiYuan host matrix remains pending.
+Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current release is **v0.209.4** (2026-10-14), focused on a unified visual-token system, theme semantics, and release-quality validation. The full Android SiYuan host matrix remains pending.
 
-## What's New in v0.209.3
+## What's New in v0.209.4
+
+- **New:** Semantic `--lv-*` tokens for colors, type, spacing, radii, elevation, z-index, component sizes, focus rings, and motion; token audit and migration scripts; consolidated component and prototype guidance.
+- **Improved:** Styles now use semantic theme aliases and reusable type/spacing/radius tokens while preserving documented geometry exceptions. Token coverage increased from **56.7% (691/1219)** to **92.6% (1129/1219)**; type, weight, line-height, gap, and z-index declarations are fully tokenized.
+- **Fixed:** Migration handling for pseudo-selectors, Svelte `global` attributes, inline styles, missing loose-reading line-height, and exact-size typography tokens. `LvSection` no longer duplicates global heading layout.
+- **Validation:** Svelte and TypeScript checks, 856 unit tests, i18n/documentation/governance checks, production build, and package smoke pass. Android host testing remains pending.
+
+<details>
+<summary>Previous releases</summary>
+
+### v0.209.3 · 2026-10-10
 
 - **New:** Classified AI generation failures (cancel, timeout, auth, rate limit, quota, server, and network), sensitive-material warnings, onboarding with example cards, a delayed short loop for forgotten cards, and manager keyboard navigation.
 - **Improved:** Multiple-choice questions now degrade to two or three options or free recall when reliable distractors are unavailable. Review, dashboard, and manager views synchronize across windows and expose clearer loading, empty, error, retry, and disabled states.
 - **Fixed:** Old AI responses, over-budget jobs, delayed requeues, undo, scope changes, and destroyed review panels no longer leave stale state behind.
 - **Validation:** 747 unit tests, type/Svelte checks, i18n and documentation checks, governance checks, production build, and package smoke pass. Android host testing remains pending.
 
-## Previous Feature Update: v0.209.1
+### v0.209.1 · 2026-10-10
 
 - **Loading and recovery:** Dashboard refreshes preserve the last successful data with its timestamp. Deck, notebook, maintenance, challenge, pairing, and inbox actions now show clearer loading, empty, error, or retry states.
 - **Action feedback:** Review controls, settings saves, and batch operations prevent duplicate submissions while busy. AnkiConnect checks use the current draft credentials.
 - **Fixes:** Exiting a challenge invalidates pending card reads. Declining duplicate-card confirmation no longer creates the newly entered deck in advance.
 - **Validation:** 736 unit tests, source checks, i18n and governance checks, documentation facts, production build, and package smoke pass. Android host testing remains pending.
-
-<details>
-<summary>Previous releases</summary>
 
 ### v0.209.2
 
@@ -96,7 +103,7 @@ SiYuan ≥ 3.8.0. Desktop is the core experience; mobile and browser are narrow-
 
 ## 📚 Docs
 
-Full design docs in [docs/](./docs/README.md) (Chinese). Key references: [product positioning](./docs/41-竞品调研与定位强化.md) · [R53 design spec](./docs/42-UI设计规范-R53.md) · [interactive prototype](./docs/prototypes/starline-r53.html) · [user guide](./docs/21-用户上手指南.md) · [FAQ](./docs/20-FAQ与故障排查.md) · [privacy](./docs/PRIVACY.md). For development, see [CONTRIBUTING](./CONTRIBUTING.md); report bugs through [Issues](https://github.com/ai68298100/siyuan-lv-cards/issues) and security problems through [SECURITY](./SECURITY.md).
+Full design docs in [docs/](./docs/README.md) (Chinese). The [R54 interactive prototype](./docs/prototypes/lv-cards-r54.html) is the single source of truth for UI structure, visual language, copy, interaction states, and responsive breakpoints; compare implementation evidence in the [R54 acceptance ledger](./docs/45-R54实现对照与验收台账.md) and component APIs in the [component catalogue](./docs/46-组件目录与状态契约.md). [R53 design spec](./docs/42-UI设计规范-R53.md) is retained as a historical reference. See also [product positioning](./docs/41-竞品调研与定位强化.md) · [user guide](./docs/21-用户上手指南.md) · [FAQ](./docs/20-FAQ与故障排查.md) · [privacy](./docs/PRIVACY.md). For development, see [CONTRIBUTING](./CONTRIBUTING.md); report bugs through [Issues](https://github.com/ai68298100/siyuan-lv-cards/issues) and security problems through [SECURITY](./SECURITY.md).
 
 ## 🗺 Roadmap
 

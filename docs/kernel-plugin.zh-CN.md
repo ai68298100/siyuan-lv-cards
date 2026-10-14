@@ -1,6 +1,6 @@
 # 为什么 Kernel Plugin 是一项服务
 
-> **本仓库状态：** 本文是架构参考，不是功能清单。下文的摘录服务和 `src/kernel-capture/*` 路径来自上游模板的示例，本仓库没有实现这些路径。当前 `src/kernel.ts` 只为生命周期验证注册 `echo` RPC；考试倒计时广播和多设备共享状态仍是规划项。
+> **本仓库状态：** 本文是架构参考，不是功能清单。下文的摘录服务和 `src/kernel-capture/*` 路径来自上游模板的示例，本仓库没有实现这些路径。`src/kernel.ts` 保留 `echo` 生命周期示例，并在考试计划成功持久化后校验、转发同一思源 Kernel 下已连接前端的临时失效通知。Kernel 不保存计划副本；断线前端收不到补发通知，会在 Kernel 插件恢复 `running` 后重读持久化快照。当前不支持考试倒计时广播、设备间同步、持久通知或并发冲突解决；同 Kernel 多窗口宿主验收仍待完成。
 
 Frontend plugin 属于思源用户界面。Kernel Plugin 属于正在运行的思源 Kernel。
 
@@ -43,7 +43,7 @@ CLI、阅读工具或 frontend
 
 两部分分别进入 ready 状态。Frontend 必须观察 `kernel-plugin-state-change`，不能假设 Kernel RPC method 已经可用。
 
-上游模板直接展示两个生命周期；本仓库当前只有 `src/kernel.ts` 的 echo 占位：
+上游模板用摘录面板展示两个生命周期；下列面板行为属于上游示例，并非本仓库实现。本仓库 Kernel 入口保留 `echo` 生命周期验证，并实现上文所述的同 Kernel 考试计划失效通知：
 
 - 摘录服务面板显示 Kernel 服务的启动时间。
 - 面板同时显示当前 Svelte component 的打开时间。

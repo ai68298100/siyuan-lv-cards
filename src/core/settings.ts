@@ -127,16 +127,31 @@ export interface LvCardsSettings {
 }
 
 /** BI-17：管理器视图状态解析（宽容 JSON：非法/缺字段回 null，调用方走默认视图） */
-export function parseManagerView(raw: string | undefined): { filter: string; sort: string; leechOnly: boolean; status: string } | null {
+export interface ManagerViewState {
+    filter: string;
+    sort: string;
+    leechOnly: boolean;
+    status: string;
+    page: number;
+    scrollTop: number;
+    focusId: string;
+}
+
+export function parseManagerView(raw: string | undefined): ManagerViewState | null {
     if (!raw) return null;
     try {
-        const v = JSON.parse(raw) as Partial<{ filter: unknown; sort: unknown; leechOnly: unknown; status: unknown }>;
+        const v = JSON.parse(raw) as Partial<Record<keyof ManagerViewState, unknown>>;
         if (!v || typeof v !== "object") return null;
-        const filter = typeof v.filter === "string" ? v.filter : "";
+        // Persisted view state is user-controlled JSON; cap text so a damaged
+        // value cannot allocate an oversized filter or push the manager layout.
+        const filter = typeof v.filter === "string" ? v.filter.slice(0, 500) : "";
         const sort = typeof v.sort === "string" && ["default", "path", "content", "lapses"].includes(v.sort) ? v.sort : "default";
         const leechOnly = v.leechOnly === true;
         const status = typeof v.status === "string" && ["all", "new", "review", "due"].includes(v.status) ? v.status : "all";
-        return { filter, sort, leechOnly, status };
+        const page = typeof v.page === "number" && Number.isInteger(v.page) && v.page > 0 ? Math.min(v.page, 100_000) : 1;
+        const scrollTop = typeof v.scrollTop === "number" && Number.isFinite(v.scrollTop) && v.scrollTop >= 0 ? Math.min(v.scrollTop, 5_000_000) : 0;
+        const focusId = typeof v.focusId === "string" ? v.focusId.slice(0, 256) : "";
+        return { filter, sort, leechOnly, status, page, scrollTop, focusId };
     } catch {
         return null;
     }
@@ -352,7 +367,11 @@ function toHHMM(v: unknown, def: string): string {
 
 /** 考试日期：空串或 YYYY-MM-DD，非法清空 */
 function toDateStr(v: unknown): string {
-    return typeof v === "string" && (/^\d{4}-\d{2}-\d{2}$/.test(v) || v === "") ? v : "";
+    if (v === "") return "";
+    if (typeof v !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return "";
+    const [year, month, day] = v.split("-").map(Number);
+    const date = new Date(Date.UTC(year, month - 1, day));
+    return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day ? v : "";
 }
 
 /** 离散合法值（热力图周数），不在集合回默认 */
@@ -372,5 +391,6 @@ function toFilters(v: unknown): { name: string; filter: string }[] {
     return v
         .filter((f): f is { name: string; filter: string } =>
             !!f && typeof f === "object" && typeof (f as any).name === "string" && typeof (f as any).filter === "string")
-        .slice(0, 50);
+        .slice(0, 50)
+        .map(f => ({ name: f.name.slice(0, 120), filter: f.filter.slice(0, 500) }));
 }

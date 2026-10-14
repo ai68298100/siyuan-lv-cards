@@ -133,6 +133,8 @@ describe("settings 运行时字段校验（AQ-22）", () => {
         expect(s.reminderTime).toBe("20:00");
         expect(s.quietStart).toBe("23:00");
         expect(s.examDate).toBe("");
+        expect(normalizeSettings({ examDate: "2026-02-30" }).examDate).toBe("");
+        expect(normalizeSettings({ examDate: "2028-02-29" }).examDate).toBe("2028-02-29");
     });
 
     it("savedFilters 条目清洗与限量", () => {
@@ -147,6 +149,10 @@ describe("settings 运行时字段校验（AQ-22）", () => {
         });
         expect(s.savedFilters).toEqual([{ name: "a", filter: "x" }, { name: "c", filter: "z" }]);
         expect(normalizeSettings({ savedFilters: "no" }).savedFilters).toEqual([]);
+        const long = "x".repeat(2000);
+        expect(normalizeSettings({ savedFilters: [{ name: long, filter: long }] }).savedFilters[0]).toEqual({
+            name: long.slice(0, 120), filter: long.slice(0, 500),
+        });
     });
 
     it("损坏 JSON 语义（null/数组/字符串）整体落默认", () => {
@@ -161,15 +167,27 @@ describe("settings 运行时字段校验（AQ-22）", () => {
 describe("parseManagerView（BI-17 视图状态恢复）", () => {
     it("合法 JSON 全字段解析", () => {
         expect(parseManagerView('{"filter":"线粒体","sort":"lapses","leechOnly":true,"status":"due"}')).toEqual({
-            filter: "线粒体", sort: "lapses", leechOnly: true, status: "due",
+            filter: "线粒体", sort: "lapses", leechOnly: true, status: "due", page: 1, scrollTop: 0, focusId: "",
         });
     });
 
     it("缺字段/非法枚举回缺省；空串/null 回 null", () => {
-        expect(parseManagerView('{"filter":"x"}')).toEqual({ filter: "x", sort: "default", leechOnly: false, status: "all" });
-        expect(parseManagerView('{"sort":"bogus","status":"bogus"}')).toEqual({ filter: "", sort: "default", leechOnly: false, status: "all" });
+        expect(parseManagerView('{"filter":"x"}')).toEqual({ filter: "x", sort: "default", leechOnly: false, status: "all", page: 1, scrollTop: 0, focusId: "" });
+        expect(parseManagerView('{"sort":"bogus","status":"bogus"}')).toEqual({ filter: "", sort: "default", leechOnly: false, status: "all", page: 1, scrollTop: 0, focusId: "" });
         expect(parseManagerView("")).toBeNull();
         expect(parseManagerView(undefined)).toBeNull();
+    });
+
+    it("恢复列表现场时只接受有限的正页码、非负滚动值和有界焦点 ID", () => {
+        expect(parseManagerView('{"page":4,"scrollTop":860.5,"focusId":"lv-manager-card-a"}')).toMatchObject({
+            page: 4, scrollTop: 860.5, focusId: "lv-manager-card-a",
+        });
+        expect(parseManagerView('{"page":-1,"scrollTop":-5,"focusId":false}')).toMatchObject({
+            page: 1, scrollTop: 0, focusId: "",
+        });
+        expect(parseManagerView('{"page":1e100,"scrollTop":1e100}')).toMatchObject({
+            page: 100_000, scrollTop: 5_000_000,
+        });
     });
 
     it("损坏 JSON 回 null（宽容不抛）", () => {

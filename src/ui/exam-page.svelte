@@ -1,53 +1,76 @@
 <script lang="ts">
     import { onMount } from "svelte";
-    import { showMessage } from "siyuan";
     import { getRiffDecks, type RiffDeck } from "@/api/riff";
     import { getNotebooks, type Notebook } from "@/api/siyuan";
+    import { friendlyError } from "@/api/errors";
     import {
         dailyTarget, daysLeft, dynamicPlanAdvice, examReportStats, isCramActive,
         type ExamPlan, type ExamPlansData, type ExamScopeKind, type DynamicPlanAdvice,
     } from "@/core/exam";
+    import { validateExamPlanInput } from "@/core/exam-plan-validation";
     import type { RevlogData } from "@/core/revlog";
     import LvChip from "./kit/LvChip.svelte";
     import LvEmpty from "./kit/LvEmpty.svelte";
     import LvError from "./kit/LvError.svelte";
     import LvRow from "./kit/LvRow.svelte";
 
-    let { i18n, plans, onSavePlan, onDeletePlan, onReviewScope, onReport, onWriteReport, getRevlog, getDailyCap }: {
+    let { i18n, plans, onSavePlan, onDeletePlan, onReviewScope, onReport, onWriteReport, onError, getRevlog, getDailyCap }: {
         i18n: any;
         plans: ExamPlansData;
-        onSavePlan: (plan: ExamPlan) => void;
-        onDeletePlan: (id: string) => void;
+        onSavePlan: (plan: ExamPlan) => Promise<ExamPlansData>;
+        onDeletePlan: (id: string) => Promise<ExamPlansData>;
         /** 带范围/cram 打开复习 */
         onReviewScope: (scopeKind: ExamScopeKind, scopeId: string, cram: boolean, planId?: string) => void;
         /** 生成考后复盘报告（复制到剪贴板） */
         onReport: (plan: ExamPlan) => void;
         /** 写入复盘文档（AR-5：busy 防重复 + 失败 toast） */
         onWriteReport: (plan: ExamPlan) => Promise<void>;
+        onError: (message: string) => void;
         /** 本地复习日志（AQ-8 动态建议用，只读） */
         getRevlog: () => RevlogData;
         /** 每日复习上限设置（不可行判定用） */
         getDailyCap: () => number;
     } = $props();
     const t = $derived(i18n);
+    const isChinese = $derived(t.exam.needName === "请填写计划名称");
 
     let decks: RiffDeck[] = $state([]);
     let notebooks: Notebook[] = $state([]);
     let editing = $state<ExamPlan | null>(null);
+    let savingPlan = $state(false);
+    let actionBusy = $state(false);
+    let actionError = $state("");
+    let retryAction = $state<(() => Promise<ExamPlansData>) | null>(null);
     /** AR-8：范围下拉数据源加载失败可重试（两路全败才算失败；单路失败降级为可用子集） */
     let loadError = $state(false);
+    let loadBusy = $state(false);
+    let loadSeq = 0;
 
     async function load() {
-        let ok = 0;
+        if (loadBusy) return;
+        const seq = ++loadSeq;
+        loadBusy = true;
+        loadError = false;
+        // 两路并行，且只接受最后一轮结果，避免重试时迟到响应覆盖当前范围。
         try {
-            decks = await getRiffDecks();
-            ok++;
-        } catch { /* AR-8：单路失败不阻断另一路 */ }
-        try {
-            notebooks = await getNotebooks();
-            ok++;
-        } catch { /* 同上 */ }
-        loadError = ok === 0;
+            const [deckResult, notebookResult] = await Promise.allSettled([
+                Promise.resolve().then(getRiffDecks),
+                Promise.resolve().then(getNotebooks),
+            ]);
+            if (seq !== loadSeq) return;
+            let ok = 0;
+            if (deckResult.status === "fulfilled") {
+                decks = deckResult.value;
+                ok++;
+            }
+            if (notebookResult.status === "fulfilled") {
+                notebooks = notebookResult.value;
+                ok++;
+            }
+            loadError = ok === 0;
+        } finally {
+            if (seq === loadSeq) loadBusy = false;
+        }
     }
 
     onMount(() => {
@@ -64,7 +87,7 @@
         try {
             await onWriteReport(plan);
         } catch (e: any) {
-            showMessage(e?.message ?? String(e), 3500, "error");
+            onError(friendlyError(e, i18n));
         } finally {
             reportBusyId = "";
         }
@@ -131,27 +154,76 @@
     }
 
     let formError = $state("");
+    let fieldErrors = $state<Record<string, string>>({});
+    let saveFailed = $state(false);
 
-    function save() {
+    function validatePlan(plan: ExamPlan): { name: string; examDate: string; totalCards?: number; cramDays: number } | null {
+        const result = validateExamPlanInput(plan, {
+            needName: t.exam.needName,
+            needDate: t.exam.needDate,
+            longName: isChinese ? "计划名称不能超过 120 个字符" : "Plan names must be 120 characters or fewer",
+            invalidDate: isChinese ? "请输入有效的考试日期" : "Enter a valid exam date",
+            invalidTotalCards: isChinese ? "总卡量须为 1 到 1,000,000 之间的整数，或留空" : "Total cards must be a whole number from 1 to 1,000,000, or blank",
+            invalidCramDays: isChinese ? "考前天数须为 0 到 365 之间的整数" : "Cram days must be a whole number from 0 to 365",
+        });
+        fieldErrors = result.errors;
+        const firstError = Object.keys(result.errors)[0];
+        if (firstError) {
+            formError = result.errors[firstError];
+            document.querySelector<HTMLInputElement>(`[data-exam-field="${firstError}"]`)?.focus();
+            return null;
+        }
+        formError = "";
+        return result.value;
+    }
+
+    async function save() {
         if (!editing) {
             return;
         }
-        // 内联校验（AP·671）：缺失项红字提示而非静默 return
-        if (!editing.name.trim() && !editing.examDate) {
-            formError = t.exam.needNameAndDate;
-            return;
+        if (savingPlan) return;
+        const valid = validatePlan(editing);
+        if (!valid) return;
+        savingPlan = true;
+        saveFailed = false;
+        try {
+            await onSavePlan({ ...editing, ...valid });
+            editing = null;
+            fieldErrors = {};
+        } catch (error) {
+            saveFailed = true;
+            const reason = friendlyError(error, i18n);
+            formError = isChinese ? `保存考试计划失败：${reason}。请重试。` : `Could not save the exam plan: ${reason}. Please retry.`;
+        } finally {
+            savingPlan = false;
         }
-        if (!editing.name.trim()) {
-            formError = t.exam.needName;
-            return;
+    }
+
+    async function runPlanAction(action: () => Promise<ExamPlansData>) {
+        if (actionBusy) return;
+        actionBusy = true;
+        actionError = "";
+        try {
+            await action();
+            retryAction = null;
+        } catch (error) {
+            retryAction = action;
+            const reason = friendlyError(error, i18n);
+            actionError = isChinese ? `保存考试计划失败：${reason}。可重试。` : `Could not save the exam plan: ${reason}. Retry is available.`;
+        } finally {
+            actionBusy = false;
         }
-        if (!editing.examDate) {
-            formError = t.exam.needDate;
-            return;
-        }
-        formError = "";
-        onSavePlan({ ...editing, name: editing.name.trim() });
-        editing = null;
+    }
+
+    function retryPlanAction() {
+        if (retryAction) void runPlanAction(retryAction);
+    }
+
+    function deletePlan(plan: ExamPlan) {
+        const title = plan.name || t.exam.untitled;
+        const consequence = isChinese ? "删除后无法恢复。" : "This cannot be undone.";
+        if (!window.confirm(`${t.exam.delete} “${title}”？${consequence}`)) return;
+        void runPlanAction(() => onDeletePlan(plan.id));
     }
 </script>
 
@@ -160,6 +232,9 @@
         <!-- AR-8：数据源全败时错误+重试优先，不用空计划列表误导 -->
         <LvError message={t.exam.loadFailed} onretry={load} retryLabel={t.dashboard.refresh} />
     {/if}
+    {#if actionError}
+        <LvError message={actionError} onretry={retryPlanAction} retryLabel={t.dashboard.refresh} />
+    {/if}
     <div class="lv-pagehead">
         <div class="lv-pagehead-main">
             <div class="lv-eyebrow">EXAM / CRAM</div>
@@ -167,7 +242,8 @@
             <p class="lv-pagehead-sub">{t.exam.pageSub}</p>
         </div>
         <div class="lv-pagehead-actions">
-            <button class="b3-button b3-button--outline" onclick={() => (editing = newPlan())}>
+            {#if loadBusy}<span class="ft__smaller ft__on-surface" role="status" aria-busy="true">{isChinese ? "加载中…" : "Loading…"}</span>{/if}
+            <button class="b3-button b3-button--outline" disabled={actionBusy || savingPlan} onclick={() => { editing = newPlan(); formError = ""; fieldErrors = {}; }}>
                 + {t.exam.newPlan}
             </button>
         </div>
@@ -200,7 +276,7 @@
                             {t.exam.startToday}
                         </button>
                     {:else}
-                        <button class="b3-button b3-button--outline" onclick={() => onSavePlan({ ...plan, enabled: true })}>
+                        <button class="b3-button b3-button--outline" disabled={actionBusy || savingPlan} onclick={() => void runPlanAction(() => onSavePlan({ ...plan, enabled: true }))}>
                             {t.exam.resume}
                         </button>
                     {/if}
@@ -245,17 +321,17 @@
                     </div>
                 {/if}
                 <div class="fn__flex lv-plan-actions">
-                    <button class="b3-button b3-button--small lv-btn-ghost" onclick={() => (editing = { ...plan })}>{t.exam.edit}</button>
+                    <button class="b3-button b3-button--small lv-btn-ghost" disabled={actionBusy || savingPlan} onclick={() => { editing = { ...plan }; formError = ""; fieldErrors = {}; }}>{t.exam.edit}</button>
                     <button class="b3-button b3-button--small lv-btn-ghost" onclick={() => onReport(plan)}>{t.exam.report}</button>
                     <!-- AR-5：写入中禁点，失败 toast 给原因（文档写入失败可重试） -->
                     <button class="b3-button b3-button--small lv-btn-ghost" disabled={reportBusyId === plan.id} onclick={() => writeDoc(plan)}>
                         {reportBusyId === plan.id ? "…" : t.exam.writeDoc}
                     </button>
-                    <button class="b3-button b3-button--small lv-btn-ghost" onclick={() => onSavePlan({ ...plan, archived: true, enabled: false })}>{t.exam.archive}</button>
-                    <button class="b3-button b3-button--small lv-btn-ghost" onclick={() => onSavePlan({ ...plan, enabled: !plan.enabled, archived: false })}>
+                    <button class="b3-button b3-button--small lv-btn-ghost" disabled={actionBusy || savingPlan} onclick={() => void runPlanAction(() => onSavePlan({ ...plan, archived: true, enabled: false }))}>{t.exam.archive}</button>
+                    <button class="b3-button b3-button--small lv-btn-ghost" disabled={actionBusy || savingPlan} onclick={() => void runPlanAction(() => onSavePlan({ ...plan, enabled: !plan.enabled, archived: false }))}>
                         {plan.enabled ? t.exam.pause : t.exam.enable}
                     </button>
-                    <button class="b3-button b3-button--small lv-btn-ghost" onclick={() => onDeletePlan(plan.id)}>{t.exam.delete}</button>
+                    <button class="b3-button b3-button--small lv-btn-ghost" disabled={actionBusy || savingPlan} onclick={() => deletePlan(plan)}>{t.exam.delete}</button>
                 </div>
             </div>
         {/each}
@@ -264,18 +340,21 @@
 
 <!-- 编辑器：轻量内联表单（单计划），走 LvSection -->
 {#if editing}
-    <div class="lv-editmask" role="presentation">
+<div class="lv-editmask" role="presentation">
         <div class="lv-card2 lv-editcard">
             <div class="lv-secthead">{editing.id && plans.plans.some(p => p.id === editing.id) ? t.exam.editPlan : t.exam.newPlan}</div>
             {#if formError}
                 <div class="lv-form-error" role="alert">{formError}</div>
             {/if}
+            <form onsubmit={(event) => { event.preventDefault(); void save(); }}>
             <LvRow label={t.exam.planName}>
-                <input class="b3-text-field fn__size-200" bind:value={editing.name} placeholder={t.exam.untitled} />
+                <input class="b3-text-field fn__size-200" aria-label={t.exam.planName} aria-invalid={Boolean(fieldErrors.name)} aria-describedby={fieldErrors.name ? "exam-name-error" : undefined} data-exam-field="name" bind:value={editing.name} placeholder={t.exam.untitled} />
             </LvRow>
+            {#if fieldErrors.name}<div class="lv-field-error" id="exam-name-error">{fieldErrors.name}</div>{/if}
             <LvRow label={t.exam.examDateLabel}>
-                <input class="b3-text-field fn__size-200" type="date" bind:value={editing.examDate} />
+                <input class="b3-text-field fn__size-200" aria-label={t.exam.examDateLabel} aria-invalid={Boolean(fieldErrors.examDate)} aria-describedby={fieldErrors.examDate ? "exam-date-error" : undefined} data-exam-field="examDate" type="date" bind:value={editing.examDate} />
             </LvRow>
+            {#if fieldErrors.examDate}<div class="lv-field-error" id="exam-date-error">{fieldErrors.examDate}</div>{/if}
             <LvRow label={t.exam.scopeLabel}>
                 {#snippet children()}
                     <select
@@ -303,16 +382,19 @@
                 {/snippet}
             </LvRow>
             <LvRow label={t.exam.totalCardsLabel} hint={t.exam.totalCardsHint}>
-                <input class="b3-text-field fn__size-60" type="number" min="0" bind:value={editing.totalCards} />
+                <input class="b3-text-field fn__size-60" aria-label={t.exam.totalCardsLabel} aria-invalid={Boolean(fieldErrors.totalCards)} aria-describedby={fieldErrors.totalCards ? "exam-total-error" : undefined} data-exam-field="totalCards" type="number" min="1" max="1000000" step="1" bind:value={editing.totalCards} />
             </LvRow>
+            {#if fieldErrors.totalCards}<div class="lv-field-error" id="exam-total-error">{fieldErrors.totalCards}</div>{/if}
             <LvRow label={t.exam.cramDaysLabel}>
-                <input class="b3-text-field fn__size-60" type="number" min="0" bind:value={editing.cramDays} />
+                <input class="b3-text-field fn__size-60" aria-label={t.exam.cramDaysLabel} aria-invalid={Boolean(fieldErrors.cramDays)} aria-describedby={fieldErrors.cramDays ? "exam-cram-error" : undefined} data-exam-field="cramDays" type="number" min="0" max="365" step="1" bind:value={editing.cramDays} />
             </LvRow>
+            {#if fieldErrors.cramDays}<div class="lv-field-error" id="exam-cram-error">{fieldErrors.cramDays}</div>{/if}
             <div class="b3-dialog__action">
-                <button class="b3-button b3-button--cancel" onclick={() => (editing = null)}>{window.siyuan.languages.cancel}</button>
+                <button class="b3-button b3-button--cancel" type="button" disabled={savingPlan} onclick={() => (editing = null)}>{window.siyuan.languages.cancel}</button>
                 <div class="fn__space"></div>
-                <button class="b3-button b3-button--text lv-btn-primary" onclick={save}>{window.siyuan.languages.confirm}</button>
+                <button class="b3-button b3-button--text lv-btn-primary" type="submit" disabled={savingPlan}>{savingPlan ? (isChinese ? "保存中…" : "Saving…") : saveFailed ? (isChinese ? "重试保存" : "Retry save") : window.siyuan.languages.confirm}</button>
             </div>
+            </form>
         </div>
     </div>
 {/if}
@@ -321,30 +403,35 @@
     .lv-exam { display: flex; flex-direction: column; gap: var(--lv-sp-3); }
     .lv-plan-cram { border-color: var(--lv-danger-border); }
     .lv-plan-head { align-items: center; gap: var(--lv-sp-2); }
-    .lv-plan-name { font-weight: 700; }
+    .lv-plan-name { font-weight: var(--lv-fw-bold); }
     .lv-plan-meta { margin: var(--lv-sp-1) 0; }
     .lv-plan-pacing {
         display: flex; align-items: center; gap: var(--lv-sp-3);
-        font-size: 12px; color: var(--b3-theme-on-surface);
+        font-size: var(--lv-type-control-size); color: var(--lv-color-text-muted);
         margin: var(--lv-sp-2) 0;
     }
     .lv-plan-advice {
-        display: flex; flex-wrap: wrap; gap: 4px; align-items: baseline;
+        display: flex; flex-wrap: wrap; gap: calc(var(--lv-space-unit) * 2); align-items: baseline;
         margin: var(--lv-sp-1) 0 0;
     }
     .lv-plan-actions { gap: var(--lv-sp-1); flex-wrap: wrap; }
-    .lv-plan-advice-warn { color: var(--b3-theme-warning); }
+    .lv-plan-advice-warn { color: var(--lv-color-warning); }
     .lv-editmask {
-        position: fixed; inset: 0; z-index: 40;
+        position: fixed; inset: 0; z-index: var(--lv-z-host-overlay);
         background: color-mix(in srgb, black 32%, transparent);
         display: flex; align-items: flex-start; justify-content: center;
         padding: var(--lv-sp-5);
     }
     .lv-editcard { width: 520px; max-width: 94vw; margin-top: 6vh; }
     .lv-form-error {
-        color: var(--b3-theme-error);
-        font-size: 12px;
+        color: var(--lv-color-danger);
+        font-size: var(--lv-type-control-size);
         margin-bottom: var(--lv-sp-2);
+    }
+    .lv-field-error {
+        color: var(--lv-color-danger);
+        font-size: var(--lv-type-control-size);
+        margin: 0 0 var(--lv-sp-1);
     }
 
     @media (max-width: 740px) {

@@ -1,9 +1,10 @@
 <script lang="ts">
     import LvProgress from "./LvProgress.svelte";
 
-    let { label, value, denom = "", tone = "primary", progress = -1, animate = false, spark = null }: {
+    let { label, value, detail = "", denom = "", tone = "primary", progress = -1, animate = false, spark = null }: {
         label: string;
         value: number | string;
+        detail?: string;
         /** 分母（如目标值），空则不显示 */
         denom?: string;
         /** 语义色点 */
@@ -17,10 +18,10 @@
     } = $props();
 
     const toneColor = {
-        primary: "var(--b3-theme-primary)",
-        error: "var(--b3-theme-error)",
-        warn: "var(--b3-theme-warning)",
-        neutral: "var(--b3-theme-on-surface)",
+        primary: "var(--lv-color-brand)",
+        error: "var(--lv-color-danger)",
+        warn: "var(--lv-color-warning)",
+        neutral: "var(--lv-color-text-muted)",
     };
 
     /** R53 sparkline（§3.4）：面积 8% 主色 + 30% ink 描边 + 末点 primary 实心；全 0 走势不渲染（平线无信息量） */
@@ -66,17 +67,18 @@
 
 <div class="lv-card2 lv-stat">
     <div class="lv-stat-label">
-        <span class="lv-stat-dot" style={`background:${toneColor[tone]}`}></span>{label}
+        <span class="lv-stat-dot" style={`background: ${toneColor[tone]}`}></span>{label}
     </div>
+    {#if detail}<div class="lv-stat-detail">{detail}</div>{/if}
     <div class="lv-hero-num" class:lv-num-zero={isZero}>{display}{#if denom && denom !== "0"}<span class="lv-stat-denom">/ {denom}</span>{/if}</div>
     {#if progress >= 0}
         <div class="lv-stat-progress"><LvProgress value={progress} /></div>
     {/if}
     {#if sparkPts}
         <svg class="lv-stat-spark" width={sparkPts.w} height={sparkPts.h} viewBox={`0 0 ${sparkPts.w} ${sparkPts.h}`} aria-hidden="true">
-            <polygon points={`0,${sparkPts.h} ${sparkPts.xy} ${sparkPts.w},${sparkPts.h}`} fill="color-mix(in srgb, var(--b3-theme-primary) 8%, transparent)" stroke="none"></polygon>
-            <polyline points={sparkPts.xy} fill="none" stroke="color-mix(in srgb, var(--b3-theme-on-background) 30%, transparent)" stroke-width="1.5" stroke-linejoin="round"></polyline>
-            <circle cx={sparkPts.last[0]} cy={sparkPts.last[1]} r="2.6" fill="var(--b3-theme-primary)"></circle>
+            <polygon points={`0,${sparkPts.h} ${sparkPts.xy} ${sparkPts.w},${sparkPts.h}`} fill="color-mix(in srgb, var(--lv-color-brand) 8%, transparent)" stroke="none"></polygon>
+            <polyline points={sparkPts.xy} fill="none" stroke="color-mix(in srgb, var(--lv-color-text) 30%, transparent)" stroke-width="1.5" stroke-linejoin="round"></polyline>
+            <circle cx={sparkPts.last[0]} cy={sparkPts.last[1]} r="2.6" fill="var(--lv-color-brand)"></circle>
         </svg>
     {/if}
 </div>
@@ -85,20 +87,26 @@
     .lv-stat .lv-stat-label {
         display: flex;
         align-items: center;
-        gap: 6px;
-        font-size: 11px;
-        color: var(--b3-theme-on-surface);
+        gap: calc(var(--lv-space-unit) * 3);
+        font-size: var(--lv-type-meta-size);
+        color: var(--lv-color-text-muted);
         margin-bottom: var(--lv-sp-1);
     }
-    .lv-stat .lv-stat-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+    .lv-stat .lv-stat-dot { width: 8px; height: 8px; border-radius: var(--lv-r-circle); display: inline-block; }
     .lv-stat .lv-stat-denom {
-        font-size: 13px;
-        font-weight: 600;
-        color: var(--b3-theme-on-surface);
+        font-size: var(--lv-type-body-size);
+        font-weight: var(--lv-fw-semibold);
+        color: var(--lv-color-text-muted);
         background: none;
         -webkit-background-clip: initial;
         background-clip: initial;
-        margin-left: 4px;
+        margin-left: calc(var(--lv-space-unit) * 2);
+    }
+    .lv-stat .lv-stat-detail {
+        min-height: 18px;
+        color: var(--lv-color-text-muted);
+        font-size: var(--lv-type-meta-size);
+        line-height: var(--lv-lh-meta);
     }
     .lv-stat .lv-stat-progress { margin-top: var(--lv-sp-2); }
     .lv-stat .lv-stat-spark { display: block; margin-top: var(--lv-sp-1); }

@@ -42,11 +42,6 @@ describe("mergeDeckDueResults", () => {
         expect(merged.unreviewedCount).toBe(1);
     });
 
-    it("容忍 null/undefined 分组（单组查询失败的降级语义）", () => {
-        const merged = mergeDeckDueResults([null, undefined, part([card("c1", CardState.New)])]);
-        expect(merged.cards.map(c => c.cardID)).toEqual(["c1"]);
-    });
-
     it("全空输入返回全零结果", () => {
         const merged = mergeDeckDueResults([]);
         expect(merged.cards).toEqual([]);

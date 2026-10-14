@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { normalizeSessionState, emptySessionState, withEndReason, END_REASONS } from "../src/core/session-state";
+import {
+    normalizeSessionState,
+    emptySessionState,
+    withEndReason,
+    hasSessionProgress,
+    isSessionLive,
+    markSessionCompleted,
+    END_REASONS,
+} from "../src/core/session-state";
 
 const TODAY = "2026-10-02";
 
@@ -23,6 +31,18 @@ describe("session-state（AQ-2：跳过集合落盘与清洗）", () => {
     it("旧版无 skippedIDs 兼容为空数组", () => {
         const s = normalizeSessionState({ date: TODAY, reviewedIDs: ["c1"], counters: {} }, TODAY);
         expect(s.skippedIDs).toEqual([]);
+        expect(s.completed).toBe(false);
+    });
+
+    it("仅跳过的现场也视为有进度并可在同日续场", () => {
+        const skipped = normalizeSessionState({
+            date: TODAY,
+            reviewedIDs: [],
+            skippedIDs: ["c1"],
+            counters: { skip: 1 },
+        }, TODAY);
+        expect(hasSessionProgress(skipped)).toBe(true);
+        expect(isSessionLive(skipped, TODAY)).toBe(true);
     });
 
     it("ID 列表清洗：非字符串剔除、去重", () => {
@@ -61,5 +81,20 @@ describe("session-state BI-8：收工原因", () => {
         expect(bad.endReason).toBeNull();
         const none = normalizeSessionState(live, TODAY);
         expect(none.endReason).toBeNull();
+    });
+
+    it("自然完成标记持久化，完成后不再作为续场；旧快照仍按未完成处理", () => {
+        const legacy = normalizeSessionState({
+            date: TODAY,
+            reviewedIDs: ["c1"],
+            counters: { new: 1 },
+        }, TODAY);
+        expect(legacy.completed).toBe(false);
+        expect(isSessionLive(legacy, TODAY)).toBe(true);
+
+        const completed = normalizeSessionState(markSessionCompleted(legacy), TODAY);
+        expect(completed.completed).toBe(true);
+        expect(isSessionLive(completed, TODAY)).toBe(false);
+        expect(isSessionLive({ ...legacy, completed: false }, "2026-10-03")).toBe(false);
     });
 });

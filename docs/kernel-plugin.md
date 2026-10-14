@@ -1,6 +1,6 @@
 # Why a Kernel Plugin is a service
 
-> **Repository status:** this document is an architecture reference, not a feature inventory. The capture service and `src/kernel-capture/*` paths below are illustrative examples from the upstream template and are not implemented in this repository. The current `src/kernel.ts` only binds the `echo` RPC for lifecycle verification; exam countdown broadcasts and multi-device shared state remain planned work.
+> **Repository status:** this document is an architecture reference, not a feature inventory. The capture service and `src/kernel-capture/*` paths below are illustrative examples from the upstream template and are not implemented in this repository. `src/kernel.ts` retains the `echo` lifecycle sample and validates/forwards a transient invalidation notice after exam-plan persistence succeeds, to connected frontends on the same SiYuan Kernel. It stores no plan copy; disconnected clients miss the notice and reload the persisted snapshot when the Kernel plugin returns to `running`. This does not implement exam countdown broadcasts, cross-device synchronization, durable notifications, or concurrent conflict resolution; same-Kernel multi-window host verification is pending.
 
 A frontend plugin belongs to the SiYuan user interface. A Kernel Plugin belongs to the running SiYuan kernel.
 
@@ -43,7 +43,7 @@ SiYuan loads `index.js` in the frontend plugin environment. It loads `kernel.js`
 
 The two parts become ready independently. A frontend must observe `kernel-plugin-state-change` before it assumes that Kernel RPC methods are available.
 
-The upstream template makes the two lifecycles visible:
+The upstream template makes the two lifecycles visible. The capture-panel behaviors below are upstream examples, not features implemented here; this repository retains the `echo` lifecycle sample and the same-Kernel exam-plan invalidation flow described above:
 
 - The Capture Service panel shows when the Kernel service started.
 - The panel also shows when the current Svelte component opened.

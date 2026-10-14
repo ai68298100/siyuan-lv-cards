@@ -142,13 +142,13 @@
             {#if notebookLoading}
                 <div class="ft__smaller ft__on-surface" role="status">{t.dashboard.loading}</div>
             {:else if notebookError}
-                <div class="ft__smaller" style="color: var(--b3-theme-error)" role="alert">{notebookError}</div>
+                <div class="ft__smaller" style="color: var(--lv-color-danger)" role="alert">{notebookError}</div>
                 <div class="fn__flex" style="justify-content: flex-end; margin-top: var(--lv-sp-1)">
                     <button class="b3-button b3-button--small" disabled={busy} onclick={loadNotebooks}>{t.dashboard.refresh}</button>
                 </div>
             {/if}
             {#if errorMsg}
-                <div class="ft__smaller" style="color: var(--b3-theme-error)" role="alert">{errorMsg}</div>
+                <div class="ft__smaller" style="color: var(--lv-color-danger)" role="alert">{errorMsg}</div>
             {/if}
             <div class="fn__flex" style="justify-content: flex-end; gap: var(--lv-sp-2); margin-top: var(--lv-sp-2)">
                 <button class="b3-button b3-button--outline" onclick={() => (step = 1)}>{t.onboardingBack}</button>
@@ -189,8 +189,8 @@
         margin-bottom: var(--lv-sp-3);
     }
     .lv-ob-step {
-        font-size: 12px;
-        color: var(--b3-theme-on-surface);
+        font-size: var(--lv-type-control-size);
+        color: var(--lv-color-text-muted);
         font-variant-numeric: tabular-nums;
     }
     .lv-ob-cards {
@@ -204,21 +204,21 @@
     }
     .lv-ob-intro strong, .lv-ob-types strong { display: block; margin-bottom: var(--lv-sp-1); }
     .lv-ob-type-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--lv-sp-2); }
-    .lv-ob-type-grid span { display: flex; flex-direction: column; gap: 2px; font-size: 12px; }
-    .lv-ob-type-grid b { font-size: 13px; }
+    .lv-ob-type-grid span { display: flex; flex-direction: column; gap: calc(var(--lv-space-unit) * 1); font-size: 12px; }
+    .lv-ob-type-grid b { font-size: var(--lv-type-body-size); }
     .lv-ob-callout {
         margin-bottom: var(--lv-sp-3);
         padding: var(--lv-sp-2) var(--lv-sp-3);
-        border-left: 3px solid var(--b3-theme-primary);
-        background: var(--b3-theme-background-light);
-        font-size: 12px;
+        border-left: 3px solid var(--lv-color-brand);
+        background: var(--lv-color-canvas-subtle);
+        font-size: var(--lv-type-control-size);
     }
     .lv-persona {
         flex: 1 1 140px;
         padding: var(--lv-sp-3);
         cursor: pointer;
         border: 1px solid var(--lv-border);
-        background: var(--b3-theme-background);
+        background: var(--lv-color-canvas);
         text-align: left;
         border-radius: var(--lv-r-m);
         transition: border-color var(--lv-dur-2) var(--lv-ease), transform var(--lv-dur-2) var(--lv-ease),
@@ -235,8 +235,8 @@
         box-shadow: var(--lv-focus-ring);
     }
     .lv-persona-name {
-        font-weight: 600;
-        margin-bottom: 2px;
+        font-weight: var(--lv-fw-semibold);
+        margin-bottom: calc(var(--lv-space-unit) * 1);
     }
     @media (max-width: 480px) {
         .lv-ob-type-grid { grid-template-columns: 1fr; }

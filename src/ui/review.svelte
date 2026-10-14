@@ -2,6 +2,7 @@
     import { onDestroy, onMount } from "svelte";
     import { fade } from "svelte/transition";
     import { countUp } from "./kit/countup";
+    import { getMotionDuration } from "./kit/motion";
     import { openTab, showMessage } from "siyuan";
     import {
         getRiffDueCards, getRiffDecks, getNotebookRiffDueCards, getTreeRiffDueCards, reviewRiffCard, skipReviewRiffCard,
@@ -14,7 +15,7 @@
     import { parseOcclusion, type OcclusionData } from "@/core/occlusion";
     import { todayKey } from "@/core/exam";
     import { mergeSessionPrefs, pruneSessionPrefs } from "@/core/session-prefs";
-    import { END_REASONS, withEndReason, type EndReason } from "@/core/session-state";
+    import { END_REASONS, hasSessionProgress, markSessionCompleted, withEndReason, type EndReason } from "@/core/session-state";
     import { isLongReturn, returnCheck, type ReturnCheckFacts } from "@/core/return-check";
     import { avgSecPerCard, budgetLeftSec, BUDGET_PRESETS, clampBudgetMinutes, estimateCompletable, estimateLeftover, isBudgetExpired } from "@/core/session-budget";
     import { nominateVariant } from "@/core/question-rotation";
@@ -32,6 +33,7 @@
     import LvLive from "./kit/LvLive.svelte";
     import LvChip from "./kit/LvChip.svelte";
     import LvError from "./kit/LvError.svelte";
+    import LvSkeleton from "./kit/LvSkeleton.svelte";
     import { friendlyError } from "@/api/errors";
     import { lvLog } from "@/libs/log";
 
@@ -92,8 +94,8 @@
         suspendToday: (cardID: string) => void;
         openDashboard: (tab?: string) => void;
         onScopePersist: (scopeKey: string) => void;
-        getSessionState: () => { date: string; reviewedIDs: string[]; skippedIDs: string[]; counters: { new: number; review: number; forget: number; skip: number }; endReason?: EndReason | null } | null;
-        saveSessionState: (s: { date: string; reviewedIDs: string[]; skippedIDs: string[]; counters: { new: number; review: number; forget: number; skip: number }; endReason?: EndReason | null }) => void;
+        getSessionState: () => { date: string; reviewedIDs: string[]; skippedIDs: string[]; counters: { new: number; review: number; forget: number; skip: number }; endReason?: EndReason | null; completed?: boolean } | null;
+        saveSessionState: (s: { date: string; reviewedIDs: string[]; skippedIDs: string[]; counters: { new: number; review: number; forget: number; skip: number }; endReason?: EndReason | null; completed?: boolean }) => void;
         clearSessionState: () => void;
         emitSessionFinished: (summary: { new: number; review: number; forget: number; skip: number }) => void;
         /** 订阅设置变更（AT-10）：保存设置后回调，超时参数立即生效，返回取消函数 */
@@ -346,6 +348,7 @@
             reviewedIDs,
             skippedIDs: sessionSkipped,
             counters: { new: sessionNew, review: sessionReview, forget: sessionForget, skip: sessionSkip },
+            completed: false,
         });
     }
 
@@ -365,6 +368,7 @@
     let expectedText = $state("");
     // 评分音效（M 组 P2，Web Audio 合成）
     let audioCtx: AudioContext | null = null;
+    let activeUtterance: SpeechSynthesisUtterance | null = null;
     // 快捷键帮助覆盖层（AB 组）
     let helpOpen = $state(false);
     // AS-4：读屏播报（评分/跳过/加载/完成 → polite；错误 → assertive）
@@ -437,6 +441,10 @@
         if (key === "timeoutMode" || key === "timeoutSeconds") restartTimeout();
     }
     let rescheduleDays = $state(1);
+    let rescheduleBusy = $state(false);
+    let rescheduleError = $state("");
+    const actionBusy = $derived(submitting || rescheduleBusy);
+    let retryReschedule: { cardID: string; days: number; due: string } | null = null;
     // 图片遮挡（M4·FR4 riff 先行）：数据来自块属性 lv-occlusion，坐标相对图片包围盒
     let cardEl: HTMLDivElement | null = $state(null);
     let rootEl: HTMLDivElement | null = $state(null);
@@ -445,6 +453,7 @@
     let occlHidden = $state<number[]>([]);
     // 选择题模式（M4·FR3，干扰项取自同队列后续卡）
     let answerCache = new Map<string, string>();
+    let choiceRequestSeq = 0;
     let choices = $state<{ options: string[]; answerIdx: number; picked: number | null } | null>(null);
     let choiceLoading = $state(false);
     // 当同队列没有任何可靠干扰项时，选择题退回正常自由回忆，避免伪造选项。
@@ -546,14 +555,20 @@
         if (!current || choiceLoading || typingInput.trim()) {
             return;
         }
+        const seq = ++choiceRequestSeq;
+        const cardID = current.cardID;
+        const blockID = current.blockID;
+        const candidates = queue.slice(1, 8);
         choiceLoading = true;
         try {
-            const answer = await answerOf(current.blockID);
-            answerCache.set(current.blockID, answer);
+            const answer = await answerOf(blockID);
+            if (seq !== choiceRequestSeq || current?.cardID !== cardID) return;
+            answerCache.set(blockID, answer);
             const pool: string[] = [];
-            for (const c of queue.slice(1, 8)) {
+            for (const c of candidates) {
                 if (pool.length >= 3) break;
                 const text = await answerOf(c.blockID);
+                if (seq !== choiceRequestSeq || current?.cardID !== cardID) return;
                 if (text && text !== answer && !pool.includes(text)) {
                     pool.push(text);
                 }
@@ -569,8 +584,13 @@
             const options = shuffle(built);
             choices = { options, answerIdx: options.indexOf(answer.trim()), picked: null };
             choiceFallbackMode = "none";
+        } catch {
+            if (seq === choiceRequestSeq && current?.cardID === cardID) {
+                choices = null;
+                choiceFallbackMode = "free-recall";
+            }
         } finally {
-            choiceLoading = false;
+            if (seq === choiceRequestSeq) choiceLoading = false;
         }
     }
 
@@ -583,6 +603,7 @@
     }
 
     async function loadQueue() {
+        choiceRequestSeq++;
         const seq = ++queueSeq; // AQ-19：范围切换/重试并发时只接受最后一次请求
         loading = true;
         errorMsg = "";
@@ -662,6 +683,10 @@
                 }
                 const finished = !sessionDone; // 只在首次进入完成态时广播
                 sessionDone = true;
+                if (finished && (reviewedIDs.length > 0 || sessionSkipped.length > 0)) {
+                    const s = ctx.getSessionState();
+                    if (s && !s.completed) ctx.saveSessionState(markSessionCompleted(s));
+                }
                 // Skipping a card changes the due queue too. Broadcast a
                 // finished session when either rating or skip produced work,
                 // so the dashboard refreshes after a skip-only session.
@@ -694,6 +719,7 @@
     }
 
     async function setCurrent(card: RiffDueCard) {
+        choiceRequestSeq++;
         current = card;
         showAnswer = false;
         typingInput = "";
@@ -726,7 +752,9 @@
         try {
             const u = new SpeechSynthesisUtterance(text);
             u.lang = /[\u4e00-\u9fa5]/.test(text) ? "zh-CN" : "en-US";
+            u.onend = u.onerror = () => { if (activeUtterance === u) activeUtterance = null; };
             speechSynthesis.cancel();
+            activeUtterance = u;
             speechSynthesis.speak(u);
         } catch { /* 旁路 */ }
     }
@@ -747,7 +775,9 @@
                 const voice = speechSynthesis.getVoices().find(v => v.name === voiceName);
                 if (voice) u.voice = voice;
             }
+            u.onend = u.onerror = () => { if (activeUtterance === u) activeUtterance = null; };
             speechSynthesis.cancel();
+            activeUtterance = u;
             speechSynthesis.speak(u);
         } catch { /* 旁路 */ }
     }
@@ -909,7 +939,7 @@
     }
 
     function undoHistory() {
-        if (submitting) {
+        if (submitting || rescheduleBusy) {
             return;
         }
         const snap = history.pop();
@@ -936,7 +966,7 @@
     }
 
     async function rate(rating: Rating, force = false) {
-        if (!current || (!showAnswer && !force) || submitting) {
+        if (!current || (!showAnswer && !force) || submitting || rescheduleBusy) {
             return;
         }
         recovery = null; // BI-9：已开始评分=隐式选择继续原场
@@ -997,7 +1027,7 @@
     }
 
     async function skip() {
-        if (!current || submitting) {
+        if (!current || submitting || rescheduleBusy) {
             return;
         }
         recovery = null; // BI-9：同评分——有动作即隐式续场
@@ -1032,7 +1062,7 @@
     }
 
     async function suspendToday() {
-        if (!current || submitting) { return; }
+        if (!current || submitting || rescheduleBusy) { return; }
         ctx.suspendToday(current.cardID);
         showMessage(t.review.suspendedToast, 2000, "info");
         await next();
@@ -1073,6 +1103,7 @@
     }
 
     async function next() {
+        if (rescheduleBusy) return;
         // BJ-2：翻卡/切卡时重置提示
         hintLevel = null;
         hintText = "";
@@ -1125,18 +1156,36 @@
 
     /** 快速改期（M3·FR5，f 键/按钮）：N 天后到期 */
     async function reschedule() {
-        if (!current || submitting || rescheduleDays < 1) return;
-        const d = new Date(Date.now() + rescheduleDays * 86400000);
-        const due = "" + d.getFullYear() + String(d.getMonth() + 1).padStart(2, "0") + String(d.getDate()).padStart(2, "0") +
-            String(d.getHours()).padStart(2, "0") + String(d.getMinutes()).padStart(2, "0") + String(d.getSeconds()).padStart(2, "0");
+        const card = current;
+        const days = Number(rescheduleDays);
+        if (!card || submitting || rescheduleBusy || !Number.isSafeInteger(days) || days < 1 || days > 36500) return;
+        let request = retryReschedule?.cardID === card.cardID && retryReschedule.days === days ? retryReschedule : null;
+        if (!request) {
+            const d = new Date(Date.now() + days * 86400000);
+            if (!Number.isFinite(d.getTime())) return;
+            const due = "" + d.getFullYear() + String(d.getMonth() + 1).padStart(2, "0") + String(d.getDate()).padStart(2, "0") +
+                String(d.getHours()).padStart(2, "0") + String(d.getMinutes()).padStart(2, "0") + String(d.getSeconds()).padStart(2, "0");
+            request = { cardID: card.cardID, days, due };
+            retryReschedule = request;
+        }
+        rescheduleBusy = true;
+        rescheduleError = "";
         try {
-            await batchSetRiffCardsDueTime([{ id: current.cardID, due }]);
+            await batchSetRiffCardsDueTime([{ id: request.cardID, due: request.due }]);
+            retryReschedule = null;
+            rescheduleError = "";
             invalidateDueCache(); // AT-4：改期改变到期时间，共享缓存失效
-            showMessage(t.review.rescheduled.replace("${n}", String(rescheduleDays)), 2000, "info");
-            showReschedule = false;
-            await next();
+            showMessage(t.review.rescheduled.replace("${n}", String(days)), 2000, "info");
+            if (current?.cardID === card.cardID) {
+                showReschedule = false;
+                rescheduleBusy = false;
+                await next();
+            }
         } catch (e: any) {
-            errorMsg = friendlyError(e, t);
+            rescheduleError = friendlyError(e, t);
+            announce(rescheduleError, "assertive");
+        } finally {
+            rescheduleBusy = false;
         }
     }
 
@@ -1338,7 +1387,7 @@
         }
         // 会话中断恢复（M3）：当日已有评分进度时，恢复计数并从剩余卡继续
         const ss = ctx.getSessionState();
-        if (ss && ss.reviewedIDs.length > 0) {
+        if (ss && ss.completed !== true && hasSessionProgress(ss)) {
             reviewedIDs = ss.reviewedIDs;
             sessionSkipped = ss.skippedIDs ?? []; // AQ-2：跳过集合恢复，重载不重复出卡
             sessionNew = ss.counters.new;
@@ -1383,6 +1432,15 @@
     onDestroy(() => {
         stopTimeout(); // AJ7：销毁时清理倒计时，防止泄漏
         stopRequeueTimers();
+        if (activeUtterance && "speechSynthesis" in window) {
+            speechSynthesis.cancel();
+            activeUtterance = null;
+        }
+        if (audioCtx) {
+            const context = audioCtx;
+            audioCtx = null;
+            void context.close().catch(() => { /* 宿主可能已关闭音频上下文 */ });
+        }
     });
 </script>
 
@@ -1406,10 +1464,10 @@
     {#if returnBanner && !recovery}
         <div class="lv-notice" role="status">
             <div class="lv-eyebrow">{t.review.returnTriageTitle}</div>
-            <div style="margin-top: 4px">{returnBanner.planText}</div>
-            <div class="ft__smaller ft__on-surface" style="margin-top: 4px">{returnBanner.steps.join(" · ")}</div>
-            <div class="ft__smaller ft__on-surface" style="margin-top: 2px">{returnBanner.capText}</div>
-            <div style="margin-top: 6px; text-align: right">
+            <div style="margin-top: calc(var(--lv-space-unit) * 2)">{returnBanner.planText}</div>
+            <div class="ft__smaller ft__on-surface" style="margin-top: calc(var(--lv-space-unit) * 2)">{returnBanner.steps.join(" · ")}</div>
+            <div class="ft__smaller ft__on-surface" style="margin-top: calc(var(--lv-space-unit) * 1)">{returnBanner.capText}</div>
+            <div style="margin-top: calc(var(--lv-space-unit) * 3); text-align: right">
                 <button class="b3-button b3-button--small" onclick={() => (returnBanner = null)}>{t.review.returnDismiss}</button>
             </div>
         </div>
@@ -1468,12 +1526,12 @@
             <div class="lv-done-panel lv-empty-queue" role="status" aria-live="polite">
                 <div class="lv-eyebrow">REVIEW / {headScopeLabel}</div>
                 <div class="lv-empty-queue-title">{t.review.requeueWaitingTitle}</div>
-                <p class="ft__smaller ft__on-surface" style="margin: 6px 0 0">
+                <p class="ft__smaller ft__on-surface" style="margin: calc(var(--lv-space-unit) * 3) 0 0">
                     {t.review.requeueWaitingSub.replace("${n}", String(requeueWaitSeconds))}
                 </p>
                 <div class="fn__flex lv-done-actions" style="justify-content: center; margin-top: var(--lv-sp-4)">
                     <button class="b3-button b3-button--outline" onclick={loadQueue}>{t.dashboard.refresh}</button>
-                    <button class="b3-button b3-button--outline" disabled={history.length === 0 || submitting} onclick={undoHistory}>{t.review.undoLast}</button>
+                    <button class="b3-button b3-button--outline" disabled={history.length === 0 || actionBusy} onclick={undoHistory}>{t.review.undoLast}</button>
                 </div>
             </div>
         </div>
@@ -1483,7 +1541,7 @@
             <div class="lv-done-panel lv-empty-queue">
                 <div class="lv-eyebrow">REVIEW / {headScopeLabel}</div>
                 <div class="lv-empty-queue-title">{t.review.emptyQueueTitle}</div>
-                <p class="ft__smaller ft__on-surface" style="margin: 6px 0 0">{t.review.emptyQueueSub}</p>
+                <p class="ft__smaller ft__on-surface" style="margin: calc(var(--lv-space-unit) * 3) 0 0">{t.review.emptyQueueSub}</p>
                 <label class="fn__flex" style="justify-content: center; gap: 8px; align-items: center; margin-top: var(--lv-sp-3)">
                     <span class="ft__smaller ft__on-surface">{t.review.scopeTitle}</span>
                     <select
@@ -1584,7 +1642,7 @@
                 {/if}
                 <div class="fn__flex lv-done-actions">
                     <button class="b3-button b3-button--text" onclick={loadQueue}>{t.review.again}</button>
-                    <button class="b3-button b3-button--outline" disabled={history.length === 0 || submitting} onclick={undoHistory}>{t.review.undoLast}</button>
+                    <button class="b3-button b3-button--outline" disabled={history.length === 0 || actionBusy} onclick={undoHistory}>{t.review.undoLast}</button>
                     <button class="b3-button lv-btn-primary" onclick={() => ctx.openDashboard()}>{t.review.viewStats}</button>
                 </div>
             </div>
@@ -1670,18 +1728,18 @@
                 <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.prefsTitle} aria-label={t.review.prefsTitle} class:lv-btn-primary={prefsOpen || hasOverrides} onclick={() => (prefsOpen = !prefsOpen)}>{t.review.tbPrefs}{hasOverrides ? " ●" : ""}</button>
                 <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.refreshCard} aria-label={t.review.refreshCard} onclick={refreshCard}>{t.review.tbRefresh}</button>
                 <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.helpTitle} aria-label={t.review.helpTitle} onclick={() => (helpOpen = true)}>{t.review.tbHelp}</button>
-                <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.undoTitle} aria-label={t.review.undoTitle} disabled={submitting || history.length === 0} onclick={undoHistory}>{t.review.tbUndo}</button>
+                <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.undoTitle} aria-label={t.review.undoTitle} disabled={actionBusy || history.length === 0} onclick={undoHistory}>{t.review.tbUndo}</button>
                 <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.peekPrev} aria-label={t.review.peekPrev} disabled={!lastAnswered} onclick={togglePeek}>{t.review.peekPrev.slice(0, 2)}</button>
                 <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.openInEditor} onclick={openInEditor}>{t.review.open}</button>
-                <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.suspendToday} aria-label={t.review.suspendToday} disabled={submitting} onclick={suspendToday}>{t.review.tbSuspend}</button>
-                <button class="b3-button b3-button--small lv-btn-ghost" disabled={submitting} onclick={skip}>{t.review.skip}</button>
+                <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.suspendToday} aria-label={t.review.suspendToday} disabled={actionBusy} onclick={suspendToday}>{t.review.tbSuspend}</button>
+                <button class="b3-button b3-button--small lv-btn-ghost" disabled={actionBusy} onclick={skip}>{t.review.skip}</button>
             </div>
         </div>
         <div class="lv-card b3-typography" class:lv-anim-glow={showAnswer} bind:this={cardEl} style={`max-width:${eff().cardMaxWidth}px; width:100%; margin:0 auto;`}>
             {#if !cardHtml && faceError}
                 <!-- AS-3：卡面加载失败占位（不白屏；重试不丢队列位置） -->
-                <div class="lv-center" style="display: flex; flex-direction: column; gap: 10px; align-items: center; justify-content: center; min-height: 220px" role="status">
-                    <span style="font-size: 28px" aria-hidden="true">⚠️</span>
+                <div class="lv-center" style="display: flex; flex-direction: column; gap: calc(var(--lv-space-unit) * 5); align-items: center; justify-content: center; min-height: 220px" role="status">
+                    <span style="font-size: var(--lv-type-hero-size)" aria-hidden="true">⚠️</span>
                     <span class="ft__smaller ft__on-surface" style="text-align: center">{faceError}</span>
                     <button class="b3-button b3-button--outline b3-button--small" onclick={retryFace}>{t.dashboard.refresh}</button>
                 </div>
@@ -1692,12 +1750,12 @@
             {:else}
                 {#key current?.cardID}
                     <!-- 灵动感（R53 纪律内）：切卡 140ms 单次淡入，只动 opacity；翻面淡入由 lv-anim-glow 承担 -->
-                    <div class="lv-card-content" class:lv-masked={!showAnswer} style={`font-size:${eff().cardFontScale || 1}em`} in:fade={{ duration: 140 }}>{@html cardHtml}</div>
+                    <div class="lv-card-content" class:lv-masked={!showAnswer} style={`font-size: ${eff().cardFontScale || 1}em`} in:fade={{ duration: getMotionDuration("standard") }}>{@html cardHtml}</div>
                 {/key}
             {/if}
             {#if faceHints.length > 0 && !faceError}
                 <!-- AS-3：富内容提示行（特征告知 + 窄屏横滚提示；只读不遮挡） -->
-                <div class="fn__flex fn__flex-wrap ft__smaller ft__on-surface" style="gap: 6px; margin-top: var(--lv-sp-2)" role="note">
+                <div class="fn__flex fn__flex-wrap ft__smaller ft__on-surface" style="gap: calc(var(--lv-space-unit) * 3); margin-top: var(--lv-sp-2)" role="note">
                     {#each faceHints as hintKey (hintKey)}
                         <span class="b3-chip">{faceHintText(hintKey)}</span>
                     {/each}
@@ -1716,7 +1774,7 @@
                         {@const revealed = showAnswer || occlHidden.includes(i)}
                         <rect
                             x={r.x * 100} y={r.y * 100} width={r.w * 100} height={r.h * 100}
-                            fill="var(--b3-theme-primary)"
+                            fill="var(--lv-color-brand)"
                             opacity={revealed ? (showAnswer ? 0.12 : 0.05) : 0.55}
                             stroke="var(--lv-primary-border)" stroke-width="0.3"
                             style={`cursor:${showAnswer ? "default" : "pointer"}`}
@@ -1731,11 +1789,14 @@
             {/if}
             {#if !showAnswer}
                 {#if showReschedule}
-                    <div class="lv-reschedule" style="display:flex;gap:var(--lv-sp-2);align-items:center;margin:var(--lv-sp-2) 0">
+                    {@const invalidRescheduleDays = !Number.isSafeInteger(rescheduleDays) || rescheduleDays < 1 || rescheduleDays > 36500}
+                    <div class="lv-reschedule" aria-busy={rescheduleBusy} style="display:flex;gap:var(--lv-sp-2);align-items:center;margin:var(--lv-sp-2) 0">
                         <span class="ft__smaller ft__on-surface">{t.review.rescheduleIn}</span>
-                        <input class="b3-text-field" style="width:60px" type="number" min="1" bind:value={rescheduleDays} />
+                        <input class="b3-text-field" style="width:60px" type="number" min="1" max="36500" step="1" bind:value={rescheduleDays} aria-invalid={invalidRescheduleDays} aria-describedby={invalidRescheduleDays ? "lv-reschedule-error" : undefined} />
                         <span class="ft__smaller ft__on-surface">{t.review.rescheduleDays}</span>
-                        <button class="b3-button b3-button--text" onclick={reschedule}>{window.siyuan.languages.confirm}</button>
+                        {#if invalidRescheduleDays}<span id="lv-reschedule-error" class="ft__smaller" role="alert">{t.review.rescheduleRange}</span>{/if}
+                        {#if rescheduleError}<span class="ft__smaller lv-reschedule-error" role="alert">{rescheduleError}</span>{/if}
+                        <button class="b3-button b3-button--text" disabled={actionBusy || invalidRescheduleDays} aria-busy={rescheduleBusy} onclick={reschedule}>{rescheduleBusy ? t.dashboard.loading : window.siyuan.languages.confirm}</button>
                     </div>
                 {/if}
                 {#if answerVariant === "typing"}
@@ -1779,7 +1840,7 @@
                             {/if}
                         </div>
                     {:else if choiceLoading}
-                        <div class="ft__smaller ft__on-surface">{t.review.choiceLoading}</div>
+                        <div class="ft__smaller ft__on-surface" role="status" aria-busy="true">{t.review.choiceLoading}</div>
                     {:else}
                         <button class="b3-button b3-button--small lv-choice-btn" onclick={startChoice}>🎲 {t.review.choiceMake}</button>
                     {/if}
@@ -1822,8 +1883,7 @@
             <div class="lv-ctxpanel b3-typography">
                 <div class="lv-ctx-title">{t.review.ctxTitle}</div>
                 {#if ctxLoading}
-                    <div class="lv-skeleton" style="height: 36px"></div>
-                    <div class="lv-skeleton" style="height: 36px"></div>
+                    <LvSkeleton count={2} height={36} />
                 {:else if ctxBlocks.length === 0}
                     <div class="lv-hint">{t.review.ctxNone}</div>
                 {:else}
@@ -1909,14 +1969,14 @@
             {#if !showAnswer}
                 <button class="b3-button lv-btn-primary lv-btn-wide" disabled={!faceReady} onclick={() => (showAnswer = true)}>{t.review.showAnswer}<span class="lv-btn-wide-kbd">Space</span></button>
             {:else if eff().ratingStyle === "three"}
-                <button class="b3-button lv-btn-rate lv-b1" disabled={submitting} onclick={() => rate(1)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.unknown}</span><LvKbd k="1" /></span><small>{dueText("1")}</small></button>
-                <button class="b3-button lv-btn-rate lv-b2" disabled={submitting} onclick={() => rate(2)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.vague}</span><LvKbd k="2" /></span><small>{dueText("2")}</small></button>
-                <button class="b3-button lv-btn-rate lv-b3" disabled={submitting} onclick={() => rate(3)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.know}</span><LvKbd k="3" /></span><small>{dueText("3")}</small></button>
+                <button class="b3-button lv-btn-rate lv-b1" disabled={actionBusy} onclick={() => rate(1)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.unknown}</span><LvKbd k="1" /></span><small>{dueText("1")}</small></button>
+                <button class="b3-button lv-btn-rate lv-b2" disabled={actionBusy} onclick={() => rate(2)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.vague}</span><LvKbd k="2" /></span><small>{dueText("2")}</small></button>
+                <button class="b3-button lv-btn-rate lv-b3" disabled={actionBusy} onclick={() => rate(3)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.know}</span><LvKbd k="3" /></span><small>{dueText("3")}</small></button>
             {:else}
-                <button class="b3-button lv-btn-rate lv-b1" disabled={submitting} onclick={() => rate(1)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.againBtn}</span><LvKbd k="1" /></span><small>{dueText("1")}</small></button>
-                <button class="b3-button lv-btn-rate lv-b2" disabled={submitting} onclick={() => rate(2)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.hard}</span><LvKbd k="2" /></span><small>{dueText("2")}</small></button>
-                <button class="b3-button lv-btn-rate lv-b3" disabled={submitting} onclick={() => rate(3)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.good}</span><LvKbd k="3" /></span><small>{dueText("3")}</small></button>
-                <button class="b3-button lv-btn-rate lv-b4" disabled={submitting} onclick={() => rate(4)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.easy}</span><LvKbd k="4" /></span><small>{dueText("4")}</small></button>
+                <button class="b3-button lv-btn-rate lv-b1" disabled={actionBusy} onclick={() => rate(1)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.againBtn}</span><LvKbd k="1" /></span><small>{dueText("1")}</small></button>
+                <button class="b3-button lv-btn-rate lv-b2" disabled={actionBusy} onclick={() => rate(2)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.hard}</span><LvKbd k="2" /></span><small>{dueText("2")}</small></button>
+                <button class="b3-button lv-btn-rate lv-b3" disabled={actionBusy} onclick={() => rate(3)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.good}</span><LvKbd k="3" /></span><small>{dueText("3")}</small></button>
+                <button class="b3-button lv-btn-rate lv-b4" disabled={actionBusy} onclick={() => rate(4)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.easy}</span><LvKbd k="4" /></span><small>{dueText("4")}</small></button>
             {/if}
         </div>
     {/if}
@@ -1940,7 +2000,7 @@
 
     {#if helpOpen}
         <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-        <div class="lv-help lv-glass" tabindex="-1" bind:this={helpEl} transition:fade={{ duration: 160 }} onclick={(e: Event) => e.stopPropagation()}>
+        <div class="lv-help lv-glass" tabindex="-1" bind:this={helpEl} transition:fade={{ duration: getMotionDuration("normal") }} onclick={(e: Event) => e.stopPropagation()}>
             <div class="lv-help-head">
                 <span>{t.review.helpTitle}</span>
                 <div class="fn__flex-1"></div>
@@ -1968,7 +2028,7 @@
         <div
             class="lv-peek lv-glass"
             tabindex="-1"
-            transition:fade={{ duration: 160 }}
+                transition:fade={{ duration: getMotionDuration("normal") }}
             onclick={(e: Event) => e.stopPropagation()}
         >
             <div class="lv-peek-head">
@@ -1988,21 +2048,21 @@
         flex-direction: column;
         box-sizing: border-box;
         /* 移动端安全区（306）：刘海屏/手势条不遮挡内容 */
-        padding: calc(var(--lv-sp-4) + env(safe-area-inset-top, 0px)) calc(var(--lv-sp-5) + env(safe-area-inset-right, 0px))
-            calc(var(--lv-sp-4) + env(safe-area-inset-bottom, 0px)) calc(var(--lv-sp-5) + env(safe-area-inset-left, 0px));
+        padding: calc(var(--lv-sp-4) + env(safe-area-inset-top, 0)) calc(var(--lv-sp-5) + env(safe-area-inset-right, 0))
+            calc(var(--lv-sp-4) + env(safe-area-inset-bottom, 0)) calc(var(--lv-sp-5) + env(safe-area-inset-left, 0));
         gap: var(--lv-sp-3);
         position: relative;
         max-width: 880px;
         margin: 0 auto;
         width: 100%;
 
-        .lv-center { margin: auto; color: var(--b3-theme-on-surface); }
+        .lv-center { margin: auto; color: var(--lv-color-text-muted); }
         .lv-error-wrap { width: min(560px, 92vw); }
 
         /* T07 结果面板（R52 .panel）：白面 1px 边框居中，内容左对齐 */
         .lv-done-panel {
             width: min(620px, 100%);
-            background: var(--b3-theme-surface);
+            background: var(--lv-color-surface);
             border: 1px solid var(--lv-border);
             border-radius: var(--lv-r-l);
             padding: var(--lv-sp-5);
@@ -2013,8 +2073,8 @@
             text-align: center;
             .lv-empty-queue-title {
                 margin-top: var(--lv-sp-3);
-                font-size: 17px;
-                font-weight: 650;
+                font-size: var(--lv-type-title-lg-size);
+                font-weight: var(--lv-fw-heading);
                 letter-spacing: -0.02em;
             }
         }
@@ -2023,31 +2083,31 @@
             margin-bottom: var(--lv-sp-4);
         }
         .lv-done-check {
-            width: 30px; height: 30px; border-radius: 50%;
+            width: 30px; height: 30px; border-radius: var(--lv-r-circle);
             display: inline-flex; align-items: center; justify-content: center;
-            font-size: 16px; flex: none;
+            font-size: var(--lv-type-title-size); flex: none;
             background: var(--lv-good-soft);
-            color: var(--b3-theme-success, var(--b3-theme-primary));
+            color: var(--lv-color-success);
         }
-        .lv-done-title { font-size: 24px; font-weight: 650; letter-spacing: -0.03em; line-height: 1.4; }
-        .lv-done-sub { font-size: 13px; color: var(--b3-theme-on-surface); font-variant-numeric: tabular-nums; margin-top: 2px; }
+        .lv-done-title { font-size: var(--lv-type-display-size); font-weight: 650; letter-spacing: -0.03em; line-height: 1.4; }
+        .lv-done-sub { font-size: var(--lv-type-body-size); color: var(--lv-color-text-muted); font-variant-numeric: tabular-nums; margin-top: 2px; }
         .lv-done-stats {
             display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--lv-sp-4);
             padding: var(--lv-sp-3) 0 var(--lv-sp-2);
             border-top: 1px solid var(--lv-border);
         }
         .lv-done-stat {
-            display: flex; flex-direction: column; gap: 2px; min-width: 0;
-            .lv-done-stat-label { font-size: 11px; color: var(--b3-theme-on-surface); }
-            .lv-hero-num { font-size: 24px; }
-            p { margin: 0; font-size: 11px; color: var(--b3-theme-on-surface); opacity: .85; }
+            display: flex; flex-direction: column; gap: calc(var(--lv-space-unit) * 1); min-width: 0;
+            .lv-done-stat-label { font-size: var(--lv-type-meta-size); color: var(--lv-color-text-muted); }
+            .lv-hero-num { font-size: var(--lv-type-display-size); }
+            p { margin: 0; font-size: 11px; color: var(--lv-color-text-muted); opacity: .85; }
         }
-        .lv-done-milestone { color: var(--b3-theme-warning); font-weight: 600; font-size: 13px; }
+        .lv-done-milestone { color: var(--lv-color-warning); font-weight: 600; font-size: var(--lv-type-body-size); }
         .lv-done-tip {
-            color: var(--b3-theme-on-surface);
-            font-size: 12px;
+            color: var(--lv-color-text-muted);
+            font-size: var(--lv-type-control-size);
             opacity: 0.85;
-            line-height: 1.6;
+            line-height: var(--lv-lh-reading);
         }
         /* BI-8：收工原因 chips（可跳过，不占完成屏视觉重心；中性 ghost，选中才亮主色） */
         .lv-done-end {
@@ -2055,7 +2115,7 @@
             margin-top: var(--lv-sp-3);
             padding-top: var(--lv-sp-3);
             border-top: 1px solid var(--lv-border);
-            font-size: 12px;
+            font-size: var(--lv-type-control-size);
         }
         .lv-done-actions { gap: var(--lv-sp-2); justify-content: flex-end; margin-top: var(--lv-sp-4); padding-top: var(--lv-sp-4); border-top: 1px solid var(--lv-border); }
 
@@ -2070,7 +2130,7 @@
             background: var(--lv-primary-softer);
             border: 1px solid var(--lv-primary-border);
             border-radius: var(--lv-r-m);
-            font-size: 13px;
+            font-size: var(--lv-type-body-size);
         }
         /* BI-10：长期返场检查横幅（warn 项多时换行；只读预览） */
         .lv-return {
@@ -2080,41 +2140,41 @@
             flex-wrap: wrap;
             margin: 0 var(--lv-sp-5) var(--lv-sp-2);
             padding: var(--lv-sp-2) var(--lv-sp-3);
-            background: color-mix(in srgb, var(--b3-theme-warning) 8%, transparent);
-            border: 1px solid color-mix(in srgb, var(--b3-theme-warning) 35%, transparent);
+            background: color-mix(in srgb, var(--lv-color-warning) 8%, transparent);
+            border: 1px solid color-mix(in srgb, var(--lv-color-warning) 35%, transparent);
             border-radius: var(--lv-r-m);
-            font-size: 13px;
+            font-size: var(--lv-type-body-size);
         }
         .lv-return-title {
-            color: var(--b3-theme-on-surface);
+            color: var(--lv-color-text-muted);
             margin-right: var(--lv-sp-1);
-            font-weight: 600;
+            font-weight: var(--lv-fw-semibold);
         }
         .lv-recover-title {
-            color: var(--b3-theme-on-surface);
+            color: var(--lv-color-text-muted);
             margin-right: var(--lv-sp-1);
         }
-        .lv-done-milestone { color: var(--b3-theme-warning); font-weight: 600; }
+        .lv-done-milestone { color: var(--lv-color-warning); font-weight: 600; }
         .lv-done-tip {
             max-width: 420px;
-            color: var(--b3-theme-on-surface);
-            font-size: 12px;
+            color: var(--lv-color-text-muted);
+            font-size: var(--lv-type-control-size);
             opacity: 0.85;
-            line-height: 1.6;
+            line-height: var(--lv-lh-reading);
         }
         /* T07 下一步建议（docs/40）：软面板 + 行式布局 */
         .lv-done-next {
             margin-top: var(--lv-sp-4);
             padding: var(--lv-sp-3) var(--lv-sp-4);
-            background: color-mix(in srgb, var(--b3-theme-on-background) 4%, transparent);
+            background: var(--lv-surface-hover);
             border: 1px solid var(--lv-border);
             border-radius: var(--lv-r-m);
             text-align: left;
         }
         .lv-next-row {
             display: flex; align-items: center; justify-content: space-between; gap: var(--lv-sp-2);
-            font-size: 13px;
-            padding: 4px 0;
+            font-size: var(--lv-type-body-size);
+            padding: calc(var(--lv-space-unit) * 2) 0;
         }
 
         /* R52 docs/15 §6：完成态单次淡入，不做逐行错峰 */
@@ -2131,45 +2191,45 @@
                 display: flex; align-items: center; gap: var(--lv-sp-2);
                 min-width: 0; flex-wrap: wrap;
             }
-            .lv-scope { min-width: 8.5em; max-width: 200px; font-size: 12px; padding: 4px 8px; }
+            .lv-scope { min-width: 8.5em; max-width: 200px; font-size: var(--lv-type-control-size); padding: 4px 8px; }
             /* BI-3：入口上下文条（窄屏换行不挤压进度） */
             .lv-entry {
-                display: inline-flex; align-items: center; gap: 2px;
-                padding: 1px 4px;
-                border-left: 2px solid var(--b3-theme-primary);
-                .lv-entry-from { color: var(--b3-theme-on-surface); white-space: nowrap; }
+                display: inline-flex; align-items: center; gap: calc(var(--lv-space-unit) * 1);
+                padding: var(--lv-space-hairline) calc(var(--lv-space-unit) * 2);
+                border-left: 2px solid var(--lv-color-brand);
+                .lv-entry-from { color: var(--lv-color-text-muted); white-space: nowrap; }
             }
             .lv-progress {
-                font-size: 12px; color: var(--b3-theme-on-surface);
+                font-size: var(--lv-type-control-size); color: var(--lv-color-text-muted);
                 background: var(--lv-primary-softer);
-                border-radius: 999px;
-                padding: 2px 10px;
+                border-radius: var(--lv-r-pill);
+                padding: calc(var(--lv-space-unit) * 1) calc(var(--lv-space-unit) * 5);
                 font-variant-numeric: tabular-nums;
                 white-space: nowrap;
             }
             .lv-progress-bar {
-                width: 100%; height: 3px; border-radius: 2px;
-                background: color-mix(in srgb, var(--b3-theme-on-background) 8%, transparent);
+                width: 100%; height: 3px; border-radius: var(--lv-r-track);
+                background: color-mix(in srgb, var(--lv-color-text) 8%, transparent);
                 overflow: hidden;
                 display: flex;
                 .lv-progress-seg {
                     height: 100%;
-                    background: var(--b3-theme-primary);
+                    background: var(--lv-color-brand);
                     transition: width var(--lv-dur-3) var(--lv-ease);
                 }
-                .lv-progress-seg--forget { background: var(--b3-theme-error); }
+                .lv-progress-seg--forget { background: var(--lv-color-danger); }
             }
-            .lv-timeout { font-size: 12px; color: var(--b3-theme-on-surface); font-variant-numeric: tabular-nums; }
-            .lv-timeout-low { color: var(--b3-theme-error); font-weight: 700; }
+            .lv-timeout { font-size: var(--lv-type-control-size); color: var(--lv-color-text-muted); font-variant-numeric: tabular-nums; }
+            .lv-timeout-low { color: var(--lv-color-danger); font-weight: 700; }
             .lv-tags { display: flex; gap: var(--lv-sp-1); }
         }
 
         .lv-err-tags {
-            display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+            display: flex; flex-wrap: wrap; gap: calc(var(--lv-space-unit) * 3); align-items: center;
             padding: var(--lv-sp-2) var(--lv-sp-3);
             margin: 0 auto;
-            font-size: 12px;
-            background: var(--b3-theme-surface);
+            font-size: var(--lv-type-control-size);
+            background: var(--lv-color-surface);
             border-radius: var(--b3-border-radius);
         }
         .lv-err-tag { opacity: .8; }
@@ -2178,15 +2238,15 @@
             flex: 1;
             position: relative;
             overflow: auto;
-            background: var(--b3-theme-surface);
+            background: var(--lv-color-surface);
             border: 1px solid var(--lv-border);
             border-radius: var(--lv-r-l);
             /* R52 .study-card：静态浅阴影（5% ink 单层），不随主题翻转 */
-            box-shadow: 0 8px 28px color-mix(in srgb, black 5%, transparent);
+            box-shadow: var(--lv-shadow-review-card);
             /* R52 卡面规范（starline .study-card）：48/44 内边距、min-height 300，窄屏收窄 */
-            padding: 48px 44px;
+            padding: calc(var(--lv-space-unit) * 24) calc(var(--lv-space-unit) * 22);
             min-height: 300px;
-            @media (max-width: 740px) { padding: 26px 22px; }
+            @media (max-width: 740px) { padding: calc(var(--lv-space-unit) * 13) calc(var(--lv-space-unit) * 11); }
             position: relative;
             transition: box-shadow var(--lv-dur-2) var(--lv-ease), transform var(--lv-dur-2) var(--lv-ease);
 
@@ -2201,12 +2261,12 @@
             .lv-choices,
             .lv-reschedule {
                 position: relative;
-                z-index: 1;
+                z-index: var(--lv-z-card-control);
             }
             // 遮挡 overlay 需绝对定位贴图（内联 left/top 才生效），且高于翻面层接收 rect 点击
             .lv-occl-overlay {
                 position: absolute;
-                z-index: 1;
+                z-index: var(--lv-z-card-control);
             }
 
             // AS-3：富内容窄屏横向滚动（表格/长链不撑破卡面）
@@ -2225,12 +2285,12 @@
                 .lv-choice-opt {
                     text-align: left;
                     border: 1px solid var(--lv-border);
-                    background: var(--b3-theme-background);
+                    background: var(--lv-color-canvas);
                     transition: border-color var(--lv-dur-1) var(--lv-ease), background var(--lv-dur-1) var(--lv-ease);
                     &:hover:not(:disabled) { border-color: var(--lv-primary-border); background: var(--lv-primary-softer); }
                     &:disabled { cursor: default; opacity: 0.9; }
                 }
-                .lv-choice-correct { border-color: var(--b3-theme-primary) !important; background: var(--lv-primary-soft) !important; }
+                .lv-choice-correct { border-color: var(--lv-color-brand) !important; background: var(--lv-primary-soft) !important; }
                 .lv-choice-wrong { border-color: var(--lv-danger-border) !important; background: var(--lv-danger-soft) !important; }
             }
             .lv-typing-diff {
@@ -2238,9 +2298,9 @@
                 margin-top: var(--lv-sp-3);
                 flex-wrap: wrap;
                 .lv-diff span { font-variant-numeric: normal; }
-                .lv-diff-ok { color: var(--b3-theme-primary); }
+                .lv-diff-ok { color: var(--lv-color-brand); }
                 .lv-diff-bad {
-                    color: var(--b3-theme-error);
+                    color: var(--lv-color-danger);
                     text-decoration: line-through;
                     opacity: 0.85;
                 }
@@ -2248,12 +2308,12 @@
 
             .lv-reveal {
                 position: absolute; inset: 0;
-                z-index: 0;
+                z-index: var(--lv-z-base);
                 width: 100%; height: 100%;
                 background: transparent;
                 /* 翻面热区覆盖整卡：文字隐藏（底部 48px 宽钮已承担指引），只留可点击与 hover 微光 */
                 color: transparent;
-                font-size: 14px;
+                font-size: var(--lv-type-body-sm-size);
                 transition: background var(--lv-dur-2) var(--lv-ease);
 
                 &:hover { background: color-mix(in srgb, var(--lv-primary-softer) 55%, transparent); }
@@ -2261,20 +2321,20 @@
 
             .lv-hint-text {
                 padding: var(--lv-sp-2) var(--lv-sp-3);
-                border-left: 3px solid var(--b3-theme-primary);
-                background: var(--b3-theme-surface);
+                border-left: 3px solid var(--lv-color-brand);
+                background: var(--lv-color-surface);
                 border-radius: var(--b3-border-radius);
                 margin: var(--lv-sp-2) auto;
                 max-width: inherit;
-                font-size: 0.9em;
-                color: var(--b3-theme-on-surface);
+                font-size: var(--lv-type-fluid-size);
+                color: var(--lv-color-text-muted);
             }
             .lv-reveal-hint {
                 position: absolute;
                 right: var(--lv-sp-3);
                 bottom: var(--lv-sp-2);
-                font-size: 11px;
-                color: var(--b3-theme-on-surface);
+                font-size: var(--lv-type-meta-size);
+                color: var(--lv-color-text-muted);
                 opacity: 0.7;
                 pointer-events: none;
             }
@@ -2291,12 +2351,12 @@
             padding: var(--lv-sp-3);
             border: 1px solid var(--lv-border);
             border-radius: var(--lv-r-m);
-            background: color-mix(in srgb, var(--b3-theme-on-background) 4%, transparent);
-            font-size: 13px;
+            background: var(--lv-surface-hover);
+            font-size: var(--lv-type-body-size);
             opacity: 0.92;
             .lv-ctx-title {
-                font-size: 12px;
-                color: var(--b3-theme-on-surface);
+                font-size: var(--lv-type-control-size);
+                color: var(--lv-color-text-muted);
                 margin-bottom: var(--lv-sp-2);
             }
             .lv-ctx-block {
@@ -2305,7 +2365,7 @@
                 &:last-child { border-bottom: none; }
             }
             .lv-ctx-cur {
-                border-left: 2px solid var(--b3-theme-primary);
+                border-left: 2px solid var(--lv-color-brand);
                 background: var(--lv-primary-softer);
                 border-radius: var(--lv-r-s);
             }
@@ -2319,18 +2379,18 @@
             padding: var(--lv-sp-3);
             border: 1px solid var(--lv-border);
             border-radius: var(--lv-r-m);
-            background: color-mix(in srgb, var(--b3-theme-on-background) 4%, transparent);
-            font-size: 13px;
+            background: var(--lv-surface-hover);
+            font-size: var(--lv-type-body-size);
             .lv-prefs-head {
                 display: flex; align-items: baseline; gap: var(--lv-sp-2);
                 margin-bottom: var(--lv-sp-2);
-                & > span:first-child { font-weight: 500; }
+                & > span:first-child { font-weight: var(--lv-fw-medium); }
             }
-            .lv-budget-custom { width: 72px; font-size: 12px; padding: 4px 8px; }
+            .lv-budget-custom { width: 72px; font-size: 12px; padding: calc(var(--lv-space-unit) * 2) calc(var(--lv-space-unit) * 4); }
             .lv-prefs-row {
                 display: flex; align-items: center; gap: var(--lv-sp-2);
                 padding: var(--lv-sp-1) 0;
-                & > span:first-child { color: var(--b3-theme-on-surface); }
+                & > span:first-child { color: var(--lv-color-text-muted); }
                 .b3-select { min-width: 9em; }
             }
         }
@@ -2343,12 +2403,12 @@
             .lv-btn-wide {
                 flex: 1;
                 min-height: 48px;
-                font-weight: 600;
+                font-weight: var(--lv-fw-semibold);
                 .lv-btn-wide-kbd {
-                    margin-left: 10px;
-                    font-size: 11px;
+                    margin-left: calc(var(--lv-space-unit) * 5);
+                    font-size: var(--lv-type-meta-size);
                     opacity: .75;
-                    font-weight: 400;
+                    font-weight: var(--lv-fw-normal);
                 }
             }
             .lv-btn-rate {
@@ -2358,7 +2418,7 @@
                 display: flex; flex-direction: column; align-items: stretch; gap: 5px;
                 text-align: left;
                 border-radius: var(--lv-r-m);
-                padding: 14px 17px;
+                padding: calc(var(--lv-space-unit) * 7) calc(var(--lv-space-unit) * 8 + var(--lv-space-hairline));
                 min-height: 77px;
                 transition: transform var(--lv-dur-1) var(--lv-ease),
                     background var(--lv-dur-1) var(--lv-ease),
@@ -2382,10 +2442,10 @@
             }
             // R52 .rating button：白面 1px 描边、ink 标签、muted 间隔——不做彩色底（对齐原型）
             .lv-b1, .lv-b2, .lv-b3, .lv-b4 {
-                background: var(--b3-theme-surface);
-                color: var(--b3-theme-on-background);
+                background: var(--lv-color-surface);
+                color: var(--lv-color-text);
                 &:hover {
-                    background: color-mix(in srgb, var(--b3-theme-on-background) 4%, transparent);
+                    background: var(--lv-surface-hover);
                     border-color: var(--lv-border-strong);
                 }
             }
@@ -2399,13 +2459,13 @@
             box-shadow: var(--lv-shadow-2);
             display: flex;
             flex-direction: column;
-            z-index: 10;
+            z-index: var(--lv-z-review-peek);
             overflow: hidden;
             .lv-peek-head {
                 display: flex; align-items: center; gap: var(--lv-sp-2);
                 padding: var(--lv-sp-2) var(--lv-sp-4);
                 border-bottom: 1px solid var(--lv-border);
-                font-size: 12px; color: var(--b3-theme-on-surface);
+                font-size: var(--lv-type-control-size); color: var(--lv-color-text-muted);
             }
             .lv-peek-body { flex: 1; overflow: auto; padding: var(--lv-sp-4); }
         }
@@ -2418,20 +2478,20 @@
             box-shadow: var(--lv-shadow-2);
             display: flex;
             flex-direction: column;
-            z-index: 11;
+            z-index: var(--lv-z-review-help);
             overflow: hidden;
             .lv-help-head {
                 display: flex; align-items: center; gap: var(--lv-sp-2);
                 padding: var(--lv-sp-2) var(--lv-sp-4);
                 border-bottom: 1px solid var(--lv-border);
-                font-size: 12px; color: var(--b3-theme-on-surface);
+                font-size: var(--lv-type-control-size); color: var(--lv-color-text-muted);
             }
             .lv-help-body { flex: 1; overflow: auto; padding: var(--lv-sp-4); }
             .lv-help-row {
                 display: flex; gap: var(--lv-sp-3); align-items: center;
                 padding: var(--lv-sp-2) 0;
                 border-bottom: 1px solid var(--lv-border);
-                font-size: 13px;
+                font-size: var(--lv-type-body-size);
                 &:last-child { border-bottom: none; }
             }
         }

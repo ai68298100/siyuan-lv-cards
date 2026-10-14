@@ -5,7 +5,7 @@
  */
 import { fetchSyncPost } from "siyuan";
 import { normalizeMigrationStatus, summarizeStatistics, type FlashcardV2State, type MigrationStatus } from "./v2-contract";
-import { withTimeout } from "../libs/timeout";
+import { requestWithPolicy, type RequestOptions } from "../libs/request";
 
 export { normalizeMigrationStatus, summarizeStatistics };
 export type { FlashcardV2State, MigrationStatus };
@@ -13,8 +13,19 @@ export type { FlashcardV2State, MigrationStatus };
 /** AT-3：V2 内核请求统一有界等待（本地内核 3s 足够；超时/断核/慢核都转 N/A 或可重试） */
 export const V2_TIMEOUT_MS = 3000;
 
-async function v2<T>(endpoint: string, payload: Record<string, unknown> = {}): Promise<T> {
-    const resp = await withTimeout(fetchSyncPost(`/api/flashcard/${endpoint}`, payload), V2_TIMEOUT_MS, `/api/flashcard/${endpoint}`);
+async function v2<T>(endpoint: string, payload: Record<string, unknown> = {}, options: RequestOptions = {}): Promise<T> {
+    const isRead = endpoint.startsWith("get") || endpoint.startsWith("query") || endpoint.startsWith("list") || endpoint === "getMigrationStatus";
+    const resp = await requestWithPolicy(
+        () => fetchSyncPost(`/api/flashcard/${endpoint}`, payload),
+        {
+            ...options,
+            timeoutMs: options.timeoutMs ?? V2_TIMEOUT_MS,
+            readOnly: options.readOnly ?? isRead,
+            retries: options.retries ?? 1,
+            dedupeKey: options.dedupeKey ?? (isRead ? `v2:${endpoint}:${JSON.stringify(payload)}` : undefined),
+            latestKey: options.latestKey ?? (isRead ? `v2:${endpoint}` : undefined),
+        },
+    );
     // AJ5：与 riff 同口径的响应校验
     if (!resp || resp.code !== 0) {
         throw new Error(resp?.msg || `kernel error (code=${resp?.code ?? "unknown"})`);

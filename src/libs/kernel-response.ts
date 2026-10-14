@@ -17,7 +17,9 @@ export function unwrapKernelData<T>(resp: unknown): T {
         throw new Error("kernel error (code=unknown)");
     }
     if (r.code !== 0) {
-        throw new Error(r.msg || `kernel error (code=${r.code})`);
+        // Keep the human message while retaining the numeric code for the
+        // shared error mapper (401/403 must render an auth/permission state).
+        throw new Error(`kernel error (code=${r.code})${r.msg ? `: ${r.msg}` : ""}`);
     }
     return r.data as T;
 }

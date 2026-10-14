@@ -24,8 +24,8 @@
         flex-wrap: wrap;
     }
     .lv-error2-msg {
-        color: var(--b3-theme-error);
-        font-size: 13px;
+        color: var(--lv-color-danger);
+        font-size: var(--lv-type-body-size);
         word-break: break-all;
         flex: 1;
         min-width: 200px;

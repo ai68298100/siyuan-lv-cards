@@ -7,7 +7,8 @@
  * @Description  : Kits about dialogs
  */
 import { Dialog } from "siyuan";
-import { Component, mount, unmount } from "svelte";
+import type { Component } from "svelte";
+import * as svelte from "svelte";
 import { trapFocus, type FocusTrap } from "./focus-trap";
 
 /**
@@ -29,8 +30,15 @@ function mountDialog(comp: Component<any>, target: HTMLElement, props: Record<st
     if (dialogMounter) {
         return dialogMounter(comp, target, props);
     }
-    const app = mount(comp, { target, props });
-    return { destroy: () => { void unmount(app); } };
+    // Production always installs the standalone dialogs chunk mounter before
+    // opening a Svelte dialog. The local mount is retained for dev mode only;
+    // Vite's DEV_MODE define removes this branch (and the Svelte runtime) from
+    // the production shell bundle.
+    if (process.env.DEV_MODE) {
+        const app = svelte.mount(comp, { target, props });
+        return { destroy: () => { void svelte.unmount(app); } };
+    }
+    throw new Error("dialogs chunk mounter is unavailable");
 }
 
 interface IConfirmDialogArgs {
@@ -155,7 +163,9 @@ export const svelteDialog = (args: {
             if (dialogMounter) {
                 (componentInstance as { destroy: () => void }).destroy();
             } else {
-                unmount(componentInstance as ReturnType<typeof mount>);
+                if (process.env.DEV_MODE) {
+                    void svelte.unmount(componentInstance as ReturnType<typeof svelte.mount>);
+                }
             }
         } catch { /* 已卸载 */ }
     };

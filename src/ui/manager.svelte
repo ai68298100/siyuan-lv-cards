@@ -3,7 +3,8 @@
     import { openTab, showMessage } from "siyuan";
     import { getRiffCards, removeRiffCards, resetRiffCards, type SearchBlock } from "@/api/riff";
     import { invalidateDueCache } from "@/api/due-shared";
-    import { confirmDialog } from "@/libs/dialog";
+    import { friendlyError } from "@/api/errors";
+import { confirmDialog } from "@/libs/dialog";
     import { parseManagerView } from "@/core/settings";
     import { srExportLine, composeSrExport } from "@/core/obsidian-import";
     import CardDetail from "./card-detail.svelte";
@@ -49,16 +50,16 @@
         /** BK-1：知识对象快照与操作（可选——旧宿主不传则详情不显示知识对象区） */
         ko?: {
             snapshot: (blockID: string) => { registered: boolean; fact: string; instances: { cardID: string; cardType: string; capability: string | null; disabled: boolean }[] };
-            register: (blockID: string, fact: string) => void;
-            toggle: (blockID: string, cardID: string, disabled: boolean) => void;
-            remove: (blockID: string, cardID: string) => void;
+            register: (blockID: string, fact: string) => void | Promise<void>;
+            toggle: (blockID: string, cardID: string, disabled: boolean) => void | Promise<void>;
+            remove: (blockID: string, cardID: string) => void | Promise<void>;
             derive: (blockID: string, cardType: string) => Promise<void>;
         };
         /** BI-5/6/7：内容状态生命周期（可选——旧宿主不传则详情不显示内容状态区） */
         lc?: {
             snapshot: (blockID: string) => import("@/core/content-lifecycle").ContentLifecycle | null;
-            open: (blockID: string) => void;
-            transition: (blockID: string, to: import("@/core/content-lifecycle").ContentState, reason: string) => boolean;
+            open: (blockID: string) => void | Promise<void>;
+            transition: (blockID: string, to: import("@/core/content-lifecycle").ContentState, reason: string) => boolean | Promise<boolean>;
             /** cram=false 正式复习 / true 练习（突击）模式；blockID 传入时记 BI-3 卡片入口 */
             openReview: (cram: boolean, blockID?: string) => void;
             makeCards: (blockID: string, content: string) => void;
@@ -66,6 +67,8 @@
         /** BX-2 W2：卡片内容读写（可选——旧宿主不传则详情不显示编辑入口） */
         blockContent?: (blockID: string) => Promise<string | null>;
         saveBlockContent?: (blockID: string, md: string) => Promise<boolean>;
+        deckScope?: { id: string; name: string } | null;
+        clearDeckScope?: () => void;
     }
 
     let { ctx }: { ctx: ManagerCtx } = $props();
@@ -85,6 +88,13 @@
     const PAGE_SIZE = 20;
     let loading = $state(true);
     let page = $state(1);
+    let viewReady = $state(false);
+    let restorePositionOnLoad = false;
+    let restoreScrollTop = 0;
+    let restoreFocusId = "";
+    let liveScrollTop = 0;
+    let focusedControlId = "";
+    let viewSaveTimer: ReturnType<typeof setTimeout> | null = null;
     let total = $state(0);
     let pageCount = $state(1);
     let blocks: SearchBlock[] = $state([]);
@@ -92,11 +102,21 @@
     let filterText = $state("");
     /** 防抖后的过滤词（548）：输入停顿 200ms 才触发过滤重算 */
     let deferredFilter = $state("");
+    let filterDirty = $state(false);
     let filterTimer: ReturnType<typeof setTimeout> | null = null;
     $effect(() => {
-        filterText;
+        const dirty = filterDirty;
+        const nextFilter = filterText;
         if (filterTimer) { clearTimeout(filterTimer); }
-        filterTimer = setTimeout(() => { deferredFilter = filterText; }, 200);
+        if (!dirty) return;
+        filterTimer = setTimeout(() => {
+            deferredFilter = nextFilter;
+            // 搜索仅作用于内核返回的当前分页；切词后回到第 1 页并重新取数。
+            page = 1;
+            resetScrollPosition();
+            filterDirty = false;
+            void load();
+        }, 200);
         return () => { if (filterTimer) { clearTimeout(filterTimer); } };
     });
     let sortMode = $state<"default" | "path" | "content" | "lapses">("default");
@@ -118,6 +138,8 @@
     let koDeriving = $state(false);
     let detailLc: import("@/core/content-lifecycle").ContentLifecycle | null = $state(null);
     let storesChangedTimer: ReturnType<typeof setTimeout> | null = null;
+    // svelte-ignore state_referenced_locally -- Hub creates a fresh Manager for each deck route.
+    let deckScope = $state(ctx.deckScope ?? null);
 
     let filteredBlocks = $derived(
         (() => {
@@ -162,9 +184,15 @@
         // 新请求对应新结果，旧页面的选择不能作用于新分页或筛选结果。
         selected = [];
         try {
-            const cards = await getRiffCards("", page, PAGE_SIZE);
+            const cards = await getRiffCards(deckScope?.id ?? "", page, PAGE_SIZE);
             if (seq !== loadSeq) {
                 return; // 旧页响应不覆盖筛选、页码与选择
+            }
+            const nextPageCount = Math.max(1, cards.pageCount);
+            if (page > nextPageCount) {
+                page = nextPageCount;
+                void load();
+                return;
             }
             // 同一块可同时属于内置卡组与自定义卡组（Svelte each 键不可重复）——按块 ID 去重，一行一内容
             const seen = new Set<string>();
@@ -175,21 +203,82 @@
             });
             selected = [];
             total = cards.total;
-            pageCount = Math.max(1, cards.pageCount);
+            pageCount = nextPageCount;
         } catch (e: any) {
             if (seq === loadSeq) {
-                errorMsg = e?.message ?? String(e);
+                errorMsg = friendlyError(e, t);
             }
         } finally {
             if (seq === loadSeq) {
                 loading = false;
+                await restoreViewPosition();
             }
         }
     }
 
+    async function restoreViewPosition() {
+        if (!restorePositionOnLoad || loading || dueLoading || errorMsg || dueError) return;
+        // 列表替换加载骨架后再恢复；到期筛选还需等其独立查询完成。
+        await tick();
+        if (!restorePositionOnLoad || loading || dueLoading) return;
+        const pageEl = document.getElementById("lv-manager-page");
+        if (pageEl) pageEl.scrollTop = restoreScrollTop;
+        const focusEl = restoreFocusId ? document.getElementById(restoreFocusId) : null;
+        if (focusEl instanceof HTMLElement && focusEl.isConnected) focusEl.focus({ preventScroll: true });
+        restorePositionOnLoad = false;
+    }
+
     function goto(p: number) {
         page = Math.min(Math.max(1, p), pageCount);
+        resetScrollPosition();
         load();
+    }
+
+    function resetScrollPosition() {
+        restorePositionOnLoad = false;
+        liveScrollTop = 0;
+        const pageEl = document.getElementById("lv-manager-page");
+        if (pageEl) pageEl.scrollTop = 0;
+    }
+
+    function serializeView(): string {
+        return JSON.stringify({
+            filter: filterText,
+            sort: sortMode,
+            leechOnly,
+            status: statusFilter,
+            page,
+            scrollTop: liveScrollTop,
+            focusId: focusedControlId,
+        });
+    }
+
+    function scheduleViewSave() {
+        if (viewSaveTimer) clearTimeout(viewSaveTimer);
+        viewSaveTimer = setTimeout(() => {
+            viewSaveTimer = null;
+            ctx.view?.save(serializeView());
+        }, 180);
+    }
+
+    function capturePageScroll(event: Event) {
+        liveScrollTop = (event.currentTarget as HTMLElement).scrollTop;
+        scheduleViewSave();
+    }
+
+    function capturePageFocus(event: FocusEvent) {
+        const target = event.target instanceof HTMLElement ? event.target : null;
+        const row = target?.closest<HTMLElement>("[data-manager-card-id]");
+        focusedControlId = target?.id || row?.id || "";
+        scheduleViewSave();
+    }
+
+    function clearDeckScope() {
+        deckScope = null;
+        ctx.clearDeckScope?.();
+        page = 1;
+        resetScrollPosition();
+        void load();
     }
 
     function toggleSelect(id: string) {
@@ -203,6 +292,7 @@
         dueSet = new Set();
         if (statusFilter !== "due") {
             dueLoading = false;
+            void load();
             return;
         }
         dueLoading = true;
@@ -214,11 +304,52 @@
             }
         } catch (e: any) {
             if (seq === dueSeq && statusFilter === "due") {
-                dueError = e?.message || t.manager.dueLoadFailed;
+                dueError = friendlyError(e, t) || t.manager.dueLoadFailed;
             }
         } finally {
-            if (seq === dueSeq) dueLoading = false;
+            if (seq === dueSeq) {
+                dueLoading = false;
+                await restoreViewPosition();
+            }
         }
+    }
+
+    function applyStatusFilter(event: Event) {
+        // Svelte 的自定义 change 处理先于 bind:value，显式读取本次选择。
+        statusFilter = (event.currentTarget as HTMLSelectElement).value as typeof statusFilter;
+        page = 1;
+        resetScrollPosition();
+        selected = [];
+        void onStatusChange();
+    }
+
+    function toggleLeechFilter() {
+        leechOnly = !leechOnly;
+        selected = [];
+        page = 1;
+        resetScrollPosition();
+        void load();
+    }
+
+    function clearFilters() {
+        if (filterTimer) {
+            clearTimeout(filterTimer);
+            filterTimer = null;
+        }
+        filterDirty = false;
+        filterText = "";
+        deferredFilter = "";
+        statusFilter = "all";
+        leechOnly = false;
+        selected = [];
+        page = 1;
+        resetScrollPosition();
+        // 使尚未完成的到期查询失效，避免旧结果重新打开到期过滤。
+        dueSeq += 1;
+        dueLoading = false;
+        dueError = "";
+        dueSet = new Set();
+        void load();
     }
 
     /** 选中卡导出 CSV（274）：blockID,路径,内容（引号转义，BOM 便于 Excel） */
@@ -272,7 +403,7 @@
                     showMessage(t.manager.batchDone.replace("${n}", String(count)), 2000, "info");
                     await load();
                 } catch (e: any) {
-                    batchError = e?.message ?? String(e);
+                    batchError = friendlyError(e, t);
                     showMessage(batchError, 3500, "error");
                 } finally {
                     batchBusy = null;
@@ -298,7 +429,7 @@
                     showMessage(t.manager.batchResetDone.replace("${n}", String(count)), 2000, "info");
                     await load();
                 } catch (e: any) {
-                    batchError = e?.message ?? String(e);
+                    batchError = friendlyError(e, t);
                     showMessage(batchError, 3500, "error");
                 } finally {
                     batchBusy = null;
@@ -328,7 +459,7 @@
                     await tick();
                     focusRowAt(Math.min(rowIndex, filteredBlocks.length - 1));
                 } catch (e: any) {
-                    batchError = e?.message ?? String(e);
+                    batchError = friendlyError(e, t);
                     showMessage(batchError, 3500, "error");
                 } finally {
                     batchBusy = null;
@@ -374,16 +505,24 @@
 
     onMount(() => {
         savedList = ctx.savedFilters();
-        // BI-17：返回时恢复上次筛选/排序（滚动/焦点依赖宿主 DOM，登记余项）
+        // BI-17：返回卡库时恢复筛选、排序、页码、滚动位置和最后焦点。
         const v = parseManagerView(ctx.view?.initial ?? undefined);
         if (v) {
             filterText = v.filter;
+            deferredFilter = v.filter;
             sortMode = v.sort as typeof sortMode;
             leechOnly = v.leechOnly;
             statusFilter = v.status as typeof statusFilter;
-            if (v.status === "due") { void onStatusChange(); }
+            page = v.page;
+            restoreScrollTop = v.scrollTop;
+            restoreFocusId = v.focusId;
+            liveScrollTop = v.scrollTop;
+            focusedControlId = v.focusId;
+            restorePositionOnLoad = true;
         }
-        load();
+        viewReady = true;
+        if (statusFilter === "due") void onStatusChange();
+        else void load();
         // 同步/其他窗口写入后，当前管理器保持筛选和页签位置但重读卡片快照。
         const offStores = ctx.onStoresChanged?.(() => {
             if (storesChangedTimer) clearTimeout(storesChangedTimer);
@@ -404,6 +543,11 @@
         return () => {
             offStores?.();
             offReviewed?.();
+            if (viewSaveTimer) {
+                clearTimeout(viewSaveTimer);
+                viewSaveTimer = null;
+            }
+            if (viewReady) ctx.view?.save(serializeView());
             if (storesChangedTimer) {
                 clearTimeout(storesChangedTimer);
                 storesChangedTimer = null;
@@ -413,7 +557,7 @@
 
     // BI-17：视图变化即持久化（settings 走 saveSettingsSoon 防抖）
     $effect(() => {
-        ctx.view?.save(JSON.stringify({ filter: filterText, sort: sortMode, leechOnly, status: statusFilter }));
+        if (viewReady) ctx.view?.save(serializeView());
     });
 
     function saveCurrent() {
@@ -430,29 +574,43 @@
         const f = savedList.find(x => x.name === pickedSaved);
         if (f) {
             filterText = f.filter;
+            selected = [];
+            filterDirty = true;
         }
     }
 
     function deleteSaved() {
-        if (pickedSaved) {
-            ctx.deleteFilter(pickedSaved);
-            savedList = ctx.savedFilters();
-            pickedSaved = "";
-            filterText = "";
-        }
+        if (!pickedSaved) return;
+        const name = pickedSaved;
+        confirmDialog({
+            title: t.manager.deleteSaved,
+            content: `<div class="b3-typography">${t.manager.deleteSavedConfirm ?? "确定删除已保存的筛选？此操作不可撤销。"}</div>`,
+            confirm: () => {
+                ctx.deleteFilter(pickedSaved);
+                savedList = ctx.savedFilters();
+                if (pickedSaved === name) pickedSaved = "";
+            },
+        });
     }
 </script>
 
-<LvPage eyebrow="OBJECT / MAINTAIN" title={t.manager.title} subtitle={t.manager.scopeNote}>
+<LvPage
+    pageId="lv-manager-page"
+    onscroll={capturePageScroll}
+    onfocusin={capturePageFocus}
+    eyebrow="OBJECT / MAINTAIN"
+    title={t.manager.title}
+    subtitle={t.manager.scopeNote}
+>
     {#snippet actions()}
-        <input class="b3-text-field lv-filter" type="text" placeholder={t.manager.filterPlaceholder} bind:value={filterText} oninput={() => (selected = [])} />
+        <input id="lv-manager-filter" class="b3-text-field lv-filter" type="text" aria-label={t.manager.filterLabel} placeholder={t.manager.filterPlaceholder} bind:value={filterText} oninput={() => { selected = []; filterDirty = true; }} />
         <button class="b3-button b3-button--small lv-btn-ghost" disabled={loading || batchBusy !== null} onclick={load}>{t.dashboard.refresh}</button>
     {/snippet}
 
     <!-- T-管理器 R53 工具行：排序/筛选/保存独立于页头搜索 -->
     <div class="lv-mgr-toolbar">
         {#if filterText}
-            <button class="b3-button b3-button--small lv-btn-ghost" title={t.manager.saveFilter} onclick={saveCurrent}>★ {t.manager.saveFilter}</button>
+            <button class="b3-button b3-button--small lv-btn-ghost" title={t.manager.saveFilter} disabled={!filterText.trim()} onclick={saveCurrent}>★ {t.manager.saveFilter}</button>
         {/if}
         {#if savedList.length > 0 || filterText}
             <select class="b3-select lv-sort" bind:value={pickedSaved} onchange={applySaved}>
@@ -469,7 +627,7 @@
             <option value="content">{t.manager.sortContent}</option>
             <option value="lapses">{t.manager.sortLapses}</option>
         </select>
-        <select class="b3-select lv-sort" bind:value={statusFilter} disabled={loading || dueLoading} onchange={() => { selected = []; void onStatusChange(); }} title={t.manager.statusLabel}>
+        <select class="b3-select lv-sort" bind:value={statusFilter} disabled={loading || dueLoading} onchange={applyStatusFilter} title={t.manager.statusLabel}>
             <option value="all">{t.manager.statusAll}</option>
             <option value="new">{t.manager.statusNew}</option>
             <option value="review">{t.manager.statusReview}</option>
@@ -480,11 +638,17 @@
                 class="lv-chipbtn"
                 class:lv-chipbtn-active={leechOnly}
                 title={t.manager.leechFilter}
-                onclick={() => { leechOnly = !leechOnly; selected = []; }}
+                onclick={toggleLeechFilter}
             >{t.manager.leechFilter}</button>
         {/if}
         <span class="lv-toolbar-caption">{t.manager.total}: {total}</span>
     </div>
+    {#if deckScope}
+        <div class="lv-mgr-deck-scope" role="status">
+            <span>{t.manager.deckScopeLabel ?? "当前卡组"}：<strong>{deckScope.name}</strong></span>
+            <button class="b3-button b3-button--text" onclick={clearDeckScope}>{t.manager.deckScopeClear ?? "查看全部卡组"}</button>
+        </div>
+    {/if}
 
     {#if selected.length > 0}
         <div class="lv-glass lv-batchbar">
@@ -513,12 +677,17 @@
     {:else if filteredBlocks.length === 0}
         {#if filterText || statusFilter !== "all" || leechOnly}
             <LvEmpty
-                text={t.manager.filterEmpty}
+                text={t.manager.filterEmptyCurrentPage ?? "当前页无匹配项，筛选仅作用于已加载页。 / No matches on this page; filters apply only to the loaded page."}
                 actionLabel={t.manager.filterClear}
-                onaction={() => { filterText = ""; statusFilter = "all"; leechOnly = false; }}
+                onaction={clearFilters}
             />
         {:else}
-            <LvEmpty text={t.manager.empty} actionLabel={t.dashboard.onboardingStart} onaction={() => ctx.openOnboarding?.()} />
+            <!-- 宿主未提供上手入口时不渲染看似可点但无动作的按钮。 -->
+            <LvEmpty
+                text={t.manager.empty}
+                actionLabel={ctx.openOnboarding ? t.dashboard.onboardingStart : ""}
+                onaction={ctx.openOnboarding ? () => ctx.openOnboarding!() : undefined}
+            />
         {/if}
     {:else}
         <div class="lv-list" role="list" aria-label={t.manager.title}>
@@ -537,6 +706,8 @@
                     <button
                         type="button"
                         class="lv-row-main"
+                        id={`lv-manager-card-${encodeURIComponent(b.id)}`}
+                        data-manager-card-id
                         aria-keyshortcuts="ArrowUp ArrowDown Delete Enter"
                         disabled={batchBusy !== null}
                         onclick={() => openDetail(b)}
@@ -575,12 +746,17 @@
         acceptVersion={(at) => ctx.acceptContentAt?.(detail!.id, at)}
         lcCtx={ctx.lc ? {
             snapshot: detailLc,
-            onopen: () => {                ctx.lc!.open(detail!.id);
-                detailLc = ctx.lc!.snapshot(detail!.id);
+            onopen: async () => {
+                const blockID = detail?.id;
+                if (!blockID) return;
+                await ctx.lc!.open(blockID);
+                if (detail?.id === blockID) detailLc = ctx.lc!.snapshot(blockID);
             },
-            ontransition: (to, reason) => {
-                const ok = ctx.lc!.transition(detail!.id, to, reason);
-                detailLc = ctx.lc!.snapshot(detail!.id);
+            ontransition: async (to, reason) => {
+                const blockID = detail?.id;
+                if (!blockID) return false;
+                const ok = await ctx.lc!.transition(blockID, to, reason);
+                if (detail?.id === blockID) detailLc = ctx.lc!.snapshot(blockID);
                 return ok;
             },
             // BI-6：建议动作 → 经理页真实入口（建议可跳过，点击才执行；无隐式写入）
@@ -603,37 +779,48 @@
         } : undefined}
         relationsCtx={ctx.relationsOfBlock ? {
             relations: detailRelations,
-            onadd: (f, to, ty) => {
-                ctx.addRelation?.(f, to, ty);
-                detailRelations = ctx.relationsOfBlock?.(detail!.id) ?? [];
+            onadd: async (f, to, ty) => {
+                await ctx.addRelation?.(f, to, ty);
+                const blockID = detail?.id;
+                if (blockID) detailRelations = ctx.relationsOfBlock?.(blockID) ?? [];
             },
-            onremove: (f, to, ty) => {
-                ctx.removeRelation?.(f, to, ty);
-                detailRelations = ctx.relationsOfBlock?.(detail!.id) ?? [];
+            onremove: async (f, to, ty) => {
+                const blockID = detail?.id;
+                if (!blockID) return;
+                await ctx.removeRelation?.(f, to, ty);
+                if (detail?.id === blockID) detailRelations = ctx.relationsOfBlock?.(blockID) ?? [];
             },
         } : undefined}
         koCtx={ctx.ko ? {
             snapshot: detailKo ?? { registered: false, fact: "", instances: [] },
             deriving: koDeriving,
-            onregister: () => {
-                ctx.ko?.register(detail!.id, detail!.content ?? "");
-                detailKo = ctx.ko!.snapshot(detail!.id);
+            onregister: async () => {
+                const blockID = detail?.id;
+                if (!blockID) return;
+                await ctx.ko?.register(blockID, detail?.content ?? "");
+                if (detail?.id === blockID) detailKo = ctx.ko!.snapshot(blockID);
             },
-            ontoggle: (cardID, disabled) => {
-                ctx.ko?.toggle(detail!.id, cardID, disabled);
-                detailKo = ctx.ko!.snapshot(detail!.id);
+            ontoggle: async (cardID, disabled) => {
+                const blockID = detail?.id;
+                if (!blockID) return;
+                await ctx.ko?.toggle(blockID, cardID, disabled);
+                if (detail?.id === blockID) detailKo = ctx.ko!.snapshot(blockID);
             },
-            onremove: (cardID) => {
-                ctx.ko?.remove(detail!.id, cardID);
-                detailKo = ctx.ko!.snapshot(detail!.id);
+            onremove: async (cardID) => {
+                const blockID = detail?.id;
+                if (!blockID) return;
+                await ctx.ko?.remove(blockID, cardID);
+                if (detail?.id === blockID) detailKo = ctx.ko!.snapshot(blockID);
             },
             onderive: async (cardType) => {
+                const blockID = detail?.id;
+                if (!blockID) return;
                 koDeriving = true;
                 try {
-                    await ctx.ko?.derive(detail!.id, cardType);
+                    await ctx.ko?.derive(blockID, cardType);
                 } finally {
                     koDeriving = false;
-                    detailKo = ctx.ko!.snapshot(detail!.id);
+                    if (detail?.id === blockID) detailKo = ctx.ko!.snapshot(blockID);
                 }
             },
         } : undefined}
@@ -645,9 +832,9 @@
 {/if}
 
 <style lang="scss">
-    .lv-filter { width: 200px; border-radius: 999px; padding-left: 14px; }
-    .lv-sort { font-size: 12px; padding: 4px 8px; }
-    .lv-pager { font-size: 12px; color: var(--b3-theme-on-surface); font-variant-numeric: tabular-nums; }
+    .lv-filter { width: 200px; border-radius: 999px; padding-left: calc(var(--lv-space-unit) * 7); }
+    .lv-sort { font-size: var(--lv-type-control-size); padding: 4px 8px; }
+    .lv-pager { font-size: var(--lv-type-control-size); color: var(--lv-color-text-muted); font-variant-numeric: tabular-nums; }
     .lv-loading {
         display: flex;
         flex-direction: column;
@@ -664,8 +851,8 @@
         margin-bottom: var(--lv-sp-2);
     }
     .lv-batch-error {
-        color: var(--b3-theme-error);
-        font-size: 12px;
+        color: var(--lv-color-danger);
+        font-size: var(--lv-type-control-size);
         max-width: min(42vw, 420px);
         overflow-wrap: anywhere;
     }
@@ -679,9 +866,23 @@
         flex-wrap: wrap;
         margin-bottom: var(--lv-sp-3);
 
-        .lv-sort { max-width: 140px; font-size: 12px; padding: 3px 8px; }
-        .lv-toolbar-caption { margin-left: auto; font-size: 12px; color: var(--b3-theme-on-surface); font-variant-numeric: tabular-nums; }
+        .lv-sort { max-width: 140px; font-size: 12px; padding: calc(var(--lv-space-unit) * 1 + var(--lv-space-hairline)) calc(var(--lv-space-unit) * 4); }
+        .lv-toolbar-caption { margin-left: auto; font-size: 12px; color: var(--lv-color-text-muted); font-variant-numeric: tabular-nums; }
     }
+    .lv-mgr-deck-scope {
+        display: flex;
+        min-width: 0;
+        align-items: center;
+        justify-content: space-between;
+        gap: calc(var(--lv-space-unit) * 6);
+        margin: 0 0 calc(var(--lv-space-unit) * 6);
+        padding: calc(var(--lv-space-unit) * 4 + var(--lv-space-hairline)) calc(var(--lv-space-unit) * 6);
+        border-left: 3px solid var(--lv-color-brand);
+        background: var(--lv-color-surface);
+        color: var(--lv-color-text-muted);
+        font-size: var(--lv-type-control-size);
+    }
+    .lv-mgr-deck-scope strong { color: var(--lv-color-text); overflow-wrap: anywhere; }
 
     /* T-管理器 R53 分页：列表底部居中（与 .lv-list 同级） */
     .lv-mgr-pager {
@@ -692,7 +893,7 @@
         margin-top: var(--lv-sp-4);
         padding-top: var(--lv-sp-3);
         border-top: 1px solid var(--lv-border);
-        .lv-pager { font-size: 12px; color: var(--b3-theme-on-surface); font-variant-numeric: tabular-nums; }
+        .lv-pager { font-size: var(--lv-type-control-size); color: var(--lv-color-text-muted); font-variant-numeric: tabular-nums; }
     }
 
     .lv-list {
@@ -703,7 +904,7 @@
         .lv-row {
             display: flex; align-items: center; gap: var(--lv-sp-3);
             padding: var(--lv-sp-3) var(--lv-sp-4);
-            background: var(--b3-theme-surface);
+            background: var(--lv-color-surface);
             border: 1px solid var(--lv-border);
             border-radius: var(--lv-r-m);
             transition: transform var(--lv-dur-2) var(--lv-ease),
@@ -716,8 +917,8 @@
                 position: absolute;
                 left: 0; top: 20%; bottom: 20%;
                 width: 3px;
-                border-radius: 2px;
-                background: var(--b3-theme-primary);
+                border-radius: var(--lv-r-track);
+                background: var(--lv-color-brand);
                 opacity: 0;
                 transition: opacity var(--lv-dur-2) var(--lv-ease);
             }
@@ -745,7 +946,7 @@
                 cursor: pointer;
 
                 &:focus-visible {
-                    outline: 2px solid var(--b3-theme-primary);
+                    outline: 2px solid var(--lv-color-brand);
                     outline-offset: 2px;
                     border-radius: var(--lv-r-s);
                 }
@@ -756,8 +957,8 @@
             .lv-text, .lv-meta { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
             .lv-arrow {
-                color: var(--b3-theme-primary);
-                font-size: 16px;
+                color: var(--lv-color-brand);
+                font-size: var(--lv-type-title-size);
                 opacity: 0;
                 transform: translateX(-4px);
                 transition: opacity var(--lv-dur-2) var(--lv-ease), transform var(--lv-dur-2) var(--lv-ease);
@@ -766,7 +967,7 @@
     }
 
     /* 窄屏工具栏：搜索、筛选和批量动作分行，避免中文按钮互相挤压。 */
-    @media (max-width: 740px) {
+    @container lv-hub (max-width: 740px) {
         .lv-filter {
             width: min(100%, 320px);
             flex: 1 1 180px;
@@ -783,10 +984,10 @@
             > .b3-button { flex: 1 1 auto; }
         }
         .lv-row { flex-wrap: wrap; }
-        .lv-list .lv-row > .b3-button { margin-left: 28px; }
+        .lv-list .lv-row > .b3-button { margin-left: calc(var(--lv-space-unit) * 14); }
     }
 
-    @media (max-width: 420px) {
+    @container lv-hub (max-width: 420px) {
         .lv-mgr-toolbar {
             .lv-sort { flex-basis: 100%; }
             .lv-chipbtn { width: 100%; justify-content: center; }

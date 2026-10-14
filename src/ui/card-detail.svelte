@@ -1,5 +1,4 @@
 <script lang="ts">
-    import { onMount } from "svelte";
     import { getBlockDOM } from "@/api/siyuan";
     import { diffLines, type DiffRow } from "@/core/line-diff";
     import type { SearchBlock } from "@/api/riff";
@@ -28,23 +27,23 @@
         /** BI-5/6/7：内容状态面板数据与操作（宿主注入；缺省=不显示内容状态区） */
         lcCtx?: {
             snapshot: LcSnapshot | null;
-            onopen: () => void;
-            ontransition: (to: ContentState, reason: string) => boolean;
+            onopen: () => void | Promise<void>;
+            ontransition: (to: ContentState, reason: string) => boolean | Promise<boolean>;
             onaction: (action: NextAction) => void;
         };
         /** BK-2：关系面板数据与持久化回调（宿主注入；缺省=不显示关系区） */
         relationsCtx?: {
             relations: { relation: { from: string; to: string; type: string; createdAt: number }; direction: "outgoing" | "incoming" }[];
-            onadd: (from: string, to: string, type: string) => void;
-            onremove: (from: string, to: string, type: string) => void;
+            onadd: (from: string, to: string, type: string) => void | Promise<void>;
+            onremove: (from: string, to: string, type: string) => void | Promise<void>;
         };
         /** BK-1：知识对象面板数据与操作回调（宿主注入；缺省=不显示知识对象区） */
         koCtx?: {
             snapshot: { registered: boolean; fact: string; instances: { cardID: string; cardType: string; capability: string | null; disabled: boolean }[] };
             deriving: boolean;
-            onregister: () => void;
-            ontoggle: (cardID: string, disabled: boolean) => void;
-            onremove: (cardID: string) => void;
+            onregister: () => void | Promise<void>;
+            ontoggle: (cardID: string, disabled: boolean) => void | Promise<void>;
+            onremove: (cardID: string) => void | Promise<void>;
             onderive: (cardType: string) => void;
         };
         /** BX-2 W2：卡片内容编辑（宿主注入；缺省=不显示编辑入口） */
@@ -55,6 +54,8 @@
     } = $props();
 
     let html = $state("");
+    let previewLoading = $state(false);
+    let previewError = $state(false);
     let loadSeq = 0;
     // T05 内容版本（docs/40）：历史列表折叠 + 单版本展开 + 对比当前（逐行 diff）
     let versionsOpen = $state(false);
@@ -63,6 +64,8 @@
     let diffRows = $state<DiffRow[]>([]);
     let diffBusy = $state(false);
     let diffError = $state(false);
+    let koRegisterBusy = $state(false);
+    let koRegisterError = $state("");
     async function compareWithCurrent(at: number, versionMd: string) {
         if (diffBusy) return;
         if (diffAt === at) { diffAt = null; diffError = false; return; }
@@ -80,13 +83,50 @@
             diffBusy = false;
         }
     }
-    // 切换块时重置折叠/对比状态
+    async function loadPreview(blockID: string): Promise<void> {
+        const seq = ++loadSeq;
+        html = "";
+        previewLoading = true;
+        previewError = false;
+        try {
+            // AQ-20：统一内核响应校验，非 0/缺字段直接进错误态
+            const dom = await getBlockDOM(blockID);
+            if (seq === loadSeq) html = dom;
+        } catch {
+            if (seq === loadSeq) {
+                html = "";
+                previewError = true;
+            }
+        } finally {
+            if (seq === loadSeq) previewLoading = false;
+        }
+    }
+
+    async function registerKnowledgeObject() {
+        if (koRegisterBusy || !koCtx) return;
+        koRegisterBusy = true;
+        koRegisterError = "";
+        try {
+            await koCtx.onregister();
+        } catch (error) {
+            koRegisterError = error instanceof Error && error.message ? error.message : (t.review?.ko?.actionFailed ?? "保存失败，请重试。");
+        } finally {
+            koRegisterBusy = false;
+        }
+    }
+
+    // 切换块时重置折叠/对比状态，并清空旧预览后加载当前块。
     $effect(() => {
-        void block.id;
+        const blockID = block.id;
         versionsOpen = false;
         verOpenAt = null;
         diffAt = null;
         diffError = false;
+        void loadPreview(blockID);
+        return () => {
+            // 使卸载或切换前发出的请求失效，晚到的响应不能覆盖当前块。
+            loadSeq += 1;
+        };
     });
     // T05 分面（docs/40）：内容/来源/学习记录/问题
     type Facet = "content" | "source" | "history" | "issues";
@@ -123,38 +163,25 @@
     let editing = $state(false);
     let editorMd = $state("");
     let editorLoadFail = $state(false);
-
-    onMount(async () => {
-        const seq = ++loadSeq;
-        try {
-            // AQ-20：统一内核响应校验，失败回退块文本预览
-            const dom = await getBlockDOM(block.id);
-            if (seq === loadSeq) {
-                html = dom;
-            }
-        } catch {
-            if (seq === loadSeq) {
-                html = "";
-            }
-        }
-    });
+    let editorLoadBusy = $state(false);
 
     async function startEdit() {
-        if (!editorCtx) return;
-        let md: string | null;
+        if (!editorCtx || editorLoadBusy) return;
+        editorLoadBusy = true;
         try {
-            md = await editorCtx.load();
+            const md = await editorCtx.load();
+            if (md === null) {
+                editorLoadFail = true;
+                return;
+            }
+            editorLoadFail = false;
+            editorMd = md;
+            editing = true;
         } catch {
             editorLoadFail = true;
-            return;
+        } finally {
+            editorLoadBusy = false;
         }
-        if (md === null) {
-            editorLoadFail = true;
-            return;
-        }
-        editorLoadFail = false;
-        editorMd = md;
-        editing = true;
     }
 
     async function saveEdit(md: string): Promise<boolean> {
@@ -163,9 +190,7 @@
         if (ok) {
             editing = false;
             // 写回成功后刷新预览（失败保留旧卡面）
-            try {
-                html = await getBlockDOM(block.id);
-            } catch { /* 预览刷新失败不阻塞 */ }
+            await loadPreview(block.id);
         }
         return ok;
     }
@@ -174,7 +199,7 @@
 <LvDrawer open title={t.manager.detailTitle} closeLabel={t.manager.close} width="min(560px, 92vw)" onclose={onClose}>
     {#snippet actions()}
         {#if editorCtx && !editing}
-            <button class="b3-button b3-button--small" onclick={startEdit}>{t.editor.edit}</button>
+            <button class="b3-button b3-button--small" disabled={editorLoadBusy} aria-busy={editorLoadBusy} onclick={startEdit}>{editorLoadBusy ? "…" : t.editor.edit}</button>
         {/if}
         <button class="b3-button b3-button--small" onclick={onOpenDoc}>{t.manager.openDoc}</button>
     {/snippet}
@@ -214,16 +239,27 @@
                 <div class="lv-ver-list">
                     {#each versions as v (v.at)}
                         <div class="lv-ver-row">
-                            <div class="fn__flex" style="gap: 4px; align-items: center">
+                            <div class="fn__flex" style="gap: calc(var(--lv-space-unit) * 2); align-items: center">
                                 <button class="b3-button b3-button--small" onclick={() => (verOpenAt = verOpenAt === v.at ? null : v.at)}>
                                     {new Date(v.at).toLocaleString()} · {v.via === "ai" ? t.detail.viaAI : t.detail.viaEditor}
                                 </button>
                                 {#if v.accepted}<LvChip tone="primary">{t.detail.accepted}</LvChip>{/if}
-                                <button class="b3-button b3-button--small" disabled={v.accepted} title={t.detail.acceptVer} onclick={() => acceptVersion?.(v.at)}>✓</button>
-                                <button class="b3-button b3-button--small" disabled={diffBusy} onclick={() => compareWithCurrent(v.at, v.md)}>{t.detail.diffCompare}</button>
+                                <button
+                                    class="b3-button b3-button--small"
+                                    disabled={v.accepted || !acceptVersion}
+                                    title={v.accepted ? t.detail.accepted : acceptVersion ? t.detail.acceptVer : t.detail.acceptUnavailable}
+                                    aria-label={`${v.accepted ? t.detail.accepted : acceptVersion ? t.detail.acceptVer : t.detail.acceptUnavailable}: ${new Date(v.at).toLocaleString()}`}
+                                    onclick={() => acceptVersion?.(v.at)}
+                                >✓</button>
+                                <button
+                                    class="b3-button b3-button--small"
+                                    disabled={diffBusy || !editorCtx}
+                                    title={!editorCtx ? t.detail.diffUnavailable : undefined}
+                                    onclick={() => compareWithCurrent(v.at, v.md)}
+                                >{t.detail.diffCompare}</button>
                             </div>
                             {#if verOpenAt === v.at}
-                                <div class="ft__smaller" style="white-space: pre-wrap; max-height: 160px; overflow: auto; margin-top: 4px; padding: 8px; border: 1px solid var(--lv-border); border-radius: 6px">{v.md}</div>
+                                <div class="ft__smaller" style="white-space: pre-wrap; max-height: 160px; overflow: auto; margin-top: 4px; padding: calc(var(--lv-space-unit) * 4); border: 1px solid var(--lv-border); border-radius: var(--lv-r-compact)">{v.md}</div>
                             {/if}
                             {#if diffAt === v.at}
                                 <div class="lv-diff">
@@ -236,7 +272,16 @@
                     {/each}
                 </div>
             {/if}
+            {#if diffBusy}<div class="ft__smaller ft__on-surface" role="status" aria-busy="true">{t.dashboard.loading}</div>{/if}
             {#if diffError}<div class="ft__smaller ft__on-surface" role="alert">{t.detail.diffLoadFail}</div>{/if}
+        {/if}
+        {#if previewLoading}
+            <div class="lv-detail-preview-state" role="status" aria-busy="true">{t.dashboard.loading}</div>
+        {:else if previewError}
+            <div class="lv-detail-preview-error" role="alert">
+                <span>{t.detail.diffLoadFail}</span>
+                <button class="b3-button b3-button--small" onclick={() => loadPreview(block.id)}>{t.dashboard.refresh}</button>
+            </div>
         {/if}
         <div class="lv-detail-preview">{@html html || (block.content ?? "")}</div>
         {#if editing}
@@ -302,9 +347,10 @@
             />
         {:else}
             <!-- ko 文案在 i18n 的 review.ko 组（与 ko-panel 同源）；t.ko 顶层不存在（v0.124 起的潜伏笔误） -->
-            <button class="b3-button b3-button--text" onclick={koCtx.onregister}>
-                {t.review?.ko?.register ?? t.ko?.register ?? ""}
+            <button class="b3-button b3-button--text" disabled={koRegisterBusy} aria-busy={koRegisterBusy} onclick={registerKnowledgeObject}>
+                {koRegisterBusy ? (t.review?.ko?.saving ?? "保存中…") : (t.review?.ko?.register ?? t.ko?.register ?? "")}
             </button>
+            {#if koRegisterError}<div class="lv-detail-preview-error" role="alert">{koRegisterError} <button class="b3-button b3-button--text" disabled={koRegisterBusy} onclick={registerKnowledgeObject}>{t.review?.ko?.retryAction ?? "重试"}</button></div>{/if}
         {/if}
     {/if}
     {#if relationsCtx}
@@ -319,51 +365,60 @@
 </LvDrawer>
 
 <style>
-    .lv-detail-preview { margin-bottom: var(--lv-sp-4); }
-    .lv-detail-meta div { padding: 2px 0; }
+    .lv-detail-preview { margin-bottom: var(--lv-sp-4); overflow-wrap: anywhere; }
+    .lv-detail-preview-state,
+    .lv-detail-preview-error {
+        display: flex;
+        align-items: center;
+        gap: var(--lv-sp-2);
+        margin-bottom: var(--lv-sp-2);
+        color: var(--lv-color-text-muted);
+    }
+    .lv-detail-preview-error { color: var(--lv-color-danger); }
+    .lv-detail-meta div { padding: calc(var(--lv-space-unit) * 1) 0; }
 
     /* T05 分面导航（R52 segmented 同构） */
     .lv-facets {
         display: flex;
-        gap: 2px;
-        padding: 3px;
+        gap: calc(var(--lv-space-unit) * 1);
+        padding: calc(var(--lv-space-unit) * 1 + var(--lv-space-hairline));
         border: 1px solid var(--lv-border);
         border-radius: var(--lv-r-s);
-        background: color-mix(in srgb, var(--b3-theme-on-background) 5%, transparent);
+        background: color-mix(in srgb, var(--lv-color-text) 5%, transparent);
         margin-bottom: var(--lv-sp-4);
     }
     .lv-facet {
         flex: 1;
         border: none;
         background: transparent;
-        color: var(--b3-theme-on-surface);
-        font-size: 12px;
-        padding: 4px 8px;
-        border-radius: 6px;
+        color: var(--lv-color-text-muted);
+        font-size: var(--lv-type-control-size);
+        padding: calc(var(--lv-space-unit) * 2) calc(var(--lv-space-unit) * 4);
+        border-radius: var(--lv-r-compact);
         cursor: pointer;
         transition: background var(--lv-dur-1) var(--lv-ease), color var(--lv-dur-1) var(--lv-ease);
     }
     .lv-facet-active {
-        background: var(--b3-theme-surface);
-        color: var(--b3-theme-primary);
-        font-weight: 600;
+        background: var(--lv-color-surface);
+        color: var(--lv-color-brand);
+        font-weight: var(--lv-fw-semibold);
         box-shadow: var(--lv-shadow-1);
     }
     .lv-hist-list { max-height: 320px; overflow: auto; }
 
     /* T05 版本对比（docs/40）：逐行差异 */
     .lv-diff {
-        margin-top: 4px;
-        padding: 6px 8px;
+        margin-top: calc(var(--lv-space-unit) * 2);
+        padding: calc(var(--lv-space-unit) * 3) calc(var(--lv-space-unit) * 4);
         border: 1px solid var(--lv-border);
-        border-radius: 6px;
+        border-radius: var(--lv-r-compact);
         max-height: 220px;
         overflow: auto;
-        font-size: 12px;
-        line-height: 1.6;
+        font-size: var(--lv-type-control-size);
+        line-height: var(--lv-lh-reading);
     }
-    .lv-diff-row { white-space: pre-wrap; word-break: break-word; padding: 0 4px; }
-    .lv-diff-del { background: var(--lv-danger-soft); color: var(--b3-theme-error); }
-    .lv-diff-add { background: var(--lv-good-soft); color: var(--b3-theme-success, var(--b3-theme-primary)); }
+    .lv-diff-row { white-space: pre-wrap; word-break: break-word; padding: 0 calc(var(--lv-space-unit) * 2); }
+    .lv-diff-del { background: var(--lv-danger-soft); color: var(--lv-color-danger); }
+    .lv-diff-add { background: var(--lv-good-soft); color: var(--lv-color-success); }
     .lv-diff-same { opacity: 0.65; }
 </style>

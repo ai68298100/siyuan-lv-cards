@@ -52,6 +52,14 @@
 <div class="lv-marker b3-typography">
     <div class="lv-marker-hint">{t.markerHint.replace("${n}", String(items.length))}</div>
     {#if errorMsg}<div class="lv-marker-error" role="alert">{errorMsg}</div>{/if}
+    {#if items.length === 0}
+        <div class="lv-marker-empty lv-card2" role="status">
+            <div class="lv-marker-empty-icon" aria-hidden="true">✦</div>
+            <div>{t.markerEmpty ?? "当前文档没有找到可制卡的标记内容"}</div>
+            <div class="ft__smaller ft__on-surface">{t.markerEmptyHint ?? "请先添加 :: 问答或？整块标记，再重新扫描。"}</div>
+            <button class="b3-button b3-button--outline" onclick={onClose}>{t.markerCancel}</button>
+        </div>
+    {:else}
     <div class="lv-marker-list">
         {#each items as it (it.blockID)}
             <label class="lv-marker-item">
@@ -63,25 +71,26 @@
             </label>
         {/each}
     </div>
+    {/if}
     <div class="fn__flex lv-marker-actions">
         <span class="fn__flex-1"></span>
         <button class="b3-button b3-button--cancel" onclick={onClose}>{t.markerCancel}</button>
-        <button class="b3-button b3-button--text" disabled={picked.size === 0 || busy} onclick={confirm}>
-            {t.markerConfirm.replace("${n}", String(picked.size))}
+        <button class="b3-button b3-button--text" disabled={picked.size === 0 || busy} aria-busy={busy} onclick={confirm}>
+            {busy ? (t.markerSaving ?? "正在制卡…") : t.markerConfirm.replace("${n}", String(picked.size))}
         </button>
     </div>
 </div>
 
 <style>
     .lv-marker-hint {
-        font-size: 12px;
-        color: var(--b3-theme-on-surface);
+        font-size: var(--lv-type-control-size);
+        color: var(--lv-color-text-muted);
         margin-bottom: var(--lv-sp-3);
     }
     .lv-marker-error {
         margin-bottom: var(--lv-sp-2);
-        color: var(--b3-theme-error);
-        font-size: 12px;
+        color: var(--lv-color-danger);
+        font-size: var(--lv-type-control-size);
     }
     .lv-marker-list {
         max-height: 46vh;
@@ -104,7 +113,15 @@
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
-        font-size: 13px;
+        font-size: var(--lv-type-body-size);
     }
     .lv-marker-actions { margin-top: var(--lv-sp-3); gap: var(--lv-sp-2); }
+    .lv-marker-empty {
+        display: flex; flex-direction: column; align-items: center; gap: var(--lv-sp-2);
+        padding: var(--lv-sp-5); text-align: center; color: var(--lv-color-text-muted);
+    }
+    .lv-marker-empty-icon {
+        width: 44px; height: 44px; border-radius: var(--lv-r-circle); display: flex; align-items: center;
+        justify-content: center; background: var(--lv-primary-soft); color: var(--lv-color-brand); font-size: 18px;
+    }
 </style>

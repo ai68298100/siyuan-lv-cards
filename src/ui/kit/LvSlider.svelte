@@ -27,16 +27,16 @@
     .lv-slider {
         display: inline-flex;
         align-items: center;
-        gap: var(--lv-sp-2, 8px);
+        gap: var(--lv-sp-2, calc(var(--lv-space-unit) * 4));
     }
     .lv-slider input[type="range"] {
         width: 140px;
-        accent-color: var(--b3-theme-primary);
+        accent-color: var(--lv-color-brand);
     }
     .lv-slider-val {
-        font-size: 12px;
+        font-size: var(--lv-type-control-size);
         font-variant-numeric: tabular-nums;
-        color: var(--b3-theme-on-surface);
+        color: var(--lv-color-text-muted);
         min-width: 34px;
         text-align: right;
     }

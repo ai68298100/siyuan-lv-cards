@@ -11,6 +11,17 @@ export interface SessionState {
     counters: { new: number; review: number; forget: number; skip: number };
     /** BI-8：收工原因（目标完成/时间到/精力不足/疑问待解决/手动结束）；未收集为空 */
     endReason?: EndReason | null;
+    /** 队列自然清空后标记为已完成；旧快照缺省为未完成 */
+    completed?: boolean;
+}
+
+export interface SessionProgressSnapshot {
+    date?: string;
+    reviewedIDs?: readonly string[];
+    skippedIDs?: readonly string[];
+    counters?: Partial<SessionState["counters"]>;
+    endReason?: EndReason | null;
+    completed?: boolean;
 }
 
 /** BI-8：收工原因白名单（「验收：按目标完成、时间到、精力不足、疑问待解决等原因收工」） */
@@ -27,8 +38,24 @@ export function withEndReason(s: SessionState, reason: EndReason): SessionState 
     return { ...s, endReason: asEndReason(reason) };
 }
 
+export function hasSessionProgress(s: SessionProgressSnapshot | null | undefined): boolean {
+    if (!s) return false;
+    const c = s.counters;
+    return (s.reviewedIDs?.length ?? 0) > 0
+        || (s.skippedIDs?.length ?? 0) > 0
+        || (c?.new ?? 0) + (c?.review ?? 0) + (c?.forget ?? 0) + (c?.skip ?? 0) > 0;
+}
+
+export function isSessionLive(s: SessionProgressSnapshot | null | undefined, today: string): boolean {
+    return !!s && s.date === today && s.completed !== true && !s.endReason && hasSessionProgress(s);
+}
+
+export function markSessionCompleted(s: SessionState): SessionState {
+    return { ...s, completed: true };
+}
+
 export function emptySessionState(): SessionState {
-    return { date: "", reviewedIDs: [], skippedIDs: [], counters: { new: 0, review: 0, forget: 0, skip: 0 } };
+    return { date: "", reviewedIDs: [], skippedIDs: [], counters: { new: 0, review: 0, forget: 0, skip: 0 }, completed: false };
 }
 
 const ID_LIST_MAX = 10000;
@@ -69,5 +96,6 @@ export function normalizeSessionState(raw: unknown, today: string): SessionState
             skip: cleanCount(d.counters?.skip),
         },
         endReason: asEndReason((d as Partial<SessionState>).endReason),
+        completed: (d as Partial<SessionState>).completed === true,
     };
 }

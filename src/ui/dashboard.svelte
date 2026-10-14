@@ -3,18 +3,20 @@
     import { fade } from "svelte/transition";
     import { getRiffDecks, getRiffCards, getRiffDueCards, type RiffDeck } from "@/api/riff";
     import { dueCache } from "@/api/due-shared";
+    import { isSessionLive, type EndReason } from "@/core/session-state";
     import { buildDeckDashboard, type DeckDashboardRow } from "@/core/deck-dashboard";
     import { srExportLine, composeSrExport } from "@/core/obsidian-import";
     import { getFlashcardStatistics, summarizeStatistics, type MigrationStatus } from "@/api/flashcardV2";
     import { calcStreak, lastNDays, localDate, studySecondsOn, coverageStats, deckCoverage, computeRetention, computeRetentionCurve, reviewStatsFor, weekCompare, calcMilestones, calcXp, type RevlogData, type RetentionResult, type CurvePoint, type WeekDelta, type Milestones, type XpResult, type CoverageStats, type DeckCoverage } from "@/core/revlog";
     import { buildForecast, buildMonthGrid, dueMapFromForecast, type ForecastResult, type CalendarCell } from "@/core/forecast";
     import { openTab, showMessage } from "siyuan";
+    import { friendlyError } from "@/api/errors";
+    import { getMotionDuration } from "./kit/motion";
     import LvPage from "./kit/LvPage.svelte";
     import LvSection from "./kit/LvSection.svelte";
     import LvStat from "./kit/LvStat.svelte";
     import LvHeatmap from "./kit/LvHeatmap.svelte";
     import LvChip from "./kit/LvChip.svelte";
-    import LvEmpty from "./kit/LvEmpty.svelte";
     import LvError from "./kit/LvError.svelte";
     import LvCalendar from "./kit/LvCalendar.svelte";
 
@@ -25,6 +27,9 @@
         getV2Status: () => MigrationStatus | null;
         getDailyTargets: () => { new: number; review: number };
         openReview: () => void;
+        /** 空库时的直接制卡入口；与上手引导并列，避免新用户只能先看说明。 */
+        openQuickCard?: () => void;
+        openManagerDeck?: (deckID: string, deckName: string) => void;
         openManager: () => void;
         openOnboarding: () => void;
         getAIBatches: () => { id: string; date: string; deckID: string; blockIDs: string[]; tokens?: number }[];
@@ -53,7 +58,7 @@
         /** BJ-4：错误原因分布统计（遗忘卡标注；口径=当日或全量） */
         getErrorReasonStats?: () => { reason: string; count: number }[];
         /** T01 今日行动 hero（docs/39 批 2）：当日会话状态（续场判断；可缺省） */
-        getSessionState?: () => { date: string; counters: { new: number; review: number; forget: number; skip: number }; endReason?: string | null };
+        getSessionState?: () => { date: string; reviewedIDs?: string[]; skippedIDs?: string[]; counters: { new: number; review: number; forget: number; skip: number }; endReason?: EndReason | null; completed?: boolean };
         /** T01 可用时间（docs/40）：hero 选择落偏好，复习开场默认预算 */
         getSessionBudget?: () => number;
         setSessionBudget?: (min: number) => void;
@@ -63,9 +68,11 @@
         /** T08 待处理聚合（docs/40 批 5 简化版） */
         getInboxOpenCount?: () => number;
         getSuspendedCount?: () => number;
-        restoreSuspendedToday?: () => number;
+        restoreSuspendedToday?: () => Promise<number>;
         /** 直达 hub 其他页签（收件箱等） */
         openHubTab?: (id: string) => void;
+        /** 把可信的今日到期数同步给 Hub 导航；读取开始/失败时传 null，避免显示过期数字。 */
+        onDueCount?: (count: number | null) => void;
     }
 
     let { ctx }: { ctx: DashboardCtx } = $props();
@@ -82,11 +89,17 @@
     // T01 可用时间（docs/40）：hero 选择，落偏好并在复习开场生效
     let sessionBudget = $state(15);
     const BUDGET_CHOICES = [0, 5, 15, 30, 60] as const;
+    // 本地日期跨午夜后驱动页眉与本周视图重算；避免长时间驻留时“今日”停在前一天。
+    let dayTick = $state(Date.now());
+    let dayBoundaryTimer: ReturnType<typeof setTimeout> | null = null;
     // T08 待处理聚合（docs/40 批 5 简化版）：疑问/暂停/续传
     let inboxOpen = $state(0);
     let suspended = $state(0);
+    let suspendedRestoreBusy = $state(false);
+    let suspendedRestoreError = $state("");
     // 页眉日期（R53 .page-head eyebrow 口径）：本地日期 YYYY.MM.DD
     function heroDateText(): string {
+        void dayTick;
         const d = new Date();
         return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
     }
@@ -240,7 +253,7 @@
         try {
             await ctx.writeReportDoc(buildReportMd());
         } catch (e: any) {
-            writeError = e?.message ?? String(e);
+            writeError = friendlyError(e, t);
         } finally {
             writeBusy = false;
         }
@@ -253,6 +266,37 @@
             return -1;
         }
         return Math.min(100, Math.round((todayReview / target) * 100));
+    }
+
+    function heroActionLabel(): string {
+        if (totalCards === 0 && ctx.openQuickCard) return t.cmdQuickCard ?? "快速制卡";
+        if (sessLive) return t.dashboard.heroResume;
+        if (dueCount > 0 || newCount > 0) return t.dashboard.heroStart;
+        return t.dashboard.noDueAction ?? t.hubTabManage ?? "整理卡片";
+    }
+
+    function heroAction(): void {
+        if (totalCards === 0 && ctx.openQuickCard) {
+            ctx.openQuickCard();
+        } else if (dueCount > 0 || newCount > 0 || sessLive) {
+            ctx.openReview();
+        } else {
+            ctx.openManager();
+        }
+    }
+
+    async function restoreSuspendedToday() {
+        if (suspendedRestoreBusy || !ctx.restoreSuspendedToday) return;
+        suspendedRestoreBusy = true;
+        suspendedRestoreError = "";
+        try {
+            suspended = await ctx.restoreSuspendedToday();
+        } catch (e) {
+            const detail = friendlyError(e, t);
+            suspendedRestoreError = t.dashboard.todoSuspendedFailed.replace("${error}", detail);
+        } finally {
+            suspendedRestoreBusy = false;
+        }
     }
 
     /** hero 环首绘（灵动感）：先画 0 弧，下一帧过渡到目标值；reduced-motion 时 --lv-dur-3=0 直落 */
@@ -268,11 +312,44 @@
         return heat.slice(-7).map(h => h.stat.review);
     }
 
+    /** 本周星期一至星期日的本地记录；未来日期和未知记录保持为空，不补造学习量。 */
+    function weekOverview() {
+        void dayTick;
+        const today = new Date();
+        const monday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        const weekday = (today.getDay() + 6) % 7;
+        monday.setDate(monday.getDate() - weekday);
+        const days = Array.from({ length: 7 }, (_, index) => {
+            const date = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + index);
+            const key = localDate(date.getTime());
+            const stat = heat.find(item => item.date === key)?.stat;
+            const reviews = stat?.review ?? 0;
+            const newCards = stat?.new ?? 0;
+            return { date, index, reviews, newCards, active: reviews + newCards > 0, future: index > weekday, today: index === weekday };
+        });
+        return {
+            days,
+            start: days[0].date,
+            end: days[6].date,
+            activeDays: days.filter(day => day.active).length,
+            reviews: days.reduce((sum, day) => sum + day.reviews, 0),
+        };
+    }
+    const currentWeek = $derived(weekOverview());
+    const weekDateLabel = $derived.by(() => {
+        const format = (date: Date) => date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+        return t.dashboard.weekSubtitle
+            .replace("${start}", format(currentWeek.start))
+            .replace("${end}", format(currentWeek.end));
+    });
+
     // ---- T14 学习日历与负载预测（docs/41 P0 · docs/42 §4）：深度统计区内懒加载，预测只读不改调度 ----
     let calForecast = $state<ForecastResult | null>(null);
     let calCells = $state<CalendarCell[]>([]);
     let calLoading = $state(false);
     let calLoadedOnce = $state(false);
+    let calError = $state("");
+    let calSeq = 0;
 
     // 首次展开深度统计时拉取一次；此后随 refresh() 的 heat 更新不再自动重拉（预测是旁路增强）
     $effect(() => {
@@ -284,6 +361,8 @@
     let ddRows = $state<DeckDashboardRow[]>([]);
     let ddLoading = $state(false);
     let ddLoadedOnce = $state(false);
+    let ddError = $state("");
+    let ddSeq = 0;
 
     function ddStripHtml(html: string): string {
         const div = document.createElement("div");
@@ -328,26 +407,37 @@
 
     async function loadDeckDashboard() {
         if (ddLoading || decks.length === 0) return;
+        const seq = ++ddSeq;
         ddLoading = true;
+        ddError = "";
         try {
             const dueByDeck = new Map<string, { due: number; newCards: number }>();
             const top = [...decks].sort((a, b) => (b.size ?? 0) - (a.size ?? 0)).slice(0, 12);
-            for (const d of top) {
-                try {
-                    const due = await getRiffDueCards(d.id, []);
-                    dueByDeck.set(d.id, { due: due.unreviewedOldCardCount ?? 0, newCards: due.unreviewedNewCardCount ?? 0 });
-                } catch { /* 单卡组失败按 0 处理，不影响其余行 */ }
+            const dueResults = await Promise.all(top.map(async d => {
+                const due = await getRiffDueCards(d.id, []);
+                return [d.id, { due: due.unreviewedOldCardCount ?? 0, newCards: due.unreviewedNewCardCount ?? 0 }] as const;
+            }));
+            if (seq !== ddSeq) return;
+            for (const [id, due] of dueResults) {
+                dueByDeck.set(id, due);
             }
             ddRows = buildDeckDashboard(ctx.getRevlog().entries, decks.map(d => d.id), dueByDeck, { now: new Date() });
             ddLoadedOnce = true;
+        } catch (e) {
+            if (seq === ddSeq) {
+                ddError = friendlyError(e, t);
+                ddRows = [];
+            }
         } finally {
-            ddLoading = false;
+            if (seq === ddSeq) ddLoading = false;
         }
     }
 
     async function loadForecast() {
         if (calLoading) return;
+        const seq = ++calSeq;
         calLoading = true;
+        calError = "";
         try {
             const now = new Date();
             const cards: { due: string; state: number }[] = [];
@@ -363,14 +453,17 @@
                 }
                 page += 1;
             } while (page <= pageCount && page <= 20);
+            if (seq !== calSeq) return;
             calForecast = buildForecast(cards, { today: now, horizonDays: 14, dailyNewTarget: targets.new });
             const dueByDate = dueMapFromForecast(calForecast.days);
             const reviewsByDate = new Map(heat.map(h => [h.date, h.stat.review]));
             calCells = buildMonthGrid(now.getFullYear(), now.getMonth() + 1, now, reviewsByDate, dueByDate);
             calLoadedOnce = true;
-        } catch { /* 日历失败静默：预测是旁路增强，不打断统计区 */ }
+        } catch (e) {
+            if (seq === calSeq) calError = friendlyError(e, t);
+        }
         finally {
-            calLoading = false;
+            if (seq === calSeq) calLoading = false;
         }
     }
 
@@ -393,6 +486,7 @@
         const seq = ++refreshSeq;
         loading = true;
         errorMsg = "";
+        ctx.onDueCount?.(null);
         try {
             // 性能（docs/40 收尾）：三个异步源并行——文档归属/V2 统计的 SQL 不再串行阻塞
             // hero 统计（到期数等）的渲染；快路径先行呈现，慢面板就绪后渐进补齐
@@ -424,12 +518,12 @@
             koStats = ctx.getCapabilityShare?.() ?? null;
             errStats = ctx.getErrorReasonStats?.() ?? null;
             dueCount = due.unreviewedCount;
+            ctx.onDueCount?.(due.unreviewedCount);
             newCount = due.unreviewedNewCardCount;
             const sess = ctx.getSessionState?.();
             const d = new Date();
             const localToday = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-            sessLive = !!sess && sess.date === localToday && !sess.endReason
-                && (sess.counters.new + sess.counters.review + sess.counters.forget) > 0;
+            sessLive = isSessionLive(sess, localToday);
             sessReps = sessLive ? sess!.counters.new + sess!.counters.review + sess!.counters.forget : 0;
             sessionBudget = ctx.getSessionBudget?.() ?? 15;
             deepOpen = ctx.getDeepStatsOpen?.() ?? false;
@@ -480,7 +574,7 @@
             }
         } catch (e: any) {
             if (seq === refreshSeq) {
-                errorMsg = e?.message ?? String(e);
+                errorMsg = friendlyError(e, t);
             }
         } finally {
             if (seq === refreshSeq) {
@@ -491,6 +585,18 @@
 
     onMount(() => {
         refresh();
+        const scheduleDayBoundary = () => {
+            const now = new Date();
+            const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+            const delay = Math.max(1_000, next.getTime() - now.getTime() + 50);
+            dayBoundaryTimer = setTimeout(() => {
+                dayBoundaryTimer = null;
+                dayTick = Date.now();
+                void refresh();
+                scheduleDayBoundary();
+            }, delay);
+        };
+        scheduleDayBoundary();
         // 会话完成联动（549）+ 评分联动（AT-11）：跨页签失效总览缓存
         const offFinished = ctx.onSessionFinished?.(() => refresh());
         const offReviewed = ctx.onReviewed?.(() => scheduleRefresh());
@@ -502,6 +608,10 @@
             if (reviewedTimer) {
                 clearTimeout(reviewedTimer);
                 reviewedTimer = null;
+            }
+            if (dayBoundaryTimer) {
+                clearTimeout(dayBoundaryTimer);
+                dayBoundaryTimer = null;
             }
         };
     });
@@ -519,8 +629,8 @@
 
     {#if writeError}
         <!-- AR-5：写入失败原因就近展示（按钮 title 同步提示） -->
-        <div class="lv-glass" style="border-color: var(--b3-theme-error); padding: 6px 10px; margin-bottom: 8px">
-            <span class="ft__smaller" style="color: var(--b3-theme-error)">{writeError}</span>
+        <div class="lv-glass" style="border-color: var(--lv-color-danger); padding: 6px 10px; margin-bottom: calc(var(--lv-space-unit) * 4)">
+            <span class="ft__smaller" style="color: var(--lv-color-danger)">{writeError}</span>
         </div>
     {/if}
     {#if ctx.getV2Status()}
@@ -537,7 +647,7 @@
         </div>
     {/if}
 
-    {#if loading}
+    {#if loading && !hasLoadedSnapshot}
         <!-- 感知性能：骨架对位真实布局（hero + 四瓦片），加载完成不跳动 -->
         <div class="lv-loading" aria-busy="true">
             <div class="lv-skeleton lv-sk-hero"></div>
@@ -547,7 +657,31 @@
                 {/each}
             </div>
         </div>
+    {:else if errorMsg && !hasLoadedSnapshot}
+        <LvError message={errorMsg} onretry={refresh} retryLabel={t.dashboard.refresh} />
+    {:else if totalCards === 0}
+        {#if errorMsg}<LvError message={errorMsg} onretry={refresh} retryLabel={t.dashboard.refresh} />{/if}
+        {#if loading}<div class="lv-refresh-status" role="status" aria-live="polite">{t.dashboard.refreshing ?? t.dashboard.loading}</div>{/if}
+        <section class="lv-first-use" aria-labelledby="lv-first-use-title">
+            <div class="lv-eyebrow">{t.hubPrimaryToday ?? "今日"}</div>
+            <h2 id="lv-first-use-title">{t.dashboard.emptyStateTitle ?? "让第一张卡，简单一点"}</h2>
+            <p>{t.dashboard.emptyStateDesc ?? t.dashboard.onboardingHint}</p>
+            <div class="lv-first-use-actions">
+                {#if ctx.openQuickCard}
+                <button class="b3-button lv-btn-primary" disabled={!ctx.openQuickCard} aria-describedby={!ctx.openQuickCard ? "lv-first-use-title" : undefined} onclick={() => ctx.openQuickCard?.()}>{t.dashboard.emptyStateCreate ?? t.cmdQuickCard ?? "新建闪卡"}</button>
+                {/if}
+                <button class="b3-button b3-button--outline" onclick={ctx.openOnboarding}>{t.dashboard.emptyStateTry ?? t.dashboard.onboardingStart}</button>
+            </div>
+            <div class="lv-first-use-steps">
+                <div><span>1</span><p>{t.dashboard.emptyStepSource ?? "选一段值得记住的内容"}</p></div>
+                <div><span>2</span><p>{t.dashboard.emptyStepQuestion ?? "写一个清楚的问题"}</p></div>
+                <div><span>3</span><p>{t.dashboard.emptyStepRecall ?? "先回忆，再对照答案"}</p></div>
+            </div>
+        </section>
     {:else}
+        {#if loading}
+            <div class="lv-refresh-status" role="status" aria-live="polite">{t.dashboard.refreshing ?? t.dashboard.loading}</div>
+        {/if}
         {#if errorMsg}
             <LvError message={errorMsg} onretry={refresh} retryLabel={t.dashboard.refresh} />
         {/if}
@@ -558,11 +692,11 @@
             </div>
         {/if}
 
-        <!-- ADR-7：未完成的 AI 导入提示——总览即可见，点击打开向导（恢复横幅在其中） -->
+        <!-- AI 写入状态可能未知；所有入口统一进入恢复中心核对。 -->
         {#if unfinishedAI}
             <button
                 class="lv-card2 lv-unfinished-ai"
-                onclick={() => ctx.openAIWizard?.()}
+                onclick={() => ctx.openHubTab ? ctx.openHubTab("recovery") : ctx.openAIWizard?.()}
             >
                 <span>⏳ {t.dashboard.unfinishedAI
                     .replace("${done}", String(unfinishedAI.done))
@@ -573,6 +707,8 @@
         <!-- AR-8 错误态优先级：首次加载失败（无任何成功数据）时只显示错误+重试，
              不同时展示「空库→引导」误导与全 0 统计；有旧数据时横幅叠加旧值可见（标注上次刷新） -->
         <!-- T01 今日行动 hero（R52 .hero 结构）：徽章行 / 大标题 / muted 描述 / CTA 行 -->
+        <div class="lv-today-overview">
+        <div class="lv-today-primary">
         <div class="lv-hero">
             <div class="lv-hero-text">
                 <div class="lv-hero-badge-row">
@@ -581,11 +717,11 @@
                     {/if}
                     <!-- T01 可用时间（R52 hero「可用时间 [15 分钟▾]」）：选择落偏好，复习开场生效；
                          日期 eyebrow 已上移页头，无续场时徽章行只留预算选择（不重复日期） -->
-                    <div class="fn__flex" style="gap: 6px; align-items: center">
+                    <div class="fn__flex" style="gap: calc(var(--lv-space-unit) * 3); align-items: center">
                         <span class="ft__smaller ft__on-surface">{t.dashboard.heroTimeBudget}</span>
                         <select
                             class="b3-select"
-                            style="font-size: 12px; padding: 2px 8px"
+                            style="font-size: var(--lv-type-control-size); padding: 2px 8px"
                             aria-label={t.dashboard.heroTimeBudget}
                             value={String(sessionBudget)}
                             onchange={(e) => ctx.setSessionBudget?.(Number((e.currentTarget as HTMLSelectElement).value))}
@@ -597,18 +733,19 @@
                     </div>
                 </div>
                 <div class="lv-hero-title">
-                    {sessLive ? t.dashboard.heroResumeTitle : t.dashboard.heroStartTitle}
+                    {totalCards === 0 ? (t.dashboard.emptyHeroTitle ?? t.dashboard.heroStartTitle) : sessLive ? t.dashboard.heroResumeTitle : dueCount > 0 || newCount > 0 ? t.dashboard.heroStartTitle : t.dashboard.noDueTitle ?? t.dashboard.heroStartTitle}
                 </div>
                 <p class="lv-hero-desc">
-                    {#if sessLive}{t.dashboard.heroResumeLine.replace("${n}", String(sessReps))} · {/if}{t.dashboard.todayDue} {dueCount} · {t.dashboard.newCards} {newCount}
+                    {#if sessLive}{t.dashboard.heroResumeLine.replace("${n}", String(sessReps))} · {/if}
+                    {t.dashboard.dueBreakdown?.replace("${total}", String(dueCount)).replace("${new}", String(newCount)).replace("${review}", String(oldCount)) ?? `${t.dashboard.todayDue} ${dueCount} · ${t.dashboard.newCards} ${newCount} · ${t.dashboard.reviewCards} ${oldCount}`}
                 </p>
                 <div class="lv-hero-cta">
-                    <button class="b3-button lv-btn-primary" disabled={loading && !hasLoadedSnapshot} onclick={() => ctx.openReview()}>
-                        {sessLive ? t.dashboard.heroResume : t.dashboard.heroStart}
+                    <button class="b3-button lv-btn-primary" disabled={loading && !hasLoadedSnapshot} onclick={heroAction}>
+                        {heroActionLabel()}
                     </button>
                     <!-- R53 .hero .cta 右侧说明：有到期或目标才展示（不堆 0 值） -->
                     {#if dueCount > 0 || targets.review > 0}
-                        <span class="lv-hero-remaining">{t.dashboard.todayDue} {dueCount}{#if targets.review > 0} · {targetPct()}%{/if}</span>
+                <span class="lv-hero-remaining">{t.dashboard.todayDue} {dueCount}{#if targets.review > 0} · {targetPct()}%{/if}</span>
                     {/if}
                 </div>
             </div>
@@ -628,20 +765,15 @@
             {/if}
         </div>
 
-        {#if totalCards === 0 && (!errorMsg || hasLoadedSnapshot)}
-            <LvEmpty text={t.dashboard.onboardingHint} actionLabel={t.dashboard.onboardingStart} onaction={ctx.openOnboarding} />
-        {/if}
-
-        {#if totalCards > 0 || !errorMsg || hasLoadedSnapshot}
-        <div class="fn__flex fn__flex-wrap lv-cards">
+        <div class="lv-today-stats">
             <div class="lv-stat-cell">
-                <LvStat label={t.dashboard.todayDue} value={dueCount} tone="error" animate />
+                <LvStat label={t.dashboard.todayDue} detail={t.dashboard.dueCountDetail} value={dueCount} tone="primary" animate />
             </div>
             <div class="lv-stat-cell">
-                <LvStat label={t.dashboard.newCards} value={newCount} tone="warn" animate />
+                <LvStat label={t.dashboard.newCards} detail={t.dashboard.newCardsDetail} value={newCount} tone="warn" animate />
             </div>
             <div class="lv-stat-cell">
-                <LvStat label={t.dashboard.reviewCards} value={oldCount} tone="primary" animate />
+                <LvStat label={t.dashboard.reviewCards} detail={t.dashboard.reviewCardsDetail} value={oldCount} tone="primary" animate />
             </div>
             <div class="lv-stat-cell">
                 <LvStat
@@ -654,6 +786,48 @@
                 />
             </div>
         </div>
+        </div>
+        <section class="lv-today-week lv-card2" aria-labelledby="lv-today-week-title">
+            <div class="lv-today-week-head">
+                <h2 id="lv-today-week-title">{t.dashboard.weekTitle}</h2>
+                <span aria-hidden="true">⌁</span>
+            </div>
+            <p class="lv-today-week-range">{weekDateLabel}</p>
+            <div class="lv-today-week-grid" role="list" aria-label={t.dashboard.weekDaysLabel}>
+                {#each currentWeek.days as day (day.index)}
+                    {@const label = t.dashboard.weekdays[day.index]}
+                    <div class="lv-today-week-day" class:lv-today-week-day-active={day.active} class:lv-today-week-day-today={day.today} class:lv-today-week-day-future={day.future} role="listitem" aria-label={t.dashboard.weekDayAria.replace("${weekday}", label).replace("${date}", String(day.date.getDate())).replace("${state}", day.active ? t.dashboard.weekDayActivity.replace("${review}", String(day.reviews)).replace("${new}", String(day.newCards)) : day.future ? t.dashboard.weekFuture : t.dashboard.weekDayEmpty)}>
+                        <span>{label}</span>
+                        <i aria-hidden="true">{day.active ? "✓" : day.today ? day.date.getDate() : "·"}</i>
+                    </div>
+                {/each}
+            </div>
+            <div class="lv-today-week-summary">
+                <span>{t.dashboard.weekActiveDays.replace("${n}", String(currentWeek.activeDays))}</span>
+                <strong>{currentWeek.reviews} <small>{t.dashboard.weekReviews}</small></strong>
+            </div>
+            <div class="lv-today-week-note">
+                <strong>{t.dashboard.weekPaceTitle}</strong>
+                <p>{t.dashboard.weekPaceDesc}</p>
+            </div>
+        </section>
+        </div>
+
+        {#if ctx.openManagerDeck && decks.length > 0}
+            <section class="lv-today-decks" aria-labelledby="lv-today-decks-title">
+                <div class="lv-today-decks-head">
+                    <h3 id="lv-today-decks-title">{t.dashboard.decksToday ?? "我的卡组"}</h3>
+                    <button class="b3-button b3-button--text" onclick={() => ctx.openManager()}>{t.dashboard.decksViewAll ?? t.hubTabManage}</button>
+                </div>
+                <div class="lv-today-decks-list">
+                    {#each [...decks].sort((a, b) => (b.size ?? 0) - (a.size ?? 0)).slice(0, 4) as deck (deck.id)}
+                        <button class="lv-today-deck" aria-label={`${deck.name}, ${t.dashboard.deckCardCount.replace("${n}", String(deck.size ?? 0))}`} onclick={() => ctx.openManagerDeck?.(deck.id, deck.name)}>
+                            <span class="lv-today-deck-name">{deck.name}</span>
+                            <span class="lv-today-deck-count">{t.dashboard.deckCardCount.replace("${n}", String(deck.size ?? 0))}</span>
+                        </button>
+                    {/each}
+                </div>
+            </section>
         {/if}
 
         <!-- AQ-12：本地证据口径的覆盖视图——首屏只留一行 caption；分卡组/分文档明细在深度统计区 -->
@@ -681,13 +855,21 @@
                 {#if suspended > 0}
                     <div class="lv-todo-row">
                         <span>{t.dashboard.todoSuspended.replace("${n}", String(suspended))}</span>
-                        <button class="b3-button b3-button--small" onclick={() => { ctx.restoreSuspendedToday?.(); suspended = 0; void refresh(); }}>{t.dashboard.todoSuspendedAct}</button>
+                        {#if ctx.restoreSuspendedToday}
+                            <button class="b3-button b3-button--small" disabled={suspendedRestoreBusy} aria-busy={suspendedRestoreBusy} onclick={restoreSuspendedToday}>{suspendedRestoreBusy ? t.dashboard.todoSuspendedSaving : t.dashboard.todoSuspendedAct}</button>
+                        {/if}
                     </div>
+                    {#if suspendedRestoreError}
+                        <div class="lv-todo-error">
+                            <LvError message={suspendedRestoreError} onretry={suspendedRestoreBusy ? undefined : restoreSuspendedToday} retryLabel={t.dashboard.todoSuspendedRetry} />
+                        </div>
+                    {/if}
                 {/if}
                 {#if unfinishedAI}
                     <div class="lv-todo-row">
                         <span>{t.dashboard.todoAI.replace("${n}", String(unfinishedAI.total - unfinishedAI.done))}</span>
-                        {#if ctx.openAIWizard}<button class="b3-button b3-button--small" onclick={() => ctx.openAIWizard?.()}>{t.dashboard.todoAIAct}</button>{/if}
+                        {#if ctx.openHubTab}<button class="b3-button b3-button--small" onclick={() => ctx.openHubTab?.("recovery")}>{t.dashboard.todoAIAct}</button>
+                        {:else if ctx.openAIWizard}<button class="b3-button b3-button--small" onclick={() => ctx.openAIWizard?.()}>{t.dashboard.todoAIAct}</button>{/if}
                     </div>
                 {/if}
             {/if}
@@ -699,7 +881,7 @@
         </button>
         {#if deepOpen}
         <!-- 展开入场：180ms 单次淡入（R53 动效纪律），折叠即时收起不打断 -->
-        <div in:fade={{ duration: 180 }}>
+        <div in:fade={{ duration: getMotionDuration("emphasis") }}>
         <!-- 深度统计首行：连续/用时/总量瓦片（R53 T01 上限 4——次级指标折叠在此） -->
         <div class="fn__flex fn__flex-wrap lv-cards">
             <div class="lv-stat-cell">
@@ -751,6 +933,9 @@
 
         <!-- T14 学习日历与负载预测（docs/41 P0）：过去=复习热力，未来=到期负载；首次展开拉取，只读不改调度 -->
         <LvSection title={t.dashboard.calTitle} sub={t.dashboard.calSub}>
+            {#if calError}
+                <LvError message={calError} onretry={calLoading ? undefined : loadForecast} retryLabel={t.dashboard.refresh} />
+            {/if}
             <LvCalendar
                 monthLabel={`${new Date().getFullYear()} ${t.dashboard.calMonth} ${new Date().getMonth() + 1}`}
                 cells={calCells}
@@ -772,7 +957,9 @@
 
         <!-- T-卡组仪表盘（docs/41 P1）：近 30 天本地日志按卡组聚合的排行表 -->
         <LvSection title={t.dashboard.ddTitle} sub={t.dashboard.ddSub}>
-            {#if ddRows.length === 0}
+            {#if ddError}
+                <LvError message={ddError} onretry={ddLoading ? undefined : loadDeckDashboard} retryLabel={t.dashboard.refresh} />
+            {:else if ddRows.length === 0}
                 <div class="hint">{ddLoading ? t.dashboard.loading : t.dashboard.ddEmpty}</div>
             {:else}
                 <table class="lv-table">
@@ -801,7 +988,7 @@
                         {/each}
                     </tbody>
                 </table>
-                <p class="tiny" style="margin:8px 0 0">{t.dashboard.ddNote}</p>
+                <p class="tiny" style="margin: calc(var(--lv-space-unit) * 4) 0 0">{t.dashboard.ddNote}</p>
             {/if}
         </LvSection>
 
@@ -902,16 +1089,16 @@
             {#if curve.length >= 2}
                 <svg viewBox="0 0 320 100" class="lv-curve" bind:this={curveEl}>
                     <line x1="8" y1="90" x2="312" y2="90" class="lv-curve-axis" />
-                    <polyline fill="none" stroke="var(--b3-theme-on-surface)" stroke-width="1" stroke-dasharray="4 3" opacity="0.5" points={theoryPoints(curve)} />
-                    <polyline fill="none" stroke="var(--b3-theme-on-surface)" stroke-width="1" stroke-dasharray="4 3" opacity="0.5" points={theoryPoints(curve)} />
-                    <polyline fill="none" stroke="var(--b3-theme-primary)" stroke-width="2" points={curvePoints(curve)} />
+                    <polyline fill="none" stroke="var(--lv-color-text-muted)" stroke-width="1" stroke-dasharray="4 3" opacity="0.5" points={theoryPoints(curve)} />
+                    <polyline fill="none" stroke="var(--lv-color-text-muted)" stroke-width="1" stroke-dasharray="4 3" opacity="0.5" points={theoryPoints(curve)} />
+                    <polyline fill="none" stroke="var(--lv-color-brand)" stroke-width="2" points={curvePoints(curve)} />
                     {#each curve as p (p.days)}
                         <circle cx={10 + (p.days / Math.max(...curve.map(q => q.days), 1)) * 290} cy={90 - p.rate * 80} r="2.5" class="lv-curve-dot">
                             <title>{p.days}天 · {Math.round(p.rate * 100)}% (n={p.n})</title>
                         </circle>
                     {/each}
                 </svg>
-                <div class="ft__smaller ft__on-surface" style="margin-top: 4px">{t.retention.theory}</div>
+                <div class="ft__smaller ft__on-surface" style="margin-top: calc(var(--lv-space-unit) * 2)">{t.retention.theory}</div>
             {:else}
                 <div class="lv-hint">{t.retention.curveNone}</div>
             {/if}
@@ -1044,7 +1231,70 @@
         margin-bottom: var(--lv-sp-4);
     }
 
+    .lv-today-overview { display: grid; grid-template-columns: minmax(0, 1fr) minmax(250px, 274px); align-items: stretch; gap: var(--lv-sp-5); }
+    .lv-today-primary { min-width: 0; }
+    .lv-today-primary .lv-hero { margin-bottom: var(--lv-sp-4); }
+    .lv-today-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--lv-sp-3); }
+    .lv-today-stats .lv-stat-cell { min-width: 0; max-width: none; }
+    :global(.lv-today-stats .lv-stat-cell .lv-card2) { min-width: 0; padding: 15px 14px; }
+    .lv-today-week { display: flex; min-width: 0; flex-direction: column; padding: 22px; }
+    .lv-today-week-head { display: flex; align-items: center; justify-content: space-between; gap: var(--lv-sp-2); }
+    .lv-today-week-head h2 { font-size: var(--lv-type-label-size); line-height: 1.5; font-weight: var(--lv-fw-heading); }
+    .lv-today-week-head > span { color: var(--lv-color-text-muted); }
+    .lv-today-week-range { margin-top: calc(var(--lv-space-unit) * 2 + var(--lv-space-hairline)); color: var(--lv-color-text-muted); font-size: var(--lv-type-meta-size); }
+    .lv-today-week-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: calc(var(--lv-space-unit) * 2 + var(--lv-space-hairline)); margin: 19px 0 16px; }
+    .lv-today-week-day { display: flex; min-width: 0; align-items: center; flex-direction: column; gap: calc(var(--lv-space-unit) * 4 + var(--lv-space-hairline)); color: var(--lv-color-text-muted); font-size: var(--lv-type-caption-size); }
+    .lv-today-week-day i { display: grid; width: 25px; height: 25px; place-items: center; border-radius: var(--lv-r-circle); background: var(--lv-primary-softer); font-size: var(--lv-type-meta-size); font-style: normal; }
+    .lv-today-week-day-active i { background: var(--lv-primary-soft); color: var(--lv-color-brand); }
+    .lv-today-week-day-today i { outline: 2px solid var(--lv-primary-soft); }
+    .lv-today-week-day-future { opacity: .62; }
+    .lv-today-week-summary { display: flex; align-items: center; justify-content: space-between; gap: var(--lv-sp-2); font-size: var(--lv-type-control-size); }
+    .lv-today-week-summary strong { font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .lv-today-week-summary small { color: var(--lv-color-text-muted); font-size: 10px; font-weight: var(--lv-fw-normal); }
+    .lv-today-week-note { margin-top: auto; padding: 14px; border-radius: var(--lv-r-m); background: var(--lv-warn-soft); color: var(--lv-color-text); }
+    .lv-today-week-note strong { font-size: var(--lv-type-body-size); }
+    .lv-today-week-note p { margin: calc(var(--lv-space-unit) * 2) 0 0; color: var(--lv-color-text-muted); font-size: var(--lv-type-meta-size); line-height: 1.6; }
     .lv-cards { gap: var(--lv-sp-3); margin-bottom: var(--lv-sp-4); }
+    .lv-first-use {
+        max-width: 860px;
+        margin: calc(var(--lv-space-unit) * 18) auto;
+        padding: clamp(calc(var(--lv-space-unit) * 11), 4vw, calc(var(--lv-space-unit) * 21));
+        border: 1px solid var(--lv-border);
+        border-radius: var(--lv-r-l);
+        background: var(--lv-color-surface);
+        text-align: center;
+    }
+    .lv-first-use h2 { margin: calc(var(--lv-space-unit) * 4) 0; font-size: 24px; line-height: var(--lv-lh-body); }
+    .lv-first-use > p { max-width: 560px; margin: 0 auto; color: var(--lv-color-text-muted); font-size: 14px; line-height: var(--lv-lh-relaxed); }
+    .lv-first-use-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: var(--lv-sp-2); margin: calc(var(--lv-space-unit) * 11) 0 calc(var(--lv-space-unit) * 13); }
+    .lv-first-use-actions button { min-height: 44px; }
+    .lv-first-use-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--lv-sp-3); text-align: left; }
+    .lv-first-use-steps > div { display: flex; min-width: 0; align-items: center; gap: var(--lv-sp-2); padding: var(--lv-sp-3); border-top: 1px solid var(--lv-border); }
+    .lv-first-use-steps span { display: grid; width: 28px; height: 28px; flex: none; place-items: center; border-radius: 50%; background: var(--lv-primary-soft); color: var(--lv-color-brand); font-size: var(--lv-type-control-size); font-weight: 700; }
+    .lv-first-use-steps p { color: var(--lv-color-text); font-size: 13px; line-height: var(--lv-lh-meta); }
+    .lv-refresh-status { margin: 0 0 var(--lv-sp-2); color: var(--lv-color-text-muted); font-size: var(--lv-type-control-size); }
+    .lv-today-decks { margin: var(--lv-sp-4) 0; }
+    .lv-today-decks-head { display: flex; align-items: center; justify-content: space-between; gap: var(--lv-sp-2); margin-bottom: var(--lv-sp-2); }
+    .lv-today-decks-head h3 { margin: 0; font-size: 14px; }
+    .lv-today-decks-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--lv-sp-2); }
+    .lv-today-deck { display: flex; min-width: 0; min-height: 54px; align-items: center; justify-content: space-between; gap: var(--lv-sp-2); padding: calc(var(--lv-space-unit) * 5) calc(var(--lv-space-unit) * 6 + var(--lv-space-hairline)); border: 1px solid var(--lv-border); border-radius: var(--lv-r-m); background: var(--lv-color-surface); text-align: left; cursor: pointer; }
+    .lv-today-deck:hover { border-color: var(--lv-color-brand); background: var(--lv-primary-soft); }
+    .lv-today-deck:focus-visible { outline: 2px solid var(--lv-color-brand); outline-offset: 2px; }
+    .lv-today-deck-name { min-width: 0; overflow-wrap: anywhere; font-size: var(--lv-type-body-size); font-weight: 600; }
+    .lv-today-deck-count { flex: none; color: var(--lv-color-text-muted); font-size: var(--lv-type-control-size); font-variant-numeric: tabular-nums; }
+
+    @container lv-hub (max-width: 900px) {
+        .lv-today-overview { grid-template-columns: minmax(0, 1fr) 250px; gap: var(--lv-sp-4); }
+        .lv-today-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @container lv-hub (max-width: 780px) {
+        .lv-today-overview { grid-template-columns: minmax(0, 1fr); }
+        .lv-today-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+        .lv-today-week { min-height: 230px; }
+    }
+    @container lv-hub (max-width: 560px) {
+        .lv-today-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
 
     /* AQ-12 覆盖：首屏一行 caption + 深度区行明细 */
     .lv-cov-line {
@@ -1057,7 +1307,7 @@
         gap: var(--lv-sp-3);
         padding: var(--lv-sp-2) 0;
         border-bottom: 1px solid var(--lv-border);
-        font-size: 13px;
+        font-size: var(--lv-type-body-size);
         &:last-of-type { border-bottom: none; }
         .lv-cov-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .lv-cov-seen { font-variant-numeric: tabular-nums; }
@@ -1068,7 +1318,7 @@
         margin-top: var(--lv-sp-2);
         display: flex;
         flex-direction: column;
-        gap: 2px;
+        gap: calc(var(--lv-space-unit) * 1);
     }
 
     /* T08 待处理行（docs/40 批 5）：行式布局 + 右侧动作 */
@@ -1077,26 +1327,27 @@
         align-items: center;
         justify-content: space-between;
         gap: var(--lv-sp-2);
-        font-size: 13px;
+        font-size: var(--lv-type-body-size);
         /* R52 .row：16px 行距 + 发丝分隔线（末行无线） */
         padding: var(--lv-sp-4) 0;
         border-bottom: 1px solid var(--lv-border);
     }
     .lv-todo-row:last-child { border-bottom: none; }
+    .lv-todo-error { margin-top: var(--lv-sp-2); }
     .lv-unfinished-ai {
         display: block;
         width: 100%;
         text-align: left;
-        font-size: 12px;
-        color: var(--b3-theme-on-surface);
-        border: 1px dashed var(--lv-primary-border, var(--b3-theme-primary));
+        font-size: var(--lv-type-control-size);
+        color: var(--lv-color-text-muted);
+        border: 1px dashed var(--lv-primary-border, var(--lv-color-brand));
         border-radius: var(--lv-r-m);
         padding: var(--lv-sp-2) var(--lv-sp-3);
         margin-bottom: var(--lv-sp-3);
         cursor: pointer;
         &:hover { background: var(--lv-primary-softer, transparent); }
     }
-    .lv-hint { color: var(--b3-theme-on-surface); }
+    .lv-hint { color: var(--lv-color-text-muted); }
     .lv-loading {
         display: flex;
         flex-direction: column;
@@ -1104,16 +1355,21 @@
         .lv-sk-hero { height: 172px; border-radius: var(--lv-r-l); }
         .lv-sk-tiles { display: flex; gap: var(--lv-sp-3); }
         .lv-sk-tile { flex: 1; height: 96px; border-radius: var(--lv-r-m); }
-        @media (max-width: 740px) {
+        @container lv-hub (max-width: 740px) {
             .lv-sk-tiles { flex-wrap: wrap; }
             .lv-sk-tile { flex: 1 1 40%; }
         }
     }
+    @container lv-hub (max-width: 620px) {
+        .lv-first-use { margin: var(--lv-sp-3) 0; }
+        .lv-first-use-steps { grid-template-columns: 1fr; gap: 0; }
+        .lv-first-use-steps > div { padding: var(--lv-sp-2) 0; }
+    }
 
     .lv-table .lv-deck-name .lv-arrow {
         display: inline-block;
-        margin-left: 6px;
-        color: var(--b3-theme-primary);
+        margin-left: calc(var(--lv-space-unit) * 3);
+        color: var(--lv-color-brand);
         opacity: 0;
         transform: translateX(-4px);
         transition: opacity var(--lv-dur-2) var(--lv-ease), transform var(--lv-dur-2) var(--lv-ease);
@@ -1130,8 +1386,8 @@
             padding: var(--lv-sp-3);
             background: var(--lv-primary-softer);
             border-radius: var(--lv-r-m);
-            .lv-mini-label { font-size: 11px; color: var(--b3-theme-on-surface); }
-            .lv-mini-num { font-weight: 700; font-variant-numeric: tabular-nums; }
+            .lv-mini-label { font-size: var(--lv-type-meta-size); color: var(--lv-color-text-muted); }
+            .lv-mini-num { font-weight: var(--lv-fw-bold); font-variant-numeric: tabular-nums; }
         }
     }
 
@@ -1140,7 +1396,7 @@
             display: flex; justify-content: space-between; align-items: center;
             padding: var(--lv-sp-2) 0;
             border-bottom: 1px solid var(--lv-border);
-            font-size: 13px;
+            font-size: var(--lv-type-body-size);
         }
         .lv-ret-row:last-child { border-bottom: none; }
         .lv-ret-rate { font-variant-numeric: tabular-nums; font-weight: 600; }
@@ -1149,8 +1405,8 @@
     .lv-weekdelta {
         margin-left: var(--lv-sp-1);
         font-variant-numeric: tabular-nums;
-        &--good { color: var(--b3-theme-primary); }
-        &--bad { color: var(--b3-theme-error); }
+        &--good { color: var(--lv-color-brand); }
+        &--bad { color: var(--lv-color-danger); }
     }
 
     .lv-ms-grid {
@@ -1160,15 +1416,15 @@
         text-align: center;
     }
     .lv-ms-num {
-        font-size: 20px;
-        font-weight: 700;
+        font-size: var(--lv-type-heading-size);
+        font-weight: var(--lv-fw-bold);
         font-variant-numeric: tabular-nums;
-        color: var(--b3-theme-primary);
+        color: var(--lv-color-brand);
     }
     .lv-ms-label {
-        font-size: 12px;
-        color: var(--b3-theme-on-surface);
-        margin-top: 2px;
+        font-size: var(--lv-type-control-size);
+        color: var(--lv-color-text-muted);
+        margin-top: calc(var(--lv-space-unit) * 1);
     }
 
     .lv-airow {
@@ -1184,6 +1440,6 @@
         width: 100%;
         max-width: 420px;
         .lv-curve-axis { stroke: var(--lv-border-strong); stroke-width: 1; }
-        .lv-curve-dot { fill: var(--b3-theme-primary); }
+        .lv-curve-dot { fill: var(--lv-color-brand); }
     }
 </style>

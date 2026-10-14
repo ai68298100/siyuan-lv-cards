@@ -105,6 +105,15 @@ describe("ai-jobs 存储清洗与容量（ADR-7）", () => {
         expect(r.jobs[0].candidates[0].status).toBe("pending");
     });
 
+    it("normalize collapses duplicate job IDs to the newest snapshot", () => {
+        const older = mkJob({ id: "same", status: "generating", updatedAt: NOW });
+        const newer = mkJob({ id: "same", status: "reviewing", updatedAt: NOW + 1, candidates: cands(2) });
+        const r = normalizeAIJobs({ jobs: [older, newer] });
+        expect(r.jobs).toHaveLength(1);
+        expect(r.jobs[0].status).toBe("reviewing");
+        expect(r.jobs[0].candidates).toHaveLength(2);
+    });
+
     it("pruneJobs：超 20 个优先淘汰最旧 done/canceled", () => {
         const jobs: AIJob[] = [];
         for (let i = 0; i < 25; i++) {

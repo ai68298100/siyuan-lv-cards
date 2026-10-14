@@ -38,6 +38,10 @@
         try {
             const ok = await onsave(text);
             if (!ok) errMsg = t.editor.saveFail;
+        } catch (error) {
+            // 宿主写入回调可能直接抛出网络/内核错误；保持编辑现场并给出可重试的同一保存入口。
+            const reason = error instanceof Error ? error.message : String(error);
+            errMsg = reason ? `${t.editor.saveFail}：${reason}` : t.editor.saveFail;
         } finally {
             saving = false;
         }
@@ -88,26 +92,26 @@
     .lv-editor-input {
         width: 100%;
         resize: vertical;
-        font-size: 13px;
+        font-size: var(--lv-type-body-size);
     }
     .lv-editor-diff {
         max-height: 160px;
         overflow: auto;
         padding: var(--lv-sp-2);
-        background: var(--b3-theme-background);
+        background: var(--lv-color-canvas);
         border-radius: var(--lv-r-s);
-        font-size: 13px;
+        font-size: var(--lv-type-body-size);
         white-space: pre-wrap;
         word-break: break-word;
     }
-    .lv-editor-del { color: var(--b3-theme-error); text-decoration: line-through; }
+    .lv-editor-del { color: var(--lv-color-danger); text-decoration: line-through; }
     .lv-editor-add {
-        color: var(--b3-theme-success);
+        color: var(--lv-color-success);
         text-decoration: none;
-        background: color-mix(in srgb, var(--b3-theme-success) 12%, transparent);
-        border-radius: 2px;
+        background: color-mix(in srgb, var(--lv-color-success) 12%, transparent);
+        border-radius: var(--lv-r-track);
     }
-    .lv-editor-err { color: var(--b3-theme-error); }
+    .lv-editor-err { color: var(--lv-color-danger); }
     .lv-editor-actions {
         display: flex;
         align-items: center;

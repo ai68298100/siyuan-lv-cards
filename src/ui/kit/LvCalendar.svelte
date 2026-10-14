@@ -1,6 +1,7 @@
 <script lang="ts">
     // T14 学习日历（docs/42 §3.11/§4）：过去=复习热力，未来=到期负载；纯展示，数据由宿主注入。
     import type { CalendarCell, ForecastDay } from "@/core/forecast";
+    import LvSkeleton from "./LvSkeleton.svelte";
 
     let {
         monthLabel,
@@ -26,7 +27,7 @@
 
 <div class="lv-cal">
     {#if loading}
-        <div class="lv-skeleton" style="height: 180px"></div>
+        <LvSkeleton count={1} height={180} />
     {:else}
         <div class="lv-cal-grid" aria-label={monthLabel}>
             {#each weekDays as d (d)}
@@ -51,7 +52,7 @@
                 <span class="lv-cal-sw future2"></span>
             </span>
             <span class="hint">{labels.many ?? ""}</span>
-            <span class="hint" style="margin-left:auto">{labels.note ?? ""}</span>
+            <span class="hint" style="margin-left: auto">{labels.note ?? ""}</span>
         </div>
         {#if forecast.length > 0}
             <div class="divider"></div>
@@ -72,7 +73,7 @@
                 {/if}
             </div>
         {/if}
-        {#if caption}<p class="tiny" style="margin:10px 0 0">{caption}</p>{/if}
+        {#if caption}<p class="tiny" style="margin: calc(var(--lv-space-unit) * 5) 0 0">{caption}</p>{/if}
     {/if}
 </div>
 
@@ -80,81 +81,81 @@
     .lv-cal-grid {
         display: grid;
         grid-template-columns: repeat(7, 1fr);
-        gap: 5px;
-        margin-top: 8px;
+        gap: calc(var(--lv-space-unit) * 2 + var(--lv-space-hairline));
+        margin-top: calc(var(--lv-space-unit) * 4);
         /* 密度护栏：撑满 1200px 卡时格子会变成 158×117 的巨块——限宽保持原型 .cal 的紧凑比例 */
         max-width: 640px;
     }
     .lv-cal-wd {
-        font-size: 10px;
+        font-size: var(--lv-type-caption-size);
         letter-spacing: 0.1em;
-        color: var(--b3-theme-on-surface);
+        color: var(--lv-color-text-muted);
         text-align: center;
-        font-weight: 650;
-        padding: 3px 0;
+        font-weight: var(--lv-fw-heading);
+        padding: calc(var(--lv-space-unit) * 1 + var(--lv-space-hairline)) 0;
     }
     .lv-cal-day {
         aspect-ratio: 1.35;
         border: 1px solid var(--lv-border);
-        border-radius: 8px;
-        padding: 5px 7px;
-        font-size: 11px;
-        color: var(--b3-theme-on-surface);
+        border-radius: var(--lv-r-s);
+        padding: calc(var(--lv-space-unit) * 2 + var(--lv-space-hairline)) calc(var(--lv-space-unit) * 3 + var(--lv-space-hairline));
+        font-size: var(--lv-type-meta-size);
+        color: var(--lv-color-text-muted);
         display: flex;
         flex-direction: column;
         justify-content: space-between;
         font-variant-numeric: tabular-nums;
-        background: var(--b3-theme-surface);
+        background: var(--lv-color-surface);
         min-height: 34px;
         box-sizing: border-box;
     }
-    .lv-cal-day b { font-size: 12px; color: var(--b3-theme-on-background); font-weight: 600; }
+    .lv-cal-day b { font-size: var(--lv-type-control-size); color: var(--lv-color-text); font-weight: var(--lv-fw-semibold); }
     .lv-cal-off { border-color: transparent; background: transparent; }
-    .lv-cal-day.past1 { background: color-mix(in srgb, var(--b3-theme-primary) 12%, var(--b3-theme-surface)); }
-    .lv-cal-day.past2 { background: color-mix(in srgb, var(--b3-theme-primary) 26%, var(--b3-theme-surface)); }
-    .lv-cal-day.past3 { background: color-mix(in srgb, var(--b3-theme-primary) 42%, var(--b3-theme-surface)); }
-    .lv-cal-day.past2 b, .lv-cal-day.past3 b { color: var(--b3-theme-primary); }
-    .lv-cal-day.today { border: 2px solid var(--b3-theme-primary); }
-    .lv-cal-day.future1 { background: color-mix(in srgb, var(--b3-theme-warning) 14%, var(--b3-theme-surface)); }
-    .lv-cal-day.future2 { background: color-mix(in srgb, var(--b3-theme-warning) 26%, var(--b3-theme-surface)); }
-    .lv-cal-day.future3 { background: color-mix(in srgb, var(--b3-theme-warning) 40%, var(--b3-theme-surface)); }
+    .lv-cal-day.past1 { background: color-mix(in srgb, var(--lv-color-brand) 12%, var(--lv-color-surface)); }
+    .lv-cal-day.past2 { background: color-mix(in srgb, var(--lv-color-brand) 26%, var(--lv-color-surface)); }
+    .lv-cal-day.past3 { background: color-mix(in srgb, var(--lv-color-brand) 42%, var(--lv-color-surface)); }
+    .lv-cal-day.past2 b, .lv-cal-day.past3 b { color: var(--lv-color-brand); }
+    .lv-cal-day.today { border: 2px solid var(--lv-color-brand); }
+    .lv-cal-day.future1 { background: color-mix(in srgb, var(--lv-color-warning) 14%, var(--lv-color-surface)); }
+    .lv-cal-day.future2 { background: color-mix(in srgb, var(--lv-color-warning) 26%, var(--lv-color-surface)); }
+    .lv-cal-day.future3 { background: color-mix(in srgb, var(--lv-color-warning) 40%, var(--lv-color-surface)); }
     .lv-cal-legend {
         display: flex;
         align-items: center;
-        gap: 8px;
-        margin-top: 12px;
+        gap: calc(var(--lv-space-unit) * 4);
+        margin-top: calc(var(--lv-space-unit) * 6);
         flex-wrap: wrap;
     }
     .lv-cal-sw {
         width: 14px;
         height: 14px;
-        border-radius: 4px;
+        border-radius: var(--lv-r-xs);
         display: inline-block;
         border: 1px solid var(--lv-border);
     }
-    .lv-cal-sw.past1 { background: color-mix(in srgb, var(--b3-theme-primary) 12%, var(--b3-theme-surface)); }
-    .lv-cal-sw.past2 { background: color-mix(in srgb, var(--b3-theme-primary) 26%, var(--b3-theme-surface)); }
-    .lv-cal-sw.past3 { background: color-mix(in srgb, var(--b3-theme-primary) 42%, var(--b3-theme-surface)); }
-    .lv-cal-sw.future2 { background: color-mix(in srgb, var(--b3-theme-warning) 24%, var(--b3-theme-surface)); }
+    .lv-cal-sw.past1 { background: color-mix(in srgb, var(--lv-color-brand) 12%, var(--lv-color-surface)); }
+    .lv-cal-sw.past2 { background: color-mix(in srgb, var(--lv-color-brand) 26%, var(--lv-color-surface)); }
+    .lv-cal-sw.past3 { background: color-mix(in srgb, var(--lv-color-brand) 42%, var(--lv-color-surface)); }
+    .lv-cal-sw.future2 { background: color-mix(in srgb, var(--lv-color-warning) 24%, var(--lv-color-surface)); }
     .lv-forecast {
         display: flex;
-        gap: 4px;
+        gap: calc(var(--lv-space-unit) * 2);
         align-items: flex-end;
         height: 74px;
-        margin-top: 10px;
+        margin-top: calc(var(--lv-space-unit) * 5);
     }
     .lv-forecast i {
         flex: 1;
-        background: color-mix(in srgb, var(--b3-theme-warning) 22%, var(--b3-theme-surface));
-        border-top: 2px solid var(--b3-theme-warning);
-        border-radius: 4px 4px 0 0;
+        background: color-mix(in srgb, var(--lv-color-warning) 22%, var(--lv-color-surface));
+        border-top: 2px solid var(--lv-color-warning);
+        border-radius: var(--lv-r-xs) var(--lv-r-xs) 0 0;
         min-height: 6px;
     }
     .lv-forecast i.lv-forecast-hi {
-        background: color-mix(in srgb, var(--b3-theme-warning) 40%, var(--b3-theme-surface));
+        background: color-mix(in srgb, var(--lv-color-warning) 40%, var(--lv-color-surface));
     }
     @media (max-width: 740px) {
-        .lv-cal-day { padding: 3px 4px; min-height: 26px; }
-        .lv-cal-day b { font-size: 10px; }
+        .lv-cal-day { padding: calc(var(--lv-space-unit) * 1 + var(--lv-space-hairline)) calc(var(--lv-space-unit) * 2); min-height: 26px; }
+        .lv-cal-day b { font-size: var(--lv-type-caption-size); }
     }
 </style>

@@ -16,10 +16,22 @@ describe("LvTabs", () => {
         const { container } = render(LvTabs, { tabs, active: "manage", onchange: () => {} });
         const els = [...container.querySelectorAll("[role=tab]")];
         expect(els).toHaveLength(3);
-        expect(els.map(e => e.textContent)).toEqual(["总览", "管理", "考试"]);
+        expect(els.map(e => e.querySelector(".lv-tab-label")?.textContent?.trim())).toEqual(["总览", "管理", "考试"]);
         expect(els[0].getAttribute("aria-selected")).toBe("false");
         expect(els[1].getAttribute("aria-selected")).toBe("true");
         expect(els[1].classList.contains("lv-tab-active")).toBe(true);
+    });
+
+    it("主导航页签可带一致的 SVG 图标与已知数量徽标", () => {
+        const { container } = render(LvTabs, {
+            tabs: [{ id: "today", label: "今日", icon: "home", badge: "—", badgeLabel: "待复习数量未知" }],
+            active: "today",
+            onchange: () => {},
+        });
+        const tab = container.querySelector<HTMLElement>("[role=tab]")!;
+        expect(tab.querySelector("svg path")?.getAttribute("d")).toContain("M3 10");
+        expect(tab.querySelector(".lv-tab-badge")?.textContent).toBe("—");
+        expect(tab.getAttribute("aria-label")).toBe("今日，待复习数量未知");
     });
 
     it("点击页签触发 onchange 携带该 id", async () => {

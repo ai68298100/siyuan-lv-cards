@@ -22,18 +22,18 @@
         gap: var(--lv-sp-2);
         padding: var(--lv-sp-5);
         text-align: center;
-        color: var(--b3-theme-on-surface);
+        color: var(--lv-color-text-muted);
     }
     .lv-empty-icon {
         width: 44px;
         height: 44px;
-        border-radius: 50%;
+        border-radius: var(--lv-r-circle);
         display: flex;
         align-items: center;
         justify-content: center;
         background: var(--lv-primary-soft);
-        color: var(--b3-theme-primary);
-        font-size: 18px;
+        color: var(--lv-color-brand);
+        font-size: var(--lv-type-section-size);
     }
-    .lv-empty-text { font-size: 13px; }
+    .lv-empty-text { font-size: var(--lv-type-body-size); }
 </style>

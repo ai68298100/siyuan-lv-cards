@@ -16,8 +16,8 @@
         t: any;
         /** null=尚未开档（宿主按需创建，浏览不隐式建档） */
         snapshot: LcSnapshot | null;
-        onopen: () => void;
-        ontransition: (to: ContentState, reason: string) => boolean;
+        onopen: () => void | Promise<void>;
+        ontransition: (to: ContentState, reason: string) => boolean | Promise<boolean>;
         /** BI-6 建议动作派发（宿主映射到真实入口；建议可跳过） */
         onaction: (action: NextAction) => void;
     } = $props();
@@ -28,19 +28,40 @@
         return typeof v === "string" ? v : path;
     }
 
-    const state = $derived(snapshot?.state ?? null);
-    const explain = $derived(state ? explainState(state) : null);
-    const suggestions = $derived(state ? nextActions(state) : []);
-    const targets = $derived(state ? CONTENT_TRANSITIONS[state] : []);
+    const currentState = $derived(snapshot?.state ?? null);
+    const explain = $derived(currentState ? explainState(currentState) : null);
+    const suggestions = $derived(currentState ? nextActions(currentState) : []);
+    const targets = $derived(currentState ? CONTENT_TRANSITIONS[currentState] : []);
     const historyNewestFirst = $derived(snapshot ? [...snapshot.history].reverse() : []);
+    let busy = $state(false);
+    let error = $state("");
+    let retryAction = $state<(() => Promise<void>) | null>(null);
+
+    async function run(action: () => Promise<void>) {
+        if (busy) return;
+        busy = true;
+        error = "";
+        try { await action(); retryAction = null; }
+        catch (e) {
+            error = e instanceof Error && e.message ? e.message : (t.lc.actionFailed ?? "保存失败，请重试。");
+            retryAction = action;
+        } finally { busy = false; }
+    }
+    function openLifecycle() { void run(() => Promise.resolve(onopen())); }
+    function transitionTo(to: ContentState, reason: string) {
+        void run(async () => {
+            const ok = await ontransition(to, reason);
+            if (!ok) throw new Error(t.lc.transitionFailed ?? "无法执行此状态转移，请刷新后重试。");
+        });
+    }
 
     /** BI-7 修复动作派发：resume/unarchive 是生命周期转移，其余走宿主动作映射 */
     function onRepair() {
-        if (!state || !explain?.repair) return;
+        if (!currentState || !explain?.repair) return;
         if (explain.repair === "resume") {
-            ontransition("inReview", t.lc.reason.resume);
+            transitionTo("inReview", t.lc.reason.resume);
         } else if (explain.repair === "unarchive") {
-            ontransition("source", t.lc.reason.source);
+            transitionTo("source", t.lc.reason.source);
         } else {
             onaction(explain.repair as NextAction);
         }
@@ -53,21 +74,21 @@
         <!-- R53 §3.9：未开档说明进软面板（soft 底 + outline 动作），不再是裸文字行 -->
         <div class="lv-lc-soft">
             <p class="lv-lc-hint ft__smaller ft__on-surface">{t.lc.hint}</p>
-            <button class="b3-button b3-button--outline b3-button--small" onclick={onopen}>{t.lc.open}</button>
+            <button class="b3-button b3-button--outline b3-button--small" disabled={busy} aria-busy={busy} onclick={openLifecycle}>{busy ? (t.lc.saving ?? "保存中…") : t.lc.open}</button>
         </div>
     {:else}
         <div class="lv-lc-now">
-            <LvChip tone="primary">{t.lc.state[state!]}</LvChip>
+            <LvChip tone="primary">{t.lc.state[currentState!]}</LvChip>
             {#if explain}
                 <span class="lv-lc-why ft__smaller ft__on-surface">{tv(explain.whyKey)}</span>
-                <button class="b3-button b3-button--text b3-button--small" onclick={onRepair}>{tv(explain.repairLabelKey!)}</button>
+                <button class="b3-button b3-button--text b3-button--small" disabled={busy} onclick={onRepair}>{tv(explain.repairLabelKey!)}</button>
             {/if}
         </div>
         <div class="lv-lc-next">
             <div class="ft__smaller ft__on-surface">{t.lc.next}</div>
             <div class="lv-lc-actions">
                 {#each suggestions as s (s.action)}
-                    <button class="b3-button b3-button--small" onclick={() => onaction(s.action)}>{tv(s.labelKey)}</button>
+                    <button class="b3-button b3-button--small" disabled={busy} onclick={() => onaction(s.action)}>{tv(s.labelKey)}</button>
                 {/each}
             </div>
         </div>
@@ -76,11 +97,16 @@
                 <div class="ft__smaller ft__on-surface">{t.lc.flow}</div>
                 <div class="lv-lc-actions">
                     {#each targets as to (to)}
-                        <button class="b3-button b3-button--small" onclick={() => ontransition(to, t.lc.reason[to])}>
+                        <button class="b3-button b3-button--small" disabled={busy} onclick={() => transitionTo(to, t.lc.reason[to])}>
                             {t.lc.state[to]}
                         </button>
                     {/each}
                 </div>
+            </div>
+        {/if}
+        {#if error}
+            <div class="lv-lc-error" role="alert">{error}
+                {#if retryAction}<button class="b3-button b3-button--text b3-button--small" disabled={busy} onclick={() => retryAction && void run(retryAction)}>{t.lc.retry ?? "重试"}</button>{/if}
             </div>
         {/if}
         <div class="lv-lc-history">
@@ -104,7 +130,7 @@
     .lv-lc { margin-bottom: var(--lv-sp-4); }
     .lv-lc h4 { margin: 0 0 var(--lv-sp-2); }
     .lv-lc-soft {
-        background: color-mix(in srgb, var(--b3-theme-on-background) 4%, transparent);
+        background: var(--lv-surface-hover);
         border: 1px solid var(--lv-border);
         border-radius: var(--lv-r-m);
         padding: var(--lv-sp-3);
@@ -119,6 +145,7 @@
     .lv-lc-next, .lv-lc-flow, .lv-lc-history { margin-bottom: var(--lv-sp-2); }
     .lv-lc-actions { display: flex; flex-wrap: wrap; gap: var(--lv-sp-1); margin-top: var(--lv-sp-1); }
     .lv-lc-history ul { margin: var(--lv-sp-1) 0 0; padding-left: 18px; }
+    .lv-lc-error { color: var(--lv-color-danger); overflow-wrap: anywhere; margin-bottom: var(--lv-sp-2); }
     @media (max-width: 320px) {
         .lv-lc-now { flex-direction: column; align-items: flex-start; }
     }

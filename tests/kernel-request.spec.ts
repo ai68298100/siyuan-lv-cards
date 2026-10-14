@@ -25,4 +25,20 @@ describe("requestKernelData", () => {
         await vi.advanceTimersByTimeAsync(50);
         await assertion;
     });
+
+    it("retries a transient host transport failure only for opted-in reads", async () => {
+        let attempts = 0;
+        const request = vi.fn(async () => {
+            attempts++;
+            if (attempts === 1) throw new Error("offline");
+            return { code: 0, data: { ok: true } };
+        });
+        await expect(requestKernelData(request, "/api/read", {}, 100, {
+            readOnly: true,
+            retries: 1,
+            retryDelayMs: 0,
+            dedupeKey: "read-once",
+        })).resolves.toEqual({ ok: true });
+        expect(attempts).toBe(2);
+    });
 });

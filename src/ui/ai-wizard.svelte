@@ -9,6 +9,7 @@
     import { scoreBatch, type Scorecard } from "@/core/ai-quality-scorecard";
     import { planReview, type ReviewPlan } from "@/core/ai-review-strategy";
     import { appendVersion, type CardProvenance, type ProvenanceVersion } from "@/core/ai-provenance";
+    import { getMotionDuration } from "./kit/motion";
 
     /** BU-36 分层预算报告（宿主 assembleGeneratePrompt 纯函数产出） */
     interface BudgetPreview {
@@ -23,15 +24,21 @@
     import LvChip from "./kit/LvChip.svelte";
     import LvSteps from "./kit/LvSteps.svelte";
 
-    let { i18n, initialSource = "", loadCurrentDoc, loadNotebookMaterial, loadNotebooks, generate, onCreate, onClose, getUnfinishedJob, onResumeAIJob, onAbandonAIJob, openDocById, isSourceDenied, onDenySource, sensitiveTerms = "", modelTrustKnown, previewBudget }: {
+    let { i18n, initialSource = "", initialSources = [], loadCurrentDoc, loadNotebookMaterial, loadNotebooks, generate, onCreate, onClose, closeLabel, embedded = false, onImportComplete, getUnfinishedJob, openDocById, isSourceDenied, onDenySource, sensitiveTerms = "", modelTrustKnown, previewBudget, recoveryJob = null }: {
         i18n: any;
         /** 预填材料（leech 改写联动） */
         initialSource?: string;
+        /** 带有来源身份的预填材料（收件箱联动）；正文仍由用户在本次发送前核对 */
+        initialSources?: { label: string; content: string; docId?: string; nbId?: string; inboxId?: string }[];
         /** 调用方实现：构造 prompt → 调 AI → 解析卡片（ADR-7：返回 cards + jobId 供断点续传）；第三参为取消信号（AQ-14）+ 来源 provenance（BW-9 禁止外发判定）；gen 为生成环境快照（BU-15） */
         generate: (source: string, cfg: { count: number; language: string; type: "qa" | "cloze" }, opts?: { signal?: AbortSignal; provenance?: { notebookIds?: string[]; docIds?: string[] } }) => Promise<{ cards: { q: string; a: string; d?: number }[]; jobId: string; gen?: { mode: "siyuan" | "custom"; modelId: string | null; templateHash: string } }>;
         /** ADR-7：逐卡提交——卡片携带 origIndex 指向作业 candidates 原位（✕ 移除后仍正确） */
         onCreate: (cards: { q: string; a: string; origIndex: number }[], deckID: string, deckName: string, jobId: string) => Promise<void>;
         onClose: () => void;
+        closeLabel?: string;
+        embedded?: boolean;
+        /** 正式入库完成后才回传仍保留在来源清单中的收件箱材料 ID */
+        onImportComplete?: (inboxIDs: string[]) => void;
         /** 载入当前打开文档（M2·FR6 输入源扩展；不可用时返回 null）；docId 供回源（T02） */
         loadCurrentDoc?: () => Promise<{ name: string; content: string; docId?: string } | null>;
         /** 载入笔记本范围材料（M2·FR6 扩展） */
@@ -52,8 +59,7 @@
         previewBudget?: (source: string, cfg: { count: number; language: string; type: "qa" | "cloze" }) => BudgetPreview | null;
         /** 未完成的 AI 导入（ADR-7 恢复入口）；null=无；failed=失败明细供导出 */
         getUnfinishedJob?: () => { id: string; done: number; total: number; failed: { index: number; q: string; error: string }[] } | null;
-        onResumeAIJob?: (id: string) => Promise<void>;
-        onAbandonAIJob?: (id: string) => void;
+        recoveryJob?: { id: string; sourceLabel: string; candidates: { q: string; a: string; d?: number; origIndex: number }[] } | null;
     } = $props();
     const t = $derived(i18n);
 
@@ -64,11 +70,14 @@
         content: string;
         docId?: string;
         nbId?: string;
+        inboxId?: string;
         /** 剪贴板/粘贴来源=未验证（BU-14 审阅计划因子） */
         unverified?: boolean;
     }
-    let sourceSeq = 0;
-    let sources = $state<WizardSource[]>([]);
+    // svelte-ignore state_referenced_locally -- embedded loads create a fresh component for each source request.
+    let sourceSeq = initialSources.length;
+    // svelte-ignore state_referenced_locally -- initial inbox provenance is seeded once per wizard instance.
+    let sources = $state<WizardSource[]>(initialSources.map((src, i) => ({ ...src, id: `src-${i + 1}` })));
     // BW-9：来源被登记禁止外发后，审核页仍可能保留已生成候选；重生成时给出明确原因。
     let deniedSourceKind = $state<"doc" | "notebook" | null>(null);
 
@@ -118,12 +127,11 @@
 
     /** ADR-7 恢复入口：打开时检查未完成导入 */
     let resume = $state<{ id: string; done: number; total: number; failed: { index: number; q: string; error: string }[] } | null>(null);
-    let resumeBusy = $state(false);
 
     let step = $state(1);
     // 初值语义：leech 改写预填只在打开时注入一次
     // svelte-ignore state_referenced_locally
-    let source = $state(initialSource);
+    let source = $state(initialSource || initialSources.map(src => src.content).join("\n\n"));
     let count = $state(10);
     let language = $state("中文");
     let cardType = $state<"qa" | "cloze">("qa");
@@ -204,6 +212,7 @@
     }
     /** ADR-7：当前预览对应的作业 ID（导入按 candidates 下标断点记账；重生替换内容不换绑定） */
     let currentJobId = $state("");
+    let restoredCandidates = $state(false);
     let busy = $state(false);
     let creating = $state(false);
     let errorMsg = $state("");
@@ -229,6 +238,10 @@
             return `${text} ${dict.retryAfter.replace("${n}", String(Math.ceil(v.retryAfterMs / 1000)))}`;
         }
         return text;
+    }
+
+    function errorMessage(err: unknown): string {
+        return err instanceof Error ? err.message : String(err ?? "");
     }
 
     let loadDocBusy = $state(false);
@@ -314,9 +327,9 @@
             if (!disposed && nbOptions.length > 0 && !nbId) {
                 nbId = nbOptions[0].id;
             }
-        } catch (e: any) {
+        } catch (e: unknown) {
             if (!disposed) {
-                nbError = e?.message ?? String(e);
+                nbError = errorMessage(e);
             }
         } finally {
             if (!disposed) {
@@ -343,11 +356,11 @@
             } else {
                 errorMsg = t.aiWizard.noDoc;
             }
-        } catch (e: any) {
+        } catch (e: unknown) {
             if (disposed) {
                 return;
             }
-            errorMsg = e?.message ?? String(e);
+            errorMsg = errorMessage(e);
         } finally {
             if (!disposed) {
                 loadDocBusy = false;
@@ -370,11 +383,11 @@
             } else {
                 errorMsg = t.aiWizard.noDoc;
             }
-        } catch (e: any) {
+        } catch (e: unknown) {
             if (disposed) {
                 return;
             }
-            errorMsg = e?.message ?? String(e);
+            errorMsg = errorMessage(e);
         } finally {
             if (!disposed) {
                 loadDocBusy = false;
@@ -421,8 +434,14 @@
     }
 
     onMount(async () => {
-        // ADR-7 恢复入口：打开时检查未完成的 AI 导入
+        // Unknown write outcomes are shown as a warning only; they are never replayed here.
         resume = getUnfinishedJob?.() ?? null;
+        if (recoveryJob) {
+            candidates = recoveryJob.candidates.map(candidate => ({ ...candidate, keep: true, review: "pending" as const }));
+            currentJobId = recoveryJob.id;
+            restoredCandidates = true;
+            step = 2;
+        }
         // T02：预填材料（leech 改写联动）记入来源清单
         if (initialSource.trim()) {
             addSource(t.aiWizard.srcInitial, initialSource);
@@ -435,45 +454,14 @@
             if (decks.length > 0) {
                 selected = decks[0].id;
             }
-        } catch (e: any) {
+        } catch (e: unknown) {
             if (disposed) {
                 return;
             }
-            errorMsg = e?.message ?? String(e);
+            errorMsg = errorMessage(e);
         }
         await loadNotebookOptions();
     });
-
-    async function doResume() {
-        if (!resume || resumeBusy || !onResumeAIJob) {
-            return;
-        }
-        resumeBusy = true;
-        try {
-            await onResumeAIJob(resume.id);
-            if (disposed) {
-                return;
-            }
-            resume = getUnfinishedJob?.() ?? null;
-        } catch (e: any) {
-            if (disposed) {
-                return;
-            }
-            errorMsg = e?.message ?? String(e);
-        } finally {
-            if (!disposed) {
-                resumeBusy = false;
-            }
-        }
-    }
-
-    function doAbandon() {
-        if (!resume || !onAbandonAIJob) {
-            return;
-        }
-        onAbandonAIJob(resume.id);
-        resume = null;
-    }
 
     // 生成请求守卫（AQ-14）：换源/重生/关闭向导即取消旧请求；晚到响应只接受最后一次
     let genSeq = 0;
@@ -527,7 +515,7 @@
             // ADR-7：绑定本次作业，导入时按候选下标断点记账
             currentJobId = jobId;
             step = 2;
-        } catch (e: any) {
+        } catch (e: unknown) {
             if (seq !== genSeq || isAICanceled(e)) {
                 return; // 取消/被新请求取代：静默，草稿保留可重试
             }
@@ -583,7 +571,7 @@
             } else {
                 errorMsg = t.aiWizard.emptyResult;
             }
-        } catch (e: any) {
+        } catch (e: unknown) {
             if (seq !== genSeq || isAICanceled(e)) {
                 return;
             }
@@ -627,8 +615,12 @@
             if (disposed) {
                 return;
             }
+            const inboxIDs = sources.map(src => src.inboxId).filter((id): id is string => Boolean(id));
+            if (inboxIDs.length > 0) {
+                onImportComplete?.(inboxIDs);
+            }
             closeWizard();
-        } catch (e: any) {
+        } catch (e: unknown) {
             if (disposed) {
                 return;
             }
@@ -641,11 +633,12 @@
     }
 </script>
 
-<div class="lv-aiwiz b3-typography">
+<div class:lv-aiwiz-embedded={embedded} class="lv-aiwiz b3-typography">
     {#if resume}
-        <!-- ADR-7 恢复入口：上次导入中断，可续传或放弃（已落卡保留） -->
+        <!-- A write outcome may be unknown, so recovery requires inspection rather than replay. -->
         <div class="lv-aiwiz-resume" role="status">
             <span class="fn__flex-1">{t.aiWizard.resumeHint.replace("${done}", String(resume.done)).replace("${total}", String(resume.total))}</span>
+            <span class="lv-aiwiz-resume-note">{t.aiWizard.resumeUnknown}</span>
             {#if resume.failed.length > 0}
                 <button
                     class="b3-button b3-button--small"
@@ -659,8 +652,6 @@
                     }}
                 >{t.aiWizard.resumeCopyFailed}({resume.failed.length})</button>
             {/if}
-            <button class="b3-button b3-button--text" disabled={resumeBusy} onclick={doResume}>{t.aiWizard.resumeContinue}</button>
-            <button class="b3-button b3-button--small" disabled={resumeBusy} onclick={doAbandon}>{window.siyuan.languages.cancel}</button>
         </div>
     {/if}
     <div class="lv-ob-head">
@@ -669,7 +660,7 @@
     </div>
 
     {#if step === 1}
-        <div transition:fade={{ duration: 160 }}>
+        <div transition:fade={{ duration: getMotionDuration("normal") }}>
             <!-- T02 完整工作面（docs/13 §4）：左=来源清单与载入，右=材料编辑与参数 -->
             <div class="lv-wb">
                 <div class="lv-wb-side">
@@ -685,7 +676,7 @@
                                 {#each nbOptions as n (n.id)}<option value={n.id}>{n.name}</option>{/each}
                             </select>
                             {#if nbError}
-                                <span class="ft__smaller" style="color: var(--b3-theme-error)" role="alert">{nbError}</span>
+                                <span class="ft__smaller" style="color: var(--lv-color-danger)" role="alert">{nbError}</span>
                                 <button class="b3-button b3-button--small" disabled={nbLoading} onclick={loadNotebookOptions}>{t.dashboard.refresh}</button>
                             {/if}
                         </div>
@@ -693,20 +684,20 @@
                     <button class="b3-button b3-button--small lv-wb-load" disabled={loadDocBusy} onclick={loadSelection}>{t.aiWizard.loadSelection}</button>
                     <button class="b3-button b3-button--small lv-wb-load" disabled={loadDocBusy} onclick={loadClipboard}>{t.aiWizard.loadClipboard}</button>
                     {#if sources.length > 0}
-                        <div class="lv-eyebrow" style="margin-top: 10px">{t.aiWizard.srcLedger}</div>
+                        <div class="lv-eyebrow" style="margin-top: calc(var(--lv-space-unit) * 5)">{t.aiWizard.srcLedger}</div>
                         <div class="lv-wb-chips">
                             {#each sources as src (src.id)}
                                 <div class="lv-wb-chip">
                                     <!-- T02：点标签查看该条原文（只读展开，不影响合并编辑） -->
                                     <button class="lv-wb-view" title={t.aiWizard.viewSource} onclick={() => (viewSrc = viewSrc === src.id ? null : src.id)}>{src.label} · {src.content.length}</button>
                                     {#if src.docId && openDocById}
-                                        <button class="lv-wb-icon" title={t.aiWizard.openSource} onclick={() => openDocById?.(src.docId!)}>↗</button>
+                                        <button class="lv-wb-icon" title={t.aiWizard.openSource} aria-label={t.aiWizard.openSource} onclick={() => openDocById?.(src.docId!)}>↗</button>
                                     {/if}
                                     {#if (src.docId || src.nbId) && onDenySource}
                                         <!-- BW-9：一键登记禁止外发（落盘规则 + 移除该来源） -->
-                                        <button class="lv-wb-icon" title={t.aiWizard.denySource} onclick={() => denySource(src)}>⊘</button>
+                                        <button class="lv-wb-icon" title={t.aiWizard.denySource} aria-label={t.aiWizard.denySource} onclick={() => denySource(src)}>⊘</button>
                                     {/if}
-                                    <button class="lv-wb-icon" title={t.aiWizard.srcRemove} onclick={() => removeSource(src.id)}>✕</button>
+                                    <button class="lv-wb-icon" title={t.aiWizard.srcRemove} aria-label={t.aiWizard.srcRemove} onclick={() => removeSource(src.id)}>✕</button>
                                 </div>
                                 {#if viewSrc === src.id}
                                     <div class="ft__smaller lv-wb-srcview">{src.content}</div>
@@ -723,9 +714,9 @@
                             rows="10"
                             bind:value={source}
                             placeholder={t.aiWizard.sourceEditHint}
-                            style="font-size: 12px; line-height: 1.6"
+                            style="font-size: var(--lv-type-control-size); line-height: 1.6"
                         ></textarea>
-                        <div class="ft__smaller ft__on-surface" style="margin-top: 4px; display: flex; gap: 8px; align-items: center">
+                        <div class="ft__smaller ft__on-surface" style="margin-top: calc(var(--lv-space-unit) * 2); display: flex; gap: calc(var(--lv-space-unit) * 4); align-items: center">
                             <span>{source.length} 字符 · ≈ {Math.ceil(source.length / 4)} tokens</span>
                             <div class="fn__flex-1"></div>
                             <button class="b3-button b3-button--small lv-btn-ghost" onclick={() => (source = "")}>{t.aiWizard.sourceClear}</button>
@@ -756,11 +747,11 @@
                 </div>
             </div>
             {#if errorMsg}
-                <div class="ft__smaller" style="color: var(--b3-theme-error); margin-bottom: var(--lv-sp-2)" role="alert">{errorMsg}</div>
+                <div class="ft__smaller" style="color: var(--lv-color-danger); margin-bottom: var(--lv-sp-2)" role="alert">{errorMsg}</div>
             {/if}
             {#if previewOpen}
                 <!-- T02 AI 请求预览（docs/13 §4）：实际片段/参数/估算 → 确认后才发送 -->
-                <div class="lv-notice" style="display: flex; flex-direction: column; gap: 6px">
+                <div class="lv-notice" style="display: flex; flex-direction: column; gap: calc(var(--lv-space-unit) * 3)">
                     <div class="lv-eyebrow">{t.aiWizard.previewTitle}</div>
                     <div class="ft__smaller" style="max-height: 120px; overflow: auto; white-space: pre-wrap">{source.trim().slice(0, 600)}{source.trim().length > 600 ? "…" : ""}</div>
                     <div class="ft__smaller ft__on-surface">
@@ -770,14 +761,14 @@
                     <div class="ft__smaller ft__on-surface">{t.aiWizard.previewEndpoint}</div>
                     {#if budgetPv}
                         <!-- BU-36：上下文包分层预览（发送前可见截断与预算来源，不静默裁剪） -->
-                        <div style="border: 1px solid var(--lv-border); border-radius: 6px; padding: 8px; display: flex; flex-direction: column; gap: 4px">
+                        <div style="border: 1px solid var(--lv-border); border-radius: 6px; padding: calc(var(--lv-space-unit) * 4); display: flex; flex-direction: column; gap: 4px">
                             <div class="lv-eyebrow">{t.aiWizard.budgetTitle} · {budgetPv.totalTokens}/{budgetPv.budgetTokens}</div>
                             {#each budgetPv.layers as layer (layer.key)}
-                                <div class="fn__flex ft__smaller" style="gap: 8px; align-items: baseline">
+                                <div class="fn__flex ft__smaller" style="gap: calc(var(--lv-space-unit) * 4); align-items: baseline">
                                     <span style="min-width: 72px">{layer.key === "system" ? t.aiWizard.budgetSystem : t.aiWizard.budgetMaterial}</span>
                                     <span class="ft__on-surface">{layer.tokens}</span>
                                     {#if layer.truncated || layer.dropped}
-                                        <span style="color: var(--b3-theme-warning)">{layer.dropped ? t.aiWizard.budgetDropped : t.aiWizard.budgetTruncated}</span>
+                                        <span style="color: var(--lv-color-warning)">{layer.dropped ? t.aiWizard.budgetDropped : t.aiWizard.budgetTruncated}</span>
                                     {/if}
                                 </div>
                             {/each}
@@ -787,17 +778,17 @@
                                     : t.aiWizard.budgetFromDefault}
                             </div>
                             {#if budgetPv.needsBatching}
-                                <div class="ft__smaller" style="color: var(--b3-theme-error)">{t.aiTooLong}</div>
+                                <div class="ft__smaller" style="color: var(--lv-color-danger)">{t.aiTooLong}</div>
                             {/if}
                         </div>
                     {/if}
                     {#if sensHits.length > 0 && !sensOverride}
                         <!-- BU-8：发送前敏感扫描——命中打码样本展示，处置权在用户 -->
-                        <div style="border: 1px solid var(--b3-theme-warning); border-radius: 6px; padding: 8px; display: flex; flex-direction: column; gap: 6px">
-                            <div class="ft__smaller" style="font-weight: 600">{t.aiWizard.sensTitle}</div>
-                            <div class="fn__flex fn__flex-wrap" style="gap: 6px">
+                        <div style="border: 1px solid var(--lv-color-warning); border-radius: 6px; padding: calc(var(--lv-space-unit) * 4); display: flex; flex-direction: column; gap: 6px">
+                            <div class="ft__smaller" style="font-weight: var(--lv-fw-semibold)">{t.aiWizard.sensTitle}</div>
+                            <div class="fn__flex fn__flex-wrap" style="gap: calc(var(--lv-space-unit) * 3)">
                                 {#each sensHits as h (h.id)}
-                                    <span class="ft__smaller" style="border: 1px solid var(--lv-border); border-radius: 4px; padding: 1px 6px">{sensLabel(h.id)} ×{h.count}（{h.sample}）</span>
+                                    <span class="ft__smaller" style="border: 1px solid var(--lv-border); border-radius: 4px; padding: var(--lv-space-hairline) calc(var(--lv-space-unit) * 3)">{sensLabel(h.id)} ×{h.count}（{h.sample}）</span>
                                 {/each}
                             </div>
                             <div class="ft__smaller ft__on-surface">{t.aiWizard.sensNote}</div>
@@ -816,14 +807,19 @@
                 </div>
             {/if}
             <div class="fn__flex" style="justify-content: flex-end; gap: var(--lv-sp-2)">
-                <button class="b3-button b3-button--cancel" onclick={closeWizard}>{window.siyuan.languages.cancel}</button>
+                <button class="b3-button b3-button--cancel" onclick={closeWizard}>{closeLabel ?? window.siyuan.languages.cancel}</button>
                 <button class="b3-button lv-btn-primary" disabled={busy || !source.trim()} onclick={openPreview}>
                     {busy ? t.aiWizard.generating : `${t.aiWizard.generate} →`}
                 </button>
             </div>
         </div>
     {:else}
-        <div transition:fade={{ duration: 160 }}>
+        <div transition:fade={{ duration: getMotionDuration("normal") }}>
+            {#if restoredCandidates}
+                <div class="lv-aiwiz-resume" role="status">
+                    {t.aiWizard.recoveredCandidates.replace("${source}", recoveryJob?.sourceLabel ?? "")}
+                </div>
+            {/if}
             <div class="fn__flex" style="align-items: center; gap: var(--lv-sp-2); margin-bottom: var(--lv-sp-2)">
                 <button class="b3-button b3-button--small" onclick={() => (step = 1)}>← {t.aiWizard.back}</button>
                 <!-- T03：已选≠已审——选中决定集合，接受决定入库资格 -->
@@ -836,10 +832,10 @@
             </div>
             {#if reviewPlan}
                 <!-- BU-14 审阅计划：按因子就高不就低；建议性横幅，不代审不阻断（block 档在制卡任务不会出现） -->
-                <div class="lv-notice" style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: var(--lv-sp-2); padding: 6px 10px">
-                    <span class="ft__smaller" style="font-weight: 600">{planText(reviewPlan)}</span>
+                <div class="lv-notice" style="display: flex; align-items: center; gap: calc(var(--lv-space-unit) * 3); flex-wrap: wrap; margin-bottom: var(--lv-sp-2); padding: 6px 10px">
+                    <span class="ft__smaller" style="font-weight: var(--lv-fw-semibold)">{planText(reviewPlan)}</span>
                     {#each reviewPlan.factors as f (f)}
-                        <span class="ft__smaller" style="border: 1px solid var(--lv-border); border-radius: 4px; padding: 0 6px">{factorLabel(f)}</span>
+                        <span class="ft__smaller" style="border: 1px solid var(--lv-border); border-radius: 4px; padding: 0 calc(var(--lv-space-unit) * 3)">{factorLabel(f)}</span>
                     {/each}
                     {#if reviewPlan.decision === "sample" && reviewPlan.sampleSize}
                         <span class="ft__smaller ft__on-surface">{t.aiReview.sampleHint}</span>
@@ -873,12 +869,12 @@
                             <div class="fn__flex-1"></div>
                             {#if c.review === "accepted"}<LvChip tone="primary">{t.aiWizard.reviewAccepted}</LvChip>{:else if c.review === "verified"}<LvChip tone="warn">{t.aiWizard.reviewVerified}</LvChip>{/if}
                             <button class="b3-button b3-button--small" title={t.aiWizard.cardPreview} onclick={() => (previewIdx = previewIdx === i ? null : i)}>{t.aiWizard.cardPreview}</button>
-                            <button class="b3-button b3-button--small" title={t.aiWizard.regenerate} disabled={regenBusy === i} onclick={() => regenerateCard(i)}>↻</button>
-                            <button class="b3-button b3-button--small" onclick={() => (candidates = candidates.filter((_, j) => j !== i))}>✕</button>
+                            <button class="b3-button b3-button--small" title={restoredCandidates ? t.aiWizard.recoveredRegenHint : t.aiWizard.regenerate} aria-label={restoredCandidates ? t.aiWizard.recoveredRegenHint : t.aiWizard.regenerate} disabled={regenBusy === i || restoredCandidates} onclick={() => regenerateCard(i)}>↻</button>
+                            <button class="b3-button b3-button--small" title={t.aiWizard.removeCandidate} aria-label={t.aiWizard.removeCandidate} onclick={() => (candidates = candidates.filter((_, j) => j !== i))}>✕</button>
                         </label>
                         <textarea class="b3-text-field fn__block" rows="2" bind:value={c.q} oninput={() => touchCandidate(i)} placeholder={t.quickCardQ}></textarea>
                         <textarea class="b3-text-field fn__block" rows="2" bind:value={c.a} oninput={() => touchCandidate(i)} placeholder={t.quickCardA}></textarea>
-                        <div class="fn__flex" style="gap: 6px; margin-top: 6px">
+                        <div class="fn__flex" style="gap: calc(var(--lv-space-unit) * 3); margin-top: 6px">
                             <button class="b3-button b3-button--small {c.review === 'accepted' ? 'lv-btn-primary' : ''}" onclick={() => setReview(i, "accepted")}>{c.review === "accepted" ? t.aiWizard.reviewAccepted : t.aiWizard.acceptVer}</button>
                             <button class="b3-button b3-button--small {c.review === 'verified' ? 'lv-btn-primary' : ''}" onclick={() => setReview(i, "verified")}>{t.aiWizard.markVerified}</button>
                             <div class="fn__flex-1"></div>
@@ -886,26 +882,26 @@
                         </div>
                         {#if previewIdx === i}
                             <!-- T03：实际卡面预览（评审稿 .study-card/.study-answer 同构；随编辑实时更新） -->
-                            <div class="lv-card2" style="padding: 18px 20px; margin-top: 8px">
+                            <div class="lv-card2" style="padding: calc(var(--lv-space-unit) * 9) calc(var(--lv-space-unit) * 10); margin-top: 8px">
                                 <div class="lv-eyebrow">{t.aiWizard.previewQLabel}</div>
-                                <div style="font-weight: 650; margin: 8px 0; line-height: 1.65">{c.q || "—"}</div>
-                                <div style="border-top: 1px solid var(--lv-border); padding-top: 12px; margin-top: 12px">
+                                <div style="font-weight: var(--lv-fw-heading); margin: 8px 0; line-height: 1.65">{c.q || "—"}</div>
+                                <div style="border-top: 1px solid var(--lv-border); padding-top: 12px; margin-top: calc(var(--lv-space-unit) * 6)">
                                     <div class="lv-eyebrow">{t.aiWizard.previewALabel}</div>
-                                    <div style="margin-top: 6px; line-height: 1.65">{c.a || "—"}</div>
+                                    <div style="margin-top: calc(var(--lv-space-unit) * 3); line-height: 1.65">{c.a || "—"}</div>
                                 </div>
                                 {#if scorecards[i]}
                                     <!-- BU-13：八维度评分卡（可解释问题 + 修复建议；综合分仅审阅提示，不入库资格由「已接受」决定） -->
-                                    <div style="border-top: 1px solid var(--lv-border); padding-top: 12px; margin-top: 12px">
+                                    <div style="border-top: 1px solid var(--lv-border); padding-top: 12px; margin-top: calc(var(--lv-space-unit) * 6)">
                                         <div class="lv-eyebrow">{t.aiScore.title} · {scorecards[i].composite}</div>
-                                        <div style="margin-top: 6px; display: flex; flex-direction: column; gap: 4px">
+                                        <div style="margin-top: calc(var(--lv-space-unit) * 3); display: flex; flex-direction: column; gap: 4px">
                                             {#each scorecards[i].dimensions as dim (dim.key)}
-                                                <div class="fn__flex" style="gap: 8px; align-items: baseline">
+                                                <div class="fn__flex" style="gap: calc(var(--lv-space-unit) * 4); align-items: baseline">
                                                     <span class="ft__smaller" style="min-width: 88px">{dimLabel(dim.key)}</span>
                                                     {#if dim.level}
                                                         <LvChip tone="default">{levelLabel(dim.level)}</LvChip>
                                                     {/if}
                                                     {#if dim.score > 0}
-                                                        <span class="ft__smaller" style="color: var(--b3-theme-warning)">{noteText(dim.noteKey)}</span>
+                                                        <span class="ft__smaller" style="color: var(--lv-color-warning)">{noteText(dim.noteKey)}</span>
                                                     {/if}
                                                     {#if dim.suggestKey}
                                                         <span class="ft__smaller ft__on-surface">{fixText(dim.suggestKey)}</span>
@@ -917,11 +913,11 @@
                                 {/if}
                                 {#if (prov[i]?.versions.length ?? 0) > 0}
                                     <!-- BU-15：版本链（ai 生成/user 编辑双轨；回到任意历史版本） -->
-                                    <div style="border-top: 1px solid var(--lv-border); padding-top: 12px; margin-top: 12px">
+                                    <div style="border-top: 1px solid var(--lv-border); padding-top: 12px; margin-top: calc(var(--lv-space-unit) * 6)">
                                         <div class="lv-eyebrow">{t.aiScore.versions} · {prov[i].versions.length}</div>
-                                        <div style="margin-top: 6px; display: flex; flex-direction: column; gap: 4px">
+                                        <div style="margin-top: calc(var(--lv-space-unit) * 3); display: flex; flex-direction: column; gap: 4px">
                                             {#each [...prov[i].versions].reverse() as v, vi (prov[i].versions.length - 1 - vi)}
-                                                <div class="fn__flex" style="gap: 8px; align-items: center">
+                                                <div class="fn__flex" style="gap: calc(var(--lv-space-unit) * 4); align-items: center">
                                                     <LvChip tone={v.via === "ai" ? "default" : "primary"}>{v.via === "ai" ? t.aiScore.viaAI : t.aiScore.viaUser}</LvChip>
                                                     <span class="ft__smaller" style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{(v.via === "ai" ? "⚙ " : "✎ ") + v.q.slice(0, 40)}</span>
                                                     {#if v.q !== c.q || v.a !== c.a}
@@ -938,7 +934,7 @@
                 {/each}
             </div>
             {#if errorMsg}
-                <div class="ft__smaller" style="color: var(--b3-theme-error); margin-bottom: var(--lv-sp-2)" role="alert">{errorMsg}</div>
+                <div class="ft__smaller" style="color: var(--lv-color-danger); margin-bottom: var(--lv-sp-2)" role="alert">{errorMsg}</div>
             {/if}
             <div class="fn__flex" style="justify-content: flex-end; gap: var(--lv-sp-2); margin-top: var(--lv-sp-2)">
                 <button class="b3-button b3-button--outline" onclick={() => (step = 1)}>{t.aiWizard.back}</button>
@@ -965,6 +961,15 @@
         overflow: auto;
         box-sizing: border-box;
     }
+    .lv-aiwiz.lv-aiwiz-embedded {
+        height: auto;
+        overflow: visible;
+        padding: 0;
+        container: lv-aiwiz / inline-size;
+    }
+    @container lv-aiwiz (max-width: 740px) {
+        .lv-wb { grid-template-columns: 1fr; }
+    }
     .lv-aiwiz .lv-ob-head {
         display: flex;
         align-items: center;
@@ -973,6 +978,7 @@
     }
     .lv-aiwiz-resume {
         display: flex;
+        flex-wrap: wrap;
         align-items: center;
         gap: var(--lv-sp-2);
         padding: var(--lv-sp-2) var(--lv-sp-3);
@@ -980,8 +986,9 @@
         border: 1px solid var(--lv-border);
         border-radius: var(--lv-r-m);
         background: var(--lv-primary-softer, transparent);
-        font-size: 12px;
+        font-size: var(--lv-type-control-size);
     }
+    .lv-aiwiz-resume-note { flex: 1 1 100%; min-width: 0; color: var(--lv-color-text-muted); line-height: 1.5; }
     .lv-aiwiz-list {
         display: flex;
         flex-direction: column;
@@ -1004,7 +1011,7 @@
         margin-bottom: var(--lv-sp-3);
         @media (max-width: 740px) { grid-template-columns: 1fr; }
     }
-    .lv-wb-side { display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
+    .lv-wb-side { display: flex; flex-direction: column; gap: calc(var(--lv-space-unit) * 3); align-items: stretch; }
     .lv-wb-side .lv-wb-load {
         width: 100%;
         text-align: left;
@@ -1014,17 +1021,17 @@
     /* 笔记本载入组：按钮 + 范围选择拼接成一行 */
     .lv-wb-nb { display: flex; gap: 6px; }
     .lv-wb-nb .lv-wb-load { flex: 1; min-width: 0; }
-    .lv-wb-nb-select { width: 96px; flex: none; font-size: 12px; padding: 4px 6px; }
-    .lv-wb-chips { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+    .lv-wb-nb-select { width: 96px; flex: none; font-size: var(--lv-type-control-size); padding: 4px 6px; }
+    .lv-wb-chips { display: flex; flex-direction: column; gap: calc(var(--lv-space-unit) * 2); margin-top: 4px; }
     .lv-wb-chip {
         display: flex;
         align-items: center;
-        gap: 4px;
-        font-size: 11px;
-        padding: 3px 6px;
+        gap: calc(var(--lv-space-unit) * 2);
+        font-size: var(--lv-type-meta-size);
+        padding: calc(var(--lv-space-unit) * 1 + var(--lv-space-hairline)) calc(var(--lv-space-unit) * 3);
         border: 1px solid var(--lv-border);
-        border-radius: 6px;
-        background: color-mix(in srgb, var(--b3-theme-on-background) 4%, transparent);
+        border-radius: var(--lv-r-compact);
+        background: var(--lv-surface-hover);
     }
     /* 来源条目动作（回源/禁止外发/移除）：统一 ghost 图形钮，muted→hover 强调 */
     .lv-wb-icon {
@@ -1036,22 +1043,22 @@
         justify-content: center;
         border: none;
         background: transparent;
-        border-radius: 5px;
-        color: var(--b3-theme-on-surface);
+        border-radius: var(--lv-r-tag);
+        color: var(--lv-color-text-muted);
         opacity: 0.7;
-        font-size: 12px;
+        font-size: var(--lv-type-control-size);
         cursor: pointer;
         transition: opacity var(--lv-dur-1) var(--lv-ease), background var(--lv-dur-1) var(--lv-ease), color var(--lv-dur-1) var(--lv-ease);
-        &:hover { opacity: 1; background: var(--lv-primary-soft); color: var(--b3-theme-primary); }
+        &:hover { opacity: 1; background: var(--lv-primary-soft); color: var(--lv-color-brand); }
     }
     .lv-wb-srcview {
         white-space: pre-wrap;
         max-height: 140px;
         overflow: auto;
-        padding: 8px;
+        padding: calc(var(--lv-space-unit) * 4);
         border: 1px solid var(--lv-border);
-        border-radius: 6px;
-        margin: -2px 0 4px;
+        border-radius: var(--lv-r-compact);
+        margin: calc((calc(var(--lv-space-unit) * 1)) * -1) 0 calc(var(--lv-space-unit) * 2);
     }
     /* 材料空态（R53 §3.9）：图标圈 + 指引 */
     .lv-wb-empty {
@@ -1059,25 +1066,25 @@
         flex-direction: column;
         align-items: center;
         gap: var(--lv-sp-2);
-        padding: 34px 20px;
+        padding: calc(var(--lv-space-unit) * 17) calc(var(--lv-space-unit) * 10);
         text-align: center;
     }
     .lv-wb-empty-icon {
         width: 40px;
         height: 40px;
-        border-radius: 50%;
+        border-radius: var(--lv-r-circle);
         display: flex;
         align-items: center;
         justify-content: center;
         background: var(--lv-primary-soft);
-        color: var(--b3-theme-primary);
-        font-size: 16px;
+        color: var(--lv-color-brand);
+        font-size: var(--lv-type-title-size);
     }
     .lv-wb-empty-text {
-        font-size: 12px;
-        color: var(--b3-theme-on-surface);
+        font-size: var(--lv-type-control-size);
+        color: var(--lv-color-text-muted);
         max-width: 30em;
-        line-height: 1.7;
+        line-height: var(--lv-lh-relaxed);
     }
     /* T02：来源条目标签 = 查看原文按钮 */    .lv-wb-view {
         flex: 1;
@@ -1092,6 +1099,6 @@
         font: inherit;
         padding: 0;
         cursor: pointer;
-        &:hover { color: var(--b3-theme-primary); }
+        &:hover { color: var(--lv-color-brand); }
     }
 </style>

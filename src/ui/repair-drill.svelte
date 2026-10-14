@@ -6,6 +6,7 @@
      * T10 扩容（2026-10-06）：样例库两则——题面过宽 / 缺少必要条件（选择器切换）。
      */
     import { fade } from "svelte/transition";
+    import { getMotionDuration } from "./kit/motion";
     import LvSteps from "./kit/LvSteps.svelte";
 
     let { i18n, onClose }: { i18n: any; onClose: () => void } = $props();
@@ -66,7 +67,7 @@
     </div>
 
     <!-- 样例选择器（T10 扩容） -->
-    <div class="fn__flex" style="gap: 6px; margin-bottom: var(--lv-sp-3); flex-wrap: wrap">
+    <div class="fn__flex" style="gap: calc(var(--lv-space-unit) * 3); margin-bottom: var(--lv-sp-3); flex-wrap: wrap">
         {#each samples as sm, i (i)}
             <button
                 class="b3-button b3-button--small {sampleIdx === i ? 'lv-btn-primary' : ''}"
@@ -77,12 +78,12 @@
     </div>
 
     {#key `${sampleIdx}-${step}`}
-        <div transition:fade={{ duration: 160 }}>
+        <div transition:fade={{ duration: getMotionDuration("normal") }}>
             {#if step === 1}
                 <!-- 看材料与必要条件 -->
                 <div class="lv-card2" style="margin-bottom: var(--lv-sp-2)">
                     <div class="lv-eyebrow">{t.drillMaterialLabel}</div>
-                    <p style="line-height: 1.95; margin: 10px 0">{sample.material}</p>
+                    <p style="line-height: var(--lv-lh-reading-loose); margin: 10px 0">{sample.material}</p>
                     <div class="ft__smaller ft__on-surface">{t.drillMaterialNote}</div>
                 </div>
                 <div class="lv-notice lv-notice--warn">{t.drillIntro}</div>
@@ -90,38 +91,38 @@
                 <!-- 找出题面的问题 -->
                 <div class="lv-card2" style="margin-bottom: var(--lv-sp-2)">
                     <div class="lv-eyebrow">{t.drillCardLabel}</div>
-                    <div style="font-weight: 650; margin: 10px 0; line-height: 1.65">{sample.brokenQ}</div>
+                    <div style="font-weight: var(--lv-fw-heading); margin: 10px 0; line-height: 1.65">{sample.brokenQ}</div>
                 </div>
                 <div class="lv-notice lv-notice--warn">{sample.issue}</div>
             {:else if step === 3}
                 <!-- 修改并看实际卡面 -->
                 <label class="ft__smaller" style="display: block; margin-bottom: 6px" for="drill-rewrite">{t.drillEditLabel}</label>
                 <textarea id="drill-rewrite" class="b3-text-field fn__block" rows="2" bind:value={draft}></textarea>
-                <div class="lv-card2" style="margin-top: 10px; padding: 18px 20px">
+                <div class="lv-card2" style="margin-top: calc(var(--lv-space-unit) * 5); padding: 18px 20px">
                     <div class="lv-eyebrow">{t.aiWizard.previewQLabel}</div>
-                    <div style="font-weight: 650; margin: 8px 0; line-height: 1.65">{draft || "—"}</div>
+                    <div style="font-weight: var(--lv-fw-heading); margin: 8px 0; line-height: 1.65">{draft || "—"}</div>
                 </div>
                 <div class="lv-notice">{t.drillEditNote}</div>
             {:else if step === 4}
                 <!-- 对照固定改法（不发请求） -->
                 <div class="lv-card2" style="margin-bottom: var(--lv-sp-2)">
                     <div class="lv-eyebrow">{t.drillEditLabel}</div>
-                    <div style="margin: 8px 0; line-height: 1.65">{draft || "—"}</div>
+                    <div style="margin: calc(var(--lv-space-unit) * 4) 0; line-height: 1.65">{draft || "—"}</div>
                 </div>
                 <div class="lv-card2" style="margin-bottom: var(--lv-sp-2)">
                     <div class="lv-eyebrow">{t.drillFixedLabel}</div>
-                    <div style="margin: 8px 0; line-height: 1.65">{sample.fixed}</div>
+                    <div style="margin: calc(var(--lv-space-unit) * 4) 0; line-height: 1.65">{sample.fixed}</div>
                 </div>
                 <div class="lv-notice">{t.drillCompareNote}</div>
             {:else}
                 <!-- 旁路试练：自评对照，不迁入真实证据 -->
                 <div class="lv-card2" style="margin-bottom: var(--lv-sp-2)">
                     <div class="lv-eyebrow">{t.drillPractice}</div>
-                    <div style="font-weight: 650; margin: 10px 0; line-height: 1.65">{draft || "—"}</div>
+                    <div style="font-weight: var(--lv-fw-heading); margin: 10px 0; line-height: 1.65">{draft || "—"}</div>
                     {#if revealed}
-                        <div style="border-top: 1px solid var(--lv-border); padding-top: 12px; margin-top: 12px; line-height: 1.65">{sample.answer}</div>
+                        <div style="border-top: 1px solid var(--lv-border); padding-top: 12px; margin-top: calc(var(--lv-space-unit) * 6); line-height: 1.65">{sample.answer}</div>
                     {:else}
-                        <button class="b3-button" style="margin-top: 8px" onclick={() => (revealed = true)}>{t.drillReveal}</button>
+                        <button class="b3-button" style="margin-top: calc(var(--lv-space-unit) * 4)" onclick={() => (revealed = true)}>{t.drillReveal}</button>
                     {/if}
                 </div>
                 <div class="lv-notice">{t.drillPracticeNote}</div>

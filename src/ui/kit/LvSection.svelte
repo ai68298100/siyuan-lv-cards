@@ -24,6 +24,9 @@
 
 <style>
     .lv-section2 { margin-bottom: var(--lv-sp-4); }
-    .lv-secthead { display: flex; align-items: center; justify-content: space-between; gap: var(--lv-sp-2); }
-    .lv-secthead-actions { display: inline-flex; align-items: center; gap: var(--lv-sp-1); }
+    /* Global .lv-secthead owns typography/spacing; this component only adds
+       the section-specific action alignment. Keep the selector scoped so it
+       cannot redefine headings in unrelated views. */
+    .lv-section2 > .lv-secthead { justify-content: space-between; }
+    .lv-section2 > .lv-secthead .lv-secthead-actions { display: inline-flex; align-items: center; gap: var(--lv-sp-1); }
 </style>

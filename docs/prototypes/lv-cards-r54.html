@@ -1,0 +1,654 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; font-src 'none'; base-uri 'none'; form-action 'none'">
+<title>小驴闪卡 · R54 轻学工作台</title>
+<style>
+*{box-sizing:border-box} [hidden]{display:none!important}
+:root{/* Semantic names mirror production token roles. Values are static preview fixtures, not a production theme implementation. */--lv-color-canvas:#f7f7fc;--lv-color-surface:#fff;--lv-color-surface-subtle:#f1f1f9;--lv-color-text:#2c2b3e;--lv-color-text-muted:#6c6a7f;--lv-border:#e6e5f0;--lv-color-brand:#5e59cb;--lv-color-brand-strong:#504abd;--lv-primary-soft:#eeecfb;--lv-color-on-brand-soft:#4f4799;--lv-warn-soft:#fff0d4;--lv-color-on-warning-soft:#855318;--lv-good-soft:#edf6f1;--lv-color-on-success-soft:#32654d;--lv-danger-soft:#fcf0f1;--lv-color-on-danger-soft:#a34151;--lv-color-surface-raised:#fff;--lv-shadow-2:0 16px 60px #2922481a;color-scheme:light}
+[data-theme="dark"]{--lv-color-canvas:#181820;--lv-color-surface:#22222d;--lv-color-surface-subtle:#2a2936;--lv-color-text:#f0eef8;--lv-color-text-muted:#b2aec4;--lv-border:#393744;--lv-color-brand:#b5afff;--lv-color-brand-strong:#c3beff;--lv-primary-soft:#343046;--lv-color-on-brand-soft:#d0c9ff;--lv-warn-soft:#3b3126;--lv-color-on-warning-soft:#f4c78a;--lv-good-soft:#28382f;--lv-color-on-success-soft:#a0d9bb;--lv-danger-soft:#402b33;--lv-color-on-danger-soft:#ffadb9;--lv-color-surface-raised:#292835;--lv-shadow-2:0 16px 60px #0006;color-scheme:dark}
+body{margin:0;background:var(--lv-color-canvas);color:var(--lv-color-text);font:14px/1.65 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit} button{cursor:pointer}button,select{min-height:40px}
+button{display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--lv-color-surface);border:1px solid var(--lv-border);border-radius:12px;padding:8px 15px;font-size:13px;font-weight:600;transition:background .14s,border-color .14s}button:hover{background:var(--lv-color-surface-subtle);border-color:color-mix(in srgb,var(--lv-color-text) 24%,var(--lv-border))}button:active{transform:translateY(1px)}button:disabled{cursor:not-allowed;opacity:.5;transform:none}button.primary{background:var(--lv-color-brand);color:var(--lv-color-surface);border-color:transparent}button.primary:hover{filter:brightness(1.06)}button.ghost{border-color:transparent;background:transparent;color:var(--lv-color-text-muted)}button.text{border-color:transparent;background:transparent;color:var(--lv-color-brand-strong);padding:4px 0}button.soft{border-color:transparent;background:var(--lv-primary-soft);color:var(--lv-color-on-brand-soft)}button.danger{color:var(--lv-color-on-danger-soft)}button.icon-only{width:40px;padding:8px}button.large{min-height:48px;padding:10px 22px}button.pill{border-radius:999px}button.small{min-height:32px;padding:4px 10px;font-size:12px}
+input,select,textarea{border:1px solid var(--lv-border);background:var(--lv-color-surface);border-radius:10px;padding:9px 12px;max-width:100%;min-width:0}input[type=checkbox]{accent-color:var(--lv-color-brand);width:17px;height:17px;flex-shrink:0}input[type=range]{accent-color:var(--lv-color-brand);padding:0}textarea{width:100%;resize:vertical;line-height:1.8}label.field{display:flex;flex-direction:column;gap:6px;margin:16px 0;font-size:13px;font-weight:600}.field small{font-weight:400;color:var(--lv-color-text-muted)}:focus-visible{outline:2px solid var(--lv-color-brand);outline-offset:3px} svg.icon{width:19px;height:19px;flex-shrink:0;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}h1,h2,h3,h4,p{margin:0}h2{font-size:27px;line-height:1.4;letter-spacing:-.03em;font-weight:720}h3{font-size:17px;line-height:1.5;font-weight:650}h4{font-size:14px;font-weight:650}a{color:var(--lv-color-brand-strong)}.muted{color:var(--lv-color-text-muted)}.small-copy{font-size:12px;color:var(--lv-color-text-muted)}.num{font-variant-numeric:tabular-nums}.eyebrow{font-size:11px;letter-spacing:.12em;font-weight:650;color:var(--lv-color-text-muted)}.flex{display:flex;align-items:center;gap:10px;min-width:0}.between{justify-content:space-between}.wrap{flex-wrap:wrap}.stack{display:flex;flex-direction:column;gap:16px}.grow{flex:1;min-width:0}.tag{display:inline-flex;align-items:center;gap:5px;white-space:nowrap;background:var(--lv-color-surface-subtle);color:var(--lv-color-text-muted);border-radius:8px;padding:3px 9px;font-size:11px;font-weight:550}.tag.purple{background:var(--lv-primary-soft);color:var(--lv-color-on-brand-soft)}.tag.warm{background:var(--lv-warn-soft);color:var(--lv-color-on-warning-soft)}.tag.green{background:var(--lv-good-soft);color:var(--lv-color-on-success-soft)}.tag.red{background:var(--lv-danger-soft);color:var(--lv-color-on-danger-soft)}.icon-tile{width:40px;height:40px;border-radius:13px;background:var(--lv-primary-soft);color:var(--lv-color-on-brand-soft);display:grid;place-items:center;flex-shrink:0}.icon-tile.warm{background:var(--lv-warn-soft);color:var(--lv-color-on-warning-soft)}.icon-tile.green{background:var(--lv-good-soft);color:var(--lv-color-on-success-soft)}kbd{font:11px/1.5 ui-monospace,monospace;border:1px solid var(--lv-border);border-radius:5px;padding:1px 5px;color:var(--lv-color-text-muted);background:var(--lv-color-surface)}
+/* 评审工具在应用外；布局依据插件容器宽度。 */
+.topbar .icon-only[aria-current="page"]{background:var(--lv-primary-soft);color:var(--lv-color-on-brand-soft)}
+.review-bar{max-width:1380px;margin:22px auto 18px;padding:0 24px;display:flex;align-items:center;justify-content:space-between;gap:16px}.review-title{font-size:16px;font-weight:650}.review-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.review-controls select,.review-controls button{font-size:12px;min-height:34px;padding:5px 10px}.review-controls label{font-size:12px;color:var(--lv-color-text-muted)}.canvas{width:calc(100% - 48px);max-width:1332px;margin:0 auto 24px;container:app / inline-size;border:1px solid var(--lv-border);border-radius:22px;overflow:clip;background:var(--lv-color-surface)}.canvas.narrow{width:390px;max-width:calc(100% - 20px)}.shell{display:grid;grid-template-columns:184px minmax(0,1fr);min-height:810px}.sidebar{padding:26px 14px 18px;border-right:1px solid var(--lv-border);background:color-mix(in srgb,var(--lv-color-canvas) 72%,var(--lv-color-surface));display:flex;flex-direction:column;gap:23px}.brand{padding:0 10px;display:flex;gap:9px;align-items:center;font-size:15px;font-weight:750}.brandmark{color:var(--lv-color-brand);width:29px;height:34px}.sidebar nav{display:flex;flex-direction:column;gap:5px}.sidebar nav button{border:0;background:transparent;justify-content:flex-start;text-align:left;color:var(--lv-color-text-muted);width:100%;padding:10px 14px;min-height:46px;font-size:13px}.sidebar nav button[aria-current=page]{background:var(--lv-primary-soft);color:var(--lv-color-on-brand-soft)}.nav-count{margin-left:auto;font-size:11px;font-variant-numeric:tabular-nums}.nav-sub{margin-top:10px;padding-top:12px;border-top:1px solid var(--lv-border)}.sidebar-bottom{margin-top:auto;display:flex;flex-direction:column;gap:12px}.sidebar-note{margin:0 10px;border-radius:14px;background:var(--lv-warn-soft);color:var(--lv-color-on-warning-soft);padding:13px 12px;font-size:12px}.workspace{min-width:0;background:var(--lv-color-canvas)}.topbar{height:64px;border-bottom:1px solid var(--lv-border);padding:0 30px;display:flex;align-items:center;justify-content:space-between;gap:16px;background:var(--lv-color-surface)}.search-trigger{color:var(--lv-color-text-muted);font-size:12px;font-weight:400;justify-content:flex-start;width:248px;min-height:34px;background:var(--lv-color-canvas);border-radius:10px;padding:5px 10px}.search-trigger kbd{margin-left:auto}.topbar .local-status{font-size:11px;color:var(--lv-color-text-muted);display:flex;align-items:center;gap:6px}.status-dot{width:6px;height:6px;background:var(--lv-color-on-success-soft);border-radius:50%}.main{padding:28px 30px 32px;min-height:740px;max-width:1240px;margin:auto;outline:none}.page-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin-bottom:24px}.page-head p{margin-top:7px;color:var(--lv-color-text-muted);font-size:13px}.page-head .eyebrow{margin-bottom:5px}.panel{padding:20px 22px;background:var(--lv-color-surface);border:1px solid var(--lv-border);border-radius:18px;min-width:0}.section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}.notice{padding:13px 16px;background:var(--lv-color-surface-subtle);border-radius:12px;color:var(--lv-color-text-muted);font-size:12px;line-height:1.8}.notice.warm{background:var(--lv-warn-soft);color:var(--lv-color-on-warning-soft)}.notice.red{background:var(--lv-danger-soft);color:var(--lv-color-on-danger-soft)}.notice.green{background:var(--lv-good-soft);color:var(--lv-color-on-success-soft)}.notice .actions{margin-top:9px}.actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.progress{height:5px;border-radius:99px;background:var(--lv-border);overflow:hidden}.progress i{display:block;height:100%;border-radius:99px;background:var(--lv-color-brand)}.divider{height:1px;background:var(--lv-border);margin:18px 0}.row{display:flex;align-items:center;gap:13px;padding:14px 0;border-bottom:1px solid var(--lv-border);min-width:0}.row:last-child{border-bottom:0}.row p{color:var(--lv-color-text-muted);font-size:12px;margin-top:3px}.row .grow strong{font-size:13px;font-weight:600}.row .row-act{flex-shrink:0}.empty{padding:42px 20px;text-align:center}.empty .icon-tile{margin:0 auto 16px;width:60px;height:60px;border-radius:19px}.empty h3{font-size:19px}.empty p{color:var(--lv-color-text-muted);font-size:13px;max-width:420px;margin:8px auto 20px}.empty .actions{justify-content:center}.skeleton{height:14px;background:var(--lv-border);border-radius:5px;margin:18px 0;width:65%}.skeleton.hero{height:200px;width:100%;border-radius:18px;margin:0 0 20px}.mobile-nav{display:none}.review-foot{max-width:1332px;margin:0 auto 20px;padding:0 24px;display:flex;gap:12px;justify-content:space-between;color:var(--lv-color-text-muted);font-size:11px}
+/* 首页：行动区有温度，事实区保持中性。 */
+.home-grid{display:grid;grid-template-columns:minmax(0,1fr) 274px;gap:20px}.hero{background:var(--lv-primary-soft);border-color:transparent;padding:26px;position:relative;overflow:hidden;min-height:235px}.hero-copy{max-width:65%;position:relative;z-index:1}.hero h3{font-size:24px;line-height:1.4;letter-spacing:-.02em;margin:10px 0}.hero p{font-size:12px;color:var(--lv-color-on-brand-soft)}.hero .hero-summary{font-size:13px;margin-bottom:22px}.hero select{background:color-mix(in srgb,var(--lv-color-surface) 65%,transparent);border-color:color-mix(in srgb,var(--lv-color-brand) 16%,transparent);font-size:12px;padding:7px 10px}.hero-art{position:absolute;right:7px;bottom:6px;width:205px;height:205px;pointer-events:none}.hero .actions{gap:9px}.goal-ring{position:absolute;right:28px;top:50%;width:92px;height:92px;transform:translateY(-50%);color:var(--lv-color-text)}.goal-ring svg{width:100%;height:100%;transform:rotate(-90deg)}.goal-ring circle{fill:none;stroke-width:7}.goal-ring .track{stroke:color-mix(in srgb,var(--lv-color-text) 12%,transparent)}.goal-ring .fill{stroke:var(--lv-color-brand);stroke-linecap:round}.goal-ring b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;font-size:19px;font-weight:650;font-variant-numeric:tabular-nums}.goal-ring small{color:var(--lv-color-text-muted);font-size:10px;font-weight:500}.metric-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:16px}.metric{background:var(--lv-color-surface);padding:15px 14px;border:1px solid var(--lv-border);border-radius:12px;display:block;text-align:left;font-weight:400;cursor:default}.metric small{display:block;color:var(--lv-color-text-muted);font-size:11px}.metric strong{font-size:25px;font-weight:680;font-variant-numeric:tabular-nums}.week-card{padding:22px;background:var(--lv-color-surface);height:100%;display:flex;flex-direction:column}.week-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin:19px 0 16px}.week-day{display:flex;align-items:center;flex-direction:column;gap:9px;font-size:10px;color:var(--lv-color-text-muted)}.week-day i{display:grid;place-items:center;width:25px;height:25px;background:var(--lv-color-surface-subtle);border-radius:50%;font-style:normal;font-size:11px}.week-day.done i{background:var(--lv-primary-soft);color:var(--lv-color-on-brand-soft)}.week-day.today i{background:var(--lv-color-brand);color:var(--lv-color-surface);outline:4px solid var(--lv-primary-soft)}.pace-note{background:var(--lv-warn-soft);color:var(--lv-color-on-warning-soft);padding:14px;border-radius:12px;margin-top:auto}.pace-note strong{font-size:13px;display:block;margin-bottom:5px}.pace-note p{font-size:11px}.decks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.deck{padding:18px;text-align:left;background:var(--lv-color-surface);border:1px solid var(--lv-border);border-radius:17px;display:block;min-width:0;font-weight:400}.deck .deck-title{font-size:14px;font-weight:650;margin:14px 0 4px}.deck p{font-size:11px;color:var(--lv-color-text-muted)}.deck .progress{margin-top:15px}.deck .deck-tail{display:flex;justify-content:space-between;font-size:11px;margin-top:9px;color:var(--lv-color-text-muted)}.deck .icon-tile{width:35px;height:35px;border-radius:11px}.home-bottom{display:grid;grid-template-columns:1.15fr 1fr;gap:20px;margin-top:20px}.guide-inline{display:flex;align-items:center;gap:15px;border:1px dashed var(--lv-border);border-radius:16px;padding:16px 20px;margin-top:20px;background:var(--lv-color-surface)}.guide-inline p{font-size:12px;color:var(--lv-color-text-muted)}
+/* 卡库与检视层。 */
+.subtabs{display:flex;gap:4px;flex-wrap:wrap;padding:4px;border-radius:12px;background:var(--lv-color-surface-subtle);width:max-content;max-width:100%}.subtabs button{border:0;background:transparent;min-height:32px;padding:5px 14px;font-size:12px;color:var(--lv-color-text-muted);border-radius:9px}.subtabs button[aria-selected=true]{background:var(--lv-color-surface);color:var(--lv-color-text);box-shadow:0 1px 3px #29224808}.library-tools{display:flex;gap:12px;justify-content:space-between;align-items:center;margin:20px 0 14px;flex-wrap:wrap}.search-field{display:flex;align-items:center;border:1px solid var(--lv-border);border-radius:11px;gap:8px;padding:0 11px;background:var(--lv-color-surface);max-width:100%;width:290px}.search-field input{border:0;background:transparent;width:100%;padding-left:0;outline-offset:-2px}.table-wrap{background:var(--lv-color-surface);border:1px solid var(--lv-border);border-radius:16px;overflow:hidden}.table-head{display:grid;grid-template-columns:25px minmax(0,1fr) 120px 90px 40px;gap:14px;font-size:11px;color:var(--lv-color-text-muted);padding:12px 18px;background:var(--lv-color-surface-subtle)}.card-row{display:grid;grid-template-columns:25px minmax(0,1fr) 120px 90px 40px;gap:14px;align-items:center;padding:15px 18px;border-bottom:1px solid var(--lv-border)}.card-row:last-child{border-bottom:0}.card-row.selected{background:var(--lv-primary-soft)}.card-row:hover{background:color-mix(in srgb,var(--lv-primary-soft) 35%,var(--lv-color-surface))}.card-open{padding:0;border:0;border-radius:4px;background:transparent;display:block;text-align:left;font-weight:550;min-height:36px;min-width:0}.card-open:hover{background:transparent;border-color:transparent}.card-title{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px}.card-source{display:block;font-size:11px;color:var(--lv-color-text-muted);font-weight:400;margin-top:4px}.card-deck{font-size:11px;color:var(--lv-color-text-muted)}.batchbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--lv-primary-soft);color:var(--lv-color-on-brand-soft);padding:12px 16px;border-radius:12px;margin:12px 0}.library-footer{display:flex;justify-content:space-between;align-items:center;margin-top:13px;font-size:11px;color:var(--lv-color-text-muted)}
+/* 制卡完整工作面。 */
+.studio-top{display:flex;gap:15px;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap}.studio-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,.85fr);gap:20px}.template-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:17px 0}.template{min-height:85px;display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:11px 13px;background:var(--lv-color-surface);text-align:left;font-size:12px;border-radius:12px}.template span{font-size:10px;color:var(--lv-color-text-muted);font-weight:400}.template[aria-pressed=true]{border-color:var(--lv-color-brand);background:var(--lv-primary-soft);color:var(--lv-color-on-brand-soft)}.preview-face{border:1px solid var(--lv-border);border-radius:16px;background:var(--lv-color-surface);min-height:258px;padding:25px 24px;display:flex;flex-direction:column;justify-content:center}.preview-face h3{font-size:19px;font-weight:550;line-height:1.75;margin:16px 0}.preview-face .answer{padding-top:17px;border-top:1px solid var(--lv-border);margin-top:10px;font-size:13px;color:var(--lv-color-text-muted);line-height:1.85;white-space:pre-wrap}.cloze{display:inline-block;border-radius:5px;padding:0 8px;background:var(--lv-primary-soft);color:var(--lv-color-on-brand-soft)}.studio-footer{padding:15px 0 0;display:flex;justify-content:space-between;gap:14px;align-items:center;border-top:1px solid var(--lv-border);margin-top:20px}.candidate-row{padding:13px 15px;border:1px solid var(--lv-border);border-radius:13px;background:var(--lv-color-surface);margin-bottom:9px}.candidate-row.active{border-color:var(--lv-color-brand);background:var(--lv-primary-soft)}.candidate-row button{border:0;background:transparent;padding:0;display:block;text-align:left;min-height:32px;font-weight:550;width:100%;font-size:12px}.candidate-row small{font-size:10px;color:var(--lv-color-text-muted)}
+/* 专注会话：减少外壳，四档评分等权。 */
+.shell.focus{grid-template-columns:1fr}.shell.focus .sidebar,.shell.focus .mobile-nav{display:none}.shell.focus .main{max-width:920px;width:100%}.review-top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:13px}.session-info{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--lv-color-text-muted)}.session-progress{margin:12px 0 27px}.study-face{border:1px solid var(--lv-border);border-radius:22px;background:var(--lv-color-surface);padding:35px 42px;min-height:333px;text-align:left}.study-face h2{font-size:25px;line-height:1.8;font-weight:550;letter-spacing:0;margin:28px 0 18px}.study-face .study-source{font-size:12px;color:var(--lv-color-text-muted)}.study-answer{border-top:1px solid var(--lv-border);padding-top:22px;margin-top:22px;line-height:1.95}.study-bottom{margin-top:23px;text-align:center}.study-bottom .primary{min-width:240px}.rating{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:19px 0}.rating button{display:block;text-align:left;min-height:83px;padding:13px 17px;background:var(--lv-color-surface);font-size:13px}.rating small{display:block;font-weight:400;color:var(--lv-color-text-muted);font-size:11px;margin-top:8px}.rating kbd{float:right}.review-tools{display:flex;justify-content:center;gap:13px;margin-top:20px}.choice-list{display:flex;flex-direction:column;gap:10px;margin-top:19px}.choice-list button{justify-content:flex-start;font-weight:400;min-height:44px}.choice-list button[aria-pressed=true]{background:var(--lv-primary-soft);border-color:var(--lv-color-brand)}.result-panel{text-align:center;max-width:620px;margin:30px auto;padding:38px}.result-mark{background:var(--lv-good-soft);color:var(--lv-color-on-success-soft);width:65px;height:65px;border-radius:23px;display:grid;place-items:center;margin:0 auto 21px}.result-panel h2{font-size:28px}.result-panel p{color:var(--lv-color-text-muted);font-size:13px;margin-top:9px}.result-stats{display:grid;grid-template-columns:repeat(3,1fr);margin:28px 0}.result-stats strong{display:block;font-size:28px;font-weight:650}.result-stats small{color:var(--lv-color-text-muted);font-size:11px}.result-panel .notice{text-align:left}.result-panel .actions{justify-content:center;margin-top:25px}
+/* 恢复中心：按生产摘要分区展示，每项只提供对应任务入口。 */
+.recovery-section{margin-bottom:14px}.recovery-section .section-head{margin-bottom:7px}.recovery-section .section-head h3{margin:0;font-size:15px}.recovery-section .section-head p{margin:5px 0 0;color:var(--lv-color-text-muted);font-size:12px}.recovery-copy{margin:9px 0 0;color:var(--lv-color-text-muted);font-size:12px;line-height:1.7}.recovery-jobs{margin:12px 0 0;padding:0;list-style:none}.recovery-job{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px 12px;padding:13px 0;border-top:1px solid var(--lv-border);font-size:12px}.recovery-job-head{display:flex;align-items:baseline;justify-content:space-between;gap:9px;min-width:0}.recovery-job-source{min-width:0;overflow-wrap:anywhere;font-weight:600}.recovery-job-state{color:var(--lv-color-brand-strong);white-space:nowrap}.recovery-job-counts,.recovery-job-copy,.recovery-job>button{grid-column:1/-1}.recovery-job-counts{color:var(--lv-color-text-muted)}.recovery-job>button{justify-self:start;margin-top:3px}.recovery-footnote{margin:17px 2px 0;color:var(--lv-color-text-muted);font-size:11px;line-height:1.65}.recovery-loading{display:grid;gap:12px}
+/* 回顾、目标与设置。 */
+.two-col{display:grid;grid-template-columns:1.15fr 1fr;gap:20px}.chart{width:100%;height:173px;margin-top:13px}.chart text{fill:var(--lv-color-text-muted);font:10px sans-serif}.calendar{display:grid;grid-template-columns:repeat(7,1fr);gap:7px;margin:16px 0}.calendar .weekday{color:var(--lv-color-text-muted);font-size:10px;text-align:center}.calendar button{aspect-ratio:1;min-height:32px;padding:0;border:0;background:var(--lv-color-surface-subtle);border-radius:10px;font-size:12px;font-weight:400}.calendar button.heat{background:var(--lv-primary-soft);color:var(--lv-color-on-brand-soft)}.calendar button.today{outline:1px solid var(--lv-color-brand)}.calendar button[aria-pressed=true]{background:var(--lv-color-brand);color:var(--lv-color-surface)}.setting-row{padding:16px 0;border-bottom:1px solid var(--lv-border);display:flex;justify-content:space-between;gap:15px;align-items:center}.setting-row p{font-size:12px;color:var(--lv-color-text-muted);margin-top:4px}.health-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px}.health{border:1px solid var(--lv-border);border-radius:15px;background:var(--lv-color-surface);padding:16px}.health strong{display:block;font-size:12px;margin:9px 0 3px}.switch{padding:0;border:0;border-radius:999px;background:var(--lv-border);width:41px;height:25px;min-height:25px;position:relative;flex-shrink:0}.switch:after{content:'';position:absolute;width:19px;height:19px;background:#fff;border-radius:50%;left:3px;top:3px;box-shadow:0 1px 3px #0002}.switch[aria-checked=true]{background:var(--lv-color-brand)}.switch[aria-checked=true]:after{left:19px}.switch:hover{background:var(--lv-border)}.switch[aria-checked=true]:hover{background:var(--lv-color-brand)}.onboard-grid{display:grid;grid-template-columns:1.2fr 1fr;gap:24px}.onboard-hero{background:var(--lv-primary-soft);border:0;padding:28px;text-align:center}.onboard-hero .hero-art-static{width:240px;height:200px;margin:auto}.step-list{display:flex;flex-direction:column;gap:16px}.step{display:flex;gap:12px}.step b{width:26px;height:26px;display:grid;place-items:center;border-radius:50%;background:var(--lv-primary-soft);color:var(--lv-color-on-brand-soft);font-size:12px;flex-shrink:0}.step p{color:var(--lv-color-text-muted);font-size:12px}.task-status{width:27px;height:27px;display:grid;place-items:center;border-radius:9px;background:var(--lv-warn-soft);color:var(--lv-color-on-warning-soft)}
+/* 原生对话框承担焦点循环，抽屉保留原列表。 */
+dialog{border:1px solid var(--lv-border);background:var(--lv-color-surface-raised);color:var(--lv-color-text);border-radius:21px;box-shadow:var(--lv-shadow-2);padding:0;width:min(530px,calc(100% - 32px));max-height:90vh}dialog::backdrop{background:#211c3545}dialog.drawer{margin:14px 14px 14px auto;width:min(442px,calc(100% - 28px));height:calc(100vh - 28px);max-height:calc(100vh - 28px)}.dialog-head{padding:22px 24px 17px;border-bottom:1px solid var(--lv-border);display:flex;align-items:center;justify-content:space-between;gap:10px}.dialog-body{padding:22px 24px;overflow:auto;max-height:calc(90vh - 86px)}.drawer .dialog-body{max-height:calc(100vh - 114px)}.dialog-body .actions{margin-top:22px;justify-content:flex-end}.dialog-body .subtabs{margin-bottom:20px}.dialog-body .preview-face{min-height:230px}.source-doc{background:var(--lv-color-surface-subtle);border-radius:13px;padding:18px;font-size:13px;line-height:1.95}.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--lv-color-text);color:var(--lv-color-surface);padding:12px 19px;border-radius:12px;box-shadow:var(--lv-shadow-2);max-width:calc(100% - 28px);z-index:20;font-size:12px}.review-issue{margin-bottom:18px}.review-issue .notice{display:flex;flex-direction:column;align-items:stretch;gap:10px}.harness-note{font-size:10px;color:var(--lv-color-text-muted)}
+@container app (max-width:1040px){.shell{grid-template-columns:156px minmax(0,1fr)}.main{padding:24px}.topbar{padding:0 24px}.home-grid{grid-template-columns:minmax(0,1fr) 234px}.hero-art{width:164px;height:164px}.hero-copy{max-width:69%}.home-bottom{grid-template-columns:1fr}.hero h3{font-size:22px}.studio-grid{grid-template-columns:1fr 1fr}.sidebar nav button{padding:10px}.table-head,.card-row{grid-template-columns:22px minmax(0,1fr) 87px 77px 30px;gap:9px}}
+@container app (max-width:780px){.shell{display:block;min-height:0}.sidebar{display:none}.main{padding:23px 19px 27px;min-height:675px}.topbar{height:57px;padding:0 19px}.topbar .local-status{display:none}.topbar .search-trigger{width:210px}.mobile-nav{display:flex;position:sticky;bottom:0;background:var(--lv-color-surface);border-top:1px solid var(--lv-border);padding:6px 8px;z-index:5}.mobile-nav button{flex:1;flex-direction:column;gap:3px;min-height:52px;padding:5px;border:0;background:transparent;font-size:10px;color:var(--lv-color-text-muted)}.mobile-nav button[aria-current=page]{color:var(--lv-color-brand-strong)}.mobile-nav button[aria-current=page] .icon{background:var(--lv-primary-soft);border-radius:8px;padding:2px;width:25px;height:25px}.home-grid{grid-template-columns:1fr}.week-card{display:none}.hero-art{width:175px;height:175px;right:0;bottom:4px}.hero-copy{max-width:65%}.decks{grid-template-columns:1fr 1fr}.decks .deck:last-child{grid-column:1/-1}.home-bottom{grid-template-columns:1fr}.two-col,.onboard-grid{grid-template-columns:1fr}.studio-grid{grid-template-columns:1fr}.studio-top .tag{display:none}.page-head{align-items:flex-start}.page-head h2{font-size:24px}.page-head>button{padding:8px 11px;font-size:12px}.page-head p{font-size:12px}.metric{padding:12px}.metric strong{font-size:23px}.metric-strip{gap:8px}.metric .icon{display:none}.guide-inline{padding:14px;flex-wrap:wrap}.guide-inline .grow{flex-basis:70%}.guide-inline>button{margin-left:55px}.table-head,.card-row{grid-template-columns:22px minmax(0,1fr) 75px;gap:9px;padding:12px}.card-deck,.row-more,.head-deck,.head-more{display:none}.library-tools{display:block}.library-tools .search-field{width:100%;margin-bottom:12px}.library-tools .actions{justify-content:space-between}.library-footer{gap:8px}.health{padding:12px}.health-grid{gap:7px}.health .tag{font-size:10px;padding:2px 5px}.shell.focus .main{padding:21px 18px}.study-face{padding:25px 23px;min-height:327px}.study-face h2{font-size:21px}.rating{grid-template-columns:1fr 1fr;gap:9px}.rating button{min-height:74px}.session-info .tag{font-size:10px}.review-top{gap:8px}.result-panel{padding:26px 22px;margin:15px auto}.result-panel h2{font-size:24px}.result-stats strong{font-size:24px}.result-panel .actions button{width:100%}.studio-footer{align-items:flex-start;flex-direction:column}.studio-footer .actions{width:100%}.studio-footer .actions button{flex:1}.preview-face{min-height:220px}.panel{padding:18px}.hero{padding:22px}.hero h3{font-size:21px}.hero-copy .hero-summary{font-size:12px}.hero .actions{flex-direction:column;align-items:flex-start}.hero .actions button,.hero .actions select{min-height:44px}.review-tools{gap:3px;justify-content:space-between}.review-tools button{font-size:12px;padding:6px 9px}.onboard-hero .hero-art-static{width:200px;height:160px}.setting-row{align-items:flex-start}.setting-row select{max-width:125px}.template-grid{gap:6px}.template{padding:10px}.template svg{width:16px}.calendar{gap:5px}}
+@container app (max-width:780px){.topbar .search-trigger{width:clamp(112px,calc(100vw - 206px),180px);flex:0 1 auto}.topbar .flex:first-child{max-width:100px;flex:0 1 auto;overflow:hidden}.topbar .flex:first-child .small-copy{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.25}.topbar .flex:first-child .tag{flex-shrink:0}.hero-art{opacity:.78;right:-18px;bottom:-12px}.hero-copy{max-width:72%}.hero .actions button{white-space:nowrap}.mobile-nav .nav-count{font-size:9px;line-height:1}.mobile-nav button{white-space:nowrap}.mobile-nav button > .icon{width:20px;height:20px}.mobile-nav button > span:not(.icon):not(.nav-count){line-height:1.1}}
+@container app (max-width:400px){.calendar{gap:3px}.calendar button{min-width:0;min-height:0;width:100%;aspect-ratio:1;padding:0;font-size:11px}}
+@container app (max-width:400px){.topbar .search-trigger{width:42px;flex:0 0 42px;padding:8px;font-size:0;justify-content:center;overflow:hidden}.topbar .search-trigger kbd{display:none}.topbar .flex:first-child{max-width:94px}}
+@media(max-width:700px){.review-bar{padding:0 12px;margin:14px 0;display:block}.review-controls{margin-top:10px}.review-title{font-size:14px}.canvas{width:calc(100% - 20px);border-radius:16px}.review-foot{padding:0 12px;flex-direction:column;gap:4px}.review-controls label{font-size:11px}.review-controls select{max-width:130px}}@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+/* R54 overview parity: the weekly panel remains available on narrow containers. */
+.metric{cursor:default}
+.goal-ring{z-index:1}
+.week-day.future{opacity:.62}
+@container app (max-width:780px){.week-card{display:flex}}
+@container app (max-width:560px){.metric-strip{grid-template-columns:repeat(2,minmax(0,1fr))}.week-card{margin-top:16px}}
+</style>
+</head>
+<body>
+<header class="review-bar"><div><div class="eyebrow">小驴系列 · 设计评审 / R54</div><h1 class="review-title">轻学工作台 · 从一张卡，到一个理解</h1><p class="harness-note">固定虚构数据 · 点击可演练 · 不连接思源或模型 · 刷新恢复样例</p></div><div class="review-controls"><label for="face">页面</label><select id="face" aria-label="原型页面"></select><label for="scene">状态</label><select id="scene" aria-label="样例状态"><option value="ready">正常</option><option value="empty">首次空库</option><option value="noDue">没有到期</option><option value="loading">读取中</option><option value="error">读取失败 / 保留旧数据</option><option value="duePartial">部分卡组读取失败</option><option value="sourceFailed">来源打开失败</option><option value="partial">写入部分成功</option><option value="unknown">评分结果待核对</option><option value="aiWriteUnknown">AI 写入结果待核对</option><option value="aiMissing">AI 未配置</option><option value="ai401">AI 认证失败</option><option value="aiQuota">AI 配额不足</option><option value="aiTimeout">AI 请求超时</option><option value="aiRateLimit">AI 限流</option><option value="aiServer">AI 服务器错误</option><option value="aiNetwork">AI 网络失败</option><option value="aiBudget">AI 预算超限</option><option value="aiSensitive">敏感内容待确认</option><option value="aiStale">旧请求迟到</option></select><label for="width">容器</label><select id="width" aria-label="原型容器宽度"><option value="320">320px</option><option value="390">390px</option><option value="760">760px</option><option value="780">780px</option><option value="781">781px</option><option value="1024">1024px</option><option value="fluid">宽屏</option></select><button id="theme" aria-pressed="false">深色</button><button id="reset" class="ghost">重置演练</button></div></header>
+<div class="canvas" id="app"><div class="shell" id="shell"><aside class="sidebar" id="sidebar"></aside><div class="workspace"><header class="topbar" id="topbar"></header><main class="main" id="screen" tabindex="-1"></main><nav class="mobile-nav" id="mobile-nav" aria-label="主要导航"></nav></div></div></div>
+<footer class="review-foot"><span id="caption">设计提案，非当前插件截图。流程与统计仅在本页合成数据中联动。</span><span>旧版：Starline R53 → 新版：R54 · 2026-10-11</span></footer>
+<dialog id="dialog" aria-labelledby="dialog-title"></dialog><div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+<script>
+'use strict';
+const paths={home:'M3 10l9-7 9 7M5 9v11h5v-6h4v6h5V9',cards:'M6 5h12v15H6zM3 2h12M9 9h6M9 13h4',plus:'M12 4v16M4 12h16',learn:'M3 18h18M5 14v-3M10 14V7M15 14V4M20 14v-5',settings:'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8M9 3h6l1 3 3 1 2 5-2 5-3 1-1 3H9l-1-3-3-1-2-5 2-5 3-1z',inbox:'M4 4h16l2 12v4H2v-4zM3 15h5l2 3h4l2-3h5',search:'M10 3a7 7 0 1 0 0 14 7 7 0 0 0 0-14M15 15l6 6',arrow:'M5 12h14M14 7l5 5-5 5',back:'M19 12H5M10 7l-5 5 5 5',chevron:'M9 5l7 7-7 7',check:'M5 12l4 4 10-10',clock:'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18M12 7v5l3 2',spark:'M12 3l2.7 6.3L21 12l-6.3 2.7L12 21l-2.7-6.3L3 12l6.3-2.7z',leaf:'M20 3C10 3 3 6 4 14c1 7 9 8 13 3 3-4 3-9 3-14zM5 20l10-10',book:'M12 5C8 2 4 3 2 4v15c3-1 6-1 10 2 4-3 7-3 10-2V4c-3-1-7-2-10 1v16',close:'M6 6l12 12M18 6L6 18',sun:'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1 1M18 18l1 1M5 19l1-1M18 6l1-1',question:'M9 8a3 3 0 0 1 6 0c0 2-3 2-3 5M12 17h.01M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20',edit:'M4 16l12-12 4 4L8 20H4zM13 7l4 4',doc:'M5 2h9l5 5v15H5zM14 2v6h5M8 12h8M8 16h6',shield:'M12 2l8 4v6c0 5-8 10-8 10S4 17 4 12V6zM8 12l3 3 5-6',more:'M5 12h.01M12 12h.01M19 12h.01',list:'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',trash:'M3 6h18M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7M14 10v7',bell:'M5 16V9a7 7 0 0 1 14 0v7l2 3H3zM10 22h4',bolt:'M13 2L4 14h7l-1 8 10-12h-7z',repeat:'M5 8h12l-3-3M19 16H7l3 3M20 8v4M4 16v-4',cloze:'M7 4H3v16h4M17 4h4v16h-4M9 12h6',choice:'M3 5h3v3H3zM10 6h11M3 11h3v3H3zM10 12h11M3 17h3v3H3zM10 18h11'};
+const ico=(n)=>`<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="${paths[n]||paths.cards}"/></svg>`;
+const escapeHTML=(s)=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const btn=(label,action,cls='',extra='')=>`<button class="${cls}" data-action="${action}" ${extra}>${label}</button>`;
+const navBtn=(label,page,cls='',icon='',attributes='')=>`<button class="${cls}" data-page="${page}" ${attributes}>${icon?ico(icon):''}${label}</button>`;
+const tag=(label,tone='')=>`<span class="tag ${tone}">${label}</span>`;
+const tile=(icon,tone='')=>`<span class="icon-tile ${tone}">${ico(icon)}</span>`;
+const pages=[['today','今日学习'],['library','卡片库'],['studio','制卡工作台'],['review','专注复习'],['results','本场结果'],['learning','学习与回顾'],['recovery','待处理与恢复'],['onboarding','初次使用'],['settings','偏好与设置']];
+const primaryNav=[['today','今日','home'],['library','卡库','cards'],['studio','制卡','plus'],['learning','学习','learn'],['settings','设置','settings']];
+const initialCards=[
+{id:'c1',q:'TCP 的三次握手分别确认了什么？',a:'双方交换初始序列号，确认发送与接收能力，并确认本次连接。',deck:'网络基础',type:'问答卡',source:'计算机网络 / 连接的建立',due:true,fresh:false,issue:false},
+{id:'c2',q:'HTTP 的无状态意味着什么？',a:'每次请求相互独立；服务器默认不会记住上一次请求的上下文。',deck:'网络基础',type:'问答卡',source:'计算机网络 / HTTP',due:true,fresh:false,issue:false},
+{id:'c3',q:'机会成本是选择一种方案时，放弃的最佳替代方案的价值。',a:'放弃的最佳替代方案',deck:'经济学笔记',type:'挖空卡',source:'经济学 / 成本与选择',due:true,fresh:true,issue:false},
+{id:'c4',q:'reliable 通常可以用来描述什么？',a:'可信赖的人、信息来源或稳定运行的系统。',deck:'日常英语',type:'问答卡',source:'英语 / 常用表达',due:false,fresh:true,issue:false},
+{id:'c5',q:'网络的所有知识有哪些？',a:'该问题过于宽泛，需拆分成多个有明确答案的问题。',deck:'网络基础',type:'问答卡',source:'计算机网络 / 原始笔记',due:false,issue:true},
+{id:'c6',q:'retrieve 与 recall 的使用差别是什么？',a:'retrieve 常强调检索取回；recall 常强调从记忆中想起。',deck:'日常英语',type:'问答卡',source:'英语 / 近义辨析',due:false,issue:false}
+];
+const store={cards:structuredClone(initialCards),due:3,learned:8,log:[],accepted:new Set(),candidates:[],selected:new Set(),shortTerm:[],aiConfigured:false};
+const params=new URLSearchParams(location.search);
+const ui={page:pages.some(p=>p[0]===location.hash.slice(1))?location.hash.slice(1):'today',scene:params.get('state')||'ready',deck:'全部卡组',filter:'all',query:'',time:'5',learningTab:'recap',studioMode:'manual',type:'问答卡',tutorialType:'问答卡',q:'TCP 的三次握手分别确认了什么？',a:initialCards[0].a,material:'TCP 建立连接时会交换初始序列号。三次握手依次确认客户端发送能力、服务端发送与接收能力，以及客户端的接收能力。',draftDeck:'网络基础',candidate:0,generating:false,aiRun:0,aiTimer:null,previewAnswer:false,detailTab:'content',currentID:'c1',session:[],sessionRatings:[],index:0,answer:false,choice:'',choiceOptions:null,choiceFeedback:'',mode:'recall',defaultMode:'recall',tutorial:false,practice:0,day:11,theme:params.get('t')==='dark'?'dark':'light',viewport:params.get('width')||'fluid'};
+document.documentElement.dataset.theme=ui.theme;
+Object.assign(ui,{rescheduleOpen:false,rescheduleDays:1,rescheduleBusy:false,rescheduleError:'',rescheduleTarget:null,rescheduleRetryReady:false,rescheduleFailFirst:false});
+Object.assign(ui,{recoveryInboxCount:3,recoverySuspendedIDs:['c2','c5']});
+
+document.getElementById('face').innerHTML=pages.map(([id,label])=>`<option value="${id}">${label}</option>`).join('');
+const main=document.getElementById('screen'),dialog=document.getElementById('dialog');let toastTimer,detailOpener;
+function notify(text){const e=document.getElementById('toast');e.textContent=text;e.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>e.hidden=true,3200);}
+const cardArt=()=>`<svg viewBox="0 0 220 220" fill="none" aria-hidden="true"><circle cx="132" cy="119" r="83" fill="currentColor" opacity=".05"/><path d="M55 187h132" stroke="currentColor" opacity=".16" stroke-linecap="round"/><g transform="rotate(12 145 115)"><rect x="93" y="47" width="93" height="129" rx="14" fill="var(--lv-color-surface)" stroke="currentColor" stroke-opacity=".14"/><path d="M110 69h39M110 79h24" stroke="currentColor" opacity=".2" stroke-width="5" stroke-linecap="round"/><circle cx="139" cy="125" r="25" fill="#f6c779"/><path d="M130 124l6 6 12-14" stroke="#8c5818" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></g><g transform="rotate(-12 86 128)"><rect x="40" y="73" width="91" height="125" rx="14" fill="var(--lv-color-surface)" stroke="currentColor" stroke-opacity=".18"/><rect x="55" y="88" width="61" height="44" rx="9" fill="currentColor" opacity=".09"/><path d="M66 110h38M77 102v16M93 102v16" stroke="currentColor" opacity=".55" stroke-width="3" stroke-linecap="round"/><path d="M57 151h41M57 163h27" stroke="currentColor" opacity=".2" stroke-width="5" stroke-linecap="round"/></g><path d="M180 33v14M173 40h14M30 62v10M25 67h10" stroke="currentColor" opacity=".55" stroke-width="3" stroke-linecap="round"/><circle cx="172" cy="190" r="5" fill="#f6c779"/><path d="M28 165c-11-16-6-25 4-30 9 15 5 23-4 30z" fill="currentColor" opacity=".22"/></svg>`;
+function pageHead(eyebrow,title,desc,action=''){return `<header class="page-head"><div><div class="eyebrow">${eyebrow}</div><h2>${title}</h2><p>${desc}</p></div>${action}</header>`;}
+function rescheduleTargetLabel(timestamp){return timestamp?new Intl.DateTimeFormat('zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'}).format(new Date(timestamp)):'请选择有效天数';}
+function submitRescheduleDemo(retry=false){
+ if(ui.rescheduleBusy)return;
+ const card=ui.session[ui.index],days=Number(ui.rescheduleDays);
+ if(!card||!Number.isSafeInteger(days)||days<1||days>36500)return;
+ if(!retry||!ui.rescheduleTarget)ui.rescheduleTarget=Date.now()+days*86400000;
+ const target=ui.rescheduleTarget,cardID=card.id;
+ ui.rescheduleBusy=true;ui.rescheduleError='';render();
+ setTimeout(()=>{
+  if(!retry&&ui.rescheduleFailFirst){
+   ui.rescheduleBusy=false;ui.rescheduleRetryReady=true;
+   ui.rescheduleError=`写入失败，样例卡片未更改；当前仍停留在第 ${ui.index+1} 张。重试将继续使用 ${rescheduleTargetLabel(target)} 这个到期目标。`;
+   render();return;
+  }
+  const current=ui.session[ui.index];
+  if(!current||current.id!==cardID)return;
+  if(!ui.tutorial){const saved=store.cards.find(item=>item.id===cardID);if(saved&&saved.due){saved.due=false;saved.nextDue=rescheduleTargetLabel(target);store.due=Math.max(0,store.due-1);}}
+  ui.rescheduleBusy=false;ui.rescheduleOpen=false;ui.rescheduleRetryReady=false;ui.rescheduleTarget=null;ui.rescheduleError='';
+  ui.index++;ui.answer=false;ui.choice='';ui.choiceFeedback='';refreshChoiceOptions();
+  if(ui.index>=ui.session.length)setPage('results');else render();
+  notify(`改期已保存至 ${rescheduleTargetLabel(target)}；本场已推进到下一张。`);
+ },700);
+}
+function getParent(){return ['review','results','onboarding'].includes(ui.page)?'today':ui.page==='recovery'?'library':ui.page;}
+function chrome(){
+const current=getParent();const navItems=primaryNav.map(([id,label,icon])=>`<button data-page="${id}" ${current===id?'aria-current="page"':''}>${ico(icon)}<span>${label}</span>${id==='today'?`<span class="nav-count">${['unknown','duePartial','error','loading'].includes(ui.scene)?'—':store.due}</span>`:''}</button>`).join('');
+ document.getElementById('sidebar').innerHTML=`<div class="brand"><svg class="brandmark" viewBox="0 0 32 36" fill="none" aria-hidden="true"><rect x="8" y="3" width="21" height="28" rx="6" fill="currentColor" opacity=".2" transform="rotate(8 8 3)"/><rect x="2" y="7" width="21" height="28" rx="6" fill="currentColor"/><path d="M8 15h9M8 21h6" stroke="var(--lv-color-surface)" stroke-width="2" stroke-linecap="round"/></svg>小驴闪卡</div>${navBtn(ico('plus')+' 新建闪卡','studio','soft')}<nav aria-label="主要导航">${navItems}<div class="nav-sub">${navBtn('待处理','recovery','','inbox',ui.page==='recovery'?'aria-current="page"':'')}</div></nav><div class="sidebar-bottom"><div class="sidebar-note">一天一点，<br>让理解留得更久。</div>${navBtn('打开上手与示例','onboarding','ghost','question')}<p class="small-copy" style="padding:0 10px">内测版 · 本地优先</p></div>`;
+document.getElementById('mobile-nav').innerHTML=navItems;
+ document.getElementById('topbar').innerHTML=`<div class="flex"><span class="small-copy">${['review','results'].includes(ui.page)?'小驴闪卡 / 专注会话':'我的学习空间'}</span>${tag('内测版')}</div><div class="flex">${btn(ico('search')+' 找卡片或功能 <kbd>Ctrl K</kbd>','palette','search-trigger')}<span class="local-status"><i class="status-dot"></i>仅本页演练</span>${navBtn(ico('inbox'),'recovery','icon-only','',ui.page==='recovery'?'aria-current="page"':'')}</div>`;
+ document.getElementById('topbar').querySelector('.icon-only')?.setAttribute('aria-label','打开待处理收件箱');
+document.getElementById('shell').classList.toggle('focus',['review','results'].includes(ui.page));
+document.getElementById('face').value=ui.page;document.getElementById('scene').value=ui.scene;
+document.getElementById('theme').textContent=ui.theme==='dark'?'浅色':'深色';document.getElementById('theme').setAttribute('aria-pressed',String(ui.theme==='dark'));
+ const width=document.getElementById('width');width.value=ui.viewport;document.getElementById('app').style.width=ui.viewport==='fluid'?'min(calc(100% - 46px), 1334px)':'min(calc('+ui.viewport+'px + 2px), calc(100% - 18px))';
+}
+let tabPanelSeq=0;
+function wireTabPanels(root){
+ for(const list of root.querySelectorAll('[role="tablist"]')){
+  const label=list.getAttribute('aria-label')||'';
+  let panel=label==='卡片筛选'?document.getElementById('library-rows'):null;
+  if(!panel){
+   const anchor=label==='制卡方式'?list.parentElement:list;
+   if(!anchor?.parentElement||!anchor.nextSibling)continue;
+   panel=document.createElement('div');panel.id=`lv-r54-tabpanel-${++tabPanelSeq}`;
+   let node=anchor.nextSibling;while(node){const next=node.nextSibling;panel.append(node);node=next;}
+   anchor.after(panel);
+  }
+  const tabs=[...list.querySelectorAll('[role="tab"]')];
+  if(!tabs.length)continue;
+  tabs.forEach((tab,index)=>{tab.id=`lv-r54-tab-${panel.id}-${index}`;tab.setAttribute('aria-controls',panel.id);});
+  const active=tabs.find(tab=>tab.getAttribute('aria-selected')==='true')||tabs[0];
+  panel.setAttribute('role','tabpanel');panel.setAttribute('tabindex','0');panel.setAttribute('aria-labelledby',active.id);
+ }
+}
+function setPage(page){if(!pages.some(p=>p[0]===page))return;ui.page=page;render();location.hash=page;main.focus({preventScroll:true});}
+function issueNotice(){if(ui.scene==='duePartial'&&['today','library','recovery'].includes(ui.page))return `<div class="review-issue notice red"><strong>部分卡组暂时无法读取，到期总数未知</strong><p>“经济学笔记”样例读取失败，其他卡组仍可查看。为避免少算卡片，本次不缓存合并结果，也不允许启动正式复习。</p><div class="actions">${btn('重试读取','retry','small')}${btn('查看可用卡组','inspect-deck','small ghost')}</div></div>`;if(ui.scene==='error'&&['today','recovery','studio','library'].includes(ui.page))return `<div class="review-issue notice red"><strong>读取失败，保留上次有效内容</strong><p>以下为 10:42 的样例快照。当前到期数可能已经变化，请核对后再开始正式复习。</p><div class="actions">${btn('重新读取','retry','small')}${navBtn('查看待处理','recovery','small ghost')}</div></div>`;if(ui.scene==='partial'&&['today','recovery','studio'].includes(ui.page))return `<div class="review-issue notice warm"><strong>本次处理 3 张：2 张成功，1 张未完成</strong><p>成功记录保留；可在待处理里核对失败项，重试只包含未完成的部分。</p><div class="actions">${navBtn('核对未完成项','recovery','small')}</div></div>`;if(ui.scene==='unknown'&&ui.page!=='review'&&ui.page!=='recovery')return `<div class="review-issue notice warm"><strong>结果尚未确认</strong><p>请求没有返回明确结果。到期数显示“—”，请先核对，避免重复评分或建卡。</p><div class="actions">${btn('核对结果','reconcile','small')}</div></div>`;return '';}
+function emptyView(){return pageHead('第一次使用','让第一张卡，简单一点。','从示例了解翻面与评分，再把自己的笔记变成闪卡。')+`<div class="onboard-grid"><section class="panel onboard-hero"><div class="hero-art-static" style="color:var(--lv-color-on-brand-soft)">${cardArt()}</div><h3>先试一张，不用做任何设置</h3><p class="small-copy" style="margin:9px 0 22px">示例练习独立于正式复习记录，随时可以退出。</p>${navBtn('体验示例闪卡 →','onboarding','primary large')}</section><section class="panel"><h3>从笔记到记忆，只需三步</h3><div class="step-list" style="margin:24px 0">${[['选一段值得记住的内容','可从笔记块、选区或制卡工作台开始。'],['写一个清楚的问题','内置问答、挖空、选择三种示例，边改边看卡面。'],['回忆，再对照答案','选择自己的记忆情况，思源负责安排下次复习。']].map(([t,d],i)=>`<div class="step"><b>${i+1}</b><div><h4>${t}</h4><p>${d}</p></div></div>`).join('')}</div>${navBtn('直接创建自己的卡片','studio','text','plus')}<div class="notice" style="margin-top:18px">AI 是可选的辅助。未配置 AI，也可以完整使用手工制卡与复习。</div></section></div>`;}
+function deckCards(){return [['网络基础','book','',36,6,67],['日常英语','doc','warm',24,4,42],['经济学笔记','leaf','green',18,2,56]].map(([name,icon,tone,count,due,pct])=>`<button class="deck" data-action="deck" data-deck="${name}"><div class="flex between">${tile(icon,tone)}${tag(`${Math.max(0,due-store.log.filter(l=>l.deck===name).length)} 张到期`,tone==='warm'?'warm':'purple')}</div><div class="deck-title">${name}</div><p>样例卡组 · ${count} 张 · ${name==='网络基础'?'计算机网络':name==='日常英语'?'常用表达与近义词':'核心概念'}</p><div class="progress"><i style="width:${pct}%"></i></div><div class="deck-tail"><span>本周已复习 ${pct===67?16:pct===42?10:8} 张</span><span>查看卡片 ${ico('chevron')}</span></div></button>`).join('');}
+function targetRing(){const pct=Math.min(100,Math.round(store.learned/12*100));return `<div class="goal-ring" role="img" aria-label="今日目标进度 ${pct}%"><svg viewBox="0 0 92 92" aria-hidden="true"><circle class="track" cx="46" cy="46" r="40"/><circle class="fill" cx="46" cy="46" r="40" stroke-dasharray="${(2*Math.PI*40*pct/100).toFixed(1)} ${(2*Math.PI*40).toFixed(1)}"/></svg><b>${pct}%<small>今日目标</small></b></div>`;}
+
+function today(){
+ const unknownDue=['unknown','duePartial','error','loading'].includes(ui.scene);
+ const noDue=!unknownDue&&(ui.scene==='noDue'||store.due===0);
+ const hasResume=ui.session.length>0&&ui.index<ui.session.length&&!ui.tutorial;
+ const startBlocked=['unknown','duePartial','error','loading'].includes(ui.scene);
+ const now=new Date(),weekday=(now.getDay()+6)%7;
+ const monday=new Date(now.getFullYear(),now.getMonth(),now.getDate()-weekday);
+ const days=['一','二','三','四','五','六','日'];
+ const sampleReviews=[3,0,2,4,0,0,0];
+ const weekActive=days.map((_,i)=>i<=weekday&&sampleReviews[i]>0);
+ const sampleReviewCount=sampleReviews.slice(0,weekday+1).reduce((sum,n)=>sum+n,0);
+ const weekLabel=d=>`${d.getMonth()+1} 月 ${d.getDate()} 日`;
+ const weekMarkup=`<div class="week-grid" role="list" aria-label="本周每日学习记录">${days.map((day,i)=>{
+  const date=new Date(monday.getFullYear(),monday.getMonth(),monday.getDate()+i);
+  const active=weekActive[i],future=i>weekday;
+  const state=active?`${sampleReviews[i]} 次演示复习`:future?'尚未到来':'暂无复习记录';
+  return `<div class="week-day ${active?'done':''} ${i===weekday?'today':''} ${future?'future':''}" role="listitem" aria-label="${day}，${date.getDate()} 日，${state}"><span>${day}</span><i aria-hidden="true">${active?'✓':i===weekday?date.getDate():'·'}</i></div>`;
+ }).join('')}</div>`;
+ const dateText=`${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')}`;
+ const weekEnd=new Date(now.getFullYear(),now.getMonth(),now.getDate()+6-weekday);
+ const metrics=[['今日待学',unknownDue?'—':store.due],['其中新卡',store.cards.filter(card=>card.fresh&&card.due).length],['到期复习卡',Math.max(0,store.due-store.cards.filter(card=>card.fresh&&card.due).length)],['今日已复习',store.learned]];
+ return pageHead(dateText,noDue?'今天的复习，已经完成。':hasResume?'上次的复习，还可以继续。':'今天，让理解再深一点。',noDue?'现在可以收工，也可以整理材料或进行旁路练习。':hasResume?`已完成 ${ui.index} 张 · 当前范围和本场偏好已保留`:'不必一次学完，从一个可以完成的小目标开始。',navBtn(ico('inbox')+' 待处理','recovery','ghost'))+
+ `<div class="home-grid"><div><section class="panel hero"><div class="hero-copy">${tag(noDue?'今日已完成':hasResume?'继续本场':'今日复习','purple')}<h3>${noDue?'给记忆一点呼吸。':hasResume?'从第 '+(ui.index+1)+' 张继续。':'用 5 分钟，温习旧知识。'}</h3><p class="hero-summary">${noDue?'没有到期卡片 · 不要求额外学习':`<strong class="num">${unknownDue?'—':store.due}</strong> 张待复习 · 当前样例卡组`}</p><div class="actions">${noDue?navBtn('整理自己的卡片','library','primary large'):btn((hasResume?'继续复习 ':'开始复习 ')+ico('arrow'),hasResume?'continue-review':'start-review','primary large',startBlocked?'disabled aria-describedby="hero-reason"':'')}<label class="small-copy">时间 <select id="time" aria-label="本场可用时间">${['5','10','15'].map(n=>`<option value="${n}" ${ui.time===n?'selected':''}>${n} 分钟</option>`).join('')}</select></label></div><p id="hero-reason" class="small-copy" style="margin-top:12px">${ui.scene==='duePartial'?'部分卡组未能读取，请先重试或缩小范围。':ui.scene==='unknown'||ui.scene==='error'?'请先核对范围，再开始正式复习。':ui.scene==='loading'?'正在读取，请等待范围核对完成。':noDue?'休息也是学习节奏的一部分。':hasResume?'不会重复已评分的卡片，返回点和筛选已保留。':'正式评分由你选择，时间到不会自动提交。'}</p></div>${targetRing()}</section><div class="metric-strip">${metrics.map(([label,value])=>`<div class="metric"><small>${label}</small><strong>${value}</strong></div>`).join('')}</div></div><section class="panel week-card"><div class="section-head"><h4>这一周，慢慢积累</h4>${ico('sun')}</div><p class="small-copy">${weekLabel(monday)} 至 ${weekLabel(weekEnd)} · 样例数据：模拟正式复习</p>${weekMarkup}<div class="flex between"><span class="small-copy">${weekActive.filter(Boolean).length} 天有学习记录</span><strong class="num">${sampleReviewCount} <span class="small-copy">次演示复习</span></strong></div><div class="pace-note"><strong>每天一点，也很好。</strong><p>偶尔停一天不会清空进度，下次从合适的范围继续。</p></div></section></div><div class="section-head" style="margin:27px 0 14px"><h3>我的卡组</h3>${navBtn('查看全部 '+ico('chevron'),'library','text')}</div><div class="decks">${deckCards()}</div><div class="home-bottom"><section class="panel"><div class="section-head"><h3>继续上次的工作</h3>${tag('草稿保留')}</div><div class="row">${tile('edit')}<div class="grow"><strong>网络基础 · 制卡草稿</strong><p>${ui.q?'已有题面与答案':'材料已收集'} · 手工制卡</p></div>${navBtn('继续','studio','small soft')}</div><div class="row">${tile('inbox','warm')}<div class="grow"><strong>有一张卡值得再改一下</strong><p>题目范围太大，拆成更小的问题。</p></div>${navBtn('查看','recovery','small')}</div></section><section class="panel"><div class="section-head"><h3>从材料开始</h3>${ico('book')}</div><p class="small-copy" style="margin-bottom:18px">读到值得记住的内容，可以先收集，再决定是否制卡。</p><div class="actions">${navBtn(ico('plus')+' 手工制卡','studio')}${btn(ico('spark')+' AI 辅助','open-ai','ghost')}</div></section></div><div class="guide-inline">${tile('question')}<div class="grow"><h4>第一次用闪卡？先试一张。</h4><p>问答、挖空、选择三种示例，了解操作与评分。</p></div>${navBtn('打开示例','onboarding','text')}</div>`;
+}
+function filteredCards(){return store.cards.filter(c=>(ui.deck==='全部卡组'||c.deck===ui.deck)&&(ui.filter!=='due'||c.due)&&(ui.filter!=='issues'||c.issue)&&(!ui.query||`${c.q} ${c.a} ${c.source} ${c.deck}`.toLowerCase().includes(ui.query.toLowerCase())));}
+function libraryRows(){const cards=filteredCards();return cards.length?`<div class="table-head"><span></span><span>卡片与来源</span><span class="head-deck">卡组</span><span>状态</span><span class="head-more"></span></div>${cards.map(c=>`<div class="card-row ${store.selected.has(c.id)?'selected':''}"><input type="checkbox" aria-label="选择卡片：${escapeHTML(c.q)}" data-select="${c.id}" ${store.selected.has(c.id)?'checked':''}><button class="card-open" data-action="detail" data-id="${c.id}"><span class="card-title">${escapeHTML(c.q)}</span><span class="card-source">${escapeHTML(c.type)} · ${escapeHTML(c.source)}</span></button><span class="card-deck">${escapeHTML(c.deck)}</span><span>${tag(c.issue?'待修':c.due?'待复习':'已安排',c.issue?'warm':c.due?'purple':'green')}</span><button class="icon-only ghost row-more" data-action="detail" data-id="${c.id}" aria-label="查看卡片详情">${ico('chevron')}</button></div>`).join('')}`:`<div class="empty">${tile('search')}<h3>这个范围里没有匹配的卡片</h3><p>只影响当前显示范围；可以清除筛选，也可以返回其他卡组。</p>${btn('清除筛选','clear-filter')}</div>`;}
+function batchBar(){return store.selected.size?`<div class="batchbar"><strong>已选择 ${store.selected.size} 张</strong>${btn('预览移除影响','delete-preview','small danger')}${btn('取消选择','clear-selection','small ghost')}<span class="small-copy">选中与打开详情分别操作</span></div>`:'';}
+function library(){if(ui.scene==='empty')return pageHead('卡片库','从一张卡开始。','当前样例卡库为空；可以先体验示例，再创建自己的卡片。',navBtn('创建第一张卡','studio','primary'))+`<section class="panel empty">${tile('cards')}<h3>还没有闪卡</h3><p>试试内置示例了解回忆、揭晓与评分，或直接手工创建。示例练习不会进入正式记录。</p><div class="actions">${navBtn('体验示例','onboarding','primary')}${navBtn('手工制卡','studio','ghost')}</div></section>`;return pageHead('卡片库','找得到，也改得动。','搜索、筛选和详情共用一个范围，回来源后还能回到这里。',navBtn(ico('plus')+' 新建闪卡','studio','primary'))+`<div class="decks">${deckCards()}</div><div class="library-tools"><label class="search-field">${ico('search')}<input id="card-search" type="search" aria-label="搜索当前卡片库" placeholder="搜索题面、答案或来源…" value="${escapeHTML(ui.query)}"></label><div class="actions"><select id="deck-filter" aria-label="卡组范围">${['全部卡组','网络基础','日常英语','经济学笔记'].map(d=>`<option ${ui.deck===d?'selected':''}>${d}</option>`).join('')}</select><div class="subtabs" role="tablist" aria-label="卡片筛选">${[['all','全部'],['due','待复习'],['issues','待修']].map(([id,l])=>`<button role="tab" aria-selected="${ui.filter===id}" data-action="filter" data-filter="${id}">${l}</button>`).join('')}</div></div></div><div id="batch-slot">${batchBar()}</div><div class="table-wrap" id="library-rows">${libraryRows()}</div><div class="library-footer"><span id="library-count">当前样例 ${filteredCards().length} 张 · 搜索范围：本页合成卡库</span><span>方向键定位 · Enter 查看</span></div><div class="notice" style="margin-top:20px">卡片内容与来源可以编辑；下次复习时间以思源调度结果为准，视图切换不会重排正式评分。</div>`;}
+function templates(demo=false){const selected=demo?ui.tutorialType:ui.type;const action=demo?'demo-template':'template';const options=[['问答卡','cards','一个问题，一个答案'],['挖空卡','cloze','回忆句子里的关键处'],...(demo?[['选择卡','choice','复习时的选择练习，不会保存为卡型']]:[])];return `<div class="template-grid" role="group" aria-label="卡面表达">${options.map(([type,icon,help])=>`<button class="template" data-action="${action}" data-type="${type}" aria-pressed="${selected===type}">${ico(icon)}${type==='选择卡'?'选择练习':type}<span>${help}</span></button>`).join('')}</div>${demo?'':'<p class="small-copy">选择练习是复习方式，不是可保存的卡型；新建卡片使用问答或挖空表达。</p>'}`;}
+function preview(){const q=ui.type==='挖空卡'?escapeHTML(ui.q).replace('放弃的最佳替代方案','<span class="cloze">［ 回忆这里 ］</span>'):escapeHTML(ui.q);return `<div class="preview-face"><span class="eyebrow">${escapeHTML(ui.type)} · 正面</span><h3>${q||'问题写好后，会显示在这里。'}</h3><p class="small-copy">先尝试回答，再对照答案。</p>${ui.previewAnswer?`<div class="answer"><strong>参考答案</strong><br>${escapeHTML(ui.a)||'还未填写答案'}</div>`:''}</div>`;}
+function studio(){const ai=ui.studioMode==='ai';const missing=!store.aiConfigured||ui.scene==='aiMissing';return pageHead('制卡工作台','把一段理解，变成一张好卡。','先选内容与题型，卡面同步预览；AI 候选只有审核后才会创建。',tag(ui.generating?'生成中 · 可取消':'草稿已保留',ui.generating?'warm':''))+`<div class="studio-top"><div class="subtabs" role="tablist" aria-label="制卡方式"><button role="tab" data-action="studio-mode" data-mode="manual" aria-selected="${!ai}">手工制卡</button><button role="tab" data-action="studio-mode" data-mode="ai" aria-selected="${ai}">${ico('spark')} AI 辅助</button></div><div class="flex"><span class="small-copy">保存到</span><select id="draft-deck" aria-label="保存到卡组">${['网络基础','日常英语','经济学笔记'].map(d=>`<option ${ui.draftDeck===d?'selected':''}>${d}</option>`).join('')}</select>${tag('来源保留')}</div></div>${ai&&missing?`<div class="notice warm" style="margin-bottom:18px"><strong>AI 还没有配置。可以先手工制卡。</strong><p>在设置中选择思源内置 AI 或自定义服务商，并完成模型配置。生成前会再次展示实际材料和外发范围。</p><div class="actions">${navBtn('查看 AI 设置','settings','small')}${btn('继续手工制卡','manual','small ghost')}</div></div>`:''}${ai&&['ai401','aiQuota'].includes(ui.scene)?`<div class="notice red" style="margin-bottom:18px"><strong>${ui.scene==='ai401'?'服务商未通过认证（401）':'服务商配额不足'}</strong><p>${ui.scene==='ai401'?'请检查对应服务商的密钥与模型权限。':'请查看服务商余额或额度，也可切换已有配置。'} 材料和草稿保留，不会自动再次发送。</p><div class="actions">${navBtn('检查配置','settings','small')}${btn('改为手工制卡','manual','small ghost')}</div></div>`:''}<div class="studio-grid"><section class="panel"><div class="section-head"><h3>${ai&&store.candidates.length?'候选审核':ai?'选择材料':'编辑内容'}</h3>${tag(ai&&store.candidates.length?`${store.accepted.size} / ${store.candidates.length} 已接受`:'每张一个知识点')}</div>${ai&&store.candidates.length?store.candidates.map((c,i)=>`<div class="candidate-row ${i===ui.candidate?'active':''}"><button data-action="candidate" data-index="${i}">${i+1}. ${escapeHTML(c.q)}</button><div class="flex between"><small>${store.accepted.has(i)?'已接受，允许创建':'待审核，尚未入库'}</small>${btn(store.accepted.has(i)?'取消接受':'接受','accept','small ghost',`data-index="${i}"`)}</div></div>`).join(''):ai?`<label class="field"><span>当前材料 · 可裁剪</span><textarea id="material" rows="6">${escapeHTML(ui.material)}</textarea><small>来源：计算机网络 / 连接的建立 · 本次仅发送下面预览的片段。</small></label><div class="notice">避免发送密码、令牌、身份证号等敏感内容。你可以删减材料，或使用手工制卡。</div>`:''}${templates()}${!ai||store.candidates.length?`<label class="field"><span>题面</span><textarea id="question" rows="3">${escapeHTML(ui.q)}</textarea></label><label class="field"><span>参考答案</span><textarea id="answer-field" rows="3">${escapeHTML(ui.a)}</textarea></label>${ai&&store.candidates.length?`<p class="small-copy">编辑后需重新接受当前候选，之前的审核不会自动沿用。</p>`:''}`:''}${ai&&!store.candidates.length?`<div class="divider"></div><div class="flex between"><span class="small-copy">每次生成 3 张 · 费用暂未知</span>${btn(ui.generating?'取消生成':ico('shield')+' 预览本次请求',ui.generating?'cancel-ai':'preflight',ui.generating?'':'primary',missing?'disabled aria-describedby="ai-reason"':'')}</div><p id="ai-reason" class="small-copy" style="margin-top:10px">${missing?'完成 AI 配置后才可以生成；手工制卡随时可用。':'确认实际端点、材料与费用信息后，再开始生成。'}</p>`:''}</section><div class="stack"><section class="panel"><div class="section-head"><h3>实际卡面预览</h3>${tag('随编辑变化','purple')}</div><div id="live-preview">${preview()}</div><div class="flex between" style="margin-top:15px"><span class="small-copy">卡组：<span id="preview-deck">${escapeHTML(ui.draftDeck)}</span></span>${btn(ui.previewAnswer?'只看题面':'查看答案','preview-answer','small ghost')}</div></section><section class="panel"><div class="section-head"><h4>为什么这样出题？</h4>${ico('book')}</div><p class="small-copy">好题面给清楚的范围，让你主动回忆一个知识点。</p><div class="source-doc" style="margin-top:12px"><strong>来源依据</strong><br>${escapeHTML(ui.material)}</div>${btn('查看完整来源','source','text')}</section></div></div><footer class="studio-footer"><span class="small-copy" id="save-reason">${ai?'选择不等于已审核，只有“已接受”候选可创建。':'题面与答案完整后可以保存；高级字段可随后补充。'}</span><div class="actions">${navBtn('返回今日','today','ghost')}${btn(ai?`创建已接受 ${store.accepted.size} 张`:'创建这张闪卡',ai?'create-candidates':'save-card','primary',ai?(!store.accepted.size?'disabled aria-describedby="save-reason"':''):(!ui.q.trim()||!ui.a.trim()?'disabled aria-describedby="save-reason"':''))}</div></footer>`;}
+function reviewCards(){const now=Date.now();const shortIds=store.shortTerm.filter(x=>x.requeueAtMs&&x.requeueAtMs<=now).map(x=>x.id);const due=store.cards.filter(c=>(c.due||shortIds.includes(c.id))&&(ui.deck==='全部卡组'||c.deck===ui.deck));return [...new Map(due.map(c=>[c.id,c])).values()].slice(0,3);}
+function buildChoiceOptions(answer,candidates){const normalized=String(answer||'').trim();if(!normalized)return null;const seen=new Set([normalized]);const options=[normalized];for(const candidate of candidates){const value=String(candidate||'').trim();if(!value||seen.has(value))continue;seen.add(value);options.push(value);if(options.length===4)break;}return options.length>1?options:null;}
+function refreshChoiceOptions(){const card=ui.session[ui.index];ui.choiceOptions=null;ui.choiceFeedback='';if(ui.mode!=='choice'||!card)return;if(ui.tutorial&&ui.tutorialType==='选择卡'){ui.choiceOptions=[card.a,'反复看答案，不尝试回忆','同时背很多无关概念'];return;}ui.choiceOptions=buildChoiceOptions(card.a,ui.session.slice(ui.index+1,ui.index+8).map(item=>item.a));}
+function startSession(tutorial=false){if(!tutorial&&ui.session.length&&ui.index<ui.session.length){modal('继续当前会话？',`<p>当前会话已完成 ${ui.index} 张，继续会保留本场范围与进度。</p><div class="actions">${btn('继续当前会话','continue-review','primary')}${btn('放弃并重新开始','restart-review','ghost')}</div>`);return;}ui.session=structuredClone(tutorial?[{id:'sample',q:ui.tutorialType==='挖空卡'?'机会成本是选择一种方案时，放弃的最佳替代方案的价值。':ui.tutorialType==='选择卡'?'哪种做法更适合主动回忆？':'为什么回忆之后，再看答案？',a:ui.tutorialType==='挖空卡'?'放弃的最佳替代方案':ui.tutorialType==='选择卡'?'先尝试自己回答，再揭晓并核对。':'回忆让你发现真正记住了什么；对照答案可以纠正遗漏与误解。',deck:'示例体验',type:ui.tutorialType==='选择卡'?'问答卡':ui.tutorialType,source:'内置公开教学样例'}]:reviewCards());if(!ui.session.length&&!tutorial){notify('这个范围没有到期卡片，可换卡组或练习示例。');return;}ui.index=0;ui.answer=false;ui.choice='';ui.tutorial=tutorial;ui.practice=0;ui.sessionRatings=[];ui.mode=tutorial&&ui.tutorialType==='选择卡'?'choice':ui.defaultMode;refreshChoiceOptions();setPage('review');}
+function review(){if(!ui.session.length){return pageHead('专注复习','先确认这一场的范围。','正式复习与示例练习分别记录。')+`<section class="panel empty">${tile('cards')}<h3>还没有开始会话</h3><p>从今日进入正式复习，或先试内置示例。</p><div class="actions">${btn('开始本场复习','start-review','primary')}${navBtn('体验示例','onboarding')}</div></section>`;}const c=ui.session[ui.index];if(!c)return results();const shownQ=c.type==='挖空卡'?escapeHTML(c.q).replace('放弃的最佳替代方案','<span class="cloze">［ 回忆这里 ］</span>'):escapeHTML(c.q);const unknown=ui.scene==='unknown';const canChoice=ui.mode==='choice'&&Array.isArray(ui.choiceOptions)&&ui.choiceOptions.length>=2;return `<div class="review-top">${btn(ico('back')+' 暂停并返回','pause-review','ghost')}<div class="session-info">${tag(ui.tutorial?'示例练习 · 独立记录':'正式复习','purple')}<span>${escapeHTML(c.deck)}</span><span class="num">${ui.index+1} / ${ui.session.length}</span>${tag(`${ui.time} 分钟预算`)}</div>${btn('本场偏好','session-options','ghost')}</div><div class="progress session-progress"><i style="width:${ui.index/ui.session.length*100}%"></i></div>${unknown?`<div class="notice warm" style="margin-bottom:20px"><strong>评分结果还在核对中</strong><p>暂时锁定重复评分。确认上一笔是否成功后再继续，当前卡片与进度已保留。</p>${btn('核对上一笔评分','reconcile','small')}</div>`:''}<section class="study-face"><div class="flex between"><span class="eyebrow">${ui.answer?'回忆之后 · 对照答案':'现在，试着想起来'}</span>${tag(escapeHTML(c.type))}</div><h2>${shownQ}</h2><div class="study-source">来源：${escapeHTML(c.source)} ${btn('查看','source','text')}</div>${!canChoice&&ui.mode==='choice'&&!ui.answer?`<div class="notice warm" style="margin-top:18px"><strong>本题没有可信干扰项，已回到自由回忆。</strong><p>先自己回答，再揭晓答案；不会加入占位选项。</p></div>`:''}${canChoice&&!ui.answer?`<div class="choice-list">${ui.choiceOptions.map((s,i)=>`<button data-action="choose" data-choice="${i}" aria-pressed="${ui.choice===String(i)}">${String.fromCharCode(65+i)}　${escapeHTML(s)}</button>`).join('')}</div><p class="small-copy" style="margin-top:10px">选项仅在当前复习中即时构造；干扰项不足时自动减少选项，无法形成有效选项时回到自由回忆。</p>`:''}${ui.answer?`<div class="study-answer"><span class="eyebrow">参考答案</span><p style="margin-top:10px">${escapeHTML(c.a)}</p>${ui.choiceFeedback?`<div class="notice warm" style="margin-top:12px">${ui.choiceFeedback}</div>`:''}<div class="notice" style="margin-top:19px">${ui.tutorial?'这是独立示例。下面的评分用于体验，不进入正式复习统计。':'先对照自己的回答，再由你选择记忆情况。选择题选对不等于完全掌握。'}</div></div>`:''}</section><div class="study-bottom">${!ui.answer?`${btn('显示答案 <kbd>Space</kbd>','reveal','primary large',unknown?'disabled':'')}<p class="small-copy" style="margin-top:11px">不确定也没关系，先给自己一点回忆的时间。</p>`:`<p class="small-copy">这次，你记得怎样？</p><div class="rating">${[['遗忘','约 3 分钟后回到短期循环'],['困难','间隔由思源计算'],['良好','间隔由思源计算'],['简单','间隔由思源计算']].map(([l,h],i)=>btn(`${l} <kbd>${i+1}</kbd><small>${h}</small>`,'rate','',`data-rate="${i+1}" ${unknown?'disabled':''}`)).join('')}</div><p class="small-copy">${ui.tutorial?'体验完成后，可选择创建自己的闪卡。':'正式调度由思源处理；短期循环不冒充新的到期结果。'}</p>`}</div><div class="review-tools">${btn('先跳过','skip','ghost',unknown?'disabled':'')}${btn('对这张卡有疑问','mark-issue','ghost',unknown?'disabled':'')}${btn('提前收工','finish','ghost',unknown?'disabled':'')}</div>`;}
+function results(){const entries=ui.tutorial?[]:ui.sessionRatings;const missed=entries.filter(e=>e.rating===1).length;return pageHead('本场结果',ui.tutorial?'第一张示例，已经体验过了。':'这次就学到这里。',ui.tutorial?'现在你已经知道如何回忆、翻面、评分。':'完成多少，就记录多少。你可以休息，也可以选择下一步。')+`<section class="panel result-panel"><div class="result-mark">${ico('check')}</div><h2>${ui.tutorial?'从理解操作，到自己的卡片。':'给记忆一点时间。'}</h2><p>${ui.tutorial?'示例练习与正式学习分别记录，没有改变你的到期卡片。':'当前样例评分已同步到今日、卡库和学习记录。'}</p><div class="result-stats"><div><strong>${ui.tutorial?ui.practice:entries.length}</strong><small>${ui.tutorial?'已体验':'已评分'}</small></div><div><strong>${ui.tutorial?'—':missed}</strong><small>遗忘卡</small></div><div><strong>${ui.tutorial?'独立':ui.time+' 分钟'}</strong><small>${ui.tutorial?'练习记录':'本场预算'}</small></div></div><div class="notice ${missed?'warm':'green'}"><strong>${ui.tutorial?'下一步，做一张属于你的卡。':missed?'遗忘卡会进入短期循环。':'这一场的结果已保留。'}</strong><p>${ui.tutorial?'可以沿用示例题型，边编辑边看卡面。':missed?'回到循环时仍需你翻面与评分；也可以先修题面，不要求现在继续。':'正式复习仍按思源下次到期安排；主动收工不会伪造剩余卡片的完成状态。'}</p></div><div class="actions">${navBtn(ui.tutorial?'创建自己的闪卡':'返回今日',''+(ui.tutorial?'studio':'today'),'primary large')}${navBtn(ui.tutorial?'再看其他示例':'查看学习记录',ui.tutorial?'onboarding':'learning')}</div></section>`;}
+function learning(){const tabs=[['recap','学习回顾'],['plans','目标与计划'],['calendar','学习日历']];return pageHead('学习与回顾','看见进展，安排下一步。','正式复习、示例体验与学习计划分别呈现，不把次数当作掌握程度。',ui.learningTab==='plans'?btn(ico('plus')+' 新建目标','new-plan','primary'):btn(ico('doc')+' 记录口径','stats-info','ghost'))+`<div class="subtabs" role="tablist" aria-label="学习分面" style="margin-bottom:22px">${tabs.map(([id,l])=>`<button role="tab" aria-selected="${ui.learningTab===id}" data-action="learn-tab" data-tab="${id}">${l}</button>`).join('')}</div>${ui.learningTab==='plans'?`<div class="two-col"><section class="panel"><div class="flex between"><h3>解释清楚网络连接</h3>${tag('进行中','purple')}</div><p class="small-copy" style="margin:10px 0 22px">范围：网络基础 · 每次 5 分钟 · 不要求每天连续</p><div class="step-list">${[['了解必要概念','材料：连接的建立，已收集。'],['主动回忆','本周已有 16 张正式复习样例记录。'],['解释与应用','目前没有应用证据，不用复习次数推断。']].map(([t,d],i)=>`<div class="step"><b>${i+1}</b><div><h4>${t}</h4><p>${d}</p></div></div>`).join('')}</div><div class="actions" style="margin-top:23px">${btn('复习这个范围','goal-review','primary')}${btn('调整计划','new-plan','ghost')}</div></section><section class="panel"><h3>考试与低频工具</h3><p class="small-copy" style="margin-top:8px">不与日常复习争抢一级入口，按需要展开。</p><div class="row">${tile('clock','warm')}<div class="grow"><strong>考试冲刺计划</strong><p>确定范围与截止日期，再核对每天投入。</p></div>${btn('查看','exam-plan','small')}</div><div class="notice">目标用于组织学习任务；考试日期不会直接覆盖思源已有调度。</div></section></div>`:ui.learningTab==='calendar'?`<div class="two-col"><section class="panel"><div class="section-head"><h3>2026 年 10 月</h3>${tag('过去：已评分 / 未来：预测')}</div><div class="calendar">${['一','二','三','四','五','六','日'].map(d=>`<span class="weekday">${d}</span>`).join('')}${'<span></span>'.repeat(3)}${Array.from({length:31},(_,i)=>i+1).map(n=>`<button data-action="day" data-day="${n}" class="${[5,6,7,8,11].includes(n)?'heat':''} ${n===11?'today':''}" aria-pressed="${ui.day===n}" aria-label="10 月 ${n} 日 ${n<12?'已评分':'到期预测'}">${n}</button>`).join('')}</div></section><section class="panel"><h3 id="day-title">10 月 ${ui.day} 日</h3><p id="day-info" class="small-copy" style="margin:10px 0 20px">${ui.day<=11?'显示本日正式评分记录；样例练习单独计算。':'未来负载为预测，可能随评分与内容变化。'}</p><div class="notice">日历用于查看与核对。修改日期不会改变任何卡片的调度。</div>${btn('查看本日范围','day-scope','text')}</section></div>`:`<div class="two-col"><section class="panel"><div class="section-head"><div><h3>近 7 天复习量</h3><p class="small-copy">正式评分记录 · 不包含示例练习</p></div>${tag('样例数据')}</div><div class="flex" style="margin-top:20px;gap:26px"><div><strong class="num" style="font-size:28px">${44+store.log.length}</strong><p class="small-copy">评分次数</p></div><div><strong class="num" style="font-size:28px">4</strong><p class="small-copy">有学习记录的天数</p></div></div><svg class="chart" viewBox="0 0 450 150" role="img" aria-label="合成样例：周一 6 次、周二 10 次、周三 8 次、周四 12 次、周五与周六 0 次、周日 8 次"><path d="M25 28h405M25 73h405M25 118h405" stroke="var(--lv-border)" stroke-dasharray="3 5"/><path d="M30 79L96 53 162 65 228 40 294 118 360 118 426 65L426 118H30Z" fill="var(--lv-primary-soft)"/><path d="M30 79L96 53 162 65 228 40 294 118 360 118 426 65" fill="none" stroke="var(--lv-color-brand)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>${[30,96,162,228,294,360,426].map((x,i)=>`<text x="${x}" y="145" text-anchor="middle">周${['一','二','三','四','五','六','日'][i]}</text>`).join('')}</svg><p class="small-copy">次数描述投入，不能单独证明记得住或用得上。</p></section><section class="panel"><div class="section-head"><h3>本场学习记录</h3>${tag(`${store.log.length} 条`)}</div>${store.log.length?store.log.slice().reverse().map(e=>`<div class="row">${tile('check','green')}<div class="grow"><strong>${escapeHTML(e.q)}</strong><p>${escapeHTML(e.deck)} · ${['','遗忘','困难','良好','简单'][e.rating]} · 本场样例记录</p></div></div>`).join(''):`<div class="empty" style="padding:35px 5px">${tile('learn')}<h4>本场还没有正式评分</h4><p>完成一次复习后，会显示题面、范围与评分。</p>${navBtn('回到今日','today','text')}</div>`}</section></div><div class="guide-inline">${tile('leaf','green')}<div class="grow"><h4>下一步，围绕一个清楚的目标学习</h4><p>把材料、卡组和可承担的时间放在一起。</p></div>${btn('查看目标','show-plans','text')}</div>`}`;}
+function recovery(){
+ const title='待处理与恢复',subtitle='从留下的现场继续；每项都连接到真实任务页。';
+ const refresh=ui.scene==='loading'?btn('核对中…','retry','ghost','disabled aria-busy="true"'):btn('核对最新状态','retry','ghost');
+ if(ui.scene==='loading')return pageHead('工作区 / 待处理',title,subtitle,refresh)+`<section class="recovery-loading" aria-busy="true" aria-label="正在核对待处理事项"><div class="skeleton" style="height:76px"></div><div class="skeleton" style="height:76px"></div><div class="skeleton" style="height:76px"></div></section>`;
+ if(ui.scene==='empty')return pageHead('工作区 / 待处理',title,subtitle)+`<section class="panel empty"><div class="icon-tile">${ico('inbox')}</div><h3>当前没有需要恢复的事项</h3><p>完成今天的学习，或从示例开始第一张卡。</p>${navBtn('打开上手与示例','onboarding','primary')}</section>`;
+ const jobs=[
+  {source:'计算机网络 / 连接的建立',status:'候选待审核',pending:2,failed:0,created:0,kind:'review'},
+  ...(ui.scene==='aiWriteUnknown'?[{source:'计算机网络 / HTTP',status:'写入中断',pending:1,failed:0,created:1,kind:'write'}]:[]),
+  {source:'英语 / 近义辨析',status:'失败待处理',pending:0,failed:1,created:0,kind:'unavailable'}
+ ];
+ const aiJobs=jobs.map(job=>{
+  const description=job.kind==='review'?'候选卡已保存，但上次的审核标记没有保存。载入后请重新核对；此操作不会发送 AI 请求或写入卡片。':job.kind==='write'?'该作业曾进入写入阶段，部分结果可能尚未记账。请先核对目标卡组；恢复中心不会重复提交这些写入。':'作业记录不包含完整原材料。需要重新生成时，请进入 AI 制卡并重新选择材料；此入口不会自动发送请求。';
+  const label=job.kind==='review'?'继续审核候选':job.kind==='write'?'打开目标卡组核对':'打开 AI 制卡';
+  const action=job.kind==='review'?'recovery-ai-review':job.kind==='write'?'recovery-open-deck':'recovery-open-ai';
+  return `<li class="recovery-job"><div class="recovery-job-head"><span class="recovery-job-source">${escapeHTML(job.source)}</span><span class="recovery-job-state">${job.status}</span></div><span class="recovery-job-counts">待写入 ${job.pending} · 失败 ${job.failed} · 已写入 ${job.created}</span><p class="recovery-copy recovery-job-copy">${description}</p>${btn(label,action,'small ghost',job.kind==='write'?'data-deck="网络基础"':'')}</li>`;
+ }).join('');
+ const session=ui.scene==='unknown'?'评分请求超时或断开时，当前卡与进度会保留。当前内核没有可靠的结果查询；不要重复评分。':'复习现场已保存；继续会回到原范围，不会重复提交已经确认的评分。';
+ const sessionAction=ui.scene==='unknown'?tag('等待结果核对','warm'):btn('继续本场复习','recovery-continue','primary');
+ const inboxCount=ui.recoveryInboxCount;
+ const suspendedCount=ui.recoverySuspendedIDs.length;
+ return pageHead('工作区 / 待处理',title,subtitle,refresh)
+  +`<section class="panel recovery-section" aria-labelledby="recovery-session-title"><div class="section-head"><div><h3 id="recovery-session-title">上次学习现场</h3><p>2026-10-13 的现场仍可继续</p></div>${tag('已完成 5 · 跳过 1','purple')}</div><p class="recovery-copy">${session}</p>${sessionAction}</section>`
+  +`<section class="panel recovery-section" aria-labelledby="recovery-ai-title"><div class="section-head"><div><h3 id="recovery-ai-title">AI 制卡作业</h3><p>${jobs.length} 个作业需要查看</p></div>${tag('需要查看','purple')}</div><ul class="recovery-jobs">${aiJobs}</ul><p class="recovery-copy">恢复页只展示作业摘要；已写入的卡片不会因作业状态变化而回滚。</p></section>`
+  +(inboxCount>0?`<section class="panel recovery-section" aria-labelledby="recovery-inbox-title"><div class="section-head"><div><h3 id="recovery-inbox-title">材料收件箱</h3><p>${inboxCount} 项材料等待整理</p></div>${tag('待整理')}</div><p class="recovery-copy">先查看来源和状态，再决定暂存、选入制卡或淘汰。</p>${btn('打开收件箱','recovery-open-inbox','ghost')}</section>`:'')
+  +(suspendedCount>0?`<section class="panel recovery-section" aria-labelledby="recovery-suspended-title"><div class="section-head"><div><h3 id="recovery-suspended-title">今日暂缓</h3><p>${suspendedCount} 张卡今天暂缓</p></div>${tag('仅影响今天','warm')}</div><p class="recovery-copy">暂缓是可逆的，不改变卡片历史；可以在维护页逐张或按组恢复。</p>${btn('打开维护页','recovery-open-maintenance','ghost')}</section>`:'')
+  +`<p class="recovery-footnote">评分请求超时或断开时，插件会保留当前卡并要求核对；当前内核未提供可靠的结果查询，不会在此页自动重复评分。</p>`;
+}
+function openRecoveryInbox(){
+ const samples=[
+  {title:'TCP 建立连接',source:'计算机网络 / 连接的建立',deck:'网络基础',text:'三次握手依次确认客户端发送能力、服务端发送与接收能力，以及客户端的接收能力。'},
+  {title:'HTTP 无状态',source:'计算机网络 / HTTP',deck:'网络基础',text:'每次请求相互独立；服务器默认不会记住上一次请求的上下文。'},
+  {title:'retrieve 与 recall',source:'英语 / 近义辨析',deck:'日常英语',text:'retrieve 常强调检索取回；recall 常强调从记忆中想起。'}
+ ];
+ modal('材料收件箱',`<p class="small-copy">${ui.recoveryInboxCount} 项材料等待整理。先查看来源和内容，再选入制卡。</p>${samples.slice(0,ui.recoveryInboxCount).map((item,index)=>`<div class="row"><div class="grow"><strong>${item.title}</strong><p>${item.source} · ${item.deck}</p><p class="small-copy">${item.text}</p></div>${btn('选入制卡','recovery-use-material','small ghost',`data-index="${index}"`)}</div>`).join('')}<div class="actions">${btn('返回待处理','close-dialog','primary')}</div>`,true);
+}
+function openRecoveryMaintenance(){
+ const suspended=[{id:'c2',title:'HTTP 的无状态意味着什么？',deck:'网络基础'},{id:'c5',title:'网络的所有知识有哪些？',deck:'网络基础'}].filter(card=>ui.recoverySuspendedIDs.includes(card.id));
+ modal('维护页',`<p class="small-copy">今日暂缓是可逆的，只影响今天的复习安排。</p>${suspended.length?suspended.map((card,index)=>`<div class="row"><div class="grow"><strong>${escapeHTML(card.title)}</strong><p>${escapeHTML(card.deck)} · 今天暂缓</p></div>${btn('恢复今天复习','recovery-restore-suspended','small ghost',`data-card="${card.id}" data-index="${index}"`)}</div>`).join(''):'<div class="notice green">今天暂缓的卡片已全部恢复。</div>'}<div class="actions">${btn('返回待处理','close-dialog','primary')}</div>`,true);
+}
+function onboarding(){return pageHead('上手与示例','先学会用，再开始记。','示例体验完全独立，不要求 AI 配置，也不混入正式复习记录。',navBtn('跳过，返回今日','today','ghost'))+`<div class="onboard-grid"><section class="panel onboard-hero"><div class="hero-art-static" style="color:var(--lv-color-on-brand-soft)">${cardArt()}</div><h3>选一个题型，亲手试一张</h3><p class="small-copy" style="margin:8px 0 20px">每种示例都能体验：回忆 → 揭晓 → 自评。</p>${templates(true)}${btn('体验'+escapeHTML(ui.tutorialType)+' '+ico('arrow'),'practice','primary large')}</section><section class="panel"><h3>你会学会的三件事</h3><div class="step-list" style="margin:23px 0">${[['先回忆，不急着翻面','不会也没关系，尝试回忆比直接看答案更能发现遗漏。'],['对照答案，自己判断','四档评分没有“正确选项”，按这次真实记忆情况选择。'],['制作清楚的小问题','题面范围小、答案可核对，之后才更容易复习。']].map(([t,d],i)=>`<div class="step"><b>${i+1}</b><div><h4>${t}</h4><p>${d}</p></div></div>`).join('')}</div><div class="notice warm"><strong>示例在哪里？</strong><p>这里是独立体验区。只有你主动创建，自己的卡片才会进入卡库。</p></div>${navBtn('我已了解，直接制卡','studio','text')}</section></div>`;}
+function settings(){return pageHead('偏好与设置','清楚影响，再做改变。','少量常用偏好先呈现，模型、隐私、备份按任务定位。')+`<div class="health-grid">${[['cards','本地闪卡','正常可用','green'],['shield','AI 辅助',store.aiConfigured?'样例已配置':'尚未配置',store.aiConfigured?'green':'warm'],['inbox','数据与备份','可查看与导出','purple']].map(([i,t,s,tone])=>`<div class="health">${tile(i,tone==='green'?'green':'')}<strong>${t}</strong>${tag(s,tone)}</div>`).join('')}</div><div class="two-col"><section class="panel"><h3>学习与外观</h3><div class="setting-row"><div><h4>作答方式</h4><p>全局默认；本场可以临时覆盖。</p></div><select id="default-mode" aria-label="默认作答方式"><option value="recall" ${ui.defaultMode==='recall'?'selected':''}>自由回忆</option><option value="choice" ${ui.defaultMode==='choice'?'selected':''}>选择练习</option></select></div><div class="setting-row"><div><h4>外观主题</h4><p>生产重构将支持跟随思源、浅色与深色。</p></div>${btn(ui.theme==='dark'?'切换浅色':'切换深色','theme','small')}</div><div class="setting-row"><div><h4>短期遗忘循环</h4><p>遗忘卡约 3 分钟后再出现，仍需你正式评分。</p></div>${tag('保留现有能力','purple')}</div><div class="setting-row"><div><h4>上手与示例</h4><p>随时返回教学，不要求创建演示数据。</p></div>${navBtn('打开','onboarding','small')}</div></section><section class="panel"><h3>AI 与隐私</h3><p class="small-copy" style="margin-top:8px">AI 只辅助制卡，手工制卡与复习可以独立使用。</p><div class="setting-row"><div><h4>服务商配置</h4><p>${store.aiConfigured?'演示端点：example.invalid · 不发出请求':'先在思源或自定义服务商中设置模型。'}</p></div>${btn('配置说明','ai-setup','small')}</div><div class="setting-row"><div><h4>演练“已配置”场景</h4><p>评审专用开关；不会设置真实密钥或连接模型。</p></div><button class="switch" data-action="toggle-ai" role="switch" aria-label="AI 已配置样例" aria-checked="${store.aiConfigured}"></button></div><div class="notice warm" style="margin-top:18px"><strong>每次外发之前，先看得见。</strong><p>明确材料、接收端点、模型和估算；允许裁剪、拒绝和取消。</p></div>${btn('查看完整外发说明','privacy','text')}</section></div><section class="panel" style="margin-top:20px"><div class="section-head"><h3>数据与高级工具</h3>${tag('低频操作')}</div><div class="row">${tile('inbox')}<div class="grow"><strong>导入、导出与备份</strong><p>保留现有数据能力；恢复前查看范围与影响。</p></div>${btn('查看数据工作区','data-tools','small')}</div><div class="row">${tile('settings')}<div class="grow"><strong>高级诊断与模块</strong><p>考试、来源健康与模块开关，在需要时展开。</p></div>${btn('查看诊断','diagnostics','small')}</div></section>`;}
+function asyncBoundaryNotice(){if(ui.page!=='studio')return '';const states={aiTimeout:['请求超时','服务没有在时限内回应。草稿与来源保留，可检查网络后重试，或改用手工制卡。','重新预览并重试','retry'],aiRateLimit:['服务商正在限流','请按服务商提示稍后再试；不会自动重复发送。','稍后重试','retry'],aiServer:['服务商暂时不可用','服务端返回错误。材料未清除，可重试或切换服务商。','检查配置','ai-settings'],aiNetwork:['网络连接失败','请检查网络和服务地址。当前草稿仍保留。','重新连接','retry'],aiBudget:['本次预算超限','请求尚未发送。可以裁剪材料、减少候选数或继续手工制卡。','编辑材料','focus-material'],aiSensitive:['材料包含需谨慎处理的信息','确认外发范围前不会发送。可移除敏感片段或取消本次请求。','返回检查材料','preflight'],aiStale:['较早的请求结果已过期','已忽略旧结果，当前材料和更新后的请求保持不变。','继续当前草稿','retry']};const state=states[ui.scene];if(!state)return '';const [title,body,label,action]=state;return '<div class="review-issue notice '+(ui.scene==='aiBudget'||ui.scene==='aiSensitive'?'warm':'red')+'"><strong>'+title+'</strong><p>'+body+'</p><div class="actions">'+btn(label,action,'small')+btn('改用手工制卡','manual','small ghost')+'</div></div>';}
+function render(){chrome();let content='';if(ui.scene==='loading'&&ui.page!=='recovery')content=pageHead('读取状态','正在核对当前范围。','还未拿到真实结果，暂不显示为零。')+`<section class="panel" aria-busy="true"><div class="skeleton hero"></div><div class="skeleton"></div><div class="skeleton" style="width:42%"></div><p class="small-copy">样例读取中。${btn('完成样例读取','retry','text')}</p></section>`;else if(ui.scene==='empty'&&ui.page==='today')content=emptyView();else content=asyncBoundaryNotice()+issueNotice()+({today,library,studio,review,results,learning,recovery,onboarding,settings}[ui.page]||today)();main.innerHTML=content;wireTabPanels(main);}
+function modal(title,content,drawer=false){if(dialog.open)dialog.close();dialog.classList.toggle('drawer',drawer);dialog.innerHTML=`<header class="dialog-head"><h3 id="dialog-title">${title}</h3>${btn(ico('close'),'close-dialog','icon-only ghost','aria-label="关闭"')}</header><div class="dialog-body">${content}</div>`;wireTabPanels(dialog);dialog.showModal();}
+function detail(id){const c=store.cards.find(x=>x.id===id);if(!c){notify('这张卡已不在当前范围，列表已保留。');return;}ui.currentID=id;const tabs=[['content','内容'],['source','来源'],['history','学习'],['issue','维护']];let body='';if(ui.detailTab==='content')body=`<div class="preview-face"><span class="eyebrow">${escapeHTML(c.type)}</span><h3>${escapeHTML(c.q)}</h3><div class="answer">${escapeHTML(c.a)}</div></div><div class="row"><div class="grow"><strong>${escapeHTML(c.deck)}</strong><p>当前卡片所在范围</p></div>${tag(c.due?'待复习':'已安排',c.due?'purple':'green')}</div><div class="actions">${btn('编辑这张卡','edit-card','primary')}${btn('查看来源','detail-tab','', 'data-tab="source"')}</div>`;else if(ui.detailTab==='source')body=`<h4>${escapeHTML(c.source)}</h4><div class="source-doc" style="margin-top:14px">${escapeHTML(c.a)}</div><div class="notice" style="margin-top:16px">生产中由来源块 ID 回到思源文档。原列表查询、滚动和焦点保留。</div><div class="actions">${btn('打开来源预览','source')}</div>`;else if(ui.detailTab==='history')body=`<h4>这张卡的本场评分</h4>${store.log.filter(e=>e.id===id).map(e=>`<div class="row"><div>${tag(['','遗忘','困难','良好','简单'][e.rating],'purple')}<p class="small-copy">正式复习演练记录</p></div></div>`).join('')||'<div class="notice" style="margin-top:15px">本场没有这张卡的评分记录。未读取的历史不表示从未复习。</div>'}<p class="small-copy" style="margin-top:19px">正式间隔以思源返回为准，本原型不计算 FSRS。</p>`;else body=`${c.issue?'<div class="notice warm"><strong>题目范围太大</strong><p>尝试只问一个可核对的知识点，再编辑题面。</p></div>':'<div class="notice green">本场没有登记这张卡的问题。</div>'}<div class="actions">${btn('编辑题面','edit-card','primary')}${btn('预览移除影响','delete-one','danger')}</div>`;modal('卡片详情',`<div class="subtabs" role="tablist" aria-label="卡片详情分面">${tabs.map(([id,l])=>`<button role="tab" data-action="detail-tab" data-tab="${id}" aria-selected="${ui.detailTab===id}">${l}</button>`).join('')}</div>${body}`,true);}
+function preflight(){modal('确认本次 AI 请求',`<div class="notice warm"><strong>这些材料将发送给所选服务商</strong><p>请检查是否包含敏感信息。拒绝发送后，材料仍可用于手工制卡。</p></div><div class="row"><div class="grow"><strong>接收端点与模型</strong><p>https://example.invalid/v1/chat/completions<br>演示模型 · 本原型只生成固定候选，不发请求</p></div></div><div class="row"><div><strong>材料范围</strong><p>1 个来源片段 · ${ui.material.length} 字 · 不包含整份笔记本</p></div></div><div class="source-doc">${escapeHTML(ui.material)}</div><div class="notice" style="margin-top:14px">费用未知：尚未填写服务商单价。生产中预算超限会先阻断，并提供裁剪入口。</div><label class="flex" style="margin-top:18px;font-size:12px"><input id="consent" type="checkbox">我已核对本次材料、端点与费用信息</label><div class="actions">${btn('保留材料，不发送','close-dialog')}${btn('确认并生成样例','generate-ai','primary','disabled aria-describedby="consent"')}</div>`);}
+function generate(){if(!dialog.querySelector('#consent')?.checked)return;dialog.close();ui.generating=true;const run=++ui.aiRun;ui.aiTimer=setTimeout(()=>{if(run!==ui.aiRun)return;ui.generating=false;store.candidates=[{q:'TCP 三次握手的主要目的是什么？',a:initialCards[0].a},{q:'第二次握手为什么需要返回确认？',a:'让客户端确认服务端能够接收请求，并提供服务端自己的初始序列号。'},{q:'三次握手是否等于保证数据永远不会丢失？',a:'不是。握手确认连接初始状态；后续可靠传输还需要序列号、确认与重传机制。'}];store.accepted.clear();ui.candidate=0;ui.q=store.candidates[0].q;ui.a=store.candidates[0].a;render();notify('3 个固定候选已生成。审核接受后，才可以创建。');},1300);render();}
+function saveCards(items){const added=items.map((c,i)=>({...c,id:'created-'+Date.now()+'-'+i,deck:ui.draftDeck,type:ui.type,source:ui.draftDeck+' / 本次制卡材料',due:true,issue:false}));store.cards.push(...added);store.due+=added.length;render();modal('闪卡已经创建',`<div class="notice green"><strong>新增 ${added.length} 张 → ${escapeHTML(ui.draftDeck)}</strong><p>题面、答案与来源已保留，今日与卡库共享同一份合成数据。</p></div><div class="actions">${btn('继续制卡','close-dialog')}${btn('查看这批卡片','view-created','primary')}</div><p class="small-copy" style="margin-top:15px">本原型仅保存到本页内存，刷新后恢复。实际插件写入须以思源创建回执为准。</p>`);}
+function rate(rating){if(!ui.answer||ui.scene==='unknown')return;const c=ui.session[ui.index];if(!c)return;const entry={id:c.id,q:c.q,deck:c.deck,rating};if(ui.tutorial)ui.practice++;else{ui.sessionRatings.push(entry);store.log.push(entry);store.learned++;store.due=Math.max(0,store.due-1);const real=store.cards.find(x=>x.id===c.id);if(real){real.due=false;real.nextDue=rating===1?'短期循环':'思源计算';}if(rating===1){store.shortTerm.push({id:c.id,q:c.q,deck:c.deck,requeueAt:'约 3 分钟后',requeueAtMs:Date.now()+180000});}}ui.index++;ui.answer=false;ui.choice='';refreshChoiceOptions();if(ui.index>=ui.session.length)setPage('results');else render();}
+function source(){const c=ui.page==='review'?(ui.session[ui.index]||{source:'计算机网络 / 连接的建立',a:ui.material}):ui.page==='studio'?{source:ui.draftDeck+' / 本次制卡材料',a:ui.material}:(store.cards.find(x=>x.id===ui.currentID)||{source:'计算机网络 / 连接的建立',a:ui.material});modal('来源预览',`<div class="flex">${tile('doc')}<div><h4>${escapeHTML(c.source)}</h4><p class="small-copy">同一来源对象的本地合成样例</p></div></div><div class="source-doc" style="margin-top:20px">${escapeHTML(c.a||ui.material)}</div><div class="notice" style="margin-top:18px">实际实现将跳到精确来源块，并保留原任务、筛选和未保存草稿。</div><div class="actions">${btn('返回原任务','close-dialog','primary')}</div>`);}
+function aiSetup(){modal('AI 配置与使用说明',`<div class="step-list">${[['选择一种接入方式','思源内置 AI：先到思源设置完成模型配置；自定义服务商：在插件内填写端点、模型和密钥。'],['检查模型与预算','确认模型可用、账户权限与额度。单价未知时，不展示虚假的费用。'],['每次请求前核对','看实际材料、端点和费用估算；敏感内容可以删减或拒绝发送。']].map(([t,d],i)=>`<div class="step"><b>${i+1}</b><div><h4>${t}</h4><p>${d}</p></div></div>`).join('')}</div><div class="notice" style="margin-top:21px">当前是原型，只提供“已配置”样例开关。不读取、不填写、不保存任何真实凭据。</div><div class="actions">${btn('继续手工制卡','setup-manual')}${btn('演练已配置场景','setup-demo','primary')}</div>`);}
+document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b||b.disabled)return;if(b.id==='theme'){ui.theme=ui.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=ui.theme;render();return;}if(b.id==='reset'){location.href=location.pathname;return;}if(b.dataset.page){if(dialog.open)dialog.close();setPage(b.dataset.page);return;}const a=b.dataset.action;switch(a){
+case 'retry':ui.scene='ready';render();notify('样例状态已核对，当前范围保留。');break;
+case 'source-retry':ui.scene='ready';render();notify('来源打开成功，仍停留在原任务现场。');break;
+case 'start-review':startSession();break;
+case 'continue-review':if(ui.session.length&&ui.index<ui.session.length){ui.tutorial=false;ui.answer=false;ui.choice='';setPage('review');}else startSession();break;
+case 'restart-review':dialog.close();ui.session=[];ui.index=0;startSession();break;
+case 'deck':ui.deck=b.dataset.deck;ui.filter='all';setPage('library');break;
+case 'metric':if(b.dataset.filter==='recap'){ui.learningTab='recap';setPage('learning');}else{ui.filter=b.dataset.filter;setPage('library');}break;
+case 'open-ai':ui.studioMode='ai';setPage('studio');break;
+case 'manual':ui.studioMode='manual';render();break;
+case 'studio-mode':ui.studioMode=b.dataset.mode;render();break;
+case 'demo-template':ui.tutorialType=b.dataset.type;render();break;
+case 'template':ui.type=b.dataset.type;if(ui.type==='挖空卡'){ui.q=initialCards[2].q;ui.a=initialCards[2].a;}else if(ui.type==='选择卡'){ui.q='哪种做法更适合主动回忆？';ui.a='先尝试自己回答，再揭晓并核对。';}else{ui.q=initialCards[0].q;ui.a=initialCards[0].a;}store.accepted.delete(ui.candidate);if(store.candidates.length){store.candidates[ui.candidate]={q:ui.q,a:ui.a};}render();break;
+case 'preview-answer':ui.previewAnswer=!ui.previewAnswer;render();break;
+case 'save-card':if(ui.q.trim()&&ui.a.trim())saveCards([{q:ui.q.trim(),a:ui.a.trim()}]);break;
+case 'view-created':dialog.close();ui.deck=ui.draftDeck;ui.query='';ui.filter='all';setPage('library');break;
+case 'preflight':if(store.aiConfigured)preflight();break;
+case 'ai-settings':ui.studioMode='ai';setPage('settings');break;
+case 'focus-material':ui.studioMode='ai';render();queueMicrotask(()=>document.getElementById('material')?.focus());break;
+case 'generate-ai':generate();break;
+case 'cancel-ai':clearTimeout(ui.aiTimer);ui.aiRun++;ui.generating=false;render();notify('已取消，材料与草稿保留；迟到结果不会覆盖当前内容。');break;
+case 'candidate':ui.candidate=Number(b.dataset.index);ui.q=store.candidates[ui.candidate].q;ui.a=store.candidates[ui.candidate].a;render();break;
+case 'accept':{const n=Number(b.dataset.index);store.accepted.has(n)?store.accepted.delete(n):store.accepted.add(n);render();break;}
+case 'create-candidates':if(store.accepted.size){saveCards([...store.accepted].map(i=>store.candidates[i]));store.accepted.clear();store.candidates=[];}break;
+case 'practice':startSession(true);break;
+case 'reveal':ui.answer=true;render();break;
+case 'rate':rate(Number(b.dataset.rate));break;
+case 'skip':if(ui.scene==='unknown'){notify('结果待核对，不能跳过当前卡片。');break;}ui.index++;ui.answer=false;ui.choice='';if(ui.index>=ui.session.length)setPage('results');else render();break;
+case 'finish':if(ui.scene==='unknown'){notify('结果待核对，不能提前结束本场。');break;}setPage('results');break;
+case 'pause-review':modal('暂停这场复习',`<p>当前范围、进度与作答方式保留在本页。未提交的卡片不会计为完成。</p><div class="actions">${btn('继续本场','close-dialog')}${btn('暂停并返回今日','pause-confirm','primary')}</div>`);break;
+case 'pause-confirm':dialog.close();setPage('today');notify('会话现场保留，可从页面选择器返回专注复习继续。');break;
+case 'choose':ui.choice=b.dataset.choice;ui.choiceFeedback=Number(ui.choice)===ui.choiceOptions?.indexOf(ui.session[ui.index].a)?'选择正确。参考答案仍需完整核对。':'这次没有选中答案，先对照参考答案。';ui.answer=true;render();break;
+case 'session-options':modal('本场偏好',`<p class="small-copy">只改变这场的作答方式，不修改全局默认与正式评分。</p><label class="field">作答方式<select id="session-mode"><option value="recall" ${ui.mode==='recall'?'selected':''}>自由回忆</option><option value="choice" ${ui.mode==='choice'?'selected':''}>选择练习</option></select></label><div class="notice">选择模式的选项来自有效题目。其他卡片无有效干扰项时，自动退回自由回忆。</div><div class="actions">${btn('应用到本场','apply-options','primary')}</div>`);break;
+case 'apply-options':ui.mode=document.getElementById('session-mode').value;dialog.close();render();break;
+case 'mark-issue':if(ui.scene==='unknown'){notify('结果待核对，暂不修改卡片状态。');break;}{const c=ui.session[ui.index];const real=c&&store.cards.find(x=>x.id===c.id);if(c)c.issue=true;if(real)real.issue=true;render();notify('疑问已保留到待修列表；可以先完成复习再修卡。');}break;
+case 'reconcile':ui.scene='ready';render();notify('核对演练完成：上一笔已确认，没有重复提交。');break;
+case 'filter':ui.filter=b.dataset.filter;render();break;
+case 'clear-filter':ui.query='';ui.filter='all';ui.deck='全部卡组';render();break;
+case 'clear-selection':store.selected.clear();render();break;
+case 'detail':ui.detailTab='content';detailOpener=b;detail(b.dataset.id);break;
+case 'detail-tab':ui.detailTab=b.dataset.tab;detail(ui.currentID);break;
+case 'edit-card':{const c=store.cards.find(c=>c.id===ui.currentID);modal('编辑题面与答案',`<label class="field">题面<textarea id="edit-q" rows="3">${escapeHTML(c.q)}</textarea></label><label class="field">答案<textarea id="edit-a" rows="4">${escapeHTML(c.a)}</textarea></label><p class="small-copy">来源关联保留。生产保存需展示差异，并在成功后更新版本记录。</p><div class="actions">${btn('取消','close-dialog')}${btn('保存本页修改','save-edit','primary')}</div>`);break;}
+case 'save-edit':{const q=document.getElementById('edit-q').value.trim(),a=document.getElementById('edit-a').value.trim();if(!q||!a){notify('题面和答案都需要填写。');break;}const c=store.cards.find(c=>c.id===ui.currentID);c.q=q;c.a=a;dialog.close();render();notify('修改已同步到当前卡库，来源关联保留。');break;}
+case 'delete-one':store.selected=new Set([ui.currentID]);
+case 'delete-preview':modal('核对移除范围',`<div class="notice warm"><strong>将从本页合成卡库移除 ${store.selected.size} 张卡</strong><p>不会删除思源源文档。原型刷新可恢复所有样例。</p></div><p class="small-copy" style="margin-top:16px">实际实现应核对集合成员与影响，成功后再更新列表和数量。</p><div class="actions">${btn('保留卡片','close-dialog')}${btn('确认移除样例','delete-confirm','danger')}</div>`);break;
+case 'delete-confirm':{const removed=store.cards.filter(c=>store.selected.has(c.id));store.cards=store.cards.filter(c=>!store.selected.has(c.id));store.due=Math.max(0,store.due-removed.filter(c=>c.due).length);store.selected.clear();dialog.close();render();notify('样例移除完成，其他卡片保留。');}break;
+case 'source':source();break;
+case 'learn-tab':ui.learningTab=b.dataset.tab;render();break;
+case 'show-plans':ui.learningTab='plans';render();break;
+case 'goal-review':ui.deck='网络基础';startSession();break;
+case 'day':ui.day=Number(b.dataset.day);render();break;
+case 'day-scope':ui.filter='due';setPage('library');break;
+case 'new-plan':modal('调整学习目标',`<label class="field">目标<input value="能够解释网络连接的建立"></label><label class="field">范围<select><option>网络基础</option></select></label><label class="field">每次时间<select><option>5 分钟</option><option>10 分钟</option></select></label><div class="notice">这是目标编辑样例，不覆盖思源调度。应用证据与记忆记录分别登记。</div><div class="actions">${btn('取消','close-dialog')}${btn('确认样例方案','plan-confirm','primary')}</div>`);break;
+case 'plan-confirm':dialog.close();notify('目标编辑流程已演练；原型未接持久化目标模型。');break;
+case 'exam-plan':modal('考试冲刺 · 范围与投入',`<p>考试计划收在“学习”里；先定卡组和日期，再预览每日建议量。</p><div class="notice warm" style="margin-top:17px">每日负荷是估算。超出时间预算时给调整方案，不能承诺准确掌握日期。</div><div class="actions">${btn('返回学习计划','close-dialog','primary')}</div>`);break;
+case 'ai-setup':aiSetup();break;
+case 'setup-demo':store.aiConfigured=true;dialog.close();ui.studioMode='ai';setPage('studio');notify('已进入“AI 已配置”评审样例，生成仍只用固定数据。');break;
+case 'setup-manual':dialog.close();ui.studioMode='manual';setPage('studio');break;
+case 'toggle-ai':store.aiConfigured=!store.aiConfigured;render();break;
+case 'theme':ui.theme=ui.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=ui.theme;render();break;
+case 'privacy':modal('外发与取消说明',`<div class="step-list"><div><h4>发送由你发起</h4><p class="small-copy">只发送本次选中的材料与参数。生成前可读、可删减、可拒绝。</p></div><div><h4>失败不丢草稿</h4><p class="small-copy">取消、超时、认证失败、限流和配额不足分别解释；不会自动再次外发。</p></div><div><h4>取消的边界</h4><p class="small-copy">取消后不接受迟到结果；如果请求已到达服务商，可能仍按服务商规则计费。</p></div></div><div class="actions">${btn('已了解','close-dialog','primary')}</div>`);break;
+case 'stats-info':modal('学习数据口径',`<p>正式评分以思源确认结果为准。示例体验、纯练习和跳过分别记录。</p><div class="notice" style="margin-top:17px">未知不显示为零；评分次数不是掌握率。图表是明确标注的固定合成样例。</div><div class="actions">${btn('返回回顾','close-dialog','primary')}</div>`);break;
+case 'data-tools':modal('数据工作区',`<div class="row"><div class="grow"><strong>导出与备份</strong><p>保留当前插件已实现能力，重构只调整承载位置。</p></div>${tag('需接现有接口')}</div><div class="row"><div class="grow"><strong>Anki / 文本导入</strong><p>预览映射 → 导入 → 逐项结果与损失说明。</p></div>${tag('迁移入口')}</div><div class="notice warm">恢复是写入操作，先展示备份日期、范围与替换影响，不能只有一个“成功”提示。</div><div class="actions">${btn('返回设置','close-dialog','primary')}</div>`);break;
+case 'diagnostics':modal('诊断与能力状态',`<div class="row"><strong>本地制卡与复习</strong>${tag('独立可用','green')}</div><div class="row"><strong>AI 辅助</strong>${tag(store.aiConfigured?'配置样例可用':'缺少配置','warm')}</div><div class="row"><strong>OCR 材料采集</strong>${tag('等待稳定版接口')}</div><div class="notice">OCR 不作为本轮重构前置。按已记录约定，等待思源 3.8.7 正式版再评估。</div><div class="actions">${btn('返回设置','close-dialog','primary')}</div>`);break;
+case 'import-repair':ui.studioMode='manual';setPage('studio');notify('进入补充内容工作面；成功项不会重新导入。');break;
+case 'palette':modal('查找卡片与功能',`<label class="search-field" style="width:100%">${ico('search')}<input id="palette-search" type="search" placeholder="输入“制卡”“复习”“设置”…" aria-label="搜索功能"></label><div id="palette-items" style="margin-top:16px">${pages.map(([id,l])=>`<div class="palette-row" data-name="${l}">${navBtn(l,id,'ghost')}</div>`).join('')}</div><p class="small-copy" style="margin-top:15px">Escape 关闭；返回时保留原工作面。</p>`);dialog.querySelector('input').focus();break;
+case 'close-dialog':dialog.close();break;
+}});
+document.addEventListener('change',e=>{const id=e.target.id;if(id==='face'){ui.page=e.target.value;ui.scene='ready';location.hash=ui.page;render();}if(id==='width'){ui.viewport=e.target.value;const u=new URL(location.href);if(ui.viewport==='fluid')u.searchParams.delete('width');else u.searchParams.set('width',ui.viewport);history.replaceState(null,'',u);render();}if(id==='scene'){ui.scene=e.target.value;if(ui.scene.startsWith('ai')){ui.page='studio';ui.studioMode='ai';}render();}if(id==='time')ui.time=e.target.value;if(id==='deck-filter'){ui.deck=e.target.value;render();}if(id==='draft-deck'){ui.draftDeck=e.target.value;document.getElementById('preview-deck').textContent=ui.draftDeck;}if(id==='consent')dialog.querySelector('[data-action="generate-ai"]').disabled=!e.target.checked;if(e.target.dataset.select){e.target.checked?store.selected.add(e.target.dataset.select):store.selected.delete(e.target.dataset.select);document.getElementById('batch-slot').innerHTML=batchBar();e.target.closest('.card-row').classList.toggle('selected',e.target.checked);}if(id==='default-mode'){ui.defaultMode=e.target.value;notify('本页默认方式已变化；下一场正式复习会沿用这个样例设置。');}});
+document.addEventListener('input',e=>{const id=e.target.id;if(id==='card-search'){ui.query=e.target.value;document.getElementById('library-rows').innerHTML=libraryRows();document.getElementById('library-count').textContent=`当前样例 ${filteredCards().length} 张 · 搜索范围：本页合成卡库`;}if(['question','answer-field','material'].includes(id)){if(id==='question')ui.q=e.target.value;if(id==='answer-field')ui.a=e.target.value;if(id==='material')ui.material=e.target.value;if(store.candidates.length&&id!=='material'){store.candidates[ui.candidate]={q:ui.q,a:ui.a};store.accepted.delete(ui.candidate);const create=main.querySelector('[data-action="create-candidates"]');if(create){create.disabled=!store.accepted.size;create.textContent=`创建已接受 ${store.accepted.size} 张`;}const current=main.querySelector('.candidate-row.active small');if(current)current.textContent='已编辑，需重新接受';}const p=document.getElementById('live-preview');if(p)p.innerHTML=preview();const save=main.querySelector('[data-action="save-card"]');if(save)save.disabled=!ui.q.trim()||!ui.a.trim();}if(id==='palette-search')dialog.querySelectorAll('.palette-row').forEach(row=>row.hidden=!row.dataset.name.includes(e.target.value.trim()));});
+document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();document.querySelector('[data-action="palette"]').click();return;}if(dialog.open||e.target.closest('input,textarea,select,[contenteditable]'))return;if(ui.page==='review'){if(e.code==='Space'&&!ui.answer){e.preventDefault();ui.answer=true;render();}if(ui.answer&&['1','2','3','4'].includes(e.key)){e.preventDefault();rate(Number(e.key));}}if(ui.page==='library'&&['ArrowDown','ArrowUp'].includes(e.key)){e.preventDefault();const rows=[...main.querySelectorAll('.card-open')];if(!rows.length)return;let i=rows.indexOf(document.activeElement);i=e.key==='ArrowDown'?Math.min(rows.length-1,i+1):Math.max(0,i-1);rows[i].focus();}});
+dialog.addEventListener('close',()=>{if(detailOpener?.isConnected)detailOpener.focus({preventScroll:true});detailOpener=null;});
+window.addEventListener('hashchange',()=>{
+ if(ui.rescheduleBusy){
+  // A browser back/forward gesture must not leave an in-flight write behind
+  // on another page. Restore the locked route and keep the current target.
+  history.replaceState(null,'','#'+ui.page);
+  notify('改期写入中，请等待结果后再离开本场。');
+  return;
+ }
+ const p=location.hash.slice(1);
+ if(pages.some(x=>x[0]===p)&&p!==ui.page){ui.page=p;render();}
+});
+</script>
+<script>
+// The fixture state persists across navigation. Only the matching recovery action clears it.
+(() => {
+    const blockedReviewScenes = new Set(['unknown', 'duePartial', 'error', 'loading']);
+    const aiScenes = new Set(['ai401', 'aiQuota', 'aiTimeout', 'aiRateLimit', 'aiServer', 'aiNetwork', 'aiBudget', 'aiSensitive', 'aiStale', 'aiWriteUnknown']);
+    if (ui.scene === 'aiMissing' || aiScenes.has(ui.scene)) {
+        store.aiConfigured = aiScenes.has(ui.scene);
+    }
+    // Scene query parameters are also used as deep-link fixtures. Resolve the
+    // destination before the first render so a copied URL opens the same
+    // surface as choosing that scene from the review controls.
+    if (ui.scene === 'sourceFailed') {
+        // This fixture only renders on the recovery surface; make a copied
+        // state URL land there directly instead of silently showing Today.
+        ui.page = 'recovery';
+        location.hash = 'recovery';
+    } else if (ui.scene === 'aiWriteUnknown') {
+        ui.page = 'recovery';
+        location.hash = 'recovery';
+    } else if (ui.scene === 'aiMissing' || aiScenes.has(ui.scene)) {
+        ui.page = 'studio';
+        ui.studioMode = 'ai';
+        location.hash = 'studio';
+    }
+
+    const renderBase = render;
+    const issueNoticeBase = issueNotice;
+    const filteredCardsBase = filteredCards;
+    const deckCardsBase = deckCards;
+    const startSessionBase = startSession;
+
+    issueNotice = function () {
+        if (ui.scene === 'duePartial') {
+            return `<div class="review-issue notice red"><strong>部分卡组暂时无法读取，到期总数未知</strong><p>“经济学笔记”样例读取失败；可用范围仍可查看。为避免少算卡片，本次不缓存合并结果，也不允许启动正式复习。重试完成前，这条提示会在页面间保留。</p><div class="actions">${btn('重试读取', 'retry', 'small')}${btn('查看可用卡组', 'inspect-deck', 'small ghost')}</div></div>`;
+        }
+        if (ui.scene === 'error') {
+            return `<div class="review-issue notice red"><strong>读取失败，保留上次有效内容</strong><p>以下为 10:42 的样例快照。当前到期数可能已经变化，请核对后再开始正式复习。重新读取成功或取消读取状态后，此提示才会清除。</p><div class="actions">${btn('重新读取', 'retry', 'small')}${navBtn('查看待处理', 'recovery', 'small ghost')}</div></div>`;
+        }
+        if (ui.scene === 'sourceFailed' && ui.page === 'recovery') {
+            return `<div class="review-issue notice red"><strong>来源文档暂时无法打开</strong><p>当前任务和卡片现场已保留，可能是文档被移动、删除或权限不足。修复来源后可重试同一个块。</p><div class="actions">${btn('重试打开来源', 'source-retry', 'small')}${btn('查看卡片详情', 'detail', 'small ghost', 'data-id="c5"')}</div></div>`;
+        }
+        return issueNoticeBase();
+    };
+
+    filteredCards = function () {
+        const cards = filteredCardsBase();
+        return ui.scene === 'duePartial' ? cards.filter(card => card.deck !== '经济学笔记') : cards;
+    };
+
+    deckCards = function () {
+        const html = deckCardsBase();
+        if (ui.scene !== 'duePartial') return html;
+        const container = document.createElement('div');
+        container.innerHTML = html;
+        container.querySelector('[data-deck="经济学笔记"]')?.remove();
+        return container.innerHTML;
+    };
+
+    startSession = function (tutorial = false) {
+        if (!tutorial && blockedReviewScenes.has(ui.scene)) {
+            notify('当前到期范围或评分仍在核对，暂不能开始正式复习。');
+            return;
+        }
+        return startSessionBase(tutorial);
+    };
+
+    // One wrapper is installed once. Each render replaces the main content before applying state-specific controls.
+    render = function () {
+        renderBase();
+        if (ui.page === 'review') {
+            const tools = main.querySelector('.review-tools');
+            if (tools) {
+                const toggleAction = ui.rescheduleOpen ? 'close-reschedule' : 'open-reschedule';
+                tools.insertAdjacentHTML('afterbegin', btn(ui.rescheduleOpen ? '收起改期' : '安排改期', toggleAction, 'ghost', `aria-expanded="${ui.rescheduleOpen}" aria-controls="reschedule-demo"`));
+                if (ui.rescheduleOpen && ui.session[ui.index]) {
+                    const days = Number(ui.rescheduleDays);
+                    const validDays = Number.isSafeInteger(days) && days >= 1 && days <= 36500;
+                    const previewTarget = ui.rescheduleTarget || (validDays ? Date.now() + days * 86400000 : null);
+                    const retryCopy = ui.rescheduleRetryReady ? `<div class="notice red" role="alert" style="margin-top:14px"><strong>写入没有成功，卡片和本场进度已保留</strong><p>${escapeHTML(ui.rescheduleError)}</p><p>目标时间：<strong>${rescheduleTargetLabel(ui.rescheduleTarget)}</strong></p></div>` : '';
+                    const status = ui.rescheduleBusy ? '<p class="small-copy" role="status" aria-live="polite">正在保存改期… 当前卡片与进度保持不变。</p>' : '';
+                    const panel = `<section id="reschedule-demo" class="panel" aria-busy="${ui.rescheduleBusy}" aria-labelledby="reschedule-title" style="margin-top:18px"><div class="section-head"><h3 id="reschedule-title">安排改期</h3>${tag('本页演练 · 不写入思源','warm')}</div><p class="small-copy">设置到期天数。提交期间会锁住本场操作，避免重复写入。</p><label class="field" style="max-width:260px">几天后到期<input id="reschedule-days" type="number" min="1" max="36500" step="1" value="${escapeHTML(ui.rescheduleDays)}" ${ui.rescheduleBusy || ui.rescheduleRetryReady ? 'disabled' : ''} aria-invalid="${!validDays}" aria-describedby="reschedule-preview reschedule-range"></label><small id="reschedule-range" class="small-copy">请输入 1 到 36500 之间的整数天数。</small><div class="notice" style="margin-top:12px"><strong>目标到期时间：</strong><output id="reschedule-preview">${rescheduleTargetLabel(previewTarget)}</output><p>失败后重试会沿用这个精确时间，不重新计算。</p></div><label class="flex" style="margin-top:13px;font-size:12px"><input id="reschedule-fail-first" type="checkbox" ${ui.rescheduleFailFirst ? 'checked' : ''} ${ui.rescheduleBusy || ui.rescheduleRetryReady ? 'disabled' : ''}>演练首次写入失败，再重试</label>${retryCopy}${status}<div class="actions" style="margin-top:14px">${btn('取消改期','close-reschedule','ghost',ui.rescheduleBusy ? 'disabled' : '')}${btn(ui.rescheduleBusy ? '正在保存…' : ui.rescheduleRetryReady ? '重试相同目标' : '确认改期','reschedule-submit','primary',ui.rescheduleBusy || !validDays ? 'disabled aria-busy="true"' : '')}</div></section>`;
+                    tools.insertAdjacentHTML('beforebegin', panel);
+                }
+            }
+            if (ui.rescheduleBusy || ui.rescheduleRetryReady) {
+                for (const button of main.querySelectorAll('button[data-action]')) {
+                    if (ui.rescheduleBusy || !['reschedule-submit', 'close-reschedule'].includes(button.dataset.action)) button.disabled = true;
+                }
+            }
+        }
+        if (ui.scene === 'loading') {
+            const status = main.querySelector('[aria-busy="true"]');
+            const copy = status?.querySelector('.small-copy');
+            const readAction = main.querySelector('[data-action="retry"]');
+            if (copy) copy.textContent = '正在核对当前范围；到期总数未知，正式复习暂不可用。';
+            if (readAction) {
+                readAction.textContent = '正在读取…';
+                readAction.disabled = true;
+                readAction.setAttribute('aria-busy', 'true');
+                copy?.append(' ', readAction);
+            }
+            const cancel = document.createElement('button');
+            cancel.className = 'text';
+            cancel.dataset.action = 'cancel-load';
+            cancel.textContent = '取消读取';
+            copy?.append(' ', cancel);
+        }
+        if (ui.scene === 'duePartial' && ui.page === 'library') {
+            const failedOption = [...main.querySelectorAll('#deck-filter option')].find(option => option.textContent === '经济学笔记');
+            if (failedOption) {
+                failedOption.disabled = true;
+                failedOption.textContent = '经济学笔记（读取失败）';
+            }
+        }
+        if (blockedReviewScenes.has(ui.scene)) {
+            for (const action of ['start-review', 'continue-review']) {
+                const button = main.querySelector(`[data-action="${action}"]`);
+                if (button) button.disabled = true;
+            }
+        }
+    };
+
+    // Navigation preserves the selected fixture. Choosing a new scene explicitly replaces it.
+    document.addEventListener('change', event => {
+        const target = event.target;
+        if (!(target instanceof HTMLSelectElement)) return;
+        if (target.id === 'face') {
+            if (ui.rescheduleBusy) {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                target.value = ui.page;
+                notify('改期写入中，请等待结果后再离开本场。');
+                return;
+            }
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            setPage(target.value);
+            return;
+        }
+        if (target.id === 'scene') {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            ui.scene = target.value;
+            store.aiConfigured = aiScenes.has(target.value);
+            if (target.value === 'aiWriteUnknown') {
+                ui.page = 'recovery';
+                location.hash = 'recovery';
+            } else if (target.value.startsWith('ai')) {
+                ui.page = 'studio';
+                location.hash = 'studio';
+                ui.studioMode = 'ai';
+            }
+            render();
+            return;
+        }
+    }, true);
+
+    // Capture only routes actions whose fixture rules must guard the existing delegated click handler.
+    document.addEventListener('click', event => {
+        const target = event.target instanceof Element ? event.target : null;
+        const routeButton = target?.closest('button[data-page]');
+        if (ui.rescheduleBusy && routeButton) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            notify('改期写入中，请等待结果后再离开本场。');
+            return;
+        }
+        const button = target?.closest('button[data-action]');
+        if (!button) return;
+        const action = button.dataset.action;
+
+        if (action === 'recovery-continue') {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            if (!ui.session.length) ui.session = reviewCards();
+            ui.tutorial = false;
+            ui.index = Math.min(ui.index, Math.max(0, ui.session.length - 1));
+            ui.answer = false;
+            ui.choice = '';
+            refreshChoiceOptions();
+            setPage('review');
+            return;
+        }
+        if (action === 'recovery-ai-review') {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            ui.studioMode = 'ai';
+            if (!store.candidates.length) {
+                store.candidates = [{ q: initialCards[0].q, a: initialCards[0].a }, { q: '第二次握手为什么需要返回确认？', a: '让客户端确认服务端能够接收请求，并提供服务端自己的初始序列号。' }];
+                store.accepted.clear();
+                ui.candidate = 0;
+                ui.q = store.candidates[0].q;
+                ui.a = store.candidates[0].a;
+            }
+            setPage('studio');
+            notify('已载入候选审核现场；不会重新发送 AI 请求。');
+            return;
+        }
+        if (action === 'recovery-open-deck') {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            ui.deck = button.dataset.deck || '网络基础';
+            ui.filter = 'all';
+            setPage('library');
+            notify('已打开目标卡组，请先核对已写入卡片；恢复中心不会重复提交。');
+            return;
+        }
+        if (action === 'recovery-open-ai') {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            ui.studioMode = 'ai';
+            setPage('studio');
+            notify('已打开 AI 制卡；请重新选择材料，不会自动发送请求。');
+            return;
+        }
+        if (action === 'recovery-open-inbox') {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            openRecoveryInbox();
+            return;
+        }
+        if (action === 'recovery-open-maintenance') {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            openRecoveryMaintenance();
+            return;
+        }
+        if (action === 'recovery-use-material') {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            const materials = [
+                '三次握手依次确认客户端发送能力、服务端发送与接收能力，以及客户端的接收能力。',
+                '每次请求相互独立；服务器默认不会记住上一次请求的上下文。',
+                'retrieve 常强调检索取回；recall 常强调从记忆中想起。'
+            ];
+            ui.material = materials[Number(button.dataset.index)] || ui.material;
+            dialog.close();
+            ui.studioMode = 'manual';
+            setPage('studio');
+            notify('材料已载入手工制卡工作面，来源仍需在保存前核对。');
+            return;
+        }
+        if (action === 'recovery-restore-suspended') {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            const cardID = button.dataset.card;
+            ui.recoverySuspendedIDs = ui.recoverySuspendedIDs.filter(id => id !== cardID);
+            openRecoveryMaintenance();
+            notify('已恢复这张卡今天的复习安排。');
+            return;
+        }
+
+        if (action === 'open-reschedule') {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            ui.rescheduleOpen = true;
+            render();
+            queueMicrotask(() => main.querySelector('#reschedule-days')?.focus());
+            return;
+        }
+        if (action === 'close-reschedule') {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            if (ui.rescheduleBusy) return;
+            ui.rescheduleOpen = false;
+            ui.rescheduleRetryReady = false;
+            ui.rescheduleTarget = null;
+            ui.rescheduleError = '';
+            render();
+            return;
+        }
+        if (action === 'reschedule-submit') {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            submitRescheduleDemo(ui.rescheduleRetryReady);
+            return;
+        }
+
+        if (action === 'inspect-deck') {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            ui.deck = '网络基础';
+            ui.filter = 'due';
+            setPage('library');
+            return;
+        }
+        if (action === 'cancel-load') {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            ui.scene = 'ready';
+            render();
+            notify('已取消读取；当前样例数据保留，正式复习入口已恢复。');
+            return;
+        }
+        if ((action === 'start-review' || action === 'continue-review') && blockedReviewScenes.has(ui.scene)) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            notify('当前到期范围或评分仍在核对，暂不能开始正式复习。');
+            return;
+        }
+        if (action === 'reconcile') {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            ui.scene = 'ready';
+            render();
+            notify('核对完成：上一笔未写入，本卡仍待评分，可继续一次。');
+            return;
+        }
+        if ((action === 'manual' || action === 'setup-manual' || (action === 'studio-mode' && button.dataset.mode === 'manual')) && ui.scene.startsWith('ai')) {
+            ui.scene = 'ready';
+        }
+    }, true);
+
+    document.addEventListener('input', event => {
+        const input = event.target;
+        if (!(input instanceof HTMLInputElement) || input.id !== 'reschedule-days') return;
+        ui.rescheduleDays = input.valueAsNumber;
+        ui.rescheduleTarget = null;
+        ui.rescheduleError = '';
+        const valid = Number.isSafeInteger(ui.rescheduleDays) && ui.rescheduleDays >= 1 && ui.rescheduleDays <= 36500;
+        input.setAttribute('aria-invalid', String(!valid));
+        const preview = document.getElementById('reschedule-preview');
+        if (preview) preview.textContent = rescheduleTargetLabel(valid ? Date.now() + ui.rescheduleDays * 86400000 : null);
+        const submit = main.querySelector('[data-action="reschedule-submit"]');
+        if (submit) submit.disabled = !valid || ui.rescheduleBusy;
+    });
+
+    document.addEventListener('change', event => {
+        const input = event.target;
+        if (input instanceof HTMLInputElement && input.id === 'reschedule-fail-first') {
+            ui.rescheduleFailFirst = input.checked;
+        }
+    });
+
+    render();
+})();
+</script>
+</body>
+</html>

@@ -1,6 +1,6 @@
 {
   "name": "siyuan-lv-cards",
-  "version": "0.209.3",
+  "version": "0.209.4",
   "type": "module",
   "description": "Lv Cards (Beta) / 小驴闪卡（内测版） - a local-first, full-lifecycle flashcard learning platform for SiYuan, built on the native FSRS scheduler",
   "repository": "https://github.com/ai68298100/siyuan-lv-cards",
@@ -20,6 +20,7 @@
     "check:types": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json",
     "check:svelte": "svelte-check --tsconfig ./tsconfig.json",
     "check:versions": "node scripts/check-versions.mjs",
+    "check:tokens": "node scripts/audit-design-tokens.mjs",
     "check:docs-facts": "node scripts/check-docs-facts.mjs",
     "release": "run-s release:version check",
     "release:version": "node --no-warnings ./scripts/update_version.js",
@@ -36,6 +37,7 @@
     "make-link": "node --no-warnings ./scripts/make_dev_link.js",
     "make-link-win": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/elevate.ps1 -scriptPath ./scripts/make_dev_link.js",
     "update-version": "node --no-warnings ./scripts/update_version.js",
+    "migrate:tokens": "node scripts/migrate-design-tokens.mjs",
     "make-install": "pnpm run build && node --no-warnings ./scripts/make_install.js"
   },
   "devDependencies": {

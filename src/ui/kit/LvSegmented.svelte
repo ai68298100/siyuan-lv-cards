@@ -41,28 +41,28 @@
 <style>
     .lv-seg {
         display: inline-flex;
-        padding: 2px;
-        border-radius: var(--lv-r-s, 8px);
-        background: color-mix(in srgb, var(--b3-theme-on-background) 6%, transparent);
-        gap: 2px;
+        padding: calc(var(--lv-space-unit) * 1);
+        border-radius: var(--lv-r-s, var(--lv-r-s));
+        background: color-mix(in srgb, var(--lv-color-text) 6%, transparent);
+        gap: calc(var(--lv-space-unit) * 1);
     }
     .lv-seg--disabled { opacity: 0.5; pointer-events: none; }
     .lv-seg-item {
         border: none;
         background: transparent;
-        color: var(--b3-theme-on-surface);
-        font-size: 12px;
-        line-height: 1;
-        padding: 6px 10px;
-        border-radius: calc(var(--lv-r-s, 8px) - 2px);
+        color: var(--lv-color-text-muted);
+        font-size: var(--lv-type-control-size);
+        line-height: var(--lv-lh-tight);
+        padding: calc(var(--lv-space-unit) * 3) calc(var(--lv-space-unit) * 5);
+        border-radius: calc(var(--lv-r-s, var(--lv-r-s)) - var(--lv-r-track));
         cursor: pointer;
         transition: background var(--lv-dur-1, 120ms) var(--lv-ease, ease-out), color var(--lv-dur-1, 120ms) var(--lv-ease, ease-out);
     }
-    .lv-seg-item:hover { color: var(--b3-theme-on-background); }
+    .lv-seg-item:hover { color: var(--lv-color-text); }
     .lv-seg-item--on {
-        background: var(--b3-theme-surface);
-        color: var(--b3-theme-primary);
-        font-weight: 600;
+        background: var(--lv-color-surface);
+        color: var(--lv-color-brand);
+        font-weight: var(--lv-fw-semibold);
         box-shadow: var(--lv-shadow-1, 0 1px 2px rgba(0, 0, 0, 0.06));
     }
 </style>

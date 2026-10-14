@@ -4,6 +4,7 @@
 import { fetchSyncPost } from "siyuan";
 import { dataStr } from "@/libs/kernel-response";
 import { requestKernelData } from "@/libs/kernel-request";
+import type { KernelRequestOptions } from "@/libs/kernel-request";
 import { mapChunksOrdered } from "@/core/query-chunks";
 
 /** 通用内核请求上限：避免文档/DOM/SQL 请求永久挂起。 */
@@ -13,8 +14,22 @@ export const SIYUAN_API_TIMEOUT_MS = 15000;
 export const SQL_QUERY_CHUNK_SIZE = 400;
 export const SQL_QUERY_CONCURRENCY = 3;
 
-async function kernelPost<T>(endpoint: string, payload: Record<string, unknown>): Promise<T> {
-    return requestKernelData<T>(fetchSyncPost, endpoint, payload, SIYUAN_API_TIMEOUT_MS);
+async function kernelPost<T>(
+    endpoint: string,
+    payload: Record<string, unknown>,
+    options: KernelRequestOptions = {},
+): Promise<T> {
+    return requestKernelData<T>(fetchSyncPost, endpoint, payload, SIYUAN_API_TIMEOUT_MS, options);
+}
+
+/** Read-only kernel call with single-flight coalescing and bounded retries. */
+function kernelRead<T>(endpoint: string, payload: Record<string, unknown> = {}, options: KernelRequestOptions = {}): Promise<T> {
+    return kernelPost<T>(endpoint, payload, {
+        readOnly: true,
+        retries: 1,
+        dedupeKey: `${endpoint}:${JSON.stringify(payload)}`,
+        ...options,
+    });
 }
 
 export interface Notebook {
@@ -24,7 +39,7 @@ export interface Notebook {
 
 /** 已打开的笔记本列表（供复习范围选择；加密本由内核在拉卡时报错，这里不做前置过滤——AA 组另测） */
 export const getNotebooks = async (): Promise<Notebook[]> => {
-    const data = await kernelPost<{ notebooks?: any[] }>("/api/notebook/lsNotebooks", {});
+    const data = await kernelRead<{ notebooks?: any[] }>("/api/notebook/lsNotebooks", {});
     const boxes: any[] = data?.notebooks ?? [];
     return boxes.filter(b => !b.closed).map(b => ({ id: b.id as string, name: b.name as string }));
 };
@@ -63,7 +78,7 @@ export const appendBlock = async (dataType: "markdown", data: string, parentID: 
 
 /** 读块自定义属性（遮挡数据存于 lv-occlusion 属性） */
 export const getBlockAttrs = async (id: string): Promise<Record<string, string>> => {
-    return await kernelPost<Record<string, string>>("/api/attr/getBlockAttrs", { id }) ?? {};
+    return await kernelRead<Record<string, string>>("/api/attr/getBlockAttrs", { id }) ?? {};
 };
 
 /** BX-2 W2（v0.162.0）：更新块内容（markdown）。非 0 抛错，成功返回 true */
@@ -74,7 +89,7 @@ export const updateBlock = async (dataType: "markdown", data: string, id: string
 
 /** 读块 DOM（AQ-20 统一入口）：非 0/字段缺失抛错，调用方 catch 后保留旧卡面 */
 export const getBlockDOM = async (id: string): Promise<string> => {
-    return dataStr(await kernelPost<Record<string, unknown>>("/api/block/getBlockDOM", { id }), "dom");
+    return dataStr(await kernelRead<Record<string, unknown>>("/api/block/getBlockDOM", { id }), "dom");
 };
 
 /** 写块自定义属性 */
@@ -84,13 +99,13 @@ export const setBlockAttrs = async (id: string, attrs: Record<string, string>): 
 
 /** 导出文档为 Markdown（AI 向导「当前文档」源） */
 export const exportMdContent = async (id: string): Promise<{ hPath: string; content: string }> => {
-    const d = (await kernelPost<Record<string, unknown>>("/api/export/exportMdContent", { id })) ?? {};
+    const d = (await kernelRead<Record<string, unknown>>("/api/export/exportMdContent", { id })) ?? {};
     return { hPath: String(d.hPath ?? ""), content: String(d.content ?? "") };
 };
 
 /** SQL 查询（只读；AI 向导笔记本范围源用） */
 export const sqlQuery = async (stmt: string): Promise<Record<string, unknown>[]> => {
-    return (await kernelPost<Record<string, unknown>[]>("/api/query/sql", { stmt })) ?? [];
+    return (await kernelRead<Record<string, unknown>[]>("/api/query/sql", { stmt })) ?? [];
 };
 
 export interface BlockDocInfo {
@@ -136,5 +151,5 @@ export const getDocTitles = async (docIDs: string[]): Promise<Map<string, string
 
 /** 思源内核版本号（自诊断用） */
 export const kernelVersion = async (): Promise<string> => {
-    return String(await kernelPost<unknown>("/api/system/version", {}) ?? "?");
+    return String(await kernelRead<unknown>("/api/system/version", {}) ?? "?");
 };

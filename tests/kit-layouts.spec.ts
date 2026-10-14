@@ -80,7 +80,9 @@ describe("LvDrawer（经测试宿主：children snippet）", () => {
 
         const drawer = container.querySelector<HTMLElement>("[role=dialog]");
         expect(drawer?.getAttribute("aria-modal")).toBe("true");
-        expect(drawer?.getAttribute("aria-labelledby")).toBe("lv-drawer-title");
+        const labelledBy = drawer?.getAttribute("aria-labelledby");
+        expect(labelledBy).toBeTruthy();
+        expect(document.getElementById(labelledBy ?? "")?.classList.contains("lv-drawer-title")).toBe(true);
         expect(drawer?.getAttribute("tabindex")).toBe("-1");
         expect(document.activeElement).toBe(container.querySelector("button[aria-label=close]"));
 

@@ -8,7 +8,7 @@
 import { fetchSyncPost } from "siyuan";
 import { AICanceledError, AIHttpError, extractAIErrorCode, isAICanceled, isRecoverableAIError, parseRetryAfter } from "./ai-errors";
 import { classifyAiFailure, nextLadderStep, type LadderStep } from "../core/ai-degradation";
-import { withTimeout } from "../libs/timeout";
+import { RequestError, requestWithPolicy } from "../libs/request";
 
 // 错误分类从零依赖模块再导出（单测不经 siyuan 包解析；调用方仍从 @/api/ai 引入）
 export { AICanceledError, AIHttpError, extractAIErrorCode, isAICanceled, isRecoverableAIError, parseRetryAfter };
@@ -86,15 +86,15 @@ export async function aiChat(cfg: AIConfig, system: string, user: string, opts: 
         throw new AICanceledError();
     }
     const timeoutMs = opts.timeoutMs ?? 15000;
-    const request = fetchSyncPost("/api/ai/chatGPT", {
-        messages: [
-            { role: "system", content: system },
-            { role: "user", content: user },
-        ],
-    });
-    const resp = timeoutMs > 0
-        ? await withTimeout(request, timeoutMs, "/api/ai/chatGPT")
-        : await request;
+    const resp = await requestWithPolicy(
+        () => fetchSyncPost("/api/ai/chatGPT", {
+            messages: [
+                { role: "system", content: system },
+                { role: "user", content: user },
+            ],
+        }),
+        { timeoutMs, signal: opts.signal, readOnly: false },
+    );
     if (opts.signal?.aborted) {
         throw new AICanceledError();
     }
@@ -122,57 +122,61 @@ async function chatCompletions(cfg: AIConfig, system: string, user: string, opts
         throw new AICanceledError();
     }
     const timeoutMs = opts.timeoutMs ?? 15000;
-    const ctrl = new AbortController();
-    const onOuterAbort = () => ctrl.abort();
-    opts.signal?.addEventListener("abort", onOuterAbort);
-    const timer = timeoutMs > 0 ? setTimeout(() => ctrl.abort(), timeoutMs) : null;
     opts.onProvider?.("primary");
     try {
-        const resp = await fetch(normalizeEndpoint(cfg.endpoint) + "/chat/completions", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                ...(cfg.apiKey ? { Authorization: `Bearer ${cfg.apiKey}` } : {}),
+        // 外部 provider 也必须经过共享请求策略：统一的取消、超时、错误边界和
+        // 后续可观测策略由 requestWithPolicy 持有；AI 生成是写侧语义，默认不重试。
+        return await requestWithPolicy(
+            async signal => {
+                const resp = await fetch(normalizeEndpoint(cfg.endpoint) + "/chat/completions", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        ...(cfg.apiKey ? { Authorization: `Bearer ${cfg.apiKey}` } : {}),
+                    },
+                    body: JSON.stringify({
+                        model: cfg.model || "gpt-4o-mini",
+                        messages: [
+                            { role: "system", content: system },
+                            { role: "user", content: user },
+                        ],
+                        temperature: 0.4,
+                    }),
+                    signal,
+                });
+                if (!resp.ok) {
+                    // 只读取机器码，不把服务端 message/details（可能回显材料）带入 UI 或日志。
+                    let code: string | undefined;
+                    try {
+                        code = extractAIErrorCode(await resp.clone().json());
+                    } catch { /* 非 JSON 错误响应仍可按 HTTP 状态分类 */ }
+                    throw new AIHttpError(resp.status, code, parseRetryAfter(resp.headers?.get("retry-after")));
+                }
+                try {
+                    const j: any = await resp.json();
+                    return String(j?.choices?.[0]?.message?.content ?? "");
+                } catch {
+                    throw new Error("AI parse failed");
+                }
             },
-            body: JSON.stringify({
-                model: cfg.model || "gpt-4o-mini",
-                messages: [
-                    { role: "system", content: system },
-                    { role: "user", content: user },
-                ],
-                temperature: 0.4,
-            }),
-            signal: ctrl.signal,
-        });
-        if (opts.signal?.aborted) {
-            throw new AICanceledError();
-        }
-        if (!resp.ok) {
-            // 只读取机器码，不把服务端 message/details（可能回显材料）带入 UI 或日志。
-            let code: string | undefined;
-            try {
-                code = extractAIErrorCode(await resp.clone().json());
-            } catch { /* 非 JSON 错误响应仍可按 HTTP 状态分类 */ }
-            throw new AIHttpError(resp.status, code, parseRetryAfter(resp.headers?.get("retry-after")));
-        }
-        try {
-            const j: any = await resp.json();
-            return String(j?.choices?.[0]?.message?.content ?? "");
-        } catch {
-            throw new Error("AI parse failed");
-        }
+            { timeoutMs, signal: opts.signal, readOnly: false },
+        );
     } catch (e) {
         // 区分「调用方取消」与「超时」：前者不可恢复，后者按网络故障可 fallback/重试
         if (opts.signal?.aborted) {
             throw new AICanceledError();
         }
+        if (e instanceof RequestError && e.category === "timeout") {
+            throw new Error(`AI timeout after ${timeoutMs}ms`);
+        }
         if ((e instanceof DOMException && e.name === "AbortError") || (e instanceof Error && e.name === "AbortError")) {
+            // Native fetch may reject with AbortError before the policy wrapper
+            // can classify it; this is a cancellation when it came from the
+            // caller, otherwise a request deadline.
+            if (opts.signal?.aborted) throw new AICanceledError();
             throw new Error(`AI timeout after ${timeoutMs}ms`);
         }
         throw e;
-    } finally {
-        if (timer) { clearTimeout(timer); }
-        opts.signal?.removeEventListener("abort", onOuterAbort);
     }
 }
 

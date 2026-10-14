@@ -8,7 +8,7 @@
             return "transparent";
         }
         const alpha = n >= 30 ? 100 : n >= 15 ? 65 : n >= 5 ? 40 : 20;
-        return `color-mix(in srgb, var(--b3-theme-primary) ${alpha}%, transparent)`;
+        return `color-mix(in srgb, var(--lv-color-brand) ${alpha}%, transparent)`;
     }
 </script>
 
@@ -20,7 +20,7 @@
                 <div
                     class="lv-cell"
                     class:lv-cell-today={i === days.length - 1}
-                    style={`background:${heatColor(d.stat.review)}`}
+                    style={`background: ${heatColor(d.stat.review)}`}
                     title={`${d.date}: ${d.stat.review}`}
                 ></div>
             {/each}
@@ -28,10 +28,10 @@
     </div>
     <div class="lv-heat-legend ft__smaller ft__on-surface">
         <span class="lv-legend-cell" style="background: transparent; border: 1px solid var(--lv-border)"></span>
-        <span class="lv-legend-cell" style="background: color-mix(in srgb, var(--b3-theme-primary) 20%, transparent)"></span>
-        <span class="lv-legend-cell" style="background: color-mix(in srgb, var(--b3-theme-primary) 40%, transparent)"></span>
-        <span class="lv-legend-cell" style="background: color-mix(in srgb, var(--b3-theme-primary) 65%, transparent)"></span>
-        <span class="lv-legend-cell" style="background: var(--b3-theme-primary)"></span>
+        <span class="lv-legend-cell" style="background: color-mix(in srgb, var(--lv-color-brand) 20%, transparent)"></span>
+        <span class="lv-legend-cell" style="background: color-mix(in srgb, var(--lv-color-brand) 40%, transparent)"></span>
+        <span class="lv-legend-cell" style="background: color-mix(in srgb, var(--lv-color-brand) 65%, transparent)"></span>
+        <span class="lv-legend-cell" style="background: var(--lv-color-brand)"></span>
     </div>
 </div>
 
@@ -40,7 +40,7 @@
     .lv-heat-scroll {
         max-width: 100%;
         overflow-x: auto;
-        padding-bottom: 4px;
+        padding-bottom: calc(var(--lv-space-unit) * 2);
         scrollbar-width: thin;
         scrollbar-color: var(--lv-border-strong, transparent) transparent;
     }
@@ -49,15 +49,15 @@
         grid-template-rows: repeat(7, 12px);
         grid-auto-flow: column;
         grid-auto-columns: 12px;
-        gap: 3px;
+        gap: calc(var(--lv-space-unit) * 1 + var(--lv-space-hairline));
         width: fit-content;
     }
     .lv-cell {
         width: 12px;
         height: 12px;
-        border-radius: 3px;
+        border-radius: var(--lv-r-optical);
         /* 空格可见度：6% 在白卡上近乎隐形，整图只剩一簇数据——提到 10% 让网格形态完整可读 */
-        background-color: color-mix(in srgb, var(--b3-theme-on-background) 10%, transparent);
+        background-color: color-mix(in srgb, var(--lv-color-text) 10%, transparent);
         transition: transform var(--lv-dur-1) var(--lv-ease), outline var(--lv-dur-1) var(--lv-ease);
         outline: 1px solid transparent;
     }
@@ -65,10 +65,10 @@
     .lv-cell-today { outline: 2px solid var(--lv-primary-border); outline-offset: 1px; }
     .lv-heat-legend {
         display: flex;
-        gap: 6px;
+        gap: calc(var(--lv-space-unit) * 3);
         align-items: center;
         margin-top: var(--lv-sp-2);
         justify-content: flex-end;
     }
-    .lv-legend-cell { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+    .lv-legend-cell { width: 10px; height: 10px; border-radius: var(--lv-r-optical); display: inline-block; }
 </style>

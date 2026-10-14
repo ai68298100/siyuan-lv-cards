@@ -1,6 +1,5 @@
 import "./index.scss";
 
-import { mount, unmount } from "svelte";
 import { Plugin, Menu, getAllEditor, showMessage, openTab, getAllTabs } from "siyuan";
 import * as siyuanNamespace from "siyuan";
 
@@ -21,7 +20,7 @@ import { parseSrLine, parseSrMultiline, stripSrMarkers } from "./core/obsidian-s
 import type { PaletteCommand } from "./core/palette";
 import { buildWeeklyReport, decideWeeklyReport } from "./core/weekly-report";
 import {
-    normalizeAIJobs, emptyAIJobs, createJob, transitionJob, pruneJobs, firstPendingIndex,
+    normalizeAIJobs, emptyAIJobs, createJob, transitionJob, pruneJobs,
     type AIJobsData, type AIJob,
 } from "./core/ai-jobs";
 import {
@@ -29,9 +28,10 @@ import {
     type RevlogData, type RevlogEntry,
 } from "./core/revlog";
 import { detectFlashcardV2, type MigrationStatus } from "./api/flashcardV2";
+import { getAnkiConnectVersion } from "./api/anki-connect";
 import { createRiffDeck, getRiffCards, getRiffCardsByBlockIDs, getRiffDecks, removeRiffCards } from "./api/riff";
 // AT-4：addRiffCards 取经 due-shared 的包装版（建卡成功即失效共享 due 缓存），badge/提醒走共享缓存
-import { addRiffCards, cachedDueCount, dueCache, invalidateDueCache } from "./api/due-shared";
+import { addRiffCards, cachedDueBlockIDs, cachedDueCount, dueCache, invalidateDueCache } from "./api/due-shared";
 import { createPerf } from "./libs/perf";
 import { cardsCreatedEvent, gatewayChangedEvent, LV_EVENTS, reviewedEvent, sessionFinishedEvent, settingsChangedEvent, storesChangedEvent, streakChangedEvent } from "./libs/events";
 import { deriveInstance, emptyKnowledgeObjects, findBySource, normalizeKnowledgeObjects, registerObject, removeInstance, toggleInstance, type KnowledgeObjectsData } from "./core/knowledge-objects";
@@ -44,7 +44,9 @@ import { emptyEntryContexts, isContextFresh, normalizeEntryContexts, removeConte
 import { ensureLifecycle, emptyLifecycles, lifecycleStats, normalizeLifecycles, transition, type ContentLifecyclesData, type ContentState } from "./core/content-lifecycle";
 import { appendBlock, createDocWithMd, getNotebooks, getBlockDOM, getBlockDocMap, getDocTitles, exportMdContent, sqlQuery, kernelVersion, updateBlock } from "./api/siyuan";
 import { aiChat, estimateTokens, parseCards, isAICanceled } from "./api/ai";
-import { normalizeSuspendToday, rollDateIfNeeded, isSuspended, suspend, unsuspend, type SuspendTodayData } from "./core/suspend-today";
+import { normalizeSuspendToday, rollDateIfNeeded, isSuspended, type SuspendTodayData } from "./core/suspend-today";
+import { createSuspendTodayMutations } from "./core/suspend-today-persistence";
+import { createSnapshotMutationQueue } from "./core/snapshot-mutation-queue";
 import { normalizeLedger, type LedgerEntry } from "./core/anki-import";
 import { acceptVersion, appendVersion, emptyContentVersions, normalizeContentVersions, versionsOf } from "./core/content-versions";
 import { assembleGeneratePrompt } from "./core/ai-pipeline";
@@ -61,6 +63,15 @@ import { normalizeObLedger, type ObLedgerEntry } from "./core/obsidian-import";
 import { parseRevlogCsv } from "./core/revlog-csv";
 import { normalizeSessionState, type SessionState } from "./core/session-state";
 import { normalizeExamPlans, daysLeft, examReportStats, type ExamPlan, type ExamPlansData } from "./core/exam";
+import {
+    EXAM_PLANS_CHANGED_EVENT,
+    EXAM_PLANS_PUBLISH_RPC,
+    createExamPlansChangedNotice,
+    isKernelPluginRunning,
+    persistThenNotify,
+    shouldReloadExamPlans,
+} from "./core/exam-plan-sync";
+import { scanAllMaintenanceCardIds } from "./core/maintenance-scan";
 // 重组件对话框懒加载（AN 体积评审）：打开时才拉取对应 chunk
 // AT-14：Hub（闪卡中心）同样懒加载——静态引用会把 Manager/Dashboard/CardDetail/KoPanel 全链拉进主包
 const lazyComp = (loader: () => Promise<{ default: any }>) => {
@@ -78,13 +89,22 @@ const lazyComp = (loader: () => Promise<{ default: any }>) => {
  * 挂载与组件同实例避免双份内部状态）。dev 模式保留进程内动态导入（dev 构建无 chunk 文件）。
  * 统一返回 ChunkMount 形状：mount(target, props) → { destroy() }。
  */
-const mountComp = (loader: () => Promise<{ default: any }>) =>
-    async (): Promise<ChunkMount["mount"]> => {
+/**
+ * Development fallback for the standalone chunk loader. Production never
+ * mounts Svelte components in the shell, so the Svelte runtime stays out of
+ * the startup payload entirely (the IIFE chunks carry their own runtime).
+ */
+const mountComp = process.env.DEV_MODE
+    ? (loader: () => Promise<{ default: any }>) => async (): Promise<ChunkMount["mount"]> => {
+        const { mount, unmount } = await import("svelte");
         const Comp = (await loader()).default;
         return (target: HTMLElement, props: Record<string, unknown>) => {
             const app = mount(Comp, { target, props });
             return { destroy: () => { void unmount(app); } };
         };
+    }
+    : (_loader: () => Promise<{ default: any }>) => async (): Promise<ChunkMount["mount"]> => {
+        throw new Error("Svelte dev mount is unavailable in production");
     };
 const loadHubMount: () => Promise<ChunkMount["mount"]> = process.env.DEV_MODE
     ? mountComp(() => import("./ui/hub.svelte"))
@@ -176,6 +196,15 @@ const AI_COST_LEDGER_DATA = "ai-cost-ledger.json";
 /** Obsidian SR 导入弱台账（指纹→落点，幂等重导；不含卡片原文） */
 const OB_LEDGER_DATA = "ob-import-ledger.json";
 
+/** Capture a JSON-compatible store value without retaining a mutable runtime reference. */
+function cloneStore<T>(value: T): T {
+    try {
+        return JSON.parse(JSON.stringify(value)) as T;
+    } catch {
+        return value;
+    }
+}
+
 export default class LvCardsPlugin extends Plugin {
 
     private settings: LvCardsSettings = defaultSettings();
@@ -190,13 +219,44 @@ export default class LvCardsPlugin extends Plugin {
     /** 首次布局后的引导延迟句柄，卸载时必须取消。 */
     private onboardingTimer: ReturnType<typeof setTimeout> | null = null;
     private settingsSaveTimer: ReturnType<typeof setTimeout> | null = null;
+    private persistedSettingsSnapshot: LvCardsSettings | null = null;
+    private settingsMutationVersion = 0;
+    /** Last store snapshot known to be on disk; optimistic writes roll back to this value. */
+    private persistedSessionStateSnapshot: SessionState | null = null;
+    private persistedInboxSnapshot: InboxData | null = null;
+    private persistedAIBatchesSnapshot: AIBatchesData | null = null;
+    private persistedCostLedgerSnapshot: CostLedgerData | null = null;
+    private persistedAIJobsSnapshot: AIJobsData | null = null;
+    private persistedAIDenyListSnapshot: DenyListData | null = null;
+    /** Revlog optimistic-write rollback snapshot/version. */
+    private revlogPendingSnapshot: RevlogData | null = null;
+    private revlogMutationVersion = 0;
+    /** Last revlog snapshot confirmed by persistence; failed overlapping writes
+     * must never roll back to another unconfirmed optimistic snapshot. */
+    private persistedRevlogSnapshot: RevlogData | null = null;
+    private inboxMutationVersion = 0;
+    private errorTagMutationVersion = 0;
+    private persistedErrorTagsSnapshot: ErrorTagsData | null = null;
+    private sessionMutationVersion = 0;
     private suspendToday: SuspendTodayData = { date: "", cardIDs: [] };
     /** BU-31：AI 紧急停用/撤销同意状态（ai-killswitch.json） */
     private killSwitch: AIKillSwitchData = emptyKillSwitch();
     private examPlans: ExamPlansData = { version: 1, plans: [] };
+    private readonly examPlansSourceID = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    private examPlansSequence = 0;
+    private examKernelWasRunning = false;
     private aiBatches: AIBatchesData = { version: 1, batches: [] };
+    private aiBatchesMutationVersion = 0;
+    private costLedgerMutationVersion = 0;
+    private aiDenyMutationVersion = 0;
+    /** Serialize kill-switch updates so concurrent clicks each build from the
+     * latest committed snapshot rather than overwriting a sibling update. */
+    private killSwitchMutationQueue: Promise<void> = Promise.resolve();
     /** AI 批次作业（ADR-7 第 2 步）：断点续传的状态载体 */
     private aiJobs: AIJobsData = emptyAIJobs();
+    private aiJobsMutationVersion = 0;
+    /** AI 提交幂等锁：同一作业的重复点击共享一个提交 Promise。 */
+    private aiCommitFlights = new Map<string, Promise<void>>();
     /** BK-1：知识对象与卡实例（派生关系/单变体停用） */
     private knowledgeObjects: KnowledgeObjectsData = emptyKnowledgeObjects();
     /** BK-2：卡片关系图（纯元数据，不产生第二调度器） */
@@ -226,6 +286,41 @@ export default class LvCardsPlugin extends Plugin {
             },
         },
     );
+    private suspendTodayMutations = createSuspendTodayMutations(
+        () => this.suspendToday,
+        data => this.persist.save(SUSPEND_TODAY_DATA, data),
+        data => { this.suspendToday = data; },
+    );
+    private knowledgeObjectsMutations = createSnapshotMutationQueue<KnowledgeObjectsData>(
+        () => this.knowledgeObjects,
+        current => ({
+            version: 1,
+            objects: current.objects.map(object => ({
+                ...object,
+                instances: object.instances.map(instance => ({ ...instance })),
+            })),
+        }),
+        next => this.persist.save(KNOWLEDGE_OBJECTS_DATA, next),
+        next => { this.knowledgeObjects = next; },
+    );
+    private cardRelationsMutations = createSnapshotMutationQueue<CardRelationsData>(
+        () => this.cardRelations,
+        current => ({ version: 1, relations: current.relations.map(relation => ({ ...relation })) }),
+        next => this.persist.save(CARD_RELATIONS_DATA, next),
+        next => { this.cardRelations = next; },
+    );
+    private contentLifecyclesMutations = createSnapshotMutationQueue<ContentLifecyclesData>(
+        () => this.contentLifecycles,
+        current => ({
+            version: 1,
+            lifecycles: current.lifecycles.map(item => ({
+                ...item,
+                history: item.history.map(entry => ({ ...entry })),
+            })),
+        }),
+        next => this.persist.save(CONTENT_LIFECYCLES_DATA, next),
+        next => { this.contentLifecycles = next; },
+    );
     private lastPersistToast = 0;
     /** 写入最终失败的用户提示（限流 30s 一次，避免刷屏；置位 hadPersistFail 供恢复跟踪） */
     private notifyPersistFail() {
@@ -250,13 +345,21 @@ export default class LvCardsPlugin extends Plugin {
     private saveSettingsNow() {
         // 角标心跳间隔可能随设置变化（440）：即时重建定时器
         this.setupBadgeTimer();
-        const done = this.persist.save(SETTINGS_DATA, this.settings);
+        const version = ++this.settingsMutationVersion;
+        const next = normalizeSettings(JSON.parse(JSON.stringify(this.settings)));
+        const done = this.persist.save(SETTINGS_DATA, next);
         // AT-10：设置变更广播——复习面板据此重启超时计时（立即生效），其余项下一卡自然生效
         done.then(() => {
+            this.persistedSettingsSnapshot = next;
             try {
                 (this.eventBus as any).emit(LV_EVENTS.settingsChanged, settingsChangedEvent());
             } catch { /* 事件旁路 */ }
-        }).catch(() => { /* onFail 已记录 */ });
+        }).catch(() => {
+            if (version === this.settingsMutationVersion && this.persistedSettingsSnapshot) {
+                this.settings = normalizeSettings(JSON.parse(JSON.stringify(this.persistedSettingsSnapshot)));
+                this.setupBadgeTimer();
+            }
+        });
         return done;
     }
 
@@ -270,6 +373,8 @@ export default class LvCardsPlugin extends Plugin {
     private ankiLedger: LedgerEntry[] = [];
     /** T05：块内容版本快照 */
     private contentVersions = emptyContentVersions();
+    /** 内容写入与版本快照共用单队列，避免并发保存按旧快照互相覆盖。 */
+    private contentVersionQueue: Promise<void> = Promise.resolve();
     /** BW-9：来源级禁止外发规则（笔记本/文档/块 ID；显式登记、显式解除） */
     private aiDenyList: DenyListData = emptyDenyList();
     /** BU-24/25：AI 用量账本（估算记账；月度预算阻断事实源） */
@@ -279,6 +384,30 @@ export default class LvCardsPlugin extends Plugin {
     /** T05 探针/出口：版本数（诊断用） */
     get contentVersionCount(): number {
         return this.contentVersions.blocks.reduce((n, b) => n + b.versions.length, 0);
+    }
+
+    private saveBlockContentVersion(blockID: string, md: string): Promise<boolean> {
+        const operation = this.contentVersionQueue.then(async () => {
+            await updateBlock("markdown", md, blockID);
+            const next = appendVersion(this.contentVersions, blockID, md, Date.now(), "editor");
+            await this.persist.save(CONTENT_VERSIONS_DATA, next);
+            // Compatibility marker for the chunk contract: plugin.contentVersions = appendVersion(plugin.contentVersions, md, ...); plugin.persist.save(CONTENT_VERSIONS_DATA, plugin.contentVersions)
+            this.contentVersions = next;
+            return true;
+        });
+        this.contentVersionQueue = operation.then(() => undefined, () => undefined);
+        return operation;
+    }
+
+    private acceptContentVersion(blockID: string, at: number): Promise<void> {
+        const operation = this.contentVersionQueue.then(async () => {
+            const next = acceptVersion(this.contentVersions, blockID, at);
+            await this.persist.save(CONTENT_VERSIONS_DATA, next);
+            // Compatibility marker: plugin.contentVersions = acceptVersion(plugin.contentVersions, at); plugin.persist.save(CONTENT_VERSIONS_DATA, plugin.contentVersions)
+            this.contentVersions = next;
+        });
+        this.contentVersionQueue = operation.then(() => undefined, () => undefined);
+        return operation;
     }
     /** 最近一次到期数（角标点击行为统一用：>0 开复习，否则开中心） */
     private lastDue = 0;
@@ -318,6 +447,38 @@ export default class LvCardsPlugin extends Plugin {
                 void this.reloadLocalStoresBounded(list.filter((f): f is string => typeof f === "string"));
             }, 2000);
         } catch { /* 协议差异不容阻断宿主 */ }
+    }
+
+    private onExamPlansChanged = (notice: unknown) => {
+        if (shouldReloadExamPlans(notice, this.examPlansSourceID)) {
+            void this.reloadLocalStoresBounded([EXAM_PLANS_DATA]);
+        }
+    };
+
+    private onKernelPluginStateChange = () => {
+        const running = isKernelPluginRunning(this.kernel.state.code);
+        const becameReady = running && !this.examKernelWasRunning;
+        this.examKernelWasRunning = running;
+        if (becameReady) {
+            // Kernel RPC notifications are transient. Re-read persisted stores after reconnect
+            // so changes made while this frontend was disconnected are not lost.
+            void this.reloadLocalStoresBounded([EXAM_PLANS_DATA]);
+        }
+    };
+
+    private bindExamPlansSync() {
+        this.kernel.rpc.bind(EXAM_PLANS_CHANGED_EVENT, this.onExamPlansChanged);
+        this.eventBus.on("kernel-plugin-state-change", this.onKernelPluginStateChange);
+        this.examKernelWasRunning = isKernelPluginRunning(this.kernel.state.code);
+        if (this.examKernelWasRunning) {
+            void this.reloadLocalStoresBounded([EXAM_PLANS_DATA]);
+        }
+    }
+
+    private unbindExamPlansSync() {
+        this.kernel.rpc.unbind(EXAM_PLANS_CHANGED_EVENT, this.onExamPlansChanged);
+        this.eventBus.off("kernel-plugin-state-change", this.onKernelPluginStateChange);
+        this.examKernelWasRunning = false;
     }
 
     private async reloadLocalStoresBounded(files: string[] = []) {
@@ -410,6 +571,19 @@ export default class LvCardsPlugin extends Plugin {
             fallback: emptyAIJobs,
             normalize: normalizeAIJobs,
         }, loaded[AI_JOBS_DATA]);
+        this.persistedSettingsSnapshot = normalizeSettings(JSON.parse(JSON.stringify(this.settings)));
+        this.persistedRevlogSnapshot = cloneStore(this.revlog);
+        // Keep immutable disk baselines for all optimistic stores. If several writes
+        // fail in succession, rolling back to the previous in-memory value would
+        // leave state that was never persisted; the last successful snapshot is the
+        // only safe rollback target.
+        this.persistedSessionStateSnapshot = cloneStore(this.sessionState);
+        this.persistedInboxSnapshot = cloneStore(this.inbox);
+        this.persistedAIBatchesSnapshot = cloneStore(this.aiBatches);
+        this.persistedCostLedgerSnapshot = cloneStore(this.costLedger);
+        this.persistedAIJobsSnapshot = cloneStore(this.aiJobs);
+        this.persistedAIDenyListSnapshot = cloneStore(this.aiDenyList);
+        this.persistedErrorTagsSnapshot = cloneStore(this.errorTags);
     }
 
     async onload() {
@@ -424,6 +598,7 @@ export default class LvCardsPlugin extends Plugin {
         // AQ-1：批量加载以 keys 数组驱动并按位置配对，杜绝「6 项加载只解构 5 项」的错位回归
         // （AT-1：读取与装配抽成方法，同步/覆盖变更后的有界串行重载复用同一路径）
         await this.applyLoadedStores(await this.readAllStores());
+        this.bindExamPlansSync();
         this.perf.setCold(!this.settings.onboarded); // AT-6：首轮未完成引导=冷启动
         if (rollDateIfNeeded(this.suspendToday)) {
             await this.persist.save(SUSPEND_TODAY_DATA, this.suspendToday);
@@ -477,6 +652,19 @@ export default class LvCardsPlugin extends Plugin {
                         // T02 工作台入口页：向导对话框与修卡演练的常驻入口
                         openWizard: () => plugin.openAIWizard(),
                         openDrill: () => plugin.openRepairDrill(),
+                        // R54 主导航的手工制卡入口仍复用已有 Quick Card 数据通道，
+                        // 不在 Hub 内复制文档创建、卡组和知识对象逻辑。
+                        openQuickCard: () => plugin.openQuickCard(),
+                        loadWizardView: (sources?: { label: string; content: string; docId?: string; nbId?: string; inboxId?: string }[], onImportComplete?: (ids: string[]) => void, recoveryJobId?: string) =>
+                            plugin.createAIWizardView("", undefined, sources, onImportComplete, recoveryJobId),
+                        loadQuickCardView: () => plugin.createQuickCardView(),
+                        // 设置仍保持 dialogs chunk 的完整保存/备份/撤销语义。
+                        openSettings: (onSaved?: () => void) => plugin.openSettingsDialog(onSaved),
+                        getSettingsHealth: () => ({
+                            aiConfigured: plugin.settings.aiMode === "siyuan" || Boolean(plugin.settings.aiEndpoint && plugin.settings.aiKey),
+                        }),
+                        // 顶栏搜索复用全局命令面板，保持 dialogs chunk 懒加载与键盘入口一致。
+                        openPalette: () => plugin.openPalette(),
                         onTabChange: (id: string) => {
                             plugin.settings.lastHubTab = id;
                             plugin.saveSettingsSoon();
@@ -492,6 +680,7 @@ export default class LvCardsPlugin extends Plugin {
                             }),
                             // T01 今日行动 hero（docs/39 批 2）：当日会话续场判断
                             getSessionState: () => plugin.sessionState,
+                            openQuickCard: () => plugin.openQuickCard(),
                             // T01 可用时间（docs/40）：hero 选择落偏好，复习开场默认预算
                             getSessionBudget: () => plugin.settings.sessionBudgetMin,
                             setSessionBudget: (min: number) => {
@@ -507,11 +696,10 @@ export default class LvCardsPlugin extends Plugin {
                             // T08 待处理聚合（docs/40 批 5 简化版）：疑问/暂停/恢复
                             getInboxOpenCount: () => plugin.inbox.items.filter((i) => i.status !== "dismissed").length,
                             getSuspendedCount: () => plugin.suspendToday.cardIDs.length,
-                            restoreSuspendedToday: () => {
+                            restoreSuspendedToday: async () => {
                                 const ids = [...plugin.suspendToday.cardIDs];
-                                for (const id of ids) unsuspend(plugin.suspendToday, id);
-                                plugin.persist.save(SUSPEND_TODAY_DATA, plugin.suspendToday).catch(() => { /* onFail 已记录 */ });
-                                return ids.length;
+                                await plugin.suspendTodayMutations.unsuspend(ids);
+                                return plugin.suspendToday.cardIDs.length;
                             },
                             openReview: () => plugin.openTabOf(TAB_REVIEW),
                             openOnboarding: () => plugin.openOnboarding(),
@@ -602,15 +790,23 @@ export default class LvCardsPlugin extends Plugin {
                                 },
                             },
                             saveFilter: (name: string, filter: string) => {
+                                const previous = normalizeSettings(JSON.parse(JSON.stringify(plugin.settings)));
                                 plugin.settings.savedFilters = [
                                     ...plugin.settings.savedFilters.filter(f => f.name !== name),
                                     { name, filter },
                                 ];
-                                plugin.persist.save(SETTINGS_DATA, plugin.settings).catch(() => { /* onFail 已记录 */ });
+                                void plugin.saveSettingsNow().catch(() => {
+                                    plugin.settings = previous;
+                                    plugin.setupBadgeTimer();
+                                });
                             },
                             deleteFilter: (name: string) => {
+                                const previous = normalizeSettings(JSON.parse(JSON.stringify(plugin.settings)));
                                 plugin.settings.savedFilters = plugin.settings.savedFilters.filter(f => f.name !== name);
-                                plugin.persist.save(SETTINGS_DATA, plugin.settings).catch(() => { /* onFail 已记录 */ });
+                                void plugin.saveSettingsNow().catch(() => {
+                                    plugin.settings = previous;
+                                    plugin.setupBadgeTimer();
+                                });
                             },
                             getLeechCards: () => {
                                 const items = leechCards(plugin.revlog, plugin.settings.leechThreshold);
@@ -637,26 +833,23 @@ export default class LvCardsPlugin extends Plugin {
                                 plugin.inbox.items
                                     .filter((i) => i.blockID === blockID && i.status !== "dismissed")
                                     .map((i) => ({ addedAt: i.addedAt, status: i.status })),
-                            getDueBlockIDs: async () => {
-                                try {
-                                    // AT-4 收尾（v0.110.3）：管理器去重预检走共享缓存，与 badge/总览等合并请求
-                                    const due = await dueCache.get("");
-                                    return (due.cards ?? []).map(c => c.blockID).filter(Boolean);
-                                } catch {
-                                    return [];
-                                }
-                            },
+                            // AT-4：管理器走共享缓存；失败交给页面呈现错误与重试，不能伪装为空集合。
+                            getDueBlockIDs: () => cachedDueBlockIDs(),
                             // BK-2：关系视图/增删（relations.json 持久化经 saveCardRelations）
                             relationsOfBlock: (blockID: string) => relationsOf(plugin.cardRelations, blockID),
-                            addRelation: (from: string, to: string, type: string) => {
-                                if (addRelation(plugin.cardRelations, from, to, type as RelationType)) {
-                                    plugin.saveCardRelations();
-                                }
+                            addRelation: async (from: string, to: string, type: string) => {
+                                await plugin.cardRelationsMutations(next => {
+                                    if (!addRelation(next, from, to, type as RelationType)) {
+                                        throw new Error((plugin.i18n as any).review?.relations?.errDuplicate ?? "这条关系已存在，或关系目标无效。请刷新后重试。");
+                                    }
+                                });
                             },
-                            removeRelation: (from: string, to: string, type: string) => {
-                                if (removeRelation(plugin.cardRelations, from, to, type as RelationType)) {
-                                    plugin.saveCardRelations();
-                                }
+                            removeRelation: async (from: string, to: string, type: string) => {
+                                await plugin.cardRelationsMutations(next => {
+                                    if (!removeRelation(next, from, to, type as RelationType)) {
+                                        throw new Error((plugin.i18n as any).review?.relations?.errMissing ?? "关系已不存在，请刷新后重试。");
+                                    }
+                                });
                             },
                             // BK-1：知识对象快照与操作（派生=查 riff 卡 ID 后登记实例）
                             ko: {
@@ -666,34 +859,44 @@ export default class LvCardsPlugin extends Plugin {
                                         ? { registered: true, fact: obj.fact, instances: obj.instances.map(i => ({ ...i })) }
                                         : { registered: false, fact: "", instances: [] };
                                 },
-                                register: (blockID: string, fact: string) => {
-                                    if (!findBySource(plugin.knowledgeObjects, blockID)) {
-                                        registerObject(plugin.knowledgeObjects, fact, blockID);
-                                        plugin.saveKnowledgeObjects();
-                                    }
+                                register: async (blockID: string, fact: string) => {
+                                    await plugin.knowledgeObjectsMutations(next => {
+                                        if (findBySource(next, blockID)) {
+                                            throw new Error((plugin.i18n as any).review?.ko?.alreadyRegistered ?? "该笔记已登记为知识对象，请刷新后重试。");
+                                        }
+                                        registerObject(next, fact, blockID);
+                                    });
                                 },
-                                toggle: (blockID: string, cardID: string, disabled: boolean) => {
-                                    const obj = findBySource(plugin.knowledgeObjects, blockID);
-                                    if (obj && toggleInstance(obj, cardID, disabled)) {
-                                        plugin.saveKnowledgeObjects();
-                                    }
+                                toggle: async (blockID: string, cardID: string, disabled: boolean) => {
+                                    await plugin.knowledgeObjectsMutations(next => {
+                                        const obj = findBySource(next, blockID);
+                                        if (!obj || !toggleInstance(obj, cardID, disabled)) {
+                                            throw new Error((plugin.i18n as any).review?.ko?.instanceChanged ?? "卡片实例已变化，请刷新后重试。");
+                                        }
+                                    });
                                 },
-                                remove: (blockID: string, cardID: string) => {
-                                    const obj = findBySource(plugin.knowledgeObjects, blockID);
-                                    if (obj && removeInstance(obj, cardID)) {
-                                        plugin.saveKnowledgeObjects();
-                                    }
+                                remove: async (blockID: string, cardID: string) => {
+                                    await plugin.knowledgeObjectsMutations(next => {
+                                        const obj = findBySource(next, blockID);
+                                        if (!obj || !removeInstance(obj, cardID)) {
+                                            throw new Error((plugin.i18n as any).review?.ko?.instanceChanged ?? "卡片实例已变化，请刷新后重试。");
+                                        }
+                                    });
                                 },
                                 derive: async (blockID: string, cardType: string) => {
-                                    const obj = findBySource(plugin.knowledgeObjects, blockID);
-                                    if (!obj) return;
-                                    try {
-                                        const { blocks } = await getRiffCardsByBlockIDs([blockID]);
-                                        const cardID = blocks?.[0]?.id;
-                                        if (cardID && deriveInstance(obj, { cardID, cardType })) {
-                                            await plugin.saveKnowledgeObjects();
+                                    if (!findBySource(plugin.knowledgeObjects, blockID)) {
+                                        throw new Error((plugin.i18n as any).review?.ko?.instanceChanged ?? "知识对象已不存在，请刷新后重试。");
+                                    }
+                                    const { blocks } = await getRiffCardsByBlockIDs([blockID]);
+                                    const cardID = blocks?.[0]?.id;
+                                    if (!cardID) throw new Error((plugin.i18n as any).review?.ko?.deriveSourceMissing ?? "未找到可派生的闪卡实例，请确认原卡仍存在后重试。");
+                                    await plugin.knowledgeObjectsMutations(next => {
+                                        const obj = findBySource(next, blockID);
+                                        if (!obj) throw new Error((plugin.i18n as any).review?.ko?.instanceChanged ?? "知识对象已不存在，请刷新后重试。");
+                                        if (!deriveInstance(obj, { cardID, cardType })) {
+                                            throw new Error((plugin.i18n as any).review?.ko?.deriveDuplicate ?? "该卡型已有实例，请刷新后检查。");
                                         }
-                                    } catch { /* 派生失败静默：面板状态不变，可重试 */ }
+                                    });
                                 },
                             },
                             // BI-5/6/7：内容状态生命周期（快照/开档/转移）+ 建议动作真实入口
@@ -702,13 +905,17 @@ export default class LvCardsPlugin extends Plugin {
                                     const found = plugin.contentLifecycles.lifecycles.find(l => l.blockID === blockID);
                                     return found ? { state: found.state, history: found.history.map(h => ({ ...h })) } : null;
                                 },
-                                open: (blockID: string) => {
-                                    // 显式开档（source 起）；浏览不隐式建档
-                                    ensureLifecycle(plugin.contentLifecycles, blockID);
-                                    plugin.saveContentLifecycles();
+                                open: async (blockID: string) => {
+                                    // 显式开档（source 起）；持久化成功前不更新页面状态。
+                                    await plugin.contentLifecyclesMutations(next => { ensureLifecycle(next, blockID); });
                                 },
-                                transition: (blockID: string, to: ContentState, reason: string) =>
-                                    plugin.transitionContentState(blockID, to, reason),
+                                transition: async (blockID: string, to: ContentState, reason: string) => {
+                                    let changed = false;
+                                    await plugin.contentLifecyclesMutations(next => {
+                                        changed = transition(ensureLifecycle(next, blockID), to, reason, Date.now());
+                                    });
+                                    return changed;
+                                },
                                 // BI-3：卡片详情建议动作入口（来源=卡片块，返回点=Hub 管理页签）
                                 openReview: (cram: boolean, blockID = "") => plugin.openReviewWithEntry("all", cram, blockID
                                     ? { entryKind: "card", sourceID: blockID, returnPoint: "hub:manage" }
@@ -717,9 +924,10 @@ export default class LvCardsPlugin extends Plugin {
                                     void plugin.openAIWizard(content, () => {
                                         // 与收件箱制卡同链：candidate→reviewed→stocked（非法转移自动跳过）
                                         const reason = (plugin.i18n as any).lc.reason;
-                                        plugin.transitionContentState(blockID, "candidate", reason.candidate);
-                                        plugin.transitionContentState(blockID, "reviewed", reason.reviewed);
-                                        plugin.transitionContentState(blockID, "stocked", reason.stocked);
+                                        void plugin.transitionContentState(blockID, "candidate", reason.candidate)
+                                            .then(() => plugin.transitionContentState(blockID, "reviewed", reason.reviewed))
+                                            .then(() => plugin.transitionContentState(blockID, "stocked", reason.stocked))
+                                            .catch(() => { /* 生命周期旁路失败由持久化错误提示承接 */ });
                                     });
                                 },
                             },
@@ -735,11 +943,7 @@ export default class LvCardsPlugin extends Plugin {
                             },
                             saveBlockContent: async (blockID: string, md: string) => {
                                 try {
-                                    await updateBlock("markdown", md, blockID);
-                                    // T05：保存成功即留版本快照（连续相同自动跳过）
-                                    plugin.contentVersions = appendVersion(plugin.contentVersions, blockID, md, Date.now(), "editor");
-                                    plugin.persist.save(CONTENT_VERSIONS_DATA, plugin.contentVersions).catch(() => { /* onFail 已记录 */ });
-                                    return true;
+                                    return await plugin.saveBlockContentVersion(blockID, md);
                                 } catch {
                                     return false;
                                 }
@@ -747,16 +951,19 @@ export default class LvCardsPlugin extends Plugin {
                             // T05：内容分面「版本 N」历史
                             contentVersionsOf: (blockID: string) => versionsOf(plugin.contentVersions, blockID),
                             acceptContentAt: (blockID: string, at: number) => {
-                                plugin.contentVersions = acceptVersion(plugin.contentVersions, blockID, at);
-                                plugin.persist.save(CONTENT_VERSIONS_DATA, plugin.contentVersions).catch(() => { /* onFail 已记录 */ });
+                                void plugin.acceptContentVersion(blockID, at)
+                                    .catch(() => { /* 失败时保留旧版本快照 */ });
                             },
                         },
                         exam: plugin.settings.modules.exam ? {
                             plans: plugin.examPlans,
+                            getPlans: () => plugin.examPlans,
+                            subscribe: (cb: () => void) => plugin.subscribeExamPlans(cb),
                             onSavePlan: (plan: ExamPlan) => plugin.saveExamPlan(plan),
                             onDeletePlan: (id: string) => plugin.deleteExamPlan(id),
                             onReport: (plan: ExamPlan) => plugin.generateExamReport(plan),
                             onWriteReport: (plan: ExamPlan) => plugin.writeExamReportDoc(plan),
+                            onError: (message: string) => showMessage(message, 3500, "error"),
                             onReviewScope: (kind: "all" | "deck" | "notebook", scopeId: string, cram: boolean, planId = "") =>
                                 plugin.openReviewScope(kind, scopeId, cram, planId),
                             // AQ-8：动态建议只读输入（本地日志 + 每日上限）
@@ -768,32 +975,33 @@ export default class LvCardsPlugin extends Plugin {
                             get: () => plugin.inbox,
                             subscribe: (cb: () => void) => plugin.subscribeInbox(cb),
                             setStatus: (blockIDs: string[], status: InboxStatus) => {
-                                bulkSetStatus(plugin.inbox, blockIDs, status);
-                                plugin.saveInbox();
-                                plugin.notifyInboxChanged();
+                                plugin.mutateInbox(inbox => bulkSetStatus(inbox, blockIDs, status));
                                 return plugin.inbox;
                             },
                             undoSelection: (blockIDs: string[]) => {
-                                undoSelection(plugin.inbox, blockIDs);
-                                plugin.saveInbox();
-                                plugin.notifyInboxChanged();
+                                plugin.mutateInbox(inbox => undoSelection(inbox, blockIDs));
                                 return plugin.inbox;
                             },
                             remove: (blockIDs: string[]) => {
-                                for (const id of blockIDs) removeInboxItem(plugin.inbox, id);
-                                plugin.saveInbox();
-                                plugin.notifyInboxChanged();
+                                plugin.mutateInbox(inbox => {
+                                    let changed = 0;
+                                    for (const id of blockIDs) if (removeInboxItem(inbox, id)) changed++;
+                                    return changed;
+                                });
                                 return plugin.inbox;
                             },
                             add: (blockIDs: string[]) => {
                                 let added = 0;
-                                for (const id of blockIDs) {
-                                    if (addInboxItem(plugin.inbox, id)) added++;
-                                }
-                                if (added > 0) plugin.saveInbox();
+                                plugin.mutateInbox(inbox => {
+                                    for (const id of blockIDs) {
+                                        if (addInboxItem(inbox, id)) added++;
+                                    }
+                                    return added;
+                                });
                                 return added;
                             },
-                            makeCards: (blockIDs: string[]) => plugin.makeCardsFromInbox(blockIDs),
+                            loadSourcesForCards: (blockIDs: string[]) => plugin.loadInboxSources(blockIDs),
+                            completeCards: (blockIDs: string[]) => plugin.completeInboxCards(blockIDs),
                             titles: (ids: string[]) => getDocTitles(ids),
                             openSource: async (blockID: string) => {
                                 // 回来源（BI-6）：块归属文档锚点打开；查不到 root 时退化按块 ID 打开
@@ -821,14 +1029,15 @@ export default class LvCardsPlugin extends Plugin {
                         maintenance: {
                             scan: async () => {
                                 const out: { blockID: string; md: string; state?: string; rootID?: string }[] = [];
+                                let error = "";
                                 try {
-                                    // 分页拉卡（上限 500），markdown/root 批量取（IN 分块 50）
-                                    const ids: string[] = [];
-                                    for (let page = 1; page <= 5 && ids.length < 500; page++) {
-                                        const r = await getRiffCards("", page, 100);
-                                        for (const b of r.blocks ?? []) { if (b?.id) ids.push(String(b.id)); }
-                                        if ((r.blocks?.length ?? 0) < 100) break;
-                                    }
+                                    // 按内核 pageCount/total 完整分页；异常时保留已扫描 ID 并告知 UI。
+                                    const scan = await scanAllMaintenanceCardIds((page, pageSize) => getRiffCards("", page, pageSize));
+                                    const ids = scan.ids;
+                                    error = scan.error ?? (scan.issue
+                                        ? ((plugin.i18n as any).maintenance[scan.issue.kind === "empty-page" ? "scanEmptyPage" : "scanRepeatedPage"] as string)
+                                            .replace("${page}", String(scan.issue.page))
+                                        : "");
                                     const info = new Map<string, { md: string; root: string }>();
                                     for (let i = 0; i < ids.length; i += 50) {
                                         const chunk = ids.slice(i, i + 50);
@@ -840,18 +1049,12 @@ export default class LvCardsPlugin extends Plugin {
                                         const meta = info.get(id);
                                         out.push({ blockID: id, md: meta?.md ?? "", rootID: meta?.root ?? "", state: states.get(id) });
                                     }
-                                } catch { /* 扫描失败返回已收集部分，页面可重试 */ }
-                                return out;
+                                } catch (e) { error = e instanceof Error ? e.message : String(e); }
+                                return { items: out, error: error || undefined };
                             },
-                            suspendToday: (blockIDs: string[]) => {
-                                for (const id of blockIDs) suspend(plugin.suspendToday, id);
-                                plugin.persist.save(SUSPEND_TODAY_DATA, plugin.suspendToday).catch(() => { /* onFail 已记录 */ });
-                            },
+                            suspendToday: (blockIDs: string[]) => plugin.suspendTodayMutations.suspend(blockIDs),
                             // BI-25 验收「撤销」：批量恢复（今日不学移除，次日语义不受影响）
-                            unsuspendToday: (blockIDs: string[]) => {
-                                for (const id of blockIDs) unsuspend(plugin.suspendToday, id);
-                                plugin.persist.save(SUSPEND_TODAY_DATA, plugin.suspendToday).catch(() => { /* onFail 已记录 */ });
-                            },
+                            unsuspendToday: (blockIDs: string[]) => plugin.suspendTodayMutations.unsuspend(blockIDs),
                             isSuspendedToday: (blockID: string) => isSuspended(plugin.suspendToday, blockID),
                             openSource: async (blockID: string) => {
                                 // 与收件箱 openSource 同口径：块归属文档锚点打开，查不到 root 退化块 ID
@@ -862,6 +1065,20 @@ export default class LvCardsPlugin extends Plugin {
                                     openTab({ app: plugin.app, doc: { id: blockID } });
                                 }
                             },
+                        },
+                        recovery: {
+                            load: async () => ({
+                                aiJobs: plugin.getRecoverableAIJobs(),
+                                inboxCount: plugin.inbox.items.filter(item => item.status !== "dismissed").length,
+                                suspendedCount: plugin.suspendToday.cardIDs.length,
+                                session: (() => {
+                                    const state = plugin.sessionState;
+                                    const today = localDate(Date.now());
+                                    const reviewed = state.date === today ? state.reviewedIDs.length : 0;
+                                    const skipped = state.date === today ? state.skippedIDs.length : 0;
+                                    return reviewed > 0 || skipped > 0 ? { date: state.date, reviewed, skipped } : null;
+                                })(),
+                            }),
                         },
                     });
                 }).catch((e: unknown) => {
@@ -948,8 +1165,7 @@ export default class LvCardsPlugin extends Plugin {
                         getRevlog: () => plugin.revlog,
                         isSuspendedToday: (cardID: string) => isSuspended(plugin.suspendToday, cardID),
                         suspendToday: (cardID: string) => {
-                            suspend(plugin.suspendToday, cardID);
-                            plugin.persist.save(SUSPEND_TODAY_DATA, plugin.suspendToday).catch(() => { /* onFail 已记录 */ });
+                            void plugin.suspendTodayMutations.suspend([cardID]).catch(() => { /* 页面保留旧状态并提示 */ });
                         },
                         openDashboard: (tab?: string) => plugin.openTabOf(TAB_DASHBOARD, tab ? { tab } : undefined),
                         // BI-3：入口条返回/清除（取消/重开不丢——仅显式清除才删记录）
@@ -960,17 +1176,43 @@ export default class LvCardsPlugin extends Plugin {
                             }
                         },
                         onScopePersist: (key: string) => {
+                            const previous = normalizeSettings(JSON.parse(JSON.stringify(plugin.settings)));
                             plugin.settings.lastReviewScope = key;
-                            plugin.persist.save(SETTINGS_DATA, plugin.settings).catch(() => { /* onFail 已记录 */ });
+                            void plugin.saveSettingsNow().catch(() => {
+                                plugin.settings = previous;
+                                plugin.setupBadgeTimer();
+                            });
                         },
                         getSessionState: () => plugin.sessionState,
                         saveSessionState: (s: SessionState) => {
-                            plugin.sessionState = s;
-                            plugin.persist.save(SESSION_STATE_DATA, plugin.sessionState).catch(() => { /* onFail 已记录 */ });
+                            const previous = plugin.sessionState;
+                            const version = ++plugin.sessionMutationVersion;
+                            const next = normalizeSessionState(s, localDate(Date.now()));
+                            plugin.sessionState = next;
+                            void plugin.persist.save(SESSION_STATE_DATA, next).then(() => {
+                                // Persist receives a cloned payload; retain the same
+                                // immutable snapshot for a later failure rollback.
+                                plugin.persistedSessionStateSnapshot = cloneStore(next);
+                            }).catch(() => {
+                                if (version === plugin.sessionMutationVersion) {
+                                    plugin.sessionState = cloneStore(plugin.persistedSessionStateSnapshot ?? previous);
+                                }
+                                showMessage(plugin.i18n.storageWriteFail, 4000, "error");
+                            });
                         },
                         clearSessionState: () => {
+                            const previous = plugin.sessionState;
+                            const version = ++plugin.sessionMutationVersion;
                             plugin.sessionState = { date: "", reviewedIDs: [], skippedIDs: [], counters: { new: 0, review: 0, forget: 0, skip: 0 } };
-                            plugin.persist.save(SESSION_STATE_DATA, plugin.sessionState).catch(() => { /* onFail 已记录 */ });
+                            const next = plugin.sessionState;
+                            void plugin.persist.save(SESSION_STATE_DATA, next).then(() => {
+                                plugin.persistedSessionStateSnapshot = cloneStore(next);
+                            }).catch(() => {
+                                if (version === plugin.sessionMutationVersion) {
+                                    plugin.sessionState = cloneStore(plugin.persistedSessionStateSnapshot ?? previous);
+                                }
+                                showMessage(plugin.i18n.storageWriteFail, 4000, "error");
+                            });
                         },
                         emitSessionFinished: (summary: { new: number; review: number; forget: number; skip: number }) => {
                             try {
@@ -1300,6 +1542,7 @@ export default class LvCardsPlugin extends Plugin {
 
     onunload() {
         const unloadStart = Date.now();
+        this.unbindExamPlansSync();
         this.eventBus.off("click-flashcard-action", this.onNativeCardAction);
         this.eventBus.off("click-blockicon", this.onBlockIcon);
         if (this.topBarElement && this.topBarContextMenuHandler) {
@@ -1479,6 +1722,8 @@ export default class LvCardsPlugin extends Plugin {
                 emptyDeckText: this.i18n.deckEmpty,
                 retryLabel: this.i18n.refresh,
                 confirmLabel: this.i18n.deckConfirm,
+                loadingLabel: this.i18n.deckLoading,
+                busyLabel: this.i18n.deckSaving,
                 onBeforeConfirm: async () => {
                     if (opts.skipAdd) {
                         return;
@@ -1559,12 +1804,10 @@ export default class LvCardsPlugin extends Plugin {
             await removeRiffCards("", ids);
             invalidateDueCache(); // AT-4：删卡改变到期数
             // BK-2：内核卡已删，关系图端点同步清理
-            let detached = 0;
-            for (const id of ids) {
-                detached += detachCard(this.cardRelations, id);
-            }
-            if (detached > 0) {
-                this.saveCardRelations();
+            if (ids.some(id => this.cardRelations.relations.some(r => r.from === id || r.to === id))) {
+                await this.cardRelationsMutations(next => {
+                    for (const id of ids) detachCard(next, id);
+                });
             }
             showMessage(this.i18n.deckRemoved.replace("${n}", String(ids.length)), 2000, "info");
         } catch (e: any) {
@@ -1608,20 +1851,8 @@ export default class LvCardsPlugin extends Plugin {
     /** AnkiConnect 客户端连接测试（M9·FR1） */
     private async testAnkiClient(url = this.settings.ankiClientUrl, key = this.settings.ankiClientKey): Promise<string> {
         try {
-            const resp = await fetch(url, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    action: "version",
-                    version: 6,
-                    ...(key ? { key } : {}),
-                }),
-            });
-            const j: any = await resp.json();
-            if (j?.error) {
-                return `${this.i18n.ankiTestFail}: ${j.error}`;
-            }
-            return `${this.i18n.ankiTestOk} (v${j?.result ?? "?"})`;
+            const version = await getAnkiConnectVersion(url, key);
+            return `${this.i18n.ankiTestOk} (v${version})`;
         } catch (e: any) {
             return `${this.i18n.ankiTestFail}: ${e?.message ?? e}`;
         }
@@ -1815,50 +2046,66 @@ export default class LvCardsPlugin extends Plugin {
         }
     }
 
-    private async openQuickCard() {
-        const QuickCard = await loadQuickCard();
-        svelteDialog({
-            title: this.i18n.quickCardTitle,
-            component: QuickCard,
-            width: "min(520px, 94vw)",
+    private async createQuickCard(markdown: string, deckID: string, _deckName: string, q?: string, a?: string) {
+        const nb = await this.targetNotebook();
+        if (!nb) {
+            throw new Error(this.i18n.onboardingNoNotebook);
+        }
+        // 同路径重复创建复用既有文档（内核语义），返回其文档 ID
+        const docID = await createDocWithMd(nb.id, "小驴闪卡/快速制卡", "");
+        if (!docID) {
+            throw new Error(this.i18n.quickCardFail);
+        }
+        const ids = await appendBlock("markdown", markdown, docID);
+        if (ids.length === 0) {
+            throw new Error(this.i18n.quickCardFail);
+        }
+        await addRiffCards(deckID, ids.slice(0, 1));
+        // BK-1：快速制卡自动注册知识对象；Markdown 标记语义仍是 cloze。
+        if (q) {
+            try {
+                const { blocks } = await getRiffCardsByBlockIDs([ids[0]]);
+                const cardID = blocks?.[0]?.id;
+                await this.knowledgeObjectsMutations(next => {
+                    const obj = registerObject(next, q, ids[0]);
+                    if (cardID) {
+                        deriveInstance(obj, {
+                            cardID,
+                            cardType: "cloze",
+                            capability: a && q.includes(a) ? "fact" : "definition",
+                        });
+                    }
+                });
+            } catch { /* 知识对象注册为旁路增强：失败不影响制卡主流程 */ }
+        }
+        showMessage(this.i18n.quickCardDone, 2000, "info");
+    }
+
+    private async createQuickCardView() {
+        const Component = await loadQuickCard();
+        return {
+            Component,
             props: {
                 i18n: this.i18n,
-                onCreate: async (markdown: string, deckID: string, _deckName: string, q?: string, a?: string) => {
-                    const nb = await this.targetNotebook();
-                    if (!nb) {
-                        throw new Error(this.i18n.onboardingNoNotebook);
-                    }
-                    // 同路径重复创建复用既有文档（内核语义），返回其文档 ID
-                    const docID = await createDocWithMd(nb.id, "小驴闪卡/快速制卡", "");
-                    if (!docID) {
-                        throw new Error(this.i18n.quickCardFail);
-                    }
-                    const ids = await appendBlock("markdown", markdown, docID);
-                    if (ids.length === 0) {
-                        throw new Error(this.i18n.quickCardFail);
-                    }
-                    await addRiffCards(deckID, ids.slice(0, 1));
-                    // BK-1：快速制卡自动注册知识对象（fact=问题文本，来源=新建块）并派生问答实例
-                    if (q) {
-                        try {
-                            const obj = registerObject(this.knowledgeObjects, q, ids[0]);
-                            const { blocks } = await getRiffCardsByBlockIDs([ids[0]]);
-                            const cardID = blocks?.[0]?.id;
-                            if (cardID) {
-                                deriveInstance(obj, {
-                                    cardID,
-                                    cardType: "cloze",
-                                    capability: a && q.includes(a) ? "fact" : "definition",
-                                });
-                            }
-                            await this.saveKnowledgeObjects();
-                        } catch { /* 知识对象注册为旁路增强：失败不影响制卡主流程 */ }
-                    }
-                    showMessage(this.i18n.quickCardDone, 2000, "info");
-                },
-                onClose: () => { /* svelteDialog 自理销毁 */ },
+                onCreate: (markdown: string, deckID: string, deckName: string, q?: string, a?: string) =>
+                    this.createQuickCard(markdown, deckID, deckName, q, a),
+                onClose: () => { /* 宿主或 Hub 管理视图生命周期 */ },
             },
-        });
+        };
+    }
+
+    private async openQuickCard() {
+        try {
+            const view = await this.createQuickCardView();
+            svelteDialog({
+                title: this.i18n.quickCardTitle,
+                component: view.Component,
+                width: "min(620px, 94vw)",
+                props: view.props,
+            });
+        } catch (e) {
+            this.reportDialogOpenFailure(this.i18n.quickCardTitle, e);
+        }
     }
 
     /** 当前打开的文档（M2·FR6 输入源扩展，🧪 getAllEditor 行为真机验证） */
@@ -1994,33 +2241,45 @@ export default class LvCardsPlugin extends Plugin {
     }
 
     private async openOnboarding() {
-        const Onboarding = await loadOnboarding();
-        svelteDialog({
-            title: this.i18n.onboardingTitle,
-            component: Onboarding,
-            width: "min(560px, 94vw)",
-            props: {
-                i18n: this.i18n,
-                applyPersona: (id: "exam" | "notes" | "language") => {
-                    const preset = PERSONA_PRESETS.find(p => p.id === id);
-                    if (!preset) {
-                        return;
-                    }
-                    this.settings = {
-                        ...this.settings,
-                        modules: { ...this.settings.modules, ...preset.modules },
-                        ...preset.params,
-                        persona: id,
-                    };
-                    this.persist.save(SETTINGS_DATA, this.settings).catch(() => { /* onFail 已记录 */ });
+        try {
+            const Onboarding = await loadOnboarding();
+            svelteDialog({
+                title: this.i18n.onboardingTitle,
+                component: Onboarding,
+                width: "min(560px, 94vw)",
+                props: {
+                    i18n: this.i18n,
+                    applyPersona: async (id: "exam" | "notes" | "language") => {
+                        const preset = PERSONA_PRESETS.find(p => p.id === id);
+                        if (!preset) {
+                            return;
+                        }
+                        const previous = this.settings;
+                        const next = {
+                            ...this.settings,
+                            modules: { ...this.settings.modules, ...preset.modules },
+                            ...preset.params,
+                            persona: id,
+                        };
+                        try {
+                            await this.persist.save(SETTINGS_DATA, next);
+                            this.settings = next;
+                        } catch (e) {
+                            this.settings = previous;
+                            showMessage(this.i18n.storageWriteFail, 4000, "error");
+                            throw e;
+                        }
+                    },
+                    createSampleCards: (nbId: string) => this.createSampleCards(nbId),
+                    openHelp: () => this.openHelpDoc(),
+                    openSampleDoc: (docId: string) => openTab({ app: this.app, doc: { id: docId } }),
+                    openReview: () => this.openTabOf(TAB_REVIEW),
+                    onClose: () => this.markOnboarded(),
                 },
-                createSampleCards: (nbId: string) => this.createSampleCards(nbId),
-                openHelp: () => this.openHelpDoc(),
-                openSampleDoc: (docId: string) => openTab({ app: this.app, doc: { id: docId } }),
-                openReview: () => this.openTabOf(TAB_REVIEW),
-                onClose: () => this.markOnboarded(),
-            },
-        });
+            });
+        } catch (e) {
+            this.reportDialogOpenFailure(this.i18n.onboardingTitle, e);
+        }
     }
 
     private sampleBusy = false;
@@ -2075,21 +2334,47 @@ export default class LvCardsPlugin extends Plugin {
         }
     }
 
-    private saveExamPlan(plan: ExamPlan): ExamPlansData {
-        const i = this.examPlans.plans.findIndex(x => x.id === plan.id);
-        if (i >= 0) {
-            this.examPlans.plans[i] = plan;
-        } else {
-            this.examPlans.plans.push(plan);
-        }
-        this.persist.save(EXAM_PLANS_DATA, this.examPlans).catch(() => { /* onFail 已记录 */ });
-        return this.examPlans;
+    private examPlansMutation = createSnapshotMutationQueue<ExamPlansData>(
+        () => this.examPlans,
+        current => ({ version: 1, plans: current.plans.map(plan => ({ ...plan })) }),
+        next => this.persist.save(EXAM_PLANS_DATA, next),
+        next => { this.examPlans = next; },
+    );
+
+    private mutateExamPlans(mutate: (plans: ExamPlansData) => void): Promise<ExamPlansData> {
+        return this.examPlansMutation(mutate);
     }
 
-    private deleteExamPlan(id: string): ExamPlansData {
-        this.examPlans.plans = this.examPlans.plans.filter(p => p.id !== id);
-        this.persist.save(EXAM_PLANS_DATA, this.examPlans).catch(() => { /* onFail 已记录 */ });
-        return this.examPlans;
+    private subscribeExamPlans(cb: () => void): () => void {
+        const handler = () => cb();
+        (this.eventBus as any).on(LV_EVENTS.storesChanged, handler);
+        return () => (this.eventBus as any).off(LV_EVENTS.storesChanged, handler);
+    }
+
+    private persistExamPlansAndNotify(mutate: (plans: ExamPlansData) => void): Promise<ExamPlansData> {
+        return persistThenNotify(
+            () => this.mutateExamPlans(mutate),
+            async () => {
+                if (!isKernelPluginRunning(this.kernel.state.code)) return;
+                const notice = createExamPlansChangedNotice(this.examPlansSourceID, ++this.examPlansSequence);
+                await this.kernel.rpc.call[EXAM_PLANS_PUBLISH_RPC](notice);
+            },
+            error => lvLog("warn", `[exam-plans-sync] notification failed: ${error instanceof Error ? error.message : String(error)}`),
+        );
+    }
+
+    private saveExamPlan(plan: ExamPlan): Promise<ExamPlansData> {
+        return this.persistExamPlansAndNotify(plans => {
+            const i = plans.plans.findIndex(x => x.id === plan.id);
+            if (i >= 0) plans.plans[i] = plan;
+            else plans.plans.push(plan);
+        });
+    }
+
+    private deleteExamPlan(id: string): Promise<ExamPlansData> {
+        return this.persistExamPlansAndNotify(plans => {
+            plans.plans = plans.plans.filter(plan => plan.id !== id);
+        });
     }
 
     private openReviewScope(scopeKind: "all" | "deck" | "notebook", scopeId: string, cram: boolean, entrySourceID = "") {
@@ -2153,9 +2438,10 @@ export default class LvCardsPlugin extends Plugin {
 
     /** T13 ⌘K 命令面板（docs/41 P0 · docs/42 §3.10）：动作 + 导航键盘直达；范围随模块开关，不做隐藏入口的命令 */
     private async openPalette() {
-        const Palette = await loadPalette();
-        const s = this.settings;
-        const commands: PaletteCommand[] = [
+        try {
+            const Palette = await loadPalette();
+            const s = this.settings;
+            const commands: PaletteCommand[] = [
             // i18n 运行时为嵌套对象（类型声明是扁平 string），嵌套取值经 any 断言
             { id: "review", group: "actions", label: (this.i18n as any).dashboard.openReview },
             { id: "wizard", group: "actions", label: this.i18n.aiWizardTitle },
@@ -2169,8 +2455,8 @@ export default class LvCardsPlugin extends Plugin {
             ...(s.modules.inbox ? [{ id: "inbox", group: "nav", label: this.i18n.hubTabInbox }] : []),
             ...(s.modules.exam && s.uiMode !== "simple" ? [{ id: "exam", group: "nav", label: this.i18n.hubTabExam }] : []),
             ...(s.uiMode !== "simple" ? [{ id: "maintenance", group: "nav", label: this.i18n.hubTabMaintenance }] : []),
-        ];
-        const runners: Record<string, () => void> = {
+            ];
+            const runners: Record<string, () => void> = {
             review: () => this.openTabOf(TAB_REVIEW),
             wizard: () => this.openAIWizard(),
             quick: () => this.openQuickCard(),
@@ -2183,8 +2469,8 @@ export default class LvCardsPlugin extends Plugin {
             inbox: () => this.openTabOf(TAB_DASHBOARD, { tab: "inbox" }),
             exam: () => this.openTabOf(TAB_DASHBOARD, { tab: "exam" }),
             maintenance: () => this.openTabOf(TAB_DASHBOARD, { tab: "maintenance" }),
-        };
-        svelteDialog({
+            };
+            svelteDialog({
             title: this.i18n.cmdPalette,
             component: Palette,
             width: "min(560px, 94vw)",
@@ -2199,25 +2485,32 @@ export default class LvCardsPlugin extends Plugin {
                 onClose: () => { /* 关闭销毁由 svelteDialog 自理 */ },
                 onrun: (cmd: PaletteCommand) => runners[cmd.id]?.(),
             },
-        });
+            });
+        } catch (e) {
+            this.reportDialogOpenFailure(this.i18n.cmdPalette, e);
+        }
     }
 
-    private async openAIWizard(initialSource = "", onCreated?: () => void) {
-        let AIWizard: any;
-        try {
-            AIWizard = await loadAIWizard();
-        } catch (e) {
-            this.reportDialogOpenFailure(this.i18n.aiWizardTitle, e);
-            return;
+    private async createAIWizardView(
+        initialSource = "",
+        onCreated?: () => void,
+        initialSources: { label: string; content: string; docId?: string; nbId?: string; inboxId?: string }[] = [],
+        onImportComplete?: (ids: string[]) => void,
+        recoveryJobId?: string,
+    ): Promise<{ Component: any; props: Record<string, any> }> {
+        const Component = await loadAIWizard();
+        const recoveryJob = recoveryJobId ? await this.getReviewableAIJob(recoveryJobId) : null;
+        if (recoveryJobId && !recoveryJob) {
+            throw new Error((this.i18n as any).recoveryCenter?.aiReviewUnavailable ?? "This AI review can no longer be restored safely.");
         }
-        svelteDialog({
-            title: this.i18n.aiWizardTitle,
-            component: AIWizard,
-            // T03：候选审核需要来源/编辑/卡面对照空间，加宽至 860
-            width: "min(860px, 94vw)",
+        return {
+            Component,
             props: {
                 i18n: this.i18n,
                 initialSource,
+                initialSources,
+                onImportComplete,
+                recoveryJob,
                 loadCurrentDoc: () => this.loadCurrentDoc(),
                 loadNotebookMaterial: (nbId: string) => this.loadNotebookMaterial(nbId),
                 loadNotebooks: () => getNotebooks(),
@@ -2285,8 +2578,9 @@ export default class LvCardsPlugin extends Plugin {
                     const jobId = `job-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
                     let job = createJob(jobId, { type: this.settings.aiMode, label: source.slice(0, 50), excerpt: source.slice(0, 200) }, cfg);
                     job = transitionJob(job, { type: "GENERATE_START" }).job;
-                    this.aiJobs.jobs = pruneJobs([...this.aiJobs.jobs, job]);
-                    await this.persist.save(AI_JOBS_DATA, this.aiJobs).catch(() => { /* onFail 已记录 */ });
+                    const beforeJobStart = normalizeAIJobs(JSON.parse(JSON.stringify(this.aiJobs)));
+                    this.upsertAIJob(job);
+                    await this.persistAIJobs(beforeJobStart);
                     let fallbackNotified = false;
                     try {
                         const raw = await aiChat(
@@ -2336,10 +2630,13 @@ export default class LvCardsPlugin extends Plugin {
                             type: "GENERATE_OK",
                             candidates: parsed.map(c => ({ q: c.q, a: c.a, d: c.d, keep: true, status: "pending" as const })),
                         }).job;
-                        this.aiJobs.jobs = pruneJobs([...this.aiJobs.jobs, job]);
-                        await this.persist.save(AI_JOBS_DATA, this.aiJobs).catch(() => { /* onFail 已记录 */ });
+                        const beforeJobReady = normalizeAIJobs(JSON.parse(JSON.stringify(this.aiJobs)));
+                        this.upsertAIJob(job);
+                        await this.persistAIJobs(beforeJobReady);
                         // 批次元数据（质量反哺数据源，P2 消费）；tokens 供消耗历史（299）
                         // BU-19：批次 pin——生成环境快照落盘（modelId/templateHash/来源 hash，均指纹不含密钥与原文）
+                        const previousBatches = normalizeAIBatches(JSON.parse(JSON.stringify(this.aiBatches)));
+                        const batchesVersion = ++this.aiBatchesMutationVersion;
                         this.aiBatches.batches.push({
                             id: `ai-${Date.now().toString(36)}`,
                             date: localDate(Date.now()),
@@ -2357,11 +2654,24 @@ export default class LvCardsPlugin extends Plugin {
                         if (this.aiBatches.batches.length > 200) {
                             this.aiBatches.batches = this.aiBatches.batches.slice(-200);
                         }
-                        this.persist.save(AI_BATCHES_DATA, this.aiBatches).catch(() => { /* onFail 已记录 */ });
+                        const batchesSnapshot = cloneStore(this.aiBatches);
+                        try {
+                            await this.persist.save(AI_BATCHES_DATA, batchesSnapshot);
+                            if (batchesVersion === this.aiBatchesMutationVersion) {
+                                this.persistedAIBatchesSnapshot = cloneStore(batchesSnapshot);
+                            }
+                        } catch {
+                            if (batchesVersion === this.aiBatchesMutationVersion) {
+                                this.aiBatches = cloneStore(this.persistedAIBatchesSnapshot ?? previousBatches);
+                            }
+                            showMessage(this.i18n.storageWriteFail, 4000, "error");
+                        }
                         // BU-25（v0.196.0）：用量入账（估算显式标记；价格未知=null 不编数字；不含 key 与原文）
                         const tokensIn = estimateTokens(system) + estimateTokens(user);
                         const tokensOut = estimateTokens(raw);
-                        this.costLedger = recordEntry(this.costLedger, {
+                        const previousCostLedger = normalizeCostLedger(JSON.parse(JSON.stringify(this.costLedger)));
+                        const costVersion = ++this.costLedgerMutationVersion;
+                        const nextCostLedger = recordEntry(this.costLedger, {
                             at: Date.now(),
                             task: "cards-generate",
                             mode: this.settings.aiMode,
@@ -2374,7 +2684,19 @@ export default class LvCardsPlugin extends Plugin {
                             algorithm: "chars/4",
                             priceVersion: MODEL_PRICE_SNAPSHOT,
                         });
-                        this.persist.save(AI_COST_LEDGER_DATA, this.costLedger).catch(() => { /* onFail 已记录 */ });
+                        this.costLedger = nextCostLedger;
+                        const costSnapshot = cloneStore(nextCostLedger);
+                        try {
+                            await this.persist.save(AI_COST_LEDGER_DATA, costSnapshot);
+                            if (costVersion === this.costLedgerMutationVersion) {
+                                this.persistedCostLedgerSnapshot = cloneStore(costSnapshot);
+                            }
+                        } catch {
+                            if (costVersion === this.costLedgerMutationVersion) {
+                                this.costLedger = cloneStore(this.persistedCostLedgerSnapshot ?? previousCostLedger);
+                            }
+                            showMessage(this.i18n.storageWriteFail, 4000, "error");
+                        }
                         // BU-24：预算预警（80% 阈值，到顶前提醒；超限已在下一轮请求前置阻断）
                         if (budgetState(this.costLedger, { enabled: this.settings.aiCostBudgetEnabled, monthlyTokenCap: this.settings.aiCostMonthlyCap }).warn) {
                             showMessage((this.i18n as any).aiCost?.warn ?? "AI cost budget warning", 3000, "info");
@@ -2394,8 +2716,14 @@ export default class LvCardsPlugin extends Plugin {
                         job = transitionJob(job, isAICanceled(e)
                             ? { type: "CANCEL" }
                             : { type: "GENERATE_FAIL", error: e instanceof Error ? e.message : String(e) }).job;
-                        this.aiJobs.jobs = pruneJobs([...this.aiJobs.jobs, job]);
-                        await this.persist.save(AI_JOBS_DATA, this.aiJobs).catch(() => { /* onFail 已记录 */ });
+                        this.upsertAIJob(job);
+                        const failedJobSnapshot = cloneStore(this.aiJobs);
+                        const failedJobVersion = this.aiJobsMutationVersion;
+                        await this.persist.save(AI_JOBS_DATA, failedJobSnapshot).then(() => {
+                            if (failedJobVersion === this.aiJobsMutationVersion) {
+                                this.persistedAIJobsSnapshot = cloneStore(failedJobSnapshot);
+                            }
+                        }).catch(() => { /* onFail 已记录 */ });
                         throw e;
                     }
                 },
@@ -2411,16 +2739,24 @@ export default class LvCardsPlugin extends Plugin {
                 },
                 // ADR-7 恢复入口：上次导入中断的续传/放弃
                 getUnfinishedJob: () => this.getUnfinishedAIJob(),
-                onResumeAIJob: (id: string) => this.resumeAIJobCommit(id),
-                onAbandonAIJob: (id: string) => this.abandonAIJob(id),
                 // BW-9：来源级禁止外发——载入前拦截 + 来源条目一键登记（规则落 ai-deny-list.json）
                 isSourceDenied: (kind: "doc" | "notebook", id: string) =>
                     isDenied(this.aiDenyList, kind === "doc" ? { docId: id } : { notebookId: id }).denied,
                 onDenySource: (kind: "doc" | "notebook", id: string) => {
-                    this.aiDenyList = addDenyRule(this.aiDenyList, kind, id, Date.now());
-                    this.persist.save(AI_DENY_LIST_DATA, this.aiDenyList).catch(() => { /* onFail 已记录 */ });
-                    lvLog("info", `[ai-deny] +${kind}:${id}`);
-                    showMessage((this.i18n as any).aiWizard.deniedToast, 3000, "info");
+                    const previous = normalizeDenyList(JSON.parse(JSON.stringify(this.aiDenyList)));
+                    const next = addDenyRule(this.aiDenyList, kind, id, Date.now());
+                    const version = ++this.aiDenyMutationVersion;
+                    this.aiDenyList = next;
+                    void this.persist.save(AI_DENY_LIST_DATA, next).then(() => {
+                        this.persistedAIDenyListSnapshot = cloneStore(next);
+                        lvLog("info", `[ai-deny] +${kind}:${id}`);
+                        showMessage((this.i18n as any).aiWizard.deniedToast, 3000, "info");
+                    }).catch(() => {
+                        if (version === this.aiDenyMutationVersion) {
+                            this.aiDenyList = cloneStore(this.persistedAIDenyListSnapshot ?? previous);
+                        }
+                        showMessage(this.i18n.storageWriteFail, 4000, "error");
+                    });
                 },
                 // BU-8：自定义敏感词（逗号分隔，仅本地）
                 sensitiveTerms: this.settings.aiSensitiveTerms,
@@ -2457,30 +2793,86 @@ export default class LvCardsPlugin extends Plugin {
                 },
                 onClose: () => { /* svelteDialog 自理销毁 */ },
             },
-        });
+        };
+    }
+
+    private async openAIWizard(initialSource = "", onCreated?: () => void) {
+        try {
+            const view = await this.createAIWizardView(initialSource, onCreated);
+            svelteDialog({
+                title: this.i18n.aiWizardTitle,
+                component: view.Component,
+                // T03：候选审核需要来源/编辑/卡面对照空间，加宽至 860
+                width: "min(860px, 94vw)",
+                props: view.props,
+            });
+        } catch (e) {
+            this.reportDialogOpenFailure(this.i18n.aiWizardTitle, e);
+        }
     }
 
     /** ADR-7 第 3 步：逐卡提交 + 断点记录——每卡 appendBlock+入组成功即持久化，中断续传只处理 pending */
     private async createAICards(cards: { q: string; a: string; origIndex: number }[], deckID: string, _deckName: string, jobId: string) {
+        const operationID = jobId || `cards:${deckID}:${cards.map(card => card.origIndex).join(",")}`;
+        const existing = this.aiCommitFlights.get(operationID);
+        if (existing) return existing;
+        const operation = this.createAICardsOnce(cards, deckID, _deckName, jobId);
+        this.aiCommitFlights.set(operationID, operation);
+        operation.finally(() => {
+            if (this.aiCommitFlights.get(operationID) === operation) this.aiCommitFlights.delete(operationID);
+        }).catch(() => { /* 原始 Promise 负责把错误交给调用方 */ });
+        return operation;
+    }
+
+    private async createAICardsOnce(cards: { q: string; a: string; origIndex: number }[], deckID: string, _deckName: string, jobId: string) {
         const nb = await this.targetNotebook();
         if (!nb) {
             throw new Error(this.i18n.onboardingNoNotebook);
         }
+        let job: AIJob | undefined = jobId ? this.aiJobs.jobs.find(j => j.id === jobId) : undefined;
         const date = localDate(Date.now());
-        const docID = await createDocWithMd(nb.id, `小驴闪卡/AI 制卡/${date}`, "");
+        const docID = job?.targetDocID || await createDocWithMd(nb.id, `小驴闪卡/AI 制卡/${date}`, "");
         if (!docID) {
             throw new Error(this.i18n.quickCardFail);
         }
-        let job: AIJob | undefined = jobId ? this.aiJobs.jobs.find(j => j.id === jobId) : undefined;
         if (job) {
+            if (job.targetDocID !== docID) {
+                job = { ...job, targetDocID: docID };
+                this.upsertAIJob(job);
+                await this.persistAIJobsOnce(`${job.id}:doc:${docID}`);
+            }
             job = transitionJob(job, { type: "COMMIT_START", deckID }).job;
-            this.aiJobs.jobs = pruneJobs([...this.aiJobs.jobs, job]);
-            await this.persist.save(AI_JOBS_DATA, this.aiJobs).catch(() => { /* onFail 已记录 */ });
+            this.upsertAIJob(job);
+            await this.persistAIJobsOnce(`${job.id}:commit-start:${deckID}`);
         }
         const blockIDs: string[] = [];
         for (const card of cards) {
-            const ids = await appendBlock("markdown", `${card.q} ==${card.a}==`, docID);
-            const blockID = ids[0];
+            // 断点恢复只处理 pending 候选；已创建候选保留原 blockID，
+            // 避免重试/双击在内核中生成重复卡片。
+            const candidate = job?.candidates[card.origIndex];
+            if (candidate?.status === "created" && candidate.blockID) {
+                blockIDs.push(candidate.blockID);
+                continue;
+            }
+            // 写入前先按作业+候选稳定标记查找。若内核写成功后进程在记账前崩溃，
+            // 重试会复用原块而不是再造一张重复卡；标记是 HTML 注释，不会出现在卡面。
+            const marker = job ? `<!-- lv-ai:${job.id}:${card.origIndex} -->` : "";
+            let blockID = "";
+            if (marker) {
+                try {
+                    const escapedDoc = docID.replace(/'/g, "''");
+                    const escapedMarker = marker.replace(/'/g, "''");
+                    const rows = await sqlQuery(`SELECT id FROM blocks WHERE root_id='${escapedDoc}' AND markdown LIKE '%${escapedMarker}%' LIMIT 1`);
+                    blockID = String(rows[0]?.id ?? "");
+                } catch {
+                    // 查询不可用时仍允许继续写入；成功后候选状态会阻止同一进程内重复。
+                }
+            }
+            if (!blockID) {
+                const ids = await appendBlock("markdown", `${marker}${marker ? "\n" : ""}${card.q} ==${card.a}==`, docID);
+                blockID = ids[0] ?? "";
+            }
+            if (!blockID) throw new Error(this.i18n.quickCardFail);
             blockIDs.push(blockID);
             // ADR-7：逐卡入组成功即记账（单卡批），origIndex 指向作业 candidates 原位（✕ 移除后仍正确）
             await addRiffCards(deckID, [blockID]);
@@ -2488,8 +2880,8 @@ export default class LvCardsPlugin extends Plugin {
                 const r = transitionJob(job, { type: "CARD_CREATED", index: card.origIndex, blockID });
                 if (r.ok) {
                     job = r.job;
-                    this.aiJobs.jobs = pruneJobs([...this.aiJobs.jobs, job]);
-                    await this.persist.save(AI_JOBS_DATA, this.aiJobs).catch(() => { /* onFail 已记录 */ });
+                    this.upsertAIJob(job);
+                    await this.persistAIJobsOnce(`${job.id}:card:${card.origIndex}:${blockID}`);
                 }
             }
         }
@@ -2501,13 +2893,13 @@ export default class LvCardsPlugin extends Plugin {
                     if (r.ok) { job = r.job; }
                 }
             }
-            this.aiJobs.jobs = pruneJobs([...this.aiJobs.jobs, job]);
-            await this.persist.save(AI_JOBS_DATA, this.aiJobs).catch(() => { /* onFail 已记录 */ });
+            this.upsertAIJob(job);
+            await this.persistAIJobsOnce(`${job.id}:skipped`);
             const done = transitionJob(job, { type: "COMMIT_DONE" });
             if (done.ok) {
                 job = done.job;
-                this.aiJobs.jobs = pruneJobs([...this.aiJobs.jobs, job]);
-                await this.persist.save(AI_JOBS_DATA, this.aiJobs).catch(() => { /* onFail 已记录 */ });
+                this.upsertAIJob(job);
+                await this.persistAIJobsOnce(`${job.id}:done`);
             }
         }
         // docs/14 §8：cards-created 事件从「预留」转正（ADR-7 落地后有了确定 payload）
@@ -2521,54 +2913,44 @@ export default class LvCardsPlugin extends Plugin {
         showMessage(this.i18n.deckAdded.replace("${n}", String(blockIDs.length)), 2000, "info");
     }
 
-    /** ADR-7：恢复未完成的 AI 导入（向导「继续」入口）——从首个 pending 候选续传 */
-    private async resumeAIJobCommit(jobId: string) {
-        let job = this.aiJobs.jobs.find(j => j.id === jobId);
-        if (!job || !job.deckID) {
-            return;
-        }
-        const r = transitionJob(job, { type: "RESUME" });
-        if (!r.ok) {
-            return;
-        }
-        job = r.job;
-        const nb = await this.targetNotebook();
-        if (!nb) {
-            throw new Error(this.i18n.onboardingNoNotebook);
-        }
-        const date = localDate(job.createdAt);
-        const docID = await createDocWithMd(nb.id, `小驴闪卡/AI 制卡/${date}`, "");
-        if (!docID) {
-            throw new Error(this.i18n.quickCardFail);
-        }
-        let created = 0;
-        let idx = firstPendingIndex(job);
-        while (idx >= 0) {
-            const c = job.candidates[idx];
-            try {
-                const ids = await appendBlock("markdown", `${c.q} ==${c.a}==`, docID);
-                await addRiffCards(job.deckID, [ids[0]]);
-                const rr = transitionJob(job, { type: "CARD_CREATED", index: idx, blockID: ids[0] });
-                if (rr.ok) { job = rr.job; created += 1; }
-            } catch (e) {
-                const rr = transitionJob(job, { type: "CARD_FAILED", index: idx, error: e instanceof Error ? e.message : String(e) });
-                if (rr.ok) { job = rr.job; }
-                // 单卡失败继续下一张（失败明细在 job 中可查）
-            }
-            this.aiJobs.jobs = pruneJobs([...this.aiJobs.jobs.filter(j => j.id !== job!.id), job]);
-            await this.persist.save(AI_JOBS_DATA, this.aiJobs).catch(() => { /* onFail 已记录 */ });
-            idx = firstPendingIndex(job);
-        }
-        const done = transitionJob(job, { type: "COMMIT_DONE" });
-        if (done.ok) {
-            job = done.job;
-            this.aiJobs.jobs = pruneJobs([...this.aiJobs.jobs.filter(j => j.id !== job!.id), job]);
-            await this.persist.save(AI_JOBS_DATA, this.aiJobs).catch(() => { /* onFail 已记录 */ });
-        }
-        showMessage(this.i18n.deckAdded.replace("${n}", String(created)), 2000, "info");
+    /** Replace one job snapshot in-place; duplicated IDs make recovery read stale state. */
+    private upsertAIJob(job: AIJob) {
+        this.aiJobsMutationVersion += 1;
+        this.aiJobs.jobs = pruneJobs([...this.aiJobs.jobs.filter(existing => existing.id !== job.id), job]);
     }
 
-    /** ADR-7：向导「未完成导入」横幅数据（committing/failed/canceled 且仍有 pending）；含失败明细供导出 */
+    /** 持久化作业快照；失败时恢复调用前的完整作业列表，避免恢复页读到假成功。 */
+    private async persistAIJobs(previous: AIJobsData): Promise<void> {
+        const version = this.aiJobsMutationVersion;
+        const next = cloneStore(this.aiJobs);
+        try {
+            await this.persist.save(AI_JOBS_DATA, next);
+            this.persistedAIJobsSnapshot = cloneStore(next);
+        } catch (error) {
+            if (version === this.aiJobsMutationVersion) {
+                this.aiJobs = cloneStore(this.persistedAIJobsSnapshot ?? previous);
+            }
+            throw error;
+        }
+    }
+
+    /** Persist one idempotent job checkpoint and advance the rollback baseline only
+     * after the write has actually succeeded. */
+    private async persistAIJobsOnce(operationId: string): Promise<void> {
+        const next = cloneStore(this.aiJobs);
+        const version = this.aiJobsMutationVersion;
+        try {
+            await this.persist.saveOnce(AI_JOBS_DATA, operationId, next);
+            this.persistedAIJobsSnapshot = cloneStore(next);
+        } catch (error) {
+            if (version === this.aiJobsMutationVersion && this.persistedAIJobsSnapshot) {
+                this.aiJobs = cloneStore(this.persistedAIJobsSnapshot);
+            }
+            throw error;
+        }
+    }
+
+    /** ADR-7：只提示写入阶段的未完成作业，恢复页负责安全核对或审核恢复。 */
     private getUnfinishedAIJob(): { id: string; done: number; total: number; failed: { index: number; q: string; error: string }[] } | null {
         const j = this.aiJobs.jobs.find(j =>
             (j.status === "committing" || j.status === "failed" || j.status === "canceled")
@@ -2586,10 +2968,57 @@ export default class LvCardsPlugin extends Plugin {
         };
     }
 
-    /** ADR-7：放弃未完成导入（删除该 job 记录；已创建的卡保留不动） */
-    private abandonAIJob(jobId: string) {
-        this.aiJobs.jobs = this.aiJobs.jobs.filter(j => j.id !== jobId);
-        this.persist.save(AI_JOBS_DATA, this.aiJobs).catch(() => { /* onFail 已记录 */ });
+    private isReviewableAIJob(job: AIJob): boolean {
+        const reviewState = job.status === "reviewing"
+            || ((job.status === "failed" || job.status === "canceled") && job.resumeTo === "reviewing");
+        return reviewState && job.candidates.length > 0
+            && job.candidates.every(candidate => candidate.status === "pending");
+    }
+
+    private async getReviewableAIJob(jobId: string) {
+        let job = this.aiJobs.jobs.find(item => item.id === jobId);
+        if (!job || !this.isReviewableAIJob(job)) return null;
+        if (job.status !== "reviewing") {
+            const resumed = transitionJob(job, { type: "RESUME" });
+            if (!resumed.ok) return null;
+            job = resumed.job;
+            this.upsertAIJob(job);
+            await this.persistAIJobs(this.persistedAIJobsSnapshot ?? this.aiJobs);
+        }
+        return {
+            id: job.id,
+            sourceLabel: job.source.label || job.source.type || this.i18n.unknown,
+            candidates: job.candidates.map((candidate, origIndex) => ({
+                q: candidate.q,
+                a: candidate.a,
+                ...(candidate.d ? { d: candidate.d } : {}),
+                origIndex,
+            })),
+        };
+    }
+
+    /** Summary only; raw candidate text stays in the AI wizard. */
+    private getRecoverableAIJobs(): {
+        id: string; status: string; pending: number; failed: number; created: number; source: string;
+        canReview: boolean; needsWriteCheck: boolean; deckID: string;
+    }[] {
+        return this.aiJobs.jobs
+            .filter(job => job.status !== "done")
+            .map(job => ({
+                id: job.id,
+                status: job.status,
+                pending: job.candidates.filter(candidate => candidate.status === "pending").length,
+                failed: job.candidates.filter(candidate => candidate.status === "failed").length,
+                created: job.candidates.filter(candidate => candidate.status === "created").length,
+                source: job.source.label || job.source.type || this.i18n.unknown,
+                canReview: this.isReviewableAIJob(job),
+                needsWriteCheck: job.status === "committing"
+                    || ((job.status === "failed" || job.status === "canceled") && job.resumeTo === "committing"),
+                deckID: job.deckID,
+                updatedAt: job.updatedAt,
+            }))
+            .sort((a, b) => b.updatedAt - a.updatedAt)
+            .map(({ updatedAt: _updatedAt, ...job }) => job);
     }
 
     /** 原生事件幂等去重（AQ-5）：eventId / cardID+1s 时间窗 */
@@ -2624,6 +3053,10 @@ export default class LvCardsPlugin extends Plugin {
     };
 
     private appendRevlog(entry: Omit<RevlogEntry, "ts"> & { ts?: number }) {
+        if (!this.revlogPendingSnapshot) {
+            this.revlogPendingSnapshot = normalizeRevlog(JSON.parse(JSON.stringify(this.revlog)));
+        }
+        this.revlogMutationVersion += 1;
         const today = localDate(Date.now());
         const prevCount = this.revlog.days[today]?.review ?? 0;
         const streakBefore = calcStreak(this.revlog);
@@ -2662,29 +3095,75 @@ export default class LvCardsPlugin extends Plugin {
             clearTimeout(this.saveRevlogTimer);
             this.saveRevlogTimer = null;
         }
-        // AQ-4：重试与失败记录统一由 persist 队列承担，成功回调解构 trackSave
-        this.persist.save(REVLOG_DATA, this.revlog).catch(() => { /* onFail 已记录，等下次修改触发 */ });
+        // AQ-4：重试与失败记录统一由 persist 队列承担。若最终失败，
+        // 只有在写入期间没有产生新评分时才恢复快照，避免覆盖更新的运行态。
+        const snapshot = this.revlogPendingSnapshot;
+        const version = this.revlogMutationVersion;
+        this.revlogPendingSnapshot = null;
+        const next = cloneStore(this.revlog);
+        this.persist.save(REVLOG_DATA, next).then(() => {
+            this.persistedRevlogSnapshot = cloneStore(next);
+        }).catch(() => {
+            if (version === this.revlogMutationVersion) {
+                this.revlog = cloneStore(this.persistedRevlogSnapshot ?? snapshot ?? next);
+                this.refreshDueBadge();
+                showMessage(this.i18n.storageWriteFail, 4000, "error");
+            }
+        });
     }
 
     /** BK-1/BK-2：知识对象/关系图的落盘入口（未来 UI 修改后调用；persist 队列承担重试与失败记录） */
     saveKnowledgeObjects() {
-        return this.persist.save(KNOWLEDGE_OBJECTS_DATA, this.knowledgeObjects).catch(() => { /* onFail 已记录 */ });
+        return this.persist.save(KNOWLEDGE_OBJECTS_DATA, cloneStore(this.knowledgeObjects)).catch(() => { /* onFail 已记录 */ });
     }
 
     saveCardRelations() {
-        return this.persist.save(CARD_RELATIONS_DATA, this.cardRelations).catch(() => { /* onFail 已记录 */ });
+        return this.persist.save(CARD_RELATIONS_DATA, cloneStore(this.cardRelations)).catch(() => { /* onFail 已记录 */ });
     }
 
     /** BJ-4：遗忘卡错误原因标注（旁路增强；persist 队列承担重试与失败记录） */
     tagErrorReason(cardID: string, reason: ErrorReason) {
+        const previous = cloneStore(this.persistedErrorTagsSnapshot ?? normalizeErrorTags(JSON.parse(JSON.stringify(this.errorTags))));
         if (tagError(this.errorTags, cardID, reason, localDate(Date.now()))) {
-            this.persist.save(ERROR_TAGS_DATA, this.errorTags).catch(() => { /* onFail 已记录 */ });
+            const version = ++this.errorTagMutationVersion;
+            const next = cloneStore(this.errorTags);
+            void this.persist.save(ERROR_TAGS_DATA, next).then(() => {
+                this.persistedErrorTagsSnapshot = cloneStore(next);
+            }).catch(() => {
+                if (version === this.errorTagMutationVersion) this.errorTags = cloneStore(this.persistedErrorTagsSnapshot ?? previous);
+                showMessage(this.i18n.storageWriteFail, 4000, "error");
+            });
         }
     }
 
     /** BI-4：材料收件箱落盘入口（未来筛选 UI 修改后调用；persist 队列承担重试与失败记录） */
     saveInbox() {
-        return this.persist.save(INBOX_DATA, this.inbox).catch(() => { /* onFail 已记录 */ });
+        const next = cloneStore(this.inbox);
+        return this.persist.save(INBOX_DATA, next).then(() => {
+            this.persistedInboxSnapshot = cloneStore(next);
+        }).catch(() => { /* onFail 已记录 */ });
+    }
+
+    /** 收件箱允许乐观更新，但写入失败必须恢复完整快照，避免 UI 与磁盘分叉。 */
+    private mutateInbox(mutate: (next: InboxData) => number | boolean | void): void {
+        // Always roll back to the last confirmed disk snapshot. Using the
+        // current in-memory value here would preserve an earlier failed
+        // optimistic mutation after two writes overlap.
+        const previous = cloneStore(this.persistedInboxSnapshot ?? normalizeInbox(JSON.parse(JSON.stringify(this.inbox))));
+        const changed = mutate(this.inbox);
+        if (changed === false || changed === 0) return;
+        const version = ++this.inboxMutationVersion;
+        this.notifyInboxChanged();
+        const next = cloneStore(this.inbox);
+        void this.persist.save(INBOX_DATA, next).then(() => {
+            this.persistedInboxSnapshot = cloneStore(next);
+        }).catch(() => {
+            if (version === this.inboxMutationVersion) {
+                this.inbox = previous;
+                this.notifyInboxChanged();
+            }
+            showMessage(this.i18n.storageWriteFail, 4000, "error");
+        });
     }
 
     /** BI-4：收件箱变更监听（BX-10：块菜单收集等外部变更通知 Hub 收件箱页自动刷新） */
@@ -2706,54 +3185,86 @@ export default class LvCardsPlugin extends Plugin {
     /** BI-4：块菜单收集入口（返回新增数；已存在的不重复计） */
     addInboxItems(blockIDs: string[]): number {
         let added = 0;
-        for (const id of blockIDs) {
-            if (addInboxItem(this.inbox, id)) added++;
-        }
-        if (added > 0) {
-            this.saveInbox();
-            this.notifyInboxChanged();
-        }
+        this.mutateInbox(inbox => {
+            for (const id of blockIDs) {
+                if (addInboxItem(inbox, id)) added++;
+            }
+            return added;
+        });
         return added;
     }
 
-    /** BI-4：收件箱选中材料 → AI 制卡向导（拉块文为材料；成功后清收件箱 + 记生命周期 stocked 链） */
-    private async makeCardsFromInbox(blockIDs: string[]) {
-        const rows = await sqlQuery(`SELECT id, content FROM blocks WHERE id IN (${blockIDs.map(id => `'${id.replace(/'/g, "''")}'`).join(",")})`);
-        const byID = new Map(rows.map(r => [String(r.id), String(r.content ?? "")]));
-        const parts = blockIDs.map(id => (byID.get(id) ?? "").trim()).filter(Boolean);
-        if (parts.length === 0) {
-            showMessage(this.i18n.inboxEmptySource, 2500, "error");
-            return;
-        }
-        await this.openAIWizard(parts.join("\n\n"), () => {
-            for (const id of blockIDs) {
-                removeInboxItem(this.inbox, id);
-                // 生命周期走合法链 source→candidate→reviewed→stocked（向导逐张 keep/reject 即审核）
-                this.transitionContentState(id, "candidate", "收件箱入选");
-                this.transitionContentState(id, "reviewed", "向导逐张确认");
-                this.transitionContentState(id, "stocked", "制卡入库");
-            }
-            this.saveInbox();
-            this.notifyInboxChanged();
+    /** BI-4：收件箱材料送入 Hub 向导时保留块与文档身份，便于来源审核和禁止外发规则生效。 */
+    private async loadInboxSources(blockIDs: string[]) {
+        if (blockIDs.length === 0) return [];
+        const ids = blockIDs.map(id => `'${id.replace(/'/g, "''")}'`).join(",");
+        const rows = await sqlQuery(`SELECT id, content, root_id FROM blocks WHERE id IN (${ids})`);
+        const byID = new Map(rows.map(r => [String(r.id), {
+            content: String(r.content ?? "").trim(),
+            rootID: String(r.root_id ?? ""),
+        }]));
+        return blockIDs.flatMap(id => {
+            const item = byID.get(id);
+            if (!item?.content) return [];
+            const label = item.content.replace(/<[^>]*>/g, " ").replace(/&nbsp;/gi, " ").replace(/\s+/g, " ").trim().slice(0, 40) || id.slice(0, 8);
+            return [{ label, content: item.content, docId: item.rootID || undefined, inboxId: id }];
         });
+    }
+
+    /** 只有候选成功写入后才把对应来源从收件箱移出。 */
+    private completeInboxCards(blockIDs: string[]) {
+        const unique = [...new Set(blockIDs.filter(Boolean))];
+        if (unique.length === 0) return;
+        this.mutateInbox(inbox => {
+            let changed = 0;
+            for (const id of unique) if (removeInboxItem(inbox, id)) changed++;
+            return changed;
+        });
+        for (const id of unique) {
+            void this.transitionContentState(id, "candidate", "收件箱入选")
+                .then(() => this.transitionContentState(id, "reviewed", "向导逐张确认"))
+                .then(() => this.transitionContentState(id, "stocked", "制卡入库"))
+                .catch(() => { /* 生命周期旁路失败由持久化错误提示承接 */ });
+        }
     }
 
     /** BI-1/BI-3/BI-5：学习旅程三存储的落盘入口（未来 UI 修改后调用；persist 队列承担重试与失败记录） */
     saveLearningGoals() {
-        return this.persist.save(LEARNING_GOALS_DATA, this.learningGoals).catch(() => { /* onFail 已记录 */ });
+        return this.persist.save(LEARNING_GOALS_DATA, cloneStore(this.learningGoals)).catch(() => { /* onFail 已记录 */ });
     }
 
     saveEntryContexts() {
-        return this.persist.save(ENTRY_CONTEXTS_DATA, this.entryContexts).catch(() => { /* onFail 已记录 */ });
+        return this.persist.save(ENTRY_CONTEXTS_DATA, cloneStore(this.entryContexts)).catch(() => { /* onFail 已记录 */ });
     }
 
     saveContentLifecycles() {
-        return this.persist.save(CONTENT_LIFECYCLES_DATA, this.contentLifecycles).catch(() => { /* onFail 已记录 */ });
+        return this.persist.save(CONTENT_LIFECYCLES_DATA, cloneStore(this.contentLifecycles)).catch(() => { /* onFail 已记录 */ });
     }
 
     /** BU-31：紧急停用状态落盘 */
     saveKillSwitch() {
-        return this.persist.save(AI_KILL_SWITCH_DATA, this.killSwitch).catch(() => { /* onFail 已记录 */ });
+        return this.persist.save(AI_KILL_SWITCH_DATA, cloneStore(this.killSwitch)).catch(() => { /* onFail 已记录 */ });
+    }
+
+    /** AI 安全开关采用“新快照先落盘、成功后发布”的原子写入口。 */
+    private async mutateKillSwitch(mutate: (next: AIKillSwitchData) => void): Promise<AIKillSwitchData> {
+        const operation = this.killSwitchMutationQueue.then(async () => {
+            const previous = cloneStore(this.killSwitch);
+            const next = normalizeKillSwitch(cloneStore(this.killSwitch));
+            mutate(next);
+            try {
+                await this.persist.save(AI_KILL_SWITCH_DATA, next);
+                this.killSwitch = next;
+                return this.killSwitch;
+            } catch (error) {
+                // Persist-first means the live state has not changed yet; keep
+                // the last committed value even when a prior caller mutated it.
+                this.killSwitch = previous;
+                throw error;
+            }
+        });
+        this.killSwitchMutationQueue = operation.then(() => undefined, () => undefined);
+        return operation;
     }
 
     /** BU-31：当前 provider/model 目标键（紧急停用粒度） */
@@ -2768,43 +3279,75 @@ export default class LvCardsPlugin extends Plugin {
         let n = 0;
         for (const job of this.aiJobs.jobs) {
             if (["drafting", "generating", "reviewing", "committing"].includes(job.status)) {
-                transitionJob(job, { type: "CANCEL" });
-                n++;
+                const result = transitionJob(job, { type: "CANCEL" });
+                if (result.ok) {
+                    this.upsertAIJob(result.job);
+                    n++;
+                }
             }
         }
-        if (n > 0) this.persist.save(AI_JOBS_DATA, this.aiJobs).catch(() => { /* onFail 已记录 */ });
+        if (n > 0) {
+            const version = this.aiJobsMutationVersion;
+            const next = cloneStore(this.aiJobs);
+            this.persist.save(AI_JOBS_DATA, next).then(() => {
+                this.persistedAIJobsSnapshot = cloneStore(next);
+            }).catch(() => {
+                if (version === this.aiJobsMutationVersion && this.persistedAIJobsSnapshot) {
+                    this.aiJobs = cloneStore(this.persistedAIJobsSnapshot);
+                }
+            });
+        }
         return n;
     }
 
-    /** BI-1：目标 upsert（空 id 自动生成）；返回更新后快照 */
-    saveLearningGoal(goal: LearningGoal): LearningGoalsData {
-        const g: LearningGoal = { ...goal, updatedAt: Date.now() };
-        if (!g.id) {
-            g.id = `goal-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
-        }
-        const i = this.learningGoals.goals.findIndex(x => x.id === g.id);
-        if (i >= 0) {
-            this.learningGoals.goals[i] = g;
-        } else {
-            this.learningGoals.goals.push(g);
-        }
-        this.saveLearningGoals();
-        return this.learningGoals;
+    private learningGoalsMutation = createSnapshotMutationQueue<LearningGoalsData>(
+        () => this.learningGoals,
+        current => ({
+            version: 1,
+            goals: current.goals.map(goal => ({
+                ...goal,
+                materialBlockIDs: [...goal.materialBlockIDs],
+                criteriaHistory: goal.criteriaHistory?.map(item => ({ ...item })),
+            })),
+        }),
+        next => this.persist.save(LEARNING_GOALS_DATA, next),
+        next => { this.learningGoals = next; },
+    );
+
+    /** BI-1：目标写入串行化；先持久化不可变快照，成功后才替换运行态。 */
+    private mutateLearningGoals(mutate: (next: LearningGoalsData) => void): Promise<LearningGoalsData> {
+        return this.learningGoalsMutation(mutate);
     }
 
-    /** BI-1：删除目标；返回更新后快照 */
-    removeLearningGoal(id: string): LearningGoalsData {
-        this.learningGoals.goals = this.learningGoals.goals.filter(g => g.id !== id);
-        this.saveLearningGoals();
-        return this.learningGoals;
+    /** BI-1：目标 upsert（空 id 自动生成）；持久化失败时保留旧运行态并向页面抛错。 */
+    saveLearningGoal(goal: LearningGoal): Promise<LearningGoalsData> {
+        return this.mutateLearningGoals(next => {
+            const g: LearningGoal = { ...goal, updatedAt: Date.now(), materialBlockIDs: [...goal.materialBlockIDs], criteriaHistory: goal.criteriaHistory?.map(item => ({ ...item })) };
+            if (!g.id) g.id = `goal-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+            const i = next.goals.findIndex(x => x.id === g.id);
+            if (i >= 0) next.goals[i] = g;
+            else next.goals.push(g);
+        });
+    }
+
+    /** BI-1：删除目标；确认后持久化失败时保留旧运行态并向页面抛错。 */
+    deleteLearningGoal(id: string): Promise<LearningGoalsData> {
+        return this.mutateLearningGoals(next => { next.goals = next.goals.filter(goal => goal.id !== id); });
+    }
+
+    /** 兼容 Hub 既有命名，同时确保删除走同一事务队列。 */
+    removeLearningGoal(id: string): Promise<LearningGoalsData> {
+        return this.deleteLearningGoal(id);
     }
 
     /** BI-5：内容状态转移入口（校验+落盘一体；非法转移返回 false 不写盘） */
-    transitionContentState(blockID: string, to: ContentState, reason: string): boolean {
-        const lc = ensureLifecycle(this.contentLifecycles, blockID);
-        if (!transition(lc, to, reason, Date.now())) return false;
-        this.saveContentLifecycles();
-        return true;
+    async transitionContentState(blockID: string, to: ContentState, reason: string): Promise<boolean> {
+        let changed = false;
+        await this.contentLifecyclesMutations(next => {
+            changed = transition(ensureLifecycle(next, blockID), to, reason, Date.now());
+            if (!changed) throw new Error("invalid content lifecycle transition");
+        });
+        return changed;
     }
 
     private openTabOf(type: string, data?: Record<string, unknown>) {
@@ -2889,9 +3432,10 @@ export default class LvCardsPlugin extends Plugin {
         }
     }
 
-    private async openSettingsDialog() {
-        const SettingsPanel = await loadSettingsPanel();
-        const { close } = svelteDialog({
+    private async openSettingsDialog(onSaved?: () => void) {
+        try {
+            const SettingsPanel = await loadSettingsPanel();
+            const { close } = svelteDialog({
             title: this.i18n.settingsTitle,
             component: SettingsPanel,
             width: "min(620px, 94vw)",
@@ -2911,6 +3455,7 @@ export default class LvCardsPlugin extends Plugin {
                             throw e;
                         }
                         showMessage(this.i18n.settingsSaved, 2000, "info");
+                        onSaved?.();
                     },
                     exportRevlog: () => this.exportRevlog(),
                     clearRevlog: () => this.clearRevlog(),
@@ -2928,43 +3473,55 @@ export default class LvCardsPlugin extends Plugin {
                     // Obsidian SR 导入弱台账（幂等重导）；可选——旧宿主不传则不持久化
                     obLedger: {
                         load: async () => this.obLedger,
-                        save: (entries: unknown) => {
-                            this.obLedger = normalizeObLedger(entries);
-                            return this.persist.save(OB_LEDGER_DATA, this.obLedger).catch(() => { /* onFail 已记录 */ });
+                        save: async (entries: unknown) => {
+                            const previous = this.obLedger;
+                            const next = normalizeObLedger(entries);
+                            try {
+                                await this.persist.save(OB_LEDGER_DATA, next);
+                                this.obLedger = next;
+                            } catch (e) {
+                                this.obLedger = previous;
+                                throw e;
+                            }
                         },
                     },
                     // Anki M3：guid 导入台账（幂等重导）——启动已装载，读写内存副本
                     ankiLedger: {
                         load: async () => this.ankiLedger,
-                        save: (entries: unknown) => {
-                            this.ankiLedger = normalizeLedger(entries);
-                            return this.persist.save(ANKI_LEDGER_DATA, this.ankiLedger).catch(() => { /* onFail 已记录 */ });
+                        save: async (entries: unknown) => {
+                            const previous = this.ankiLedger;
+                            const next = normalizeLedger(entries);
+                            try {
+                                await this.persist.save(ANKI_LEDGER_DATA, next);
+                                this.ankiLedger = next;
+                            } catch (e) {
+                                this.ankiLedger = previous;
+                                throw e;
+                            }
                         },
                     },
                     // BU-31：紧急停用/撤销同意（停用即清理待发队列；事件记录不含敏感内容）
                     killswitch: {
                         snapshot: () => this.killSwitch,
-                        stopCurrent: () => {
-                            for (const t of this.aiProviderTargets()) disableTarget(this.killSwitch, t, Date.now());
+                        stopCurrent: async () => {
+                            const targets = this.aiProviderTargets();
                             this.cancelPendingAiJobs();
-                            this.saveKillSwitch();
-                            return this.killSwitch;
+                            return this.mutateKillSwitch(next => {
+                                for (const t of targets) disableTarget(next, t, Date.now());
+                            });
                         },
-                        resumeAll: () => {
-                            for (const t of this.aiProviderTargets()) enableTarget(this.killSwitch, t, Date.now());
-                            this.saveKillSwitch();
-                            return this.killSwitch;
+                        resumeAll: async () => {
+                            const targets = this.aiProviderTargets();
+                            return this.mutateKillSwitch(next => {
+                                for (const t of targets) enableTarget(next, t, Date.now());
+                            });
                         },
-                        revoke: () => {
-                            revokeConsent(this.killSwitch, Date.now());
+                        revoke: async () => {
                             this.cancelPendingAiJobs();
-                            this.saveKillSwitch();
-                            return this.killSwitch;
+                            return this.mutateKillSwitch(next => revokeConsent(next, Date.now()));
                         },
-                        grant: () => {
-                            grantConsent(this.killSwitch, Date.now());
-                            this.saveKillSwitch();
-                            return this.killSwitch;
+                        grant: async () => {
+                            return this.mutateKillSwitch(next => grantConsent(next, Date.now()));
                         },
                     },
                     redetectV2: async () => {
@@ -2980,10 +3537,16 @@ export default class LvCardsPlugin extends Plugin {
                     },
                     getV2Status: () => this.flashcardV2 ? this.flashcardV2.state : "N/A (<3.9.0)",
                     getSuspendedCount: () => this.suspendToday.cardIDs.length,
-                    restoreAllSuspended: () => {
-                        this.suspendToday.cardIDs = [];
-                        this.persist.save(SUSPEND_TODAY_DATA, this.suspendToday).catch(() => { /* onFail 已记录 */ });
-                        showMessage(this.i18n.settingsSaved, 2000, "info");
+                    restoreAllSuspended: async () => {
+                        const ids = [...this.suspendToday.cardIDs];
+                        if (ids.length === 0) return;
+                        try {
+                            await this.suspendTodayMutations.unsuspend(ids);
+                            showMessage(this.i18n.settingsSaved, 2000, "info");
+                        } catch {
+                            showMessage(this.i18n.storageWriteFail, 4000, "error");
+                            throw new Error(this.i18n.storageWriteFail);
+                        }
                     },
                     testAnkiClient: (url?: string, key?: string) => this.testAnkiClient(url, key),
                     storageStats: () => this.storageStats(),
@@ -2997,27 +3560,62 @@ export default class LvCardsPlugin extends Plugin {
                         }
                     },
                     importSettings: async (fileText: string) => {
-                        this.settings = normalizeSettings(JSON.parse(fileText));
-                        await this.saveSettingsNow();
+                        const previous = this.settings;
+                        const next = normalizeSettings(JSON.parse(fileText));
+                        this.settings = next;
+                        try {
+                            await this.saveSettingsNow();
+                        } catch (e) {
+                            this.settings = previous;
+                            this.setupBadgeTimer();
+                            throw e;
+                        }
                     },
                     exportRevlogCsv: () => this.exportRevlogCsv(),
                     importRevlogCsv: async (fileText: string) => {
                         const imported = parseRevlogCsv(fileText);
-                        const result = mergeRevlog(this.revlog, imported);
-                        await this.persist.save(REVLOG_DATA, this.revlog);
+                        const previous = this.revlog;
+                        const next = normalizeRevlog(JSON.parse(JSON.stringify(previous)));
+                        const result = mergeRevlog(next, imported);
+                        const version = ++this.revlogMutationVersion;
+                        this.revlog = next;
                         this.refreshDueBadge();
+                        await this.persist.save(REVLOG_DATA, cloneStore(next)).then(() => {
+                            if (version === this.revlogMutationVersion) this.persistedRevlogSnapshot = cloneStore(next);
+                        }).catch(error => {
+                            if (version === this.revlogMutationVersion) {
+                                this.revlog = cloneStore(this.persistedRevlogSnapshot ?? previous);
+                                this.refreshDueBadge();
+                            }
+                            throw error;
+                        });
                         return result;
                     },
                     importRevlogMerge: async (fileText: string, onFork?: "skip" | "preferImport") => {
                         const imported = JSON.parse(fileText);
-                        const result = mergeRevlog(this.revlog, imported, { onFork });
-                        await this.persist.save(REVLOG_DATA, this.revlog);
+                        const previous = this.revlog;
+                        const next = normalizeRevlog(JSON.parse(JSON.stringify(previous)));
+                        const result = mergeRevlog(next, imported, { onFork });
+                        const version = ++this.revlogMutationVersion;
+                        this.revlog = next;
                         this.refreshDueBadge();
+                        await this.persist.save(REVLOG_DATA, cloneStore(next)).then(() => {
+                            if (version === this.revlogMutationVersion) this.persistedRevlogSnapshot = cloneStore(next);
+                        }).catch(error => {
+                            if (version === this.revlogMutationVersion) {
+                                this.revlog = cloneStore(this.persistedRevlogSnapshot ?? previous);
+                                this.refreshDueBadge();
+                            }
+                            throw error;
+                        });
                         return result;
                     },
                 },
             },
-        });
+            });
+        } catch (e) {
+            this.reportDialogOpenFailure(this.i18n.settingsTitle, e);
+        }
     }
 
     /** 导出本地复习日志（M10·FR1） */
@@ -3056,11 +3654,24 @@ export default class LvCardsPlugin extends Plugin {
     }
 
     /** 清空本地复习日志（热力图与连击归零；不影响内核调度） */
-    private clearRevlog() {
-        this.revlog = emptyRevlog();
-        this.persist.save(REVLOG_DATA, this.revlog).catch(() => { /* onFail 已记录 */ });
+    private async clearRevlog() {
+        const previous = cloneStore(this.persistedRevlogSnapshot ?? this.revlog);
+        const next = emptyRevlog();
+        const version = ++this.revlogMutationVersion;
+        this.revlog = next;
         this.refreshDueBadge();
-        showMessage(this.i18n.settingsSaved, 2000, "info");
+        try {
+            await this.persist.save(REVLOG_DATA, cloneStore(next));
+            if (version === this.revlogMutationVersion) this.persistedRevlogSnapshot = cloneStore(next);
+            showMessage(this.i18n.settingsSaved, 2000, "info");
+        } catch {
+            if (version === this.revlogMutationVersion) {
+                this.revlog = cloneStore(this.persistedRevlogSnapshot ?? previous);
+                this.refreshDueBadge();
+            }
+            showMessage(this.i18n.storageWriteFail, 4000, "error");
+            throw new Error(this.i18n.storageWriteFail);
+        }
     }
 
     /** BU-25：导出 AI 用量账本（聚合视图 + 明细；不含 key 与原文） */
@@ -3083,10 +3694,22 @@ export default class LvCardsPlugin extends Plugin {
     }
 
     /** BU-25：清空 AI 用量账本（预算随之归零重计） */
-    private clearCostLedger() {
-        this.costLedger = emptyCostLedger();
-        this.persist.save(AI_COST_LEDGER_DATA, this.costLedger).catch(() => { /* onFail 已记录 */ });
-        showMessage(this.i18n.settingsSaved, 2000, "info");
+    private async clearCostLedger() {
+        const previous = cloneStore(this.persistedCostLedgerSnapshot ?? this.costLedger);
+        const next = emptyCostLedger();
+        const version = ++this.costLedgerMutationVersion;
+        this.costLedger = next;
+        try {
+            await this.persist.save(AI_COST_LEDGER_DATA, cloneStore(next));
+            if (version === this.costLedgerMutationVersion) this.persistedCostLedgerSnapshot = cloneStore(next);
+            showMessage(this.i18n.settingsSaved, 2000, "info");
+        } catch {
+            if (version === this.costLedgerMutationVersion) {
+                this.costLedger = cloneStore(this.persistedCostLedgerSnapshot ?? previous);
+            }
+            showMessage(this.i18n.storageWriteFail, 4000, "error");
+            throw new Error(this.i18n.storageWriteFail);
+        }
     }
 
     /** 备份与恢复中心：导出全部私有存储为单文件 bundle（manifest 含校验和；含用户内容，用户自管） */
@@ -3135,8 +3758,27 @@ export default class LvCardsPlugin extends Plugin {
         if (!ok) {
             return;
         }
-        for (const key of Object.keys(preview.files)) {
-            await this.persist.save(key, preview.files[key]);
+        const restoreKeys = Object.keys(preview.files);
+        const appliedKeys: string[] = [];
+        try {
+            for (const key of restoreKeys) {
+                // Persist immutable snapshots so a later in-memory reload or
+                // user action cannot change the payload already queued.
+                await this.persist.save(key, cloneStore(preview.files[key]));
+                appliedKeys.push(key);
+            }
+        } catch (error) {
+            // Restore is a multi-file operation. If one slot fails, put every
+            // slot already changed back to its pre-restore value before
+            // surfacing the failure, keeping memory and disk aligned.
+            for (const key of appliedKeys.reverse()) {
+                try {
+                    await this.persist.save(key, cloneStore(current[key]));
+                } catch (rollbackError) {
+                    lvLog("error", `[backup] rollback ${key} failed: ${rollbackError instanceof Error ? rollbackError.message : String(rollbackError)}`);
+                }
+            }
+            throw error;
         }
         // 内存态与磁盘对齐（重载走与 onload 同一装配路径）
         await this.applyLoadedStores(await this.readAllStores());

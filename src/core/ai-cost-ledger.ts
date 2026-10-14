@@ -72,7 +72,8 @@ export function normalizeCostLedger(raw: unknown, cap = ENTRIES_CAP): CostLedger
     const entries: CostEntry[] = [];
     for (const e of list) {
         const x = e as Partial<CostEntry>;
-        if (typeof x?.at !== "number" || !(x.at > 0) || typeof x?.tokens !== "number" || !(x.tokens >= 0)) {
+        if (typeof x?.at !== "number" || !Number.isFinite(x.at) || !(x.at > 0) || x.at > 4102444800000
+            || typeof x?.tokens !== "number" || !Number.isFinite(x.tokens) || !(x.tokens >= 0) || x.tokens > 1_000_000_000) {
             continue;
         }
         if (x.mode !== "siyuan" && x.mode !== "custom") {

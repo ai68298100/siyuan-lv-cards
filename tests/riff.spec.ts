@@ -20,6 +20,7 @@ function mockKernel(envelope?: unknown) {
 
 afterEach(() => {
     vi.unstubAllGlobals();
+    vi.useRealTimers();
 });
 
 import {
@@ -90,6 +91,43 @@ describe("riff API 契约（内核 /api/riff/*）", () => {
         expect(await getDueCount()).toBe(0);
     });
 
+    it("全部卡包中任一非空卡组查询失败时整体拒绝，不返回不完整队列", async () => {
+        calls = [];
+        vi.stubGlobal("fetch", vi.fn(async (url: string, init?: any) => {
+            calls.push({ url, init });
+            const body = JSON.parse(init?.body ?? "{}");
+            if (url.includes("getRiffDecks")) {
+                return jsonResponse({ code: 0, msg: "", data: [
+                    { id: "d1", name: "a", size: 1, created: "", updated: "" },
+                    { id: "d2", name: "b", size: 1, created: "", updated: "" },
+                ] });
+            }
+            if (body.deckID === "d2") {
+                throw new Error("network unavailable");
+            }
+            return jsonResponse({ code: 0, msg: "", data: {
+                cards: [], unreviewedCount: 0, unreviewedNewCardCount: 0, unreviewedOldCardCount: 0,
+            } });
+        }));
+
+        await expect(getRiffDueCards()).rejects.toThrow("network unavailable");
+    });
+
+    it("没有非空卡组时返回空集合", async () => {
+        vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+            if (url.includes("getRiffDecks")) {
+                return jsonResponse({ code: 0, msg: "", data: [
+                    { id: "d0", name: "empty", size: 0, created: "", updated: "" },
+                ] });
+            }
+            throw new Error("unexpected due request");
+        }));
+
+        await expect(getRiffDueCards()).resolves.toEqual({
+            cards: [], unreviewedCount: 0, unreviewedNewCardCount: 0, unreviewedOldCardCount: 0,
+        });
+    });
+
     it("code≠0 抛内核 msg；无 msg 带错误码", async () => {
         mockKernel({ code: 404, msg: "deck not found", data: null });
         await expect(getRiffDecks()).rejects.toThrow("deck not found");
@@ -97,16 +135,16 @@ describe("riff API 契约（内核 /api/riff/*）", () => {
         await expect(getRiffDecks()).rejects.toThrow(/code=-1/);
     });
 
-    it("请求头 JSON、超时 AbortError 映射 code=504", async () => {
+    it("请求头 JSON、超时映射 code=504", async () => {
         mockKernel({ code: 0, msg: "", data: null });
         await getRiffDecks();
         expect(calls[0].init.method).toBe("POST");
         expect(calls[0].init.headers["Content-Type"]).toBe("application/json");
-        vi.stubGlobal("fetch", vi.fn(async () => {
-            const e = new Error("aborted");
-            (e as any).name = "AbortError";
-            throw e;
-        }));
-        await expect(getRiffDecks()).rejects.toThrow(/kernel timeout.*code=504/);
+        vi.useFakeTimers();
+        vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));
+        const pending = getRiffDecks();
+        const assertion = expect(pending).rejects.toThrow(/kernel timeout.*code=504/);
+        await vi.advanceTimersByTimeAsync(15000);
+        await assertion;
     });
 });
