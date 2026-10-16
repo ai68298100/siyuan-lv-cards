@@ -5,6 +5,10 @@ import {
     previewBatchRepair,
     rollbackBatchRepair,
     transitionBatchRepairRecord,
+    createEmptyRepairJournal,
+    appendRepairJournalEntry,
+    updateRepairJournalEntryStatus,
+    normalizeRepairJournal,
     type MaintenanceRepairCard,
 } from "../src/core/maintenance-repair";
 
@@ -157,5 +161,89 @@ describe("maintenance-repair 批量修复契约", () => {
         expect(failed.error).toBe("disk full");
         expect(() => transitionBatchRepairRecord(failed, "applied")).toThrow("invalid repair record transition");
         await expect(rollbackBatchRepair({ ...tx, diffRecord: failed }, storage)).rejects.toThrow("cannot rollback from status");
+    });
+
+    it("持久化日志维护最近批修记录，支持按持久化快照撤销并更新日志状态", async () => {
+        let journal = createEmptyRepairJournal();
+        expect(journal.entries).toEqual([]);
+
+        const preview = previewBatchRepair([card("card-x", "原始内容 ==答案==")], [
+            { blockID: "card-x", afterMarkdown: "批修内容 ==答案==" },
+        ], 200);
+        const tx = confirmBatchRepair(preview, { previewID: preview.previewID, acknowledged: true }, 201);
+        let current = "原始内容 ==答案==";
+        const storage = {
+            readCard: vi.fn(async (blockID: string) => ({ blockID, markdown: current })),
+            writeMarkdown: vi.fn(async (_blockID: string, markdown: string) => { current = markdown; }),
+        };
+
+        const applied = await applyBatchRepair(tx, storage, 202);
+        expect(current).toBe("批修内容 ==答案==");
+
+        // 成功写入后追加到持久化日志
+        journal = appendRepairJournalEntry(journal, {
+            schema: 1,
+            previewID: preview.previewID,
+            appliedAt: 202,
+            summary: preview.summary,
+            diffs: tx.diffs,
+            snapshot: tx.snapshot,
+            diffRecord: applied.diffRecord,
+        });
+        expect(journal.entries).toHaveLength(1);
+        expect(journal.entries[0].diffRecord.status).toBe("applied");
+
+        // 模拟重启后从 journal 取出最近一次成功批修记录构造事务进行回滚
+        const activeEntry = journal.entries.find(e => e.diffRecord.status === "applied")!;
+        const rollbackTx = {
+            schema: 1 as const,
+            previewID: activeEntry.previewID,
+            confirmedAt: activeEntry.appliedAt,
+            baseFingerprint: "",
+            diffs: activeEntry.diffs,
+            snapshot: activeEntry.snapshot,
+            diffRecord: activeEntry.diffRecord,
+        };
+
+        const rolledBack = await rollbackBatchRepair(rollbackTx, storage, 203);
+        expect(current).toBe("原始内容 ==答案==");
+        expect(rolledBack.blockIDs).toEqual(["card-x"]);
+
+        // 回滚成功后更新持久化日志状态为 rolledBack
+        journal = updateRepairJournalEntryStatus(journal, activeEntry.previewID, "rolledBack", 204);
+        expect(journal.entries[0].diffRecord.status).toBe("rolledBack");
+    });
+
+    it("normalizes only complete supported journal entries with matching recovery snapshots", () => {
+        const preview = previewBatchRepair([card("a", "旧题面 ==答案=="), card("b", "另一题面 ==答案==")], [
+            { blockID: "a", afterMarkdown: "新题面 ==答案==" },
+            { blockID: "b", afterMarkdown: "另一题面 ==答案==" },
+        ], 200);
+        const tx = confirmBatchRepair(preview, { previewID: preview.previewID, acknowledged: true }, 201);
+        const entry = {
+            schema: 1 as const, previewID: preview.previewID, appliedAt: 202, summary: preview.summary,
+            diffs: tx.diffs, snapshot: tx.snapshot, diffRecord: transitionBatchRepairRecord(tx.diffRecord, "applied", 202),
+        };
+        const valid = { schema: 1, entries: [entry] };
+        const normalized = normalizeRepairJournal(valid);
+        expect(normalized).toEqual(valid);
+        normalized.entries[0].snapshot.entries[0].markdown = "mutated";
+        expect(entry.snapshot.entries[0].markdown).toBe("旧题面 ==答案==");
+
+        const invalidEntries = [
+            null, {}, { ...entry, schema: 2 }, { ...entry, appliedAt: NaN },
+            { ...entry, diffRecord: undefined },
+            { ...entry, diffRecord: { ...entry.diffRecord, status: "confirmed" } },
+            { ...entry, diffRecord: { ...entry.diffRecord, previewID: "different" } },
+            { ...entry, summary: { update: 2, unchanged: 0, rejected: 0 } },
+            { ...entry, snapshot: { ...entry.snapshot, entries: [{ blockID: "different", markdown: "旧题面 ==答案==" }] } },
+            { ...entry, diffs: [{ ...entry.diffs[0], afterMarkdown: null }] },
+            { ...entry, diffs: [...entry.diffs, entry.diffs[0]] },
+        ];
+        expect(normalizeRepairJournal({ schema: 1, entries: [...invalidEntries, entry, entry] })).toEqual(valid);
+        for (const value of [null, {}, [], { schema: 2, entries: [entry] }, { schema: 1, entries: {} }]) {
+            expect(normalizeRepairJournal(value)).toEqual(createEmptyRepairJournal());
+        }
+        expect(normalizeRepairJournal({ schema: 1, entries: [{ ...entry, diffRecord: transitionBatchRepairRecord(entry.diffRecord, "rolledBack", 203) }] }).entries[0].diffRecord.status).toBe("rolledBack");
     });
 });

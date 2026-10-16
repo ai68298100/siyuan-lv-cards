@@ -143,6 +143,7 @@ import { confirmDialog } from "@/libs/dialog";
     let koDeriving = $state(false);
     let detailLc: import("@/core/content-lifecycle").ContentLifecycle | null = $state(null);
     let initialDetailOpened = "";
+    let detailRequestSeq = 0;
     let storesChangedTimer: ReturnType<typeof setTimeout> | null = null;
     // svelte-ignore state_referenced_locally -- Hub creates a fresh Manager for each deck route.
     let deckScope = $state(ctx.deckScope ?? null);
@@ -394,16 +395,18 @@ import { confirmDialog } from "@/libs/dialog";
 
     function batchRemove() {
         if (selected.length === 0 || batchBusy) return;
+        const blockIDs = [...selected];
         confirmDialog({
             title: t.manager.batchRemove,
             content: `<div class="b3-typography">${t.manager.batchConfirm.replace("${n}", String(selected.length))}</div>`,
             confirm: async () => {
-                const count = selected.length;
+                if (batchBusy) return;
+                const count = blockIDs.length;
                 batchBusy = "remove";
                 batchError = "";
                 try {
                     // 🧪 deckID 传空的跨集删除语义待 docs/18 实测
-                    await removeRiffCards("", selected);
+                    await removeRiffCards("", blockIDs);
                     invalidateDueCache(); // AT-4：删卡改变到期数
                     selected = [];
                     showMessage(t.manager.batchDone.replace("${n}", String(count)), 2000, "info");
@@ -420,16 +423,18 @@ import { confirmDialog } from "@/libs/dialog";
 
     function batchReset() {
         if (selected.length === 0 || batchBusy) return;
+        const blockIDs = [...selected];
         confirmDialog({
             title: t.manager.batchReset,
             content: `<div class="b3-typography">${t.manager.batchConfirm.replace("${n}", String(selected.length))}</div>`,
             confirm: async () => {
-                const count = selected.length;
+                if (batchBusy) return;
+                const count = blockIDs.length;
                 batchBusy = "reset";
                 batchError = "";
                 try {
                     // 🧪 type="0" + blockIDs 的块级重置语义待 docs/18 实测
-                    await resetRiffCards("0", "", "", selected);
+                    await resetRiffCards("0", "", "", blockIDs);
                     invalidateDueCache(); // AT-4：重置调度数据改变到期数
                     selected = [];
                     showMessage(t.manager.batchResetDone.replace("${n}", String(count)), 2000, "info");
@@ -451,6 +456,7 @@ import { confirmDialog } from "@/libs/dialog";
             title: t.manager.deleteCard,
             content: `<div class="b3-typography">${t.manager.deleteConfirm}</div>`,
             confirm: async () => {
+                if (batchBusy) return;
                 batchBusy = "remove";
                 batchError = "";
                 try {
@@ -496,6 +502,7 @@ import { confirmDialog } from "@/libs/dialog";
     }
 
     function openDetail(b: SearchBlock) {
+        detailRequestSeq += 1;
         detail = b;
         // BK-2：详情打开时载入该块的关系视图（本地镜像，增删后经 ctx 刷新）
         detailRelations = ctx.relationsOfBlock?.(b.id) ?? [];
@@ -507,18 +514,25 @@ import { confirmDialog } from "@/libs/dialog";
     // 维护页可以在管理器已挂载时再次请求定点打开；监听上下文变化，避免只在首次加载时处理。
     $effect(() => {
         const targetID = ctx.initialBlockID?.trim();
-        if (!targetID || targetID === initialDetailOpened) return;
+        if (!targetID) {
+            initialDetailOpened = "";
+            return;
+        }
+        if (targetID === initialDetailOpened) return;
         initialDetailOpened = targetID;
+        const seq = ++detailRequestSeq;
+        let cancelled = false;
         void (async () => {
             try {
                 const target = (await getRiffCardsByBlockIDs([targetID])).blocks?.find(b => b.id === targetID);
-                if (target) openDetail(target);
+                if (!cancelled && seq === detailRequestSeq && target) openDetail(target);
             } catch {
                 // 定点详情失败不影响管理器列表；列表错误仍由本次 load 负责呈现。
             } finally {
-                ctx.onInitialBlockConsumed?.();
+                if (!cancelled) ctx.onInitialBlockConsumed?.();
             }
         })();
+        return () => { cancelled = true; };
     });
 
     function openDoc(block: SearchBlock) {
@@ -609,7 +623,7 @@ import { confirmDialog } from "@/libs/dialog";
             title: t.manager.deleteSaved,
             content: `<div class="b3-typography">${t.manager.deleteSavedConfirm ?? "确定删除已保存的筛选？此操作不可撤销。"}</div>`,
             confirm: () => {
-                ctx.deleteFilter(pickedSaved);
+                ctx.deleteFilter(name);
                 savedList = ctx.savedFilters();
                 if (pickedSaved === name) pickedSaved = "";
             },
@@ -717,6 +731,7 @@ import { confirmDialog } from "@/libs/dialog";
             {#each filteredBlocks as b, rowIndex (b.id)}
                 <div
                     class="lv-row"
+                    class:lv-row--selected={selected.includes(b.id)}
                     role="listitem"
                 >
                     <input
@@ -758,11 +773,12 @@ import { confirmDialog } from "@/libs/dialog";
 </LvPage>
 
 {#if detail}
+    {#key detail.id}
     <CardDetail
         block={detail}
         t={detailT}
         onOpenDoc={() => openDoc(detail!)}
-        onClose={() => (detail = null)}
+        onClose={() => { detailRequestSeq += 1; detail = null; }}
         historyEntries={ctx.getBlockHistory?.(detail!.id) ?? []}
         issues={ctx.getBlockIssues?.(detail!.id) ?? []}
         versions={ctx.contentVersionsOf?.(detail!.id) ?? []}
@@ -853,24 +869,41 @@ import { confirmDialog } from "@/libs/dialog";
         } : undefined}
         onSaved={ctx.onCardContentSaved}
     />
+    {/key}
 {/if}
 
 <style lang="scss">
     .lv-filter {
-        width: 220px;
-        min-height: 34px;
+        width: min(100%, 280px);
+        min-height: 38px;
         border-radius: var(--lv-r-pill);
         padding: 0 var(--lv-sp-4) 0 calc(var(--lv-space-unit) * 7);
         border: 1px solid var(--lv-border);
         background: var(--lv-color-surface);
         box-shadow: inset 0 1px 2px color-mix(in srgb, black 3%, transparent);
-        transition: border-color var(--lv-dur-1) var(--lv-ease), box-shadow var(--lv-dur-1) var(--lv-ease);
+        transition: border-color var(--lv-dur-1) var(--lv-ease), box-shadow var(--lv-dur-2) var(--lv-ease);
+        &:focus-visible,
         &:focus {
+            outline: none;
             border-color: var(--lv-color-brand);
-            box-shadow: var(--lv-focus-ring);
+            box-shadow: 0 0 0 3px color-mix(in srgb, var(--lv-color-brand) 22%, transparent);
         }
     }
-    .lv-sort { font-size: var(--lv-type-control-size); padding: 4px 8px; }
+    .lv-sort {
+        font-size: var(--lv-type-control-size);
+        min-height: 34px;
+        border-radius: var(--lv-r-control);
+        border: 1px solid var(--lv-border);
+        background: var(--lv-color-surface);
+        padding: 4px 10px;
+        transition: border-color var(--lv-dur-1) var(--lv-ease), box-shadow var(--lv-dur-2) var(--lv-ease);
+        &:focus-visible,
+        &:focus {
+            outline: none;
+            border-color: var(--lv-color-brand);
+            box-shadow: 0 0 0 3px color-mix(in srgb, var(--lv-color-brand) 22%, transparent);
+        }
+    }
     .lv-pager { font-size: var(--lv-type-control-size); color: var(--lv-color-text-muted); font-variant-numeric: tabular-nums; }
     .lv-loading {
         display: flex;
@@ -895,7 +928,13 @@ import { confirmDialog } from "@/libs/dialog";
         max-width: min(42vw, 420px);
         overflow-wrap: anywhere;
     }
-    .lv-check { cursor: pointer; }
+    .lv-check {
+        cursor: pointer;
+        width: 17px;
+        height: 17px;
+        accent-color: var(--lv-color-brand);
+        flex-shrink: 0;
+    }
 
     /* T-管理器 R53 工具行：排序/筛选独立于页头（与 .lv-list 同级） */
     .lv-mgr-toolbar {
@@ -962,6 +1001,12 @@ import { confirmDialog } from "@/libs/dialog";
                 background: var(--lv-color-brand);
                 opacity: 0;
                 transition: opacity var(--lv-dur-2) var(--lv-ease);
+            }
+
+            &.lv-row--selected {
+                background: color-mix(in srgb, var(--lv-primary-soft) 55%, var(--lv-color-surface));
+                border-color: var(--lv-primary-border);
+                &::before { opacity: 1; }
             }
 
             &:hover {

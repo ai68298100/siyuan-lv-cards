@@ -1,6 +1,6 @@
 # 集市 PR 材料（提交前核对单与文案模板）
 
-> 状态：当前为 v0.210.0，GitHub 发布状态以 Release 为准。[bazaar PR #2329](https://github.com/siyuan-note/bazaar/pull/2329) 已于 2026-10-10 合并且 PR Check 成功；后续版本通过 GitHub Release 更新，无需重复提交集市 PR。索引按官方周期部署，不能据 PR 合并认定本次新版本已同步；真机与素材验收项仍未全部完成。PR 状态于 2026-10-16 实时核验。
+> 状态：当前为 v0.210.1（发布基线，GitHub 状态以 Release 为准），GitHub 发布状态以 Release 为准。[bazaar PR #2329](https://github.com/siyuan-note/bazaar/pull/2329) 已于 2026-10-10 合并且 PR Check 成功；后续版本通过 GitHub Release 更新，无需重复提交集市 PR。索引按官方周期部署，不能据 PR 合并认定本次新版本已同步；真机与素材验收项仍未全部完成。PR 状态于 2026-10-16 实时核验。
 
 ## 一、官方提交流程
 
@@ -35,7 +35,7 @@
 
 - [ ] **Anki .apkg 真机导入验证**（当前桌面版同时验证 node:sqlite 与 node:zlib；成功/失败都记录到 docs/34）
 - [ ] **真实脱敏截图 4 张**（P0-C3：复习 / 闪卡中心 / AI 制卡 / 设置；15~30s GIF 可后补）
-- [ ] **version 与 GitHub Release 一致**（当前 v0.210.0；需核对 Release 的 `package.zip`、`package.zip.sha256` 和清单版本）
+- [ ] **version 与 GitHub Release 一致**（当前 v0.210.1；需核对 Release 的 `package.zip`、`package.zip.sha256` 和清单版本）
 - [x] **集市新增 PR**（[bazaar #2329](https://github.com/siyuan-note/bazaar/pull/2329) 已合并；本轮不重复创建 PR）
 - [ ] **中英 README**：能力矩阵与五种状态标签口径一致（P0-C1 已做，提交前复核一遍）
 - [ ] **preview.png 实际展示验收**：现已按官方推荐尺寸调整为 1024×768、474,932 字节；仍待确认内容适合作为集市预览图。

@@ -96,8 +96,8 @@
     --lv-space-11: calc(var(--lv-space-unit) * 11);
     --lv-space-12: calc(var(--lv-space-unit) * 12);
 
-    // 缓动与时长
-    --lv-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+    // 缓动与时长：流体物理减速曲线（Apple HIG / Linear 惯例，自然且高性能）
+    --lv-ease: cubic-bezier(0.16, 1, 0.3, 1);
     --lv-dur-1: 120ms;
     --lv-dur-2: 180ms;
     --lv-dur-3: 240ms;
@@ -164,6 +164,8 @@
         0 4px 14px -2px color-mix(in srgb, black 4%, transparent);
     --lv-shadow-card-hover: 0 2px 6px color-mix(in srgb, black 5%, transparent),
         0 12px 28px -4px color-mix(in srgb, black 8%, transparent);
+    --lv-shadow-float: 0 16px 40px -8px color-mix(in srgb, black 12%, transparent),
+        0 4px 12px color-mix(in srgb, black 6%, transparent);
     --lv-inset-shine: inset 0 1px 0 color-mix(in srgb, white 45%, transparent);
     --lv-glass: color-mix(in srgb, var(--lv-color-canvas) 76%, transparent);
     --lv-focus-ring: 0 0 0 3px color-mix(in srgb, var(--lv-color-brand) 32%, transparent);
@@ -330,6 +332,24 @@
     border-color: var(--lv-border-strong);
 }
 
+// 可交互卡片通用类（平滑上浮与微凹按压）
+.lv-card-interactive {
+    cursor: pointer;
+    transition: transform var(--lv-dur-2) var(--lv-ease),
+        box-shadow var(--lv-dur-2) var(--lv-ease),
+        border-color var(--lv-dur-1) var(--lv-ease),
+        background var(--lv-dur-1) var(--lv-ease);
+
+    &:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--lv-shadow-card-hover), var(--lv-inset-shine);
+        border-color: var(--lv-border-strong);
+    }
+    &:active {
+        transform: translateY(1px) scale(0.99);
+    }
+}
+
 // 迷你进度条（统计卡/目标）
 .lv-mini-track {
     height: 4px;
@@ -439,24 +459,108 @@
     }
 }
 
-// 插件界面按钮语义基线（R52：主色只给核心动作）——思源 .b3-button 基类是实心主色，
-// 在插件页面/中心/对话框内统一回到白面中性；主动作必须显式挂 .lv-btn-primary。
-// :not 白名单 = 宿主已有语义档 + 插件自有语义类（ghost/主色/挑战软色）。
-:is(.lv-page, .lv-hub, .lv-dialog, .lv-peek-body) {
-    .b3-button:not(.b3-button--outline):not(.b3-button--text):not(.b3-button--cancel):not(.lv-btn-primary):not(.lv-btn-ghost):not(.lv-chal-btn) {
+// 插件全部作用域表单控件质感系统（R54 原型规范）：
+// 统一白面底色、1px 细微边界、10px 现代圆角、平滑光晕聚焦与按压反馈
+:is(.lv-page, .lv-hub, .lv-dialog, .lv-peek-body, .lv-review, .lv-aiwiz) {
+    .b3-text-field,
+    .b3-select {
+        border: 1px solid var(--lv-border);
         background: var(--lv-color-surface);
+        border-radius: var(--lv-r-control);
         color: var(--lv-color-text);
-    }
-}
+        font-size: var(--lv-type-control-size);
+        box-sizing: border-box;
+        transition: border-color var(--lv-dur-1) var(--lv-ease),
+            box-shadow var(--lv-dur-2) var(--lv-ease),
+            background-color var(--lv-dur-1) var(--lv-ease);
 
-// 插件容器内宿主按钮微反馈（R52 button：0.12s 过渡，不覆写宿主配色）
-.lv-page,
-.lv-hub {
+        &:hover:not(:disabled) {
+            border-color: var(--lv-border-strong);
+        }
+
+        &:focus-visible,
+        &:focus {
+            outline: none;
+            border-color: var(--lv-color-brand);
+            box-shadow: 0 0 0 3px color-mix(in srgb, var(--lv-color-brand) 22%, transparent);
+        }
+
+        &[aria-invalid="true"] {
+            border-color: var(--lv-color-danger);
+            box-shadow: 0 0 0 3px color-mix(in srgb, var(--lv-color-danger) 22%, transparent);
+        }
+
+        &:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+            background: var(--lv-surface-hover);
+        }
+    }
+
+    .b3-select {
+        min-height: 38px;
+        padding: calc(var(--lv-space-unit) * 3) calc(var(--lv-space-unit) * 6);
+        line-height: 1.4;
+    }
+
+    textarea.b3-text-field {
+        line-height: var(--lv-lh-reading);
+        padding: calc(var(--lv-space-unit) * 4) calc(var(--lv-space-unit) * 6);
+        border-radius: var(--lv-r-control);
+        resize: vertical;
+    }
+
     .b3-button {
+        border-radius: var(--lv-r-control);
+        font-size: var(--lv-type-control-size);
+        font-weight: var(--lv-fw-emphasis);
         transition: background var(--lv-dur-1) var(--lv-ease),
             border-color var(--lv-dur-1) var(--lv-ease),
             color var(--lv-dur-1) var(--lv-ease),
-            box-shadow var(--lv-dur-2) var(--lv-ease);
+            box-shadow var(--lv-dur-2) var(--lv-ease),
+            transform var(--lv-dur-1) var(--lv-ease);
+
+        &:focus-visible {
+            outline: none;
+            box-shadow: var(--lv-focus-ring);
+        }
+
+        &.b3-button--small {
+            min-height: 32px;
+            padding: calc(var(--lv-space-unit) * 2) calc(var(--lv-space-unit) * 5);
+            font-size: 12px;
+            border-radius: var(--lv-r-s);
+        }
+    }
+
+    // 柔和主色按钮（R54 button.soft 原型同款）
+    .lv-btn-soft {
+        background: var(--lv-primary-soft);
+        border: 1px solid transparent;
+        color: var(--lv-color-brand);
+        font-weight: var(--lv-fw-semibold);
+
+        &:hover:not(:disabled) {
+            background: color-mix(in srgb, var(--lv-color-brand) 18%, transparent);
+            color: var(--lv-color-brand);
+        }
+    }
+}
+
+// 插件界面按钮语义基线（R52：主色只给核心动作）——思源 .b3-button 基类是实心主色，
+// 在插件页面/中心/对话框内统一回到白面中性；主动作必须显式挂 .lv-btn-primary。
+// :not 白名单 = 宿主已有语义档 + 插件自有语义类（ghost/主色/挑战软色/soft）。
+:is(.lv-page, .lv-hub, .lv-dialog, .lv-peek-body, .lv-review, .lv-aiwiz) {
+    .b3-button:not(.b3-button--outline):not(.b3-button--text):not(.b3-button--cancel):not(.lv-btn-primary):not(.lv-btn-ghost):not(.lv-chal-btn):not(.lv-btn-soft) {
+        background: var(--lv-color-surface);
+        border: 1px solid var(--lv-border);
+        color: var(--lv-color-text);
+
+        &:hover:not(:disabled) {
+            background: var(--lv-surface-hover);
+            border-color: var(--lv-border-strong);
+            color: var(--lv-color-text);
+        }
     }
 }
 
@@ -464,11 +568,15 @@
 .lv-page,
 .lv-hub,
 .lv-dialog,
-.lv-peek-body {
-    .b3-button:not(:disabled):not(.lv-btn-rate):not(.lv-btn-primary):active { transform: scale(0.98); }
+.lv-peek-body,
+.lv-review,
+.lv-aiwiz {
+    .b3-button:not(:disabled):not(.lv-btn-rate):not(.lv-btn-primary):active { transform: translateY(1px) scale(0.985); }
     .b3-button:disabled {
-        opacity: 0.6;
-        cursor: default;
+        opacity: 0.55;
+        cursor: not-allowed;
+        box-shadow: none !important;
+        transform: none !important;
     }
 }
 
@@ -505,18 +613,23 @@
     }
 }
 
-// 细滚动条（插件容器内）
+// 细滚动条（插件容器内）：半透明药丸滑块，悬停加深
 .lv-page,
 .lv-list,
 .lv-peek-body,
 .lv-settings {
     scrollbar-width: thin;
-    scrollbar-color: var(--lv-border-strong) transparent;
+    scrollbar-color: color-mix(in srgb, var(--lv-color-text) 18%, transparent) transparent;
 
-    &::-webkit-scrollbar { width: 8px; height: 8px; }
+    &::-webkit-scrollbar { width: 7px; height: 7px; }
     &::-webkit-scrollbar-thumb {
-        background: var(--lv-border-strong);
-        border-radius: var(--lv-r-xs);
+        background: color-mix(in srgb, var(--lv-color-text) 18%, transparent);
+        border-radius: var(--lv-r-pill);
+        transition: background var(--lv-dur-1) var(--lv-ease);
+
+        &:hover {
+            background: color-mix(in srgb, var(--lv-color-text) 28%, transparent);
+        }
     }
     &::-webkit-scrollbar-track { background: transparent; }
 }
@@ -945,5 +1058,100 @@
         border-top: 1px solid var(--lv-border);
         border-bottom: 1px solid var(--lv-border);
         color: var(--lv-color-text);
+    }
+}
+
+// 通用模态弹窗遮罩与浮层（R54 原型规范）
+.lv-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: color-mix(in srgb, black 38%, transparent);
+    backdrop-filter: blur(8px) saturate(1.15);
+    -webkit-backdrop-filter: blur(8px) saturate(1.15);
+    z-index: var(--lv-z-host-overlay, 100);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--lv-sp-4);
+    box-sizing: border-box;
+}
+
+@keyframes lv-modal-pop {
+    from { opacity: 0; transform: translate3d(0, 6px, 0) scale(0.98); }
+    to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+.lv-pause-dialog,
+.lv-dialog-card {
+    width: min(520px, 92vw);
+    max-height: 88vh;
+    overflow-y: auto;
+    background: var(--lv-color-surface-raised, var(--lv-color-surface));
+    border: 1px solid var(--lv-border);
+    border-radius: var(--lv-r-dialog, 20px);
+    box-shadow: var(--lv-shadow-2), var(--lv-inset-shine);
+    padding: var(--lv-sp-5);
+    text-align: left;
+    box-sizing: border-box;
+    animation: lv-modal-pop var(--lv-dur-2) var(--lv-ease) both;
+}
+
+// 统一卡面排版与遮蔽槽样式（R54 原型规范，统一候选、编辑与复习卡面）
+.lv-unified-face {
+    font-size: var(--lv-type-body-size, 14px);
+    line-height: var(--lv-lh-reading-loose, 1.8);
+    overflow-wrap: anywhere;
+
+    p { margin: var(--lv-sp-2) 0; }
+
+    .lv-mask-slot {
+        display: inline-block;
+        padding: 1px 8px;
+        margin: 0 4px;
+        border-radius: var(--lv-r-tag);
+        background: var(--lv-primary-soft);
+        color: var(--lv-color-brand);
+        font-size: var(--lv-type-meta-size);
+        font-weight: var(--lv-fw-semibold);
+        border: 1px dashed var(--lv-primary-border);
+        user-select: none;
+    }
+
+    .lv-revealed-text,
+    mark.lv-revealed {
+        display: inline-block;
+        padding: 1px 6px;
+        margin: 0 2px;
+        border-radius: var(--lv-r-tag);
+        background: color-mix(in srgb, var(--lv-color-brand) 16%, transparent);
+        color: var(--lv-color-brand);
+        font-weight: var(--lv-fw-semibold);
+        border-bottom: 2px solid var(--lv-color-brand);
+    }
+
+    .lv-card-answer-divider {
+        height: 1px;
+        background: var(--lv-border);
+        margin: var(--lv-sp-4) 0 var(--lv-sp-3);
+    }
+
+    .lv-card-a-label {
+        font-size: var(--lv-type-caption-size);
+        color: var(--lv-color-text-muted);
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        margin-bottom: var(--lv-sp-1);
+    }
+
+    .lv-card-a-body {
+        color: var(--lv-color-text);
+        font-size: 15px;
+    }
+
+    .lv-card-img {
+        max-width: 100%;
+        border-radius: var(--lv-r-m);
+        box-shadow: var(--lv-shadow-card);
+        margin: var(--lv-sp-2) 0;
     }
 }

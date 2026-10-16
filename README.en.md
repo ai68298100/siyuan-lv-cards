@@ -19,9 +19,18 @@ The full-lifecycle flashcard learning platform for SiYuan — local-first, nativ
 
 > **Note**: The primary README and all design docs are in Chinese. This page covers the essentials; see [docs/](./docs/README.md) for full design material.
 
-Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.0** (2026-10-16), focused on card quality and maintenance. See GitHub Release for publishing status.
+Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.1** (2026-10-16), fixing interaction and asynchronous boundaries in the recent UI work. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.1) for the package and publishing status.
 
-## What's New in v0.210.0
+## What's New in v0.210.1
+
+- Fix review modal shortcuts, pause/resume, undo and stale countdowns, plus image/code/formula card rendering.
+- Fix AI candidate version indices, duplicate material and deck creation, hidden-editor submission, and editing during imports. Source checks describe wording matches and require human verification.
+- Fix stale card-detail responses, changing confirmation targets, dashboard retry loops and maintenance navigation. Failed due refreshes block formal review.
+- Persist the last five batch repairs with safe undo, conflict detection and compensation when journal saving fails.
+
+See [release checks and host limitations](./test-evidence/release-v0.210.1.md).
+
+## Previous Update: v0.210.0
 
 - **Consistent card checks:** Creation, imports, and edits validate the final card before adding it. Ordinary cards require an answer marker and a visible question; image occlusion requires an image and valid regions. AI candidates gain high-confidence quality checks, and Anki/Obsidian imports gain safer cleaning and error feedback. These checks cannot establish factual accuracy; human review remains necessary.
 - **Old cards and maintenance:** Invalid old cards are isolated for the current review session without changing due dates, ratings, or logs. Maintenance detects answer-only cards, checks media, offers side-by-side approximate-duplicate review with saved decisions, and returns to a fresh scan after editing.

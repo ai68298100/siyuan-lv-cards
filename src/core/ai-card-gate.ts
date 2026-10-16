@@ -9,12 +9,13 @@ export type AiCardGateIssue = "duplicate-question" | "answer-in-question" | "mul
 
 export interface AiCandidate extends AiCardDraft {
     keep: boolean;
-    review: "pending" | "accepted" | "verified";
+    review: "pending" | "accepted" | "verified" | "needsCheck";
 }
 
 const PUNCTUATION_AND_SPACE = /[\s\p{P}]/gu;
 const PLACEHOLDER = /\{\{[^}]{1,100}\}\}|\$\{[^}]{1,100}\}|\[(?:答案|问题|answer|question|todo|tbd)\]|(?:待填写|待补充|待完善|此处填写|占位符)|(?:^|\n)\s*(?:TODO|TBD|FIXME)(?:\s*:\s*.+)?\s*$/i;
 const GENERIC_SHORT_ANSWERS = new Set(["是", "否", "有", "无", "对", "错", "是的", "不是", "yes", "no", "true", "false"]);
+const CODE_OR_MATH = /```[\s\S]*?```|`[^`\n]+`|\$\$[\s\S]*?\$\$|\$(?!\{)[^$\n]+\$/g;
 
 function normalizeContent(value: string): string {
     return String(value ?? "").normalize("NFC").toLocaleLowerCase().replace(PUNCTUATION_AND_SPACE, "");
@@ -40,10 +41,14 @@ export function findAiCardGateIssues(cards: readonly AiCardDraft[]): AiCardGateI
         if (normalizedAnswer.length >= 2 && !GENERIC_SHORT_ANSWERS.has(normalizedAnswer) && normalizedQuestion.includes(normalizedAnswer)) {
             issues.push("answer-in-question");
         }
-        if (/[;；]/.test(q) || (q.match(/[?？]/g)?.length ?? 0) > 1) {
+        // Literal code/formulas may contain semicolons, question marks and ${...};
+        // those tokens are material to learn, rather than unfinished AI output.
+        const questionProse = q.replace(CODE_OR_MATH, " ");
+        const answerProse = a.replace(CODE_OR_MATH, " ");
+        if (/[;；]/.test(questionProse) || (questionProse.match(/[?？]/g)?.length ?? 0) > 1) {
             issues.push("multiple-questions");
         }
-        if (PLACEHOLDER.test(q) || PLACEHOLDER.test(a)) issues.push("template-placeholder");
+        if (PLACEHOLDER.test(questionProse) || PLACEHOLDER.test(answerProse)) issues.push("template-placeholder");
         return issues;
     });
 }

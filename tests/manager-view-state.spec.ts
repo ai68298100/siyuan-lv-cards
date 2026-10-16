@@ -1,20 +1,25 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/svelte";
 import Manager from "../src/ui/manager.svelte";
+import fullI18n from "../public/i18n/zh-CN.json";
 
-const { getRiffCards, invalidateDueCache } = vi.hoisted(() => ({
+const { getRiffCards, getRiffCardsByBlockIDs, invalidateDueCache, removeRiffCards, confirmDialog } = vi.hoisted(() => ({
     getRiffCards: vi.fn(),
+    getRiffCardsByBlockIDs: vi.fn(),
     invalidateDueCache: vi.fn(),
+    removeRiffCards: vi.fn(),
+    confirmDialog: vi.fn(),
 }));
 
 vi.mock("@/api/riff", () => ({
     getRiffCards,
-    removeRiffCards: vi.fn(),
+    getRiffCardsByBlockIDs,
+    removeRiffCards,
     resetRiffCards: vi.fn(),
 }));
 vi.mock("@/api/due-shared", () => ({ invalidateDueCache }));
-vi.mock("@/api/siyuan", () => ({ getBlockDOM: vi.fn() }));
-vi.mock("@/libs/dialog", () => ({ confirmDialog: vi.fn() }));
+vi.mock("@/api/siyuan", () => ({ getBlockDOM: vi.fn().mockResolvedValue("") }));
+vi.mock("@/libs/dialog", () => ({ confirmDialog }));
 
 const i18n = {
     manager: {
@@ -56,6 +61,9 @@ describe("manager view state", () => {
     beforeEach(() => {
         getRiffCards.mockReset().mockResolvedValue({ blocks: [card], total: 21, pageCount: 5 });
         invalidateDueCache.mockReset();
+        getRiffCardsByBlockIDs.mockReset();
+        removeRiffCards.mockReset().mockResolvedValue(undefined);
+        confirmDialog.mockReset();
     });
 
     afterEach(() => cleanup());
@@ -125,5 +133,37 @@ describe("manager view state", () => {
         await new Promise(resolve => setTimeout(resolve, 250));
         expect(getRiffCards).toHaveBeenCalledTimes(callsBeforeClear + 1);
         expect(screen.getByRole("button", { name: /可恢复现场测试卡/ })).toBeTruthy();
+    });
+
+    it("keeps the latest requested detail when an older lookup finishes later", async () => {
+        let resolveA!: (value: any) => void;
+        let resolveB!: (value: any) => void;
+        getRiffCardsByBlockIDs.mockReturnValueOnce(new Promise(resolve => { resolveA = resolve; }))
+            .mockReturnValueOnce(new Promise(resolve => { resolveB = resolve; }));
+        const context = managerContext({ i18n: fullI18n, initialBlockID: "card-a" });
+        const view = render(Manager, { ctx: context });
+        await waitFor(() => expect(getRiffCardsByBlockIDs).toHaveBeenCalledWith(["card-a"]));
+        await view.rerender({ ctx: { ...context, initialBlockID: "card-b" } });
+        await waitFor(() => expect(getRiffCardsByBlockIDs).toHaveBeenCalledWith(["card-b"]));
+        resolveB({ blocks: [{ id: "card-b", content: "最新卡面 B" }] });
+        await screen.findByRole("dialog");
+        expect(await screen.findByText("最新卡面 B")).toBeTruthy();
+        resolveA({ blocks: [{ id: "card-a", content: "陈旧卡面 A" }] });
+        await new Promise(resolve => setTimeout(resolve, 0));
+        expect(screen.queryByText("陈旧卡面 A")).toBeNull();
+        expect(screen.getByText("最新卡面 B")).toBeTruthy();
+    });
+
+    it("removes the confirmed selection even if a background refresh clears it", async () => {
+        render(Manager, { ctx: managerContext() });
+        await screen.findByRole("button", { name: /可恢复现场测试卡/ });
+        await fireEvent.click(screen.getByRole("checkbox", { name: "选择卡片 card-a" }));
+        await fireEvent.click(screen.getByRole("button", { name: "移除" }));
+        expect(confirmDialog).toHaveBeenCalledTimes(1);
+        const confirm = confirmDialog.mock.calls[0][0].confirm;
+        await fireEvent.click(screen.getByRole("button", { name: "刷新" }));
+        await waitFor(() => expect(getRiffCards).toHaveBeenCalledTimes(2));
+        await confirm();
+        expect(removeRiffCards).toHaveBeenCalledWith("", ["card-a"]);
     });
 });

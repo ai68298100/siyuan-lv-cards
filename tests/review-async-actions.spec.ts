@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/svelte";
 import Review from "../src/ui/review.svelte";
 
+vi.mock("svelte/transition", () => ({ fade: () => ({ duration: 0, css: () => "" }) }));
+
 const { getRiffDueCards, getRiffDecks, batchSetRiffCardsDueTime, reviewRiffCard, skipReviewRiffCard, getNotebooks, getBlockAttrs, getBlockDOM } = vi.hoisted(() => ({
     getRiffDueCards: vi.fn(),
     getRiffDecks: vi.fn(),
@@ -95,6 +97,10 @@ function mountReview(choiceEnabled = false, ttsEnabled = false, sfxEnabled = fal
 
 describe("review async action guards", () => {
     beforeEach(() => {
+        Object.defineProperty(window, "siyuan", {
+            configurable: true,
+            value: { languages: { confirm: "Confirm", cancel: "Cancel" } },
+        });
         getRiffDueCards.mockReset().mockResolvedValue({ cards: [cardA, cardB], unreviewedCount: 2 });
         getRiffDecks.mockReset().mockResolvedValue([]);
         batchSetRiffCardsDueTime.mockReset().mockResolvedValue(undefined);
@@ -163,12 +169,27 @@ describe("review async action guards", () => {
         await fireEvent.click(confirm);
         await waitFor(() => expect(batchSetRiffCardsDueTime).toHaveBeenCalledTimes(1));
         await waitFor(() => expect(screen.getAllByText("offline").length).toBeGreaterThan(0));
-        const retryButton = screen.getByRole("button", { name: "Confirm" });
+        const retryButton = screen.getByRole("button", { name: /(Confirm|t\.review\.rescheduleRetrySame)/ });
         await fireEvent.click(retryButton);
         await waitFor(() => expect(batchSetRiffCardsDueTime).toHaveBeenCalledTimes(2));
 
         expect(batchSetRiffCardsDueTime.mock.calls[1][0]).toEqual(batchSetRiffCardsDueTime.mock.calls[0][0]);
         await screen.findByText("block-b body");
+    });
+
+    it("formats reschedule preview with the active document language", async () => {
+        const language = document.documentElement.lang;
+        document.documentElement.lang = "en-US";
+        vi.spyOn(Date, "now").mockReturnValue(new Date("2026-10-12T01:02:03.000Z").getTime());
+        try {
+            const view = mountReview();
+            await screen.findByText("block-a body");
+            await fireEvent.keyDown(window, { key: "f" });
+            const expected = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(Date.now() + 86400000));
+            expect(view.container.querySelector(".lv-reschedule strong")?.textContent).toBe(expected);
+        } finally {
+            document.documentElement.lang = language;
+        }
     });
 
     it("cancels active speech and closes its audio context when the review is destroyed", async () => {
@@ -214,5 +235,216 @@ describe("review async action guards", () => {
 
         expect(cancel).toHaveBeenCalled();
         expect(close).toHaveBeenCalledOnce();
+    });
+
+    it("pauses review and preserves session state when pause confirm is clicked", async () => {
+        const testCtx = ctx();
+        testCtx.tagErrorReason = vi.fn();
+        Object.defineProperty(window, "siyuan", {
+            configurable: true,
+            value: { languages: { confirm: "Confirm", cancel: "Cancel" } },
+        });
+        const view = render(Review, { ctx: testCtx });
+        await screen.findByText("block-a body");
+
+        // 打开暂停弹窗
+        const pauseBtn = screen.getByRole("button", { name: "t.review.pauseTitle" });
+        await fireEvent.click(pauseBtn);
+        expect(screen.getByText("t.review.pauseDesc")).toBeTruthy();
+
+        // 确认暂停并返回今日
+        const confirmBtn = screen.getByRole("button", { name: "t.review.pauseConfirm" });
+        await fireEvent.click(confirmBtn);
+
+        expect(testCtx.saveSessionState).toHaveBeenCalledOnce();
+        expect(testCtx.openDashboard).toHaveBeenCalledWith("overview");
+        view.unmount();
+    });
+
+    it("marks issue on current card without interrupting review", async () => {
+        const testCtx = ctx();
+        testCtx.tagErrorReason = vi.fn();
+        Object.defineProperty(window, "siyuan", {
+            configurable: true,
+            value: { languages: { confirm: "Confirm", cancel: "Cancel" } },
+        });
+        const view = render(Review, { ctx: testCtx });
+        await screen.findByText("block-a body");
+
+        // 点击标记疑问
+        const markBtn = screen.getByRole("button", { name: "t.review.tbMarkIssue" });
+        await fireEvent.click(markBtn);
+
+        expect(testCtx.tagErrorReason).toHaveBeenCalledWith("card-a", "question-unclear");
+        expect(screen.getAllByText("🚩 t.review.issueChip")).toHaveLength(2);
+        expect(markBtn.hasAttribute("disabled")).toBe(true);
+        await fireEvent.click(markBtn);
+        expect(testCtx.tagErrorReason).toHaveBeenCalledOnce();
+        view.unmount();
+    });
+
+    it.each([false, true])("keeps a paused review inert until the user returns to its panel (navigation fails: %s)", async (navigationFails) => {
+        const testCtx = ctx();
+        if (navigationFails) testCtx.openDashboard.mockImplementation(() => { throw new Error("tab unavailable"); });
+        const view = render(Review, { ctx: testCtx });
+        await screen.findByText("block-a body");
+        await fireEvent.click(screen.getByRole("button", { name: "t.review.pauseTitle" }));
+        await fireEvent.click(screen.getByRole("button", { name: "t.review.pauseConfirm" }));
+        await fireEvent.keyDown(window, { key: "x" });
+        await fireEvent.keyDown(window, { key: " ", code: "Space" });
+        await fireEvent.keyDown(window, { key: "Enter", code: "Enter" });
+        expect(skipReviewRiffCard).not.toHaveBeenCalled();
+        expect(reviewRiffCard).not.toHaveBeenCalled();
+        expect(view.container.querySelector(".lv-btn-rate")).toBeNull();
+        expect(screen.getByRole("button", { name: "t.review.pauseContinue" })).toBeTruthy();
+
+        await fireEvent.pointerDown(view.container.querySelector(".lv-review")!);
+        await fireEvent.keyDown(window, { key: " ", code: "Space" });
+        expect(view.container.querySelector(".lv-btn-rate")).toBeTruthy();
+        expect(reviewRiffCard).not.toHaveBeenCalled();
+    });
+
+    it("preserves native toolbar activation keys without revealing or rating a card", async () => {
+        const view = mountReview();
+        await screen.findByText("block-a body");
+        const pause = screen.getByRole("button", { name: "t.review.pauseTitle" });
+        const event = new KeyboardEvent("keydown", { key: "Enter", code: "Enter", bubbles: true, cancelable: true });
+        await fireEvent(pause, event);
+        expect(event.defaultPrevented).toBe(false);
+        expect(view.container.querySelector(".lv-btn-rate")).toBeNull();
+        expect(reviewRiffCard).not.toHaveBeenCalled();
+    });
+
+    it("discards an old context response after changing the current card", async () => {
+        const context = deferred<{ id: string; html: string }[]>();
+        const testCtx = ctx();
+        testCtx.getContextBlocks = () => context.promise;
+        render(Review, { ctx: testCtx });
+        await screen.findByText("block-a body");
+        await fireEvent.click(screen.getByRole("button", { name: "t.review.tbMoreDesc" }));
+        await fireEvent.click(screen.getByRole("button", { name: /t.review.tbCtx/ }));
+        await fireEvent.click(screen.getByRole("button", { name: "t.review.skip" }));
+        await screen.findByText("block-b body");
+        context.resolve([{ id: "context-a", html: "<p>old context A</p>" }]);
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(screen.queryByText("old context A")).toBeNull();
+    });
+
+    it("rebuilds choice answers after refreshing an edited source block", async () => {
+        let answer = "old answer";
+        getBlockDOM.mockImplementation(async (id: string) => `<p>Question ${id} <mark>${id === "block-a" ? answer : "distractor"}</mark></p>`);
+        mountReview(true);
+        await screen.findByRole("button", { name: /^[A-Z]\. old answer$/ });
+        answer = "updated answer";
+        await fireEvent.click(screen.getByRole("button", { name: "t.review.tbMoreDesc" }));
+        await fireEvent.click(screen.getByRole("button", { name: /t.review.tbRefresh/ }));
+        await screen.findByRole("button", { name: /^[A-Z]\. updated answer$/ });
+        expect(screen.queryByRole("button", { name: /^[A-Z]\. old answer$/ })).toBeNull();
+    });
+
+    it.each(["t.review.pauseTitle", "t.review.sessionOptionsTitle"])("blocks review shortcuts while %s is open and closes it with Escape", async (opener) => {
+        mountReview();
+        await screen.findByText("block-a body");
+        await fireEvent.click(screen.getByRole("button", { name: opener }));
+
+        await fireEvent.keyDown(window, { key: "x" });
+        await fireEvent.keyDown(window, { key: " ", code: "Space" });
+        await fireEvent.keyDown(window, { key: "Enter", code: "Enter" });
+
+        expect(skipReviewRiffCard).not.toHaveBeenCalled();
+        expect(reviewRiffCard).not.toHaveBeenCalled();
+        expect(screen.getByText("block-a body")).toBeTruthy();
+        await fireEvent.keyDown(window, { key: "Escape" });
+        expect(screen.queryByText(opener === "t.review.pauseTitle" ? "t.review.pauseDesc" : "t.review.sessionOptionsHint")).toBeNull();
+    });
+
+    it("restores the original answer and skip exclusions when undoing a skip", async () => {
+        const testCtx = ctx();
+        testCtx.settings = () => ({ ...settings(), typingEnabled: true });
+        render(Review, { ctx: testCtx });
+        await screen.findByText("block-a body");
+        await fireEvent.click(screen.getByRole("button", { name: "t.review.skip" }));
+        await screen.findByText("block-b body");
+        await waitFor(() => expect(screen.getByRole("button", { name: "t.review.undoTitle" }).hasAttribute("disabled")).toBe(false));
+        await fireEvent.click(screen.getByRole("button", { name: "t.review.undoTitle" }));
+        await screen.findByText("block-a body");
+
+        expect(testCtx.saveSessionState.mock.lastCall?.[0].skippedIDs).toEqual([]);
+        const typingInput = await screen.findByPlaceholderText("t.review.typingPlaceholder");
+        await fireEvent.input(typingInput, { target: { value: "block-a body" } });
+        await fireEvent.keyDown(screen.getByPlaceholderText("t.review.typingPlaceholder"), { key: "Enter" });
+        expect(document.querySelector(".lv-typing-diff")).toBeTruthy();
+        expect(document.querySelector(".lv-diff-bad")).toBeNull();
+    });
+
+    it("does not reveal the current answer when dismissing an overlay scrim", async () => {
+        const view = mountReview();
+        await screen.findByText("block-a body");
+        await fireEvent.click(screen.getByRole("button", { name: "t.review.pauseTitle" }));
+        await fireEvent.click(view.container.querySelector(".lv-modal-backdrop")!);
+        expect(view.container.querySelector(".lv-btn-rate")).toBeNull();
+        await fireEvent.click(screen.getByRole("button", { name: "t.review.tbMoreDesc" }));
+        await fireEvent.click(view.container.querySelector(".lv-toolbar-more-scrim")!);
+        expect(view.container.querySelector(".lv-btn-rate")).toBeNull();
+    });
+
+    it("stops the previous card countdown before loading the next face", async () => {
+        const nextFace = deferred<string>();
+        const now = Date.now();
+        const clock = vi.spyOn(Date, "now").mockReturnValue(now);
+        const testCtx = ctx();
+        testCtx.settings = () => ({ ...settings(), timeoutMode: "reveal" as const, timeoutSeconds: 1 });
+        getBlockDOM.mockImplementation((id: string) => id === "block-b" ? nextFace.promise : Promise.resolve(`<p>${id} body</p>`));
+        const view = render(Review, { ctx: testCtx });
+        await screen.findByText("block-a body");
+        await fireEvent.click(screen.getByRole("button", { name: "t.review.skip" }));
+        await waitFor(() => expect(getBlockDOM).toHaveBeenCalledWith("block-b"));
+        clock.mockReturnValue(now + 5000);
+        await new Promise(resolve => setTimeout(resolve, 300));
+        expect(view.container.querySelector(".lv-btn-rate")).toBeNull();
+        nextFace.resolve("<p>block-b body</p>");
+        await screen.findByText("block-b body");
+    });
+
+    it("opens and closes the streamlined more actions popover via button, scrim and escape key", async () => {
+        const testCtx = ctx();
+        Object.defineProperty(window, "siyuan", {
+            configurable: true,
+            value: { languages: { confirm: "Confirm", cancel: "Cancel" } },
+        });
+        const view = render(Review, { ctx: testCtx });
+        await screen.findByText("block-a body");
+
+        // 默认核心高频按钮处于常驻显示状态
+        expect(screen.getByRole("button", { name: "t.review.pauseTitle" })).toBeTruthy();
+        expect(screen.getByRole("button", { name: "t.review.tbMarkIssue" })).toBeTruthy();
+        expect(screen.getByRole("button", { name: "t.review.undoTitle" })).toBeTruthy();
+
+        // 初始状态下二级操作气泡未展开
+        const moreBtn = screen.getByRole("button", { name: /(t\.review\.tbMore|t\.review\.tbMoreDesc)/ });
+        expect(moreBtn.getAttribute("aria-expanded")).toBe("false");
+        expect(view.container.querySelector(".lv-toolbar-more-menu")).toBeNull();
+
+        // 点击展开气泡
+        await fireEvent.click(moreBtn);
+        expect(moreBtn.getAttribute("aria-expanded")).toBe("true");
+        const menu = view.container.querySelector(".lv-toolbar-more-menu");
+        expect(menu).toBeTruthy();
+        expect(screen.getByText("t.review.tbCtx")).toBeTruthy();
+        expect(screen.getByText("t.review.tbHelp")).toBeTruthy();
+
+        // 按 Escape 键优雅关闭气泡
+        await fireEvent.keyDown(window, { key: "Escape" });
+        expect(view.container.querySelector(".lv-toolbar-more-menu")).toBeNull();
+
+        // 再次打开并通过点击背景 scrim 关闭
+        await fireEvent.click(moreBtn);
+        expect(view.container.querySelector(".lv-toolbar-more-menu")).toBeTruthy();
+        const scrim = view.container.querySelector(".lv-toolbar-more-scrim")!;
+        await fireEvent.click(scrim);
+        expect(view.container.querySelector(".lv-toolbar-more-menu")).toBeNull();
+
+        view.unmount();
     });
 });

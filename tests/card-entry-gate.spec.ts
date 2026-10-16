@@ -45,13 +45,41 @@ describe("card-entry-gate", () => {
         ]);
     });
 
-    it("rejects entity-only and zero-width question placeholders", () => {
+    it("rejects entity-only, zero-width, punctuation-only, and invalid image placeholders", () => {
         expect(validateCardEntries([
             { blockID: "nbsp", markdown: "&nbsp; ==答案==" },
             { blockID: "zero-width", markdown: "\u200b\u200d ==答案==" },
+            { blockID: "question-marks", markdown: "??? ==答案==" },
+            { blockID: "fullwidth-marks", markdown: "？？？ ==答案==" },
+            { blockID: "dots", markdown: "... ==答案==" },
+            { blockID: "dashes", markdown: "—— ==答案==" },
+            { blockID: "empty-img-md", markdown: "![]() ==答案==" },
+            { blockID: "empty-img-html", markdown: '<img src=""> ==答案==' },
         ])).toEqual([
             { blockID: "nbsp", ok: false, issue: "missing-question" },
             { blockID: "zero-width", ok: false, issue: "missing-question" },
+            { blockID: "question-marks", ok: false, issue: "missing-question" },
+            { blockID: "fullwidth-marks", ok: false, issue: "missing-question" },
+            { blockID: "dots", ok: false, issue: "missing-question" },
+            { blockID: "dashes", ok: false, issue: "missing-question" },
+            { blockID: "empty-img-md", ok: false, issue: "missing-question" },
+            { blockID: "empty-img-html", ok: false, issue: "missing-question" },
+        ]);
+    });
+
+    it("protects legitimate short terms, formulas, and code in card entry", () => {
+        expect(validateCardEntries([
+            { blockID: "short-term", markdown: "DNA ==脱氧核糖核酸==" },
+            { blockID: "single-number", markdown: "3 ==数字三==" },
+            { blockID: "latex-formula", markdown: "$E=mc^2$ ==质能方程==" },
+            { blockID: "code-snippet", markdown: "`i++` ==自增运算符==" },
+            { blockID: "valid-image", markdown: "![架构](assets/arch.png) ==系统架构==" },
+        ])).toEqual([
+            { blockID: "short-term", ok: true, kind: "markdown" },
+            { blockID: "single-number", ok: true, kind: "markdown" },
+            { blockID: "latex-formula", ok: true, kind: "markdown" },
+            { blockID: "code-snippet", ok: true, kind: "markdown" },
+            { blockID: "valid-image", ok: true, kind: "markdown" },
         ]);
     });
 

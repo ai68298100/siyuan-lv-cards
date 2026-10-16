@@ -95,6 +95,13 @@
                 summary: { update: number; unchanged: number; rejected: number };
             }>;
             applyRepair: (previewID: string) => Promise<{ blockIDs: string[] }>;
+            getLastRepairRecord?: () => {
+                previewID: string;
+                appliedAt: number;
+                summary: { update: number; unchanged: number; rejected: number };
+                diffs: { blockID: string; action: string; beforeMarkdown?: string; afterMarkdown?: string; errors?: string[] }[];
+            } | null;
+            rollbackLastRepair?: () => Promise<{ blockIDs: string[]; previewID: string }>;
             acknowledgeSourceHealth?: (blockID: string) => Promise<void>;
             suspendToday: (blockIDs: string[]) => void;
             unsuspendToday: (blockIDs: string[]) => void;
@@ -141,7 +148,8 @@
         ...(uiMode !== "simple" ? [{ id: "maintenance", label: i18n.hubTabMaintenance }] : []),
         { id: "recovery", label: i18n.hubTabRecovery ?? "待处理与恢复" },
     ];
-    const knownIds = new Set(["today", "library", "studio", "learning", "settings", ...legacyTabs.map(t => t.id)]);
+    // 简洁模式隐藏高级导航，但今日建议与恢复中心仍可直达维护闭环。
+    const knownIds = new Set(["today", "library", "studio", "learning", "settings", "maintenance", ...legacyTabs.map(t => t.id)]);
     function initialRoute(id: string): string {
         if (id === "settings") return "settings";
         if (knownIds.has(id) && (id === "overview" || id === "manage" || id === "authoring" || id === "goals" || id === "inbox" || id === "exam" || id === "maintenance" || id === "recovery")) return id;
@@ -185,7 +193,7 @@
     let managerDeckScope = $state<{ id: string; name: string } | null>(null);
     // 维护页打开卡片时建立一次性返回点；保存成功后由管理器回到维护页，
     // 维护页重新挂载并自动执行扫描。
-    let managerReturnToMaintenance = $state(false);
+    let managerReturnToMaintenance = $state("");
 
     function openFullSettings() {
         openSettings?.(() => {
@@ -306,7 +314,7 @@
         const route = id === "today" ? "overview" : id === "library" ? "manage" : id === "studio" ? "authoring" : id === "learning" ? "goals" : id;
         if (!knownIds.has(route) && route !== "settings") return;
         // 离开管理器即放弃未完成的维护页返回点，避免随后从普通卡库编辑时误跳回维护页。
-        if (route !== "manage") managerReturnToMaintenance = false;
+        if (route !== "manage") managerReturnToMaintenance = "";
         if (route !== "manage" || !preserveDeckScope) managerDeckScope = null;
         active = route;
         // settings 是 Hub 内部的稳定入口，旧宿主没有对应的 lastHubTab route，
@@ -315,15 +323,15 @@
         void tick().then(() => document.getElementById(active === "authoring" ? "lv-hub-studio-panel" : "lv-hub-panel")?.focus());
     }
 
-    async function handleManagerCardSaved(_blockID: string) {
-        if (!managerReturnToMaintenance) return;
-        managerReturnToMaintenance = false;
+    async function handleManagerCardSaved(blockID: string) {
+        if (!managerReturnToMaintenance || managerReturnToMaintenance !== blockID) return;
+        managerReturnToMaintenance = "";
         managerInitialBlockID = "";
         switchTab("maintenance");
     }
 
     function openMaintenanceCard(blockID: string) {
-        managerReturnToMaintenance = true;
+        managerReturnToMaintenance = blockID;
         managerInitialBlockID = blockID;
         switchTab("manage");
     }
@@ -481,7 +489,9 @@
                     <!-- T08：注入页签切换（待处理分区直达收件箱） -->
                     <Dashboard ctx={{ ...dctx, openHubTab: (id: string) => switchTab(id) }} />
                 {:else if active === "manage"}
+                    {#key managerDeckScope?.id ?? ""}
                     <Manager ctx={{ ...managerCtx, initialBlockID: managerInitialBlockID, onInitialBlockConsumed: () => (managerInitialBlockID = ""), onCardContentSaved: handleManagerCardSaved, deckScope: managerDeckScope, clearDeckScope: () => (managerDeckScope = null) }} />
+                    {/key}
                 {:else if active === "settings"}
                     <div class="lv-r54-settings">
                         <div class="lv-pagehead">
@@ -730,8 +740,8 @@
         color: var(--lv-color-text);
         font-size: var(--lv-type-meta-size);
         line-height: 1.5;
-        border: 1px solid color-mix(in srgb, var(--lv-color-warning) 20%, transparent);
-        box-shadow: var(--lv-shadow-card);
+        border: 1px solid color-mix(in srgb, var(--lv-color-warning) 24%, transparent);
+        box-shadow: var(--lv-shadow-card), inset 0 1px 0 color-mix(in srgb, white 40%, transparent);
         strong { font-weight: var(--lv-fw-emphasis); display: block; }
     }
     .lv-r54-sidebar-version { margin: 0 calc(var(--lv-space-unit) * 4); color: var(--lv-color-text-muted); font-size: var(--lv-type-caption-size); line-height: 1.4; }
@@ -745,8 +755,13 @@
         gap: var(--lv-sp-4);
         padding: 0 calc(var(--lv-space-unit) * 15);
         border-bottom: 1px solid var(--lv-border);
-        background: var(--lv-color-surface);
+        background: color-mix(in srgb, var(--lv-color-surface) 92%, transparent);
+        backdrop-filter: blur(12px) saturate(1.15);
+        -webkit-backdrop-filter: blur(12px) saturate(1.15);
         box-shadow: 0 1px 3px color-mix(in srgb, black 3%, transparent);
+        position: sticky;
+        top: 0;
+        z-index: 10;
     }
 
     @container lv-hub (max-width: 1040px) {
@@ -914,7 +929,10 @@
             flex: none;
             padding: calc(var(--lv-space-unit) * 3) var(--lv-sp-3) max(calc(var(--lv-space-unit) * 3), env(safe-area-inset-bottom));
             border-top: 1px solid var(--lv-border);
-            background: var(--lv-color-surface);
+            background: color-mix(in srgb, var(--lv-color-surface) 92%, transparent);
+            backdrop-filter: blur(14px) saturate(1.15);
+            -webkit-backdrop-filter: blur(14px) saturate(1.15);
+            box-shadow: 0 -1px 3px color-mix(in srgb, black 3%, transparent);
         }
         .lv-hub-mobile-btn {
             display: flex;
@@ -929,6 +947,10 @@
             color: var(--lv-color-text-muted);
             font-size: var(--lv-type-meta-size);
             cursor: pointer;
+            transition: transform var(--lv-dur-1) var(--lv-ease), background var(--lv-dur-1) var(--lv-ease), color var(--lv-dur-1) var(--lv-ease);
+        }
+        .lv-hub-mobile-btn:active {
+            transform: scale(0.96);
         }
         .lv-hub-mobile-btn:hover,
         .lv-hub-mobile-btn.lv-hub-mobile-active {

@@ -450,3 +450,123 @@ export function createBatchRepairDiffRecordForPreview(preview: BatchRepairPrevie
         diffs: preview.diffRecord.diffs.map(cloneDiff),
     };
 }
+
+/** 持久化批量修复操作日志项（成功写入后落盘，供重启后审计与撤销）。 */
+export interface MaintenanceRepairJournalEntry {
+    schema: typeof MAINTENANCE_REPAIR_SCHEMA;
+    previewID: string;
+    appliedAt: number;
+    summary: BatchRepairSummary;
+    diffs: BatchRepairDiff[];
+    snapshot: MaintenanceRepairSnapshot;
+    diffRecord: BatchRepairDiffRecord;
+}
+
+/** 持久化批量修复操作日志根容器。 */
+export interface MaintenanceRepairJournal {
+    schema: typeof MAINTENANCE_REPAIR_SCHEMA;
+    entries: MaintenanceRepairJournalEntry[];
+}
+
+export function createEmptyRepairJournal(): MaintenanceRepairJournal {
+    return {
+        schema: MAINTENANCE_REPAIR_SCHEMA,
+        entries: [],
+    };
+}
+
+/** Discard incomplete or incompatible disk records before they reach the recovery UI. */
+export function normalizeRepairJournal(value: unknown): MaintenanceRepairJournal {
+    const object = (input: unknown): input is Record<string, unknown> => Boolean(input && typeof input === "object" && !Array.isArray(input));
+    const text = (input: unknown): input is string => typeof input === "string" && input.trim().length > 0;
+    const time = (input: unknown): input is number => typeof input === "number" && Number.isFinite(input) && input >= 0;
+    const summary = (input: unknown): input is BatchRepairSummary => object(input)
+        && [input.update, input.unchanged, input.rejected].every(count => typeof count === "number" && Number.isSafeInteger(count) && count >= 0);
+    const diff = (input: unknown): input is BatchRepairDiff => object(input) && text(input.blockID)
+        && (input.action === "update" || input.action === "unchanged")
+        && typeof input.beforeMarkdown === "string" && typeof input.afterMarkdown === "string"
+        && (input.reason === undefined || typeof input.reason === "string")
+        && (input.errors === undefined || (Array.isArray(input.errors) && input.errors.every(error => typeof error === "string")));
+    const empty = createEmptyRepairJournal();
+    if (!object(value) || value.schema !== MAINTENANCE_REPAIR_SCHEMA || !Array.isArray(value.entries)) return empty;
+    const seen = new Set<string>();
+    for (const candidate of value.entries) {
+        if (!object(candidate) || candidate.schema !== MAINTENANCE_REPAIR_SCHEMA || !text(candidate.previewID)
+            || !time(candidate.appliedAt) || !summary(candidate.summary) || candidate.summary.update === 0 || candidate.summary.rejected !== 0
+            || !Array.isArray(candidate.diffs) || !candidate.diffs.every(diff)
+            || candidate.diffs.some(item => item.action !== "update" || item.beforeMarkdown === item.afterMarkdown)
+            || candidate.diffs.length !== candidate.summary.update) continue;
+        const snapshot = candidate.snapshot;
+        const record = candidate.diffRecord;
+        if (!object(snapshot) || snapshot.schema !== MAINTENANCE_REPAIR_SCHEMA || !text(snapshot.snapshotID) || !time(snapshot.createdAt)
+            || !Array.isArray(snapshot.entries) || snapshot.entries.length !== candidate.diffs.length
+            || !object(record) || record.schema !== MAINTENANCE_REPAIR_SCHEMA || record.previewID !== candidate.previewID
+            || (record.status !== "applied" && record.status !== "rolledBack") || !time(record.createdAt) || !time(record.updatedAt)
+            || !summary(record.summary) || record.summary.update !== candidate.summary.update || record.summary.unchanged !== candidate.summary.unchanged
+            || record.summary.rejected !== 0 || !Array.isArray(record.diffs) || !record.diffs.every(diff)
+            || (record.error !== undefined && typeof record.error !== "string")) continue;
+        const updates = new Map(candidate.diffs.map(item => [item.blockID, item]));
+        if (updates.size !== candidate.diffs.length || new Set(record.diffs.map(item => item.blockID)).size !== record.diffs.length
+            || record.diffs.length !== record.summary.update + record.summary.unchanged
+            || record.diffs.filter(item => item.action === "update").length !== updates.size
+            || record.diffs.some(item => item.action === "update" && (updates.get(item.blockID)?.beforeMarkdown !== item.beforeMarkdown || updates.get(item.blockID)?.afterMarkdown !== item.afterMarkdown))) continue;
+        const snapshotIDs = new Set<string>();
+        if (!snapshot.entries.every(item => {
+            if (!object(item) || !text(item.blockID) || typeof item.markdown !== "string" || snapshotIDs.has(item.blockID)
+                || updates.get(item.blockID)?.beforeMarkdown !== item.markdown
+                || (item.exists !== undefined && typeof item.exists !== "boolean")
+                || (item.occlusionValid !== undefined && typeof item.occlusionValid !== "boolean")
+                || (item.attrs !== undefined && (!object(item.attrs) || !Object.values(item.attrs).every(attr => typeof attr === "string")))) return false;
+            snapshotIDs.add(item.blockID);
+            return true;
+        }) || seen.has(candidate.previewID)) continue;
+        // All required structure and the rollback write set are now checked. Clone
+        // so consumers cannot mutate the caller's persisted object by accident.
+        const entry = candidate as unknown as MaintenanceRepairJournalEntry;
+        empty.entries.push({
+            schema: MAINTENANCE_REPAIR_SCHEMA,
+            previewID: entry.previewID,
+            appliedAt: entry.appliedAt,
+            summary: cloneSummary(entry.summary),
+            diffs: entry.diffs.map(cloneDiff),
+            snapshot: cloneSnapshot(entry.snapshot),
+            diffRecord: { ...entry.diffRecord, summary: cloneSummary(entry.diffRecord.summary), diffs: entry.diffRecord.diffs.map(cloneDiff) },
+        });
+        seen.add(entry.previewID);
+    }
+    return empty;
+}
+
+export function appendRepairJournalEntry(
+    journal: MaintenanceRepairJournal | null | undefined,
+    entry: MaintenanceRepairJournalEntry,
+    limit: number = 5,
+): MaintenanceRepairJournal {
+    const prev = journal?.entries ?? [];
+    const filtered = prev.filter(e => e.previewID !== entry.previewID);
+    const list = [entry, ...filtered].slice(0, limit);
+    return {
+        schema: MAINTENANCE_REPAIR_SCHEMA,
+        entries: list,
+    };
+}
+
+export function updateRepairJournalEntryStatus(
+    journal: MaintenanceRepairJournal | null | undefined,
+    previewID: string,
+    status: BatchRepairRecordStatus,
+    now: number = Date.now(),
+): MaintenanceRepairJournal {
+    const prev = journal?.entries ?? [];
+    const entries = prev.map(entry => {
+        if (entry.previewID !== previewID) return entry;
+        return {
+            ...entry,
+            diffRecord: transitionBatchRepairRecord(entry.diffRecord, status, now),
+        };
+    });
+    return {
+        schema: MAINTENANCE_REPAIR_SCHEMA,
+        entries,
+    };
+}

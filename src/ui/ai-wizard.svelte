@@ -8,6 +8,7 @@
     import { maskSensitive, scanSensitive, type SensitiveHit } from "@/core/ai-sensitive";
     import { scoreBatch, type Scorecard } from "@/core/ai-quality-scorecard";
     import { validateQaDraft } from "@/core/flashcard-quality";
+    import { renderUnifiedCardFace } from "@/core/card-face";
     import { inspectAiCandidates, selectImportableAiCandidates, type AiCardGateIssue } from "@/core/ai-card-gate";
     import { planReview, type ReviewPlan } from "@/core/ai-review-strategy";
     import { appendVersion, type CardProvenance, type ProvenanceVersion } from "@/core/ai-provenance";
@@ -142,19 +143,21 @@
     let newName = $state("");
 
     /** T03 片二：审阅状态——已选(keep)≠已审(review)；入库只取 已选+已接受 */
-    let candidates: { q: string; a: string; d?: number; keep: boolean; origIndex: number; review: "pending" | "accepted" | "verified" }[] = $state([]);
+    let candidates: { q: string; a: string; d?: number; keep: boolean; origIndex: number; review: "pending" | "accepted" | "verified" | "needsCheck"; edited?: boolean }[] = $state([]);
     let draftIssues = $derived(candidates.map(c => validateQaDraft(c.q, c.a)));
     let gateIssues: AiCardGateIssue[][] = $derived(inspectAiCandidates(candidates));
     let acceptedCount = $derived(selectImportableAiCandidates(candidates).length);
     const canImport = $derived(acceptedCount > 0 && (decks.some(d => d.id === selected) || !!newName.trim()));
-    /** 编辑已接受卡 → 退回未审（修改后需重新核对，docs/13 §5） */
+    /** 编辑已接受卡 → 退回未审（修改后需重新核对，docs/13 §5；标记已编辑需重新接受，对齐 R54 规范） */
     function touchCandidate(i: number) {
-        if (candidates[i]?.review === "accepted") {
-            candidates[i] = { ...candidates[i], review: "pending" };
+        if (creating || regenBusy !== null) return;
+        if (candidates[i]) {
+            candidates[i] = { ...candidates[i], review: "pending", edited: true };
             candidates = [...candidates];
         }
     }
-    function setReview(i: number, review: "accepted" | "verified" | "pending") {
+    function setReview(i: number, review: "accepted" | "verified" | "needsCheck" | "pending") {
+        if (creating || regenBusy !== null) return;
         if (review === "accepted" && draftIssues[i]?.length) {
             errorMsg = t.aiWizard.invalidDraft;
             return;
@@ -166,12 +169,13 @@
         if (review === "accepted") {
             recordUserVersion(i); // BU-15：接受即留痕用户当前文本（编辑后接受=用户版本）
         }
-        candidates[i] = { ...candidates[i], review };
+        candidates[i] = { ...candidates[i], review, edited: false };
         candidates = [...candidates];
     }
     function acceptAll() {
+        if (creating || regenBusy !== null) return;
         const hasBlockedCard = candidates.some((c, i) => c.keep && gateIssues[i].length > 0);
-        candidates = candidates.map((c, i) => (c.keep && c.review !== "verified" && draftIssues[i].length === 0 && gateIssues[i].length === 0 ? { ...c, review: "accepted" } : c));
+        candidates = candidates.map((c, i) => (c.keep && c.review !== "verified" && draftIssues[i].length === 0 && gateIssues[i].length === 0 ? { ...c, review: "accepted", edited: false } : c));
         errorMsg = hasBlockedCard ? t.aiWizard.qualityBlocked : "";
     }
     /** AQ-16 预览 lint：随 candidates（含编辑）响应式重算（批内重复/过长/过短） */
@@ -188,7 +192,7 @@
         const problemRatio = comps.filter(c => c < 70).length / comps.length;
         return planReview({
             taskRisk: "low", // 当前在册任务仅制卡（低风险）；扩展任务登记时随任务声明
-            modelTrust: modelTrustKnown?.() === false ? "unknown" : "known",
+            modelTrust: modelTrustKnown?.() === true ? "known" : "unknown",
             sourceTrust: sources.some(s => s.unverified) ? "unverified" : "trusted",
             avgComposite: avg,
             problemRatio,
@@ -199,7 +203,7 @@
     let prov: CardProvenance[] = $state([]);
 
     function provOf(i: number): CardProvenance {
-        return prov[i] ?? { index: i, versions: [] };
+        return prov[i] ?? { index: candidates[i]?.origIndex ?? i, versions: [] };
     }
     /** 记 user 版本（与链尾同文则跳过——防重复留痕） */
     function recordUserVersion(i: number) {
@@ -221,8 +225,20 @@
     }
     /** BU-15：回到某历史版本（置回待审——内容变更须重新核对） */
     function restoreVersion(i: number, v: ProvenanceVersion) {
-        candidates[i] = { ...candidates[i], q: v.q, a: v.a, review: "pending" };
+        if (creating || regenBusy !== null || !candidates[i]) return;
+        recordUserVersion(i);
+        candidates[i] = { ...candidates[i], q: v.q, a: v.a, review: "pending", edited: true };
         candidates = [...candidates];
+    }
+    function removeCandidate(i: number) {
+        if (creating || regenBusy !== null) return;
+        const remainingVersions = candidates.map((_, index) => provOf(index)).filter((_, index) => index !== i);
+        candidates = candidates.filter((_, index) => index !== i);
+        prov = remainingVersions;
+        previewIdx = previewIdx === i ? null : previewIdx !== null && previewIdx > i ? previewIdx - 1 : previewIdx;
+        previewAnswerMap = Object.fromEntries(Object.entries(previewAnswerMap)
+            .filter(([index]) => Number(index) !== i)
+            .map(([index, shown]) => [Number(index) > i ? Number(index) - 1 : Number(index), shown]));
     }
     /** ADR-7：当前预览对应的作业 ID（导入按 candidates 下标断点记账；重生替换内容不换绑定） */
     let currentJobId = $state("");
@@ -271,10 +287,21 @@
     let disposed = false;
     // T02：生成前预览确认（docs/13 §4）——确认后才真正外发
     let previewOpen = $state(false);
+    let preflightConsent = $state(false);
     /** BU-36：打开预览时的分层预算报告（随打开时点计算一次；关闭即清） */
     let budgetPv = $state<BudgetPreview | null>(null);
+    $effect(() => {
+        const material = source;
+        const cfg = { count, language, type: cardType };
+        if (previewOpen) {
+            preflightConsent = false;
+            sensOverride = false;
+            budgetPv = previewBudget?.(material.trim(), cfg) ?? null;
+        }
+    });
     function openPreview() {
         previewOpen = true;
+        preflightConsent = false;
         budgetPv = previewBudget?.(source.trim(), { count, language, type: cardType }) ?? null;
     }
     // T02：来源分条查看原文（单开）
@@ -282,6 +309,7 @@
     // T03：候选审核——来源依据折叠 + 逐卡卡面预览（单开）
     let sourceOpen = $state(false);
     let previewIdx = $state<number | null>(null);
+    let previewAnswerMap = $state<Record<number, boolean>>({});
 
     /** BU-8：发送前敏感扫描（预览打开时随材料响应式重算；命中只显示打码样本，处置权在用户） */
     let sensOverride = $state(false);
@@ -326,8 +354,8 @@
     function planText(plan: ReviewPlan): string {
         const dict = t.aiReview?.plan as any;
         if (!dict) { return plan.decision; }
-        if (plan.decision === "sample" && plan.sampleSize) {
-            return dict.sample.replace("${n}", String(plan.sampleSize));
+        if (plan.decision === "sample" && plan.sampleSize && dict.sample) {
+            return typeof dict.sample === "string" ? dict.sample.replace("${n}", String(plan.sampleSize)) : String(dict.sample);
         }
         return dict[plan.decision] ?? plan.decision;
     }
@@ -434,6 +462,8 @@
 
     /** 剪贴板导入（298）：粘贴字幕/讲义直通向导（权限拒绝时降级提示）；剪贴板来源=未验证（BU-14 审阅强度因子） */
     async function loadClipboard() {
+        if (busy || loadDocBusy) return;
+        loadDocBusy = true;
         try {
             const text = (await navigator.clipboard.readText()).trim();
             if (disposed) {
@@ -452,6 +482,8 @@
                 return;
             }
             errorMsg = t.aiWizard.noClipboardPerm;
+        } finally {
+            if (!disposed) loadDocBusy = false;
         }
     }
 
@@ -466,14 +498,15 @@
         }
         // T02：预填材料（leech 改写联动）记入来源清单
         if (initialSource.trim()) {
-            addSource(t.aiWizard.srcInitial, initialSource);
+            sources = [...sources, { id: `src-${++sourceSeq}`, label: t.aiWizard.srcInitial, content: initialSource }];
         }
         try {
-            decks = await getRiffDecks();
+            const loadedDecks = await getRiffDecks();
             if (disposed) {
                 return;
             }
-            if (decks.length > 0) {
+            decks = [...loadedDecks, ...decks.filter(deck => !loadedDecks.some(loaded => loaded.id === deck.id))];
+            if (decks.length > 0 && !decks.some(deck => deck.id === selected)) {
                 selected = decks[0].id;
             }
         } catch (e: unknown) {
@@ -494,6 +527,7 @@
         genCtrl?.abort();
         genCtrl = null;
         busy = false;
+        regenBusy = null;
     }
 
     onDestroy(() => {
@@ -506,12 +540,13 @@
 
     /** 关闭向导：先取消在途请求再回调宿主（取消不触发 fallback、不写回已关闭向导） */
     function closeWizard() {
+        if (creating) return;
         cancelGeneration();
         onClose();
     }
 
     async function run() {
-        if (!source.trim() || busy) {
+        if (!source.trim() || busy || creating || loadDocBusy || regenBusy !== null) {
             return;
         }
         const seq = ++genSeq;
@@ -519,7 +554,6 @@
         const myCtrl = genCtrl;
         busy = true;
         errorMsg = "";
-        prov = []; // 新一轮生成：版本链重置（BU-15 会话内生命周期随生成批次）
         try {
             // BW-9：随请求携带来源 provenance（generate 侧判 deny 规则——UI 拦截不可绕过的硬门）
             const { cards, jobId, gen } = await generate(source.trim(), { count, language, type: cardType }, { signal: myCtrl.signal, provenance: provenance() });
@@ -529,6 +563,10 @@
             if (cards.length === 0) {
                 throw new Error(t.aiWizard.emptyResult);
             }
+            prov = []; // 仅生成成功后替换旧草稿的版本链，失败/取消仍可返回旧候选。
+            previewIdx = null;
+            previewAnswerMap = {};
+            restoredCandidates = false;
             candidates = cards.map((c, i) => ({ ...c, keep: true, origIndex: i, review: "pending" }));
             // BU-15：生成候选记 ai 版本（gen 缺失=旧宿主，不留痕不阻塞）
             if (gen) {
@@ -553,7 +591,7 @@
     /** 单卡重新生成（296）：同源同参 count=1，替换该张、保留勾选态 */
     let regenBusy = $state<number | null>(null);
     async function regenerateCard(i: number) {
-        if (regenBusy !== null || busy) {
+        if (regenBusy !== null || busy || creating) {
             return;
         }
         if (!source.trim()) {
@@ -611,8 +649,8 @@
     async function importCards() {
         // ADR-7：origIndex 随候选对象存续（✕ 移除后仍指向作业 candidates 原位）
         // T03：入库口径 = 已选 + 已接受（待核实/未审不入库）
-        const picked = selectImportableAiCandidates(candidates);
-        if (picked.length === 0 || creating) {
+        const picked = selectImportableAiCandidates(candidates).map(c => ({ q: c.q, a: c.a, origIndex: c.origIndex }));
+        if (picked.length === 0 || creating || busy || regenBusy !== null) {
             return;
         }
         if ((!selected || !decks.some(d => d.id === selected)) && !newName.trim()) {
@@ -628,12 +666,15 @@
                 const deck = await createRiffDeck(newName.trim());
                 deckID = deck.id;
                 deckName = deck.name;
+                decks = [...decks, deck];
+                selected = deckID;
+                newName = "";
             }
             if (!deckID) {
                 errorMsg = t.quickCardNeedDeck;
                 return;
             }
-            await onCreate(picked.map(c => ({ q: c.q, a: c.a, origIndex: c.origIndex })), deckID, deckName, currentJobId);
+            await onCreate(picked, deckID, deckName, currentJobId);
             if (disposed) {
                 return;
             }
@@ -641,7 +682,17 @@
             if (inboxIDs.length > 0) {
                 onImportComplete?.(inboxIDs);
             }
-            closeWizard();
+            cancelGeneration();
+            if (embedded) {
+                candidates = [];
+                prov = [];
+                currentJobId = "";
+                restoredCandidates = false;
+                previewIdx = null;
+                previewAnswerMap = {};
+                step = 1;
+            }
+            onClose();
         } catch (e: unknown) {
             if (disposed) {
                 return;
@@ -688,11 +739,11 @@
                 <div class="lv-wb-side">
                     <div class="lv-eyebrow">{t.aiWizard.source}</div>
                     {#if loadCurrentDoc}
-                        <button class="b3-button b3-button--small lv-wb-load" disabled={loadDocBusy} onclick={loadActiveDoc}>{t.aiWizard.loadDoc}</button>
+                        <button class="b3-button b3-button--small lv-wb-load" disabled={busy || loadDocBusy} onclick={loadActiveDoc}>{t.aiWizard.loadDoc}</button>
                     {/if}
                     {#if loadNotebookMaterial}
                         <div class="lv-wb-nb">
-                            <button class="b3-button b3-button--small lv-wb-load" disabled={loadDocBusy || nbLoading || nbOptions.length === 0 || !nbId} onclick={loadNotebookContent}>{nbLoading ? t.aiWizard.loadingNotebooks : t.aiWizard.loadNotebook}</button>
+                            <button class="b3-button b3-button--small lv-wb-load" disabled={busy || loadDocBusy || nbLoading || nbOptions.length === 0 || !nbId} onclick={loadNotebookContent}>{nbLoading ? t.aiWizard.loadingNotebooks : t.aiWizard.loadNotebook}</button>
                             <select class="b3-select lv-wb-nb-select" bind:value={nbId} disabled={loadDocBusy || nbLoading || nbOptions.length === 0} aria-label={t.aiWizard.loadNotebook}>
                                 {#if nbOptions.length === 0}<option value="">{nbLoading ? t.aiWizard.loadingNotebooks : t.aiWizard.noNotebookAvailable}</option>{/if}
                                 {#each nbOptions as n (n.id)}<option value={n.id}>{n.name}</option>{/each}
@@ -703,8 +754,8 @@
                             {/if}
                         </div>
                     {/if}
-                    <button class="b3-button b3-button--small lv-wb-load" disabled={loadDocBusy} onclick={loadSelection}>{t.aiWizard.loadSelection}</button>
-                    <button class="b3-button b3-button--small lv-wb-load" disabled={loadDocBusy} onclick={loadClipboard}>{t.aiWizard.loadClipboard}</button>
+                    <button class="b3-button b3-button--small lv-wb-load" disabled={busy || loadDocBusy} onclick={loadSelection}>{t.aiWizard.loadSelection}</button>
+                    <button class="b3-button b3-button--small lv-wb-load" disabled={busy || loadDocBusy} onclick={loadClipboard}>{t.aiWizard.loadClipboard}</button>
                     {#if sources.length > 0}
                         <div class="lv-eyebrow" style="margin-top: calc(var(--lv-space-unit) * 5)">{t.aiWizard.srcLedger}</div>
                         <div class="lv-wb-chips">
@@ -717,9 +768,9 @@
                                     {/if}
                                     {#if (src.docId || src.nbId) && onDenySource}
                                         <!-- BW-9：一键登记禁止外发（落盘规则 + 移除该来源） -->
-                                        <button class="lv-wb-icon" title={t.aiWizard.denySource} aria-label={t.aiWizard.denySource} onclick={() => denySource(src)}>⊘</button>
+                                        <button class="lv-wb-icon" disabled={busy} title={t.aiWizard.denySource} aria-label={t.aiWizard.denySource} onclick={() => denySource(src)}>⊘</button>
                                     {/if}
-                                    <button class="lv-wb-icon" title={t.aiWizard.srcRemove} aria-label={t.aiWizard.srcRemove} onclick={() => removeSource(src.id)}>✕</button>
+                                    <button class="lv-wb-icon" disabled={busy} title={t.aiWizard.srcRemove} aria-label={t.aiWizard.srcRemove} onclick={() => removeSource(src.id)}>✕</button>
                                 </div>
                                 {#if viewSrc === src.id}
                                     <div class="ft__smaller lv-wb-srcview">{src.content}</div>
@@ -729,19 +780,20 @@
                     {/if}
                 </div>
                 <div class="lv-wb-main">
+                    <textarea
+                        class="b3-text-field fn__block"
+                        rows="10"
+                        bind:value={source}
+                        disabled={busy}
+                        placeholder={t.aiWizard.sourceEditHint}
+                        style="font-size: var(--lv-type-control-size); line-height: 1.6"
+                    ></textarea>
                     {#if source}
                         <!-- 材料可读可改：裁剪即编辑，生成以此处内容为准 -->
-                        <textarea
-                            class="b3-text-field fn__block"
-                            rows="10"
-                            bind:value={source}
-                            placeholder={t.aiWizard.sourceEditHint}
-                            style="font-size: var(--lv-type-control-size); line-height: 1.6"
-                        ></textarea>
                         <div class="ft__smaller ft__on-surface" style="margin-top: calc(var(--lv-space-unit) * 2); display: flex; gap: calc(var(--lv-space-unit) * 4); align-items: center">
                             <span>{source.length} 字符 · ≈ {Math.ceil(source.length / 4)} tokens</span>
                             <div class="fn__flex-1"></div>
-                            <button class="b3-button b3-button--small lv-btn-ghost" onclick={() => (source = "")}>{t.aiWizard.sourceClear}</button>
+                            <button class="b3-button b3-button--small lv-btn-ghost" disabled={busy} onclick={() => (source = "")}>{t.aiWizard.sourceClear}</button>
                         </div>
                     {:else}
                         <!-- R53 §3.9 空态：图标圈 + 一句话 + 指引，不用裸 hint -->
@@ -752,16 +804,16 @@
                     {/if}
                     <div class="fn__flex fn__flex-wrap" style="gap: var(--lv-sp-3); margin-top: var(--lv-sp-3); align-items: center">
                         <span class="ft__smaller ft__on-surface">{t.aiWizard.count}</span>
-                        <select class="b3-select" style="max-width: 90px" bind:value={count}>
+                        <select class="b3-select" style="max-width: 90px" bind:value={count} disabled={busy}>
                             {#each [5, 10, 15, 20] as n (n)}<option value={n}>{n}</option>{/each}
                         </select>
                         <span class="ft__smaller ft__on-surface">{t.aiWizard.language}</span>
-                        <select class="b3-select" style="max-width: 140px" bind:value={language}>
+                        <select class="b3-select" style="max-width: 140px" bind:value={language} disabled={busy}>
                             <option value="中文">中文</option>
                             <option value="English">English</option>
                         </select>
                         <span class="ft__smaller ft__on-surface">{t.aiWizard.cardType}</span>
-                        <select class="b3-select" style="max-width: 140px" bind:value={cardType}>
+                        <select class="b3-select" style="max-width: 140px" bind:value={cardType} disabled={busy}>
                             <option value="qa">{t.aiWizard.typeQa}</option>
                             <option value="cloze">{t.aiWizard.typeCloze}</option>
                         </select>
@@ -772,12 +824,14 @@
                 <div class="ft__smaller" style="color: var(--lv-color-danger); margin-bottom: var(--lv-sp-2)" role="alert">{errorMsg}</div>
             {/if}
             {#if previewOpen}
-                <!-- T02 AI 请求预览（docs/13 §4）：实际片段/参数/估算 → 确认后才发送 -->
+                <!-- T02 AI 请求预检确认（docs/13 §4 & R54 原型规范）：实际片段/参数/估算/知情同意 → 确认后才发送 -->
                 <div class="lv-notice" style="display: flex; flex-direction: column; gap: calc(var(--lv-space-unit) * 3)">
-                    <div class="lv-eyebrow">{t.aiWizard.previewTitle}</div>
-                    <div class="ft__smaller" style="max-height: 120px; overflow: auto; white-space: pre-wrap">{source.trim().slice(0, 600)}{source.trim().length > 600 ? "…" : ""}</div>
+                    <div class="lv-eyebrow">{t.aiWizard.preflightTitle}</div>
+                    <div class="ft__smaller" style="line-height: 1.5; color: var(--lv-color-text-muted)">{t.aiWizard.preflightNotice}</div>
+                    <div style="background: var(--lv-color-surface-subtle); border-radius: 6px; padding: var(--lv-sp-2); max-height: 120px; overflow: auto; white-space: pre-wrap; font-size: 12px">{source.trim().slice(0, 600)}{source.trim().length > 600 ? "…" : ""}</div>
                     <div class="ft__smaller ft__on-surface">
                         {t.aiWizard.previewParams.replace("${n}", String(count)).replace("${lang}", language).replace("${type}", cardType === "qa" ? t.aiWizard.typeQa : t.aiWizard.typeCloze)}
+                        · {t.aiWizard.preflightScopeDetail.replace("${chars}", String(source.trim().length))}
                         · ≈ {Math.ceil(source.trim().length / 4)} tokens {t.aiWizard.previewTokens}
                     </div>
                     <div class="ft__smaller ft__on-surface">{t.aiWizard.previewEndpoint}</div>
@@ -820,17 +874,21 @@
                             </div>
                         </div>
                     {/if}
+                    <label class="fn__flex ft__smaller ft__on-surface" style="gap: var(--lv-sp-2); align-items: center; margin: var(--lv-sp-1) 0; cursor: pointer">
+                        <input type="checkbox" bind:checked={preflightConsent} />
+                        <span><strong>{t.aiWizard.preflightConsent}</strong></span>
+                    </label>
                     <div class="fn__flex" style="justify-content: flex-end; gap: var(--lv-sp-2)">
-                        <button class="b3-button b3-button--small" onclick={() => { previewOpen = false; sensOverride = false; }}>{t.aiWizard.previewBack}</button>
-                        <button class="b3-button lv-btn-primary" disabled={busy || (sensHits.length > 0 && !sensOverride)} onclick={() => { previewOpen = false; sensOverride = false; run(); }}>
-                            {busy ? t.aiWizard.generating : t.aiWizard.previewConfirm}
+                        <button class="b3-button b3-button--small" onclick={() => { previewOpen = false; sensOverride = false; preflightConsent = false; }}>{t.aiWizard.preflightCancel}</button>
+                        <button class="b3-button lv-btn-primary" disabled={busy || loadDocBusy || !preflightConsent || (sensHits.length > 0 && !sensOverride)} onclick={() => { previewOpen = false; sensOverride = false; preflightConsent = false; run(); }}>
+                            {busy ? t.aiWizard.generating : t.aiWizard.preflightConfirm}
                         </button>
                     </div>
                 </div>
             {/if}
             <div class="fn__flex" style="justify-content: flex-end; gap: var(--lv-sp-2)">
                 <button class="b3-button b3-button--cancel" onclick={closeWizard}>{closeLabel ?? window.siyuan.languages.cancel}</button>
-                <button class="b3-button lv-btn-primary" disabled={busy || !source.trim()} onclick={openPreview}>
+                <button class="b3-button lv-btn-primary" disabled={busy || loadDocBusy || !source.trim()} onclick={openPreview}>
                     {busy ? t.aiWizard.generating : `${t.aiWizard.generate} →`}
                 </button>
             </div>
@@ -843,12 +901,12 @@
                 </div>
             {/if}
             <div class="fn__flex" style="align-items: center; gap: var(--lv-sp-2); margin-bottom: var(--lv-sp-2)">
-                <button class="b3-button b3-button--small" onclick={() => (step = 1)}>← {t.aiWizard.back}</button>
+                <button class="b3-button b3-button--small" disabled={creating} onclick={() => { cancelGeneration(); step = 1; }}>← {t.aiWizard.back}</button>
                 <!-- T03：已选≠已审——选中决定集合，接受决定入库资格 -->
                 <LvChip tone="default">{t.aiWizard.selCount.replace("${n}", String(candidates.filter(c => c.keep).length))}</LvChip>
                 <LvChip tone="primary">{t.aiWizard.accCount.replace("${n}", String(acceptedCount))}</LvChip>
                 <div class="fn__flex-1"></div>
-                <button class="b3-button b3-button--small" onclick={acceptAll}>{t.aiWizard.acceptAll}</button>
+                <button class="b3-button b3-button--small" disabled={creating || regenBusy !== null} onclick={acceptAll}>{t.aiWizard.acceptAll}</button>
                 <!-- T03：来源依据折叠（审核时可对照，不离开本屏） -->
                 <button class="b3-button b3-button--small" onclick={() => (sourceOpen = !sourceOpen)}>{t.aiWizard.sourceFold} {sourceOpen ? "▴" : "▾"}</button>
             </div>
@@ -860,7 +918,7 @@
                         <span class="ft__smaller" style="border: 1px solid var(--lv-border); border-radius: 4px; padding: 0 calc(var(--lv-space-unit) * 3)">{factorLabel(f)}</span>
                     {/each}
                     {#if reviewPlan.decision === "sample" && reviewPlan.sampleSize}
-                        <span class="ft__smaller ft__on-surface">{t.aiReview.sampleHint}</span>
+                        <span class="ft__smaller ft__on-surface">{t.aiReview?.sampleHint ?? ""}</span>
                     {/if}
                 </div>
             {/if}
@@ -871,10 +929,10 @@
                 </div>
             {/if}
             <div class="lv-aiwiz-list">
-                {#each candidates as c, i (i)}
+                {#each candidates as c, i (c.origIndex)}
                     <div class="lv-card2 lv-aiwiz-card">
                         <label class="fn__flex" style="gap: var(--lv-sp-2); align-items: center">
-                            <input type="checkbox" bind:checked={c.keep} />
+                            <input type="checkbox" bind:checked={c.keep} disabled={creating || regenBusy !== null} />
                             <b class="ft__smaller">#{i + 1}</b>
                             {#if c.d}
                                 <LvChip tone={c.d === 3 ? "error" : c.d === 2 ? "warn" : "default"}>{c.d === 3 ? t.aiWizard.diffHard : c.d === 2 ? t.aiWizard.diffMid : t.aiWizard.diffEasy}</LvChip>
@@ -895,27 +953,35 @@
                                 {/if}
                             {/each}
                             <div class="fn__flex-1"></div>
-                            {#if gateIssues[i].length > 0}<LvChip tone="error">{t.aiWizard.qualityBlockStatus}</LvChip>{:else if c.review === "accepted"}<LvChip tone="primary">{t.aiWizard.reviewAccepted}</LvChip>{:else if c.review === "verified"}<LvChip tone="warn">{t.aiWizard.reviewVerified}</LvChip>{/if}
+                            {#if scorecards[i]?.assertionReport && scorecards[i].assertionReport.unsupportedCount > 0}
+                                <LvChip tone="warn">{t.aiWizard.assertionUnsupportedCount.replace("${n}", String(scorecards[i].assertionReport.unsupportedCount))}</LvChip>
+                            {/if}
+                            {#if gateIssues[i].length > 0}<LvChip tone="error">{t.aiWizard.qualityBlockStatus}</LvChip>{:else if c.review === "accepted"}<LvChip tone="primary">{t.aiWizard.reviewAccepted}</LvChip>{:else if c.review === "verified"}<LvChip tone="primary">{t.aiWizard.reviewVerified}</LvChip>{:else if c.review === "needsCheck"}<LvChip tone="warn">{t.aiWizard.reviewNeedsCheck}</LvChip>{:else if c.edited}<LvChip tone="warn">{t.aiWizard.editedReaccept}</LvChip>{/if}
                             <button class="b3-button b3-button--small" title={t.aiWizard.cardPreview} onclick={() => (previewIdx = previewIdx === i ? null : i)}>{t.aiWizard.cardPreview}</button>
-                            <button class="b3-button b3-button--small" title={restoredCandidates ? t.aiWizard.recoveredRegenHint : t.aiWizard.regenerate} aria-label={restoredCandidates ? t.aiWizard.recoveredRegenHint : t.aiWizard.regenerate} disabled={regenBusy === i || restoredCandidates} onclick={() => regenerateCard(i)}>↻</button>
-                            <button class="b3-button b3-button--small" title={t.aiWizard.removeCandidate} aria-label={t.aiWizard.removeCandidate} onclick={() => (candidates = candidates.filter((_, j) => j !== i))}>✕</button>
+                            <button class="b3-button b3-button--small" title={restoredCandidates ? t.aiWizard.recoveredRegenHint : t.aiWizard.regenerate} aria-label={restoredCandidates ? t.aiWizard.recoveredRegenHint : t.aiWizard.regenerate} disabled={creating || regenBusy !== null || restoredCandidates} onclick={() => regenerateCard(i)}>↻</button>
+                            <button class="b3-button b3-button--small" title={t.aiWizard.removeCandidate} aria-label={t.aiWizard.removeCandidate} disabled={creating || regenBusy !== null} onclick={() => removeCandidate(i)}>✕</button>
                         </label>
-                        <textarea class="b3-text-field fn__block" rows="2" bind:value={c.q} oninput={() => touchCandidate(i)} placeholder={t.quickCardQ}></textarea>
-                        <textarea class="b3-text-field fn__block" rows="2" bind:value={c.a} oninput={() => touchCandidate(i)} placeholder={t.quickCardA}></textarea>
+                        <textarea class="b3-text-field fn__block" rows="2" bind:value={c.q} oninput={() => touchCandidate(i)} disabled={creating || regenBusy !== null} placeholder={t.quickCardQ}></textarea>
+                        <textarea class="b3-text-field fn__block" rows="2" bind:value={c.a} oninput={() => touchCandidate(i)} disabled={creating || regenBusy !== null} placeholder={t.quickCardA}></textarea>
                         <div class="fn__flex" style="gap: calc(var(--lv-space-unit) * 3); margin-top: 6px">
-                            <button class="b3-button b3-button--small {c.review === 'accepted' ? 'lv-btn-primary' : ''}" disabled={draftIssues[i].length > 0 || gateIssues[i].length > 0} onclick={() => setReview(i, "accepted")}>{c.review === "accepted" ? t.aiWizard.reviewAccepted : t.aiWizard.acceptVer}</button>
-                            <button class="b3-button b3-button--small {c.review === 'verified' ? 'lv-btn-primary' : ''}" onclick={() => setReview(i, "verified")}>{t.aiWizard.markVerified}</button>
+                            <button class="b3-button b3-button--small {c.review === 'accepted' ? 'lv-btn-primary' : ''}" disabled={creating || regenBusy !== null || draftIssues[i].length > 0 || gateIssues[i].length > 0} onclick={() => setReview(i, "accepted")}>{c.review === "accepted" ? t.aiWizard.reviewAccepted : t.aiWizard.acceptVer}</button>
+                            <button class="b3-button b3-button--small {c.review === 'verified' ? 'lv-btn-primary' : ''}" disabled={creating || regenBusy !== null} onclick={() => setReview(i, "verified")}>{t.aiWizard.markVerified}</button>
+                            <button class="b3-button b3-button--small {c.review === 'needsCheck' ? 'lv-btn-primary' : ''}" disabled={creating || regenBusy !== null} onclick={() => setReview(i, "needsCheck")}>{t.aiWizard.markNeedsCheck}</button>
                             <div class="fn__flex-1"></div>
                             <button class="b3-button b3-button--small" title={t.aiWizard.cardPreview} onclick={() => (previewIdx = previewIdx === i ? null : i)}>{t.aiWizard.cardPreview}</button>
                         </div>
                         {#if previewIdx === i}
-                            <!-- T03：实际卡面预览（评审稿 .study-card/.study-answer 同构；随编辑实时更新） -->
+                            {@const rendered = renderUnifiedCardFace({ question: c.q, answer: c.a, template: cardType, answerLabel: t.cardDetail?.answer ?? t.quickCardPreviewBack ?? "参考答案" })}
+                            <!-- T03：实际卡面预览（接入统一卡面渲染管线，与复习端渲染一致） -->
                             <div class="lv-card2" style="padding: calc(var(--lv-space-unit) * 9) calc(var(--lv-space-unit) * 10); margin-top: 8px">
-                                <div class="lv-eyebrow">{t.aiWizard.previewQLabel}</div>
-                                <div style="font-weight: var(--lv-fw-heading); margin: 8px 0; line-height: 1.65">{c.q || "—"}</div>
-                                <div style="border-top: 1px solid var(--lv-border); padding-top: 12px; margin-top: calc(var(--lv-space-unit) * 6)">
-                                    <div class="lv-eyebrow">{t.aiWizard.previewALabel}</div>
-                                    <div style="margin-top: calc(var(--lv-space-unit) * 3); line-height: 1.65">{c.a || "—"}</div>
+                                <div class="fn__flex between" style="align-items: center; margin-bottom: 8px">
+                                    <div class="lv-eyebrow">{previewAnswerMap[i] ? t.quickCardPreviewBack : t.quickCardPreviewFront}</div>
+                                    <button class="b3-button b3-button--small lv-btn-ghost" onclick={() => (previewAnswerMap[i] = !previewAnswerMap[i])}>
+                                        {previewAnswerMap[i] ? t.quickCardHideAnswer : t.quickCardShowAnswer}
+                                    </button>
+                                </div>
+                                <div class="lv-unified-face b3-typography" style="padding: var(--lv-sp-2) 0">
+                                    {@html previewAnswerMap[i] ? rendered.answerHtml : rendered.questionHtml}
                                 </div>
                                 {#if scorecards[i]}
                                     <!-- BU-13：八维度评分卡（可解释问题 + 修复建议；综合分仅审阅提示，不入库资格由「已接受」决定） -->
@@ -939,6 +1005,33 @@
                                         </div>
                                     </div>
                                 {/if}
+                                {#if scorecards[i]?.assertionReport}
+                                    {@const rep = scorecards[i].assertionReport}
+                                    <!-- BU-10 & docs/48：逐断言来源依据核验 -->
+                                    <div style="border-top: 1px solid var(--lv-border); padding-top: 12px; margin-top: calc(var(--lv-space-unit) * 6)">
+                                        <div class="fn__flex between" style="align-items: center; margin-bottom: 8px">
+                                            <div class="lv-eyebrow">{t.aiWizard.assertionTitle}</div>
+                                            <span class="ft__smaller ft__on-surface">{t.aiWizard.sourceTrustScore}: <strong>{rep.sourceTrustScore}%</strong></span>
+                                        </div>
+                                        <div style="display: flex; flex-direction: column; gap: 6px">
+                                            {#each rep.assertions as ass, assertionIndex (assertionIndex)}
+                                                <div class="lv-card2" style="padding: 8px 12px; font-size: 12px; display: flex; flex-direction: column; gap: 4px; border: 1px solid var(--lv-border); border-left: 3px solid {ass.status === 'supported' ? 'var(--lv-color-success)' : ass.status === 'partial' ? 'var(--lv-color-brand)' : 'var(--lv-color-warning)'}">
+                                                    <div class="fn__flex between" style="align-items: baseline; gap: var(--lv-sp-2)">
+                                                        <span style="font-weight: 500; flex: 1">{ass.text}</span>
+                                                        <LvChip tone={ass.status === "supported" ? "default" : ass.status === "partial" ? "primary" : "warn"}>
+                                                            {ass.status === "supported" ? t.aiWizard.assertionSupported : ass.status === "partial" ? t.aiWizard.assertionPartial : t.aiWizard.assertionUnsupported}
+                                                        </LvChip>
+                                                    </div>
+                                                    {#if ass.matchedSourceExcerpt}
+                                                        <div class="ft__smaller ft__on-surface" style="padding: 3px 8px; border-radius: 4px; background: var(--lv-surface-hover); opacity: 0.9; font-style: italic">
+                                                            “{ass.matchedSourceExcerpt}”
+                                                        </div>
+                                                    {/if}
+                                                </div>
+                                            {/each}
+                                        </div>
+                                    </div>
+                                {/if}
                                 {#if (prov[i]?.versions.length ?? 0) > 0}
                                     <!-- BU-15：版本链（ai 生成/user 编辑双轨；回到任意历史版本） -->
                                     <div style="border-top: 1px solid var(--lv-border); padding-top: 12px; margin-top: calc(var(--lv-space-unit) * 6)">
@@ -949,7 +1042,7 @@
                                                     <LvChip tone={v.via === "ai" ? "default" : "primary"}>{v.via === "ai" ? t.aiScore.viaAI : t.aiScore.viaUser}</LvChip>
                                                     <span class="ft__smaller" style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{(v.via === "ai" ? "⚙ " : "✎ ") + v.q.slice(0, 40)}</span>
                                                     {#if v.q !== c.q || v.a !== c.a}
-                                                        <button class="b3-button b3-button--small" onclick={() => restoreVersion(prov[i].versions.length - 1 - vi, v)}>{t.aiScore.restore}</button>
+                                                        <button class="b3-button b3-button--small" disabled={creating || regenBusy !== null} onclick={() => restoreVersion(i, v)}>{t.aiScore.restore}</button>
                                                     {/if}
                                                 </div>
                                             {/each}
@@ -965,16 +1058,16 @@
                 <div class="ft__smaller" style="color: var(--lv-color-danger); margin-bottom: var(--lv-sp-2)" role="alert">{errorMsg}</div>
             {/if}
             <div class="fn__flex" style="justify-content: flex-end; gap: var(--lv-sp-2); margin-top: var(--lv-sp-2)">
-                <button class="b3-button b3-button--outline" onclick={() => (step = 1)}>{t.aiWizard.back}</button>
-                <input class="b3-text-field" style="width: 180px" placeholder={t.deckNewName} bind:value={newName} />
-                <select class="b3-select" style="max-width: 180px" bind:value={selected} disabled={decks.length === 0}>
+                <button class="b3-button b3-button--outline" disabled={creating} onclick={() => { cancelGeneration(); step = 1; }}>{t.aiWizard.back}</button>
+                <input class="b3-text-field" style="width: 180px" placeholder={t.deckNewName} bind:value={newName} disabled={creating} />
+                <select class="b3-select" style="max-width: 180px" bind:value={selected} disabled={creating || decks.length === 0}>
                     {#each decks as d (d.id)}<option value={d.id}>{d.name}</option>{/each}
                 </select>
                 {#if decks.length === 0}
                     <span class="ft__smaller ft__on-surface">{t.quickCardNeedDeck}</span>
                 {/if}
-                <button class="b3-button b3-button--text lv-btn-primary" disabled={creating || !canImport} onclick={importCards} title={t.aiWizard.importReviewed}>
-                    {creating ? "…" : `${t.aiWizard.import} (${acceptedCount})`}
+                <button class="b3-button b3-button--text lv-btn-primary" disabled={creating || regenBusy !== null || !canImport} onclick={importCards} title={t.aiWizard.importReviewed}>
+                    {creating ? "…" : t.aiWizard.createAcceptedN.replace("${n}", String(acceptedCount))}
                 </button>
             </div>
         </div>

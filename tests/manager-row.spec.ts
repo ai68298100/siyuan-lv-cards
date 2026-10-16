@@ -63,7 +63,7 @@ describe("闪卡管理器行语义", () => {
     it("筛选空态说明只检查已加载页，删除保存筛选不改搜索词", () => {
         expect(manager).toContain("当前页无匹配项，筛选仅作用于已加载页");
         const deleteSaved = manager.slice(manager.indexOf("function deleteSaved()"), manager.indexOf("</script>"));
-        expect(deleteSaved).toContain("ctx.deleteFilter(pickedSaved)");
+        expect(deleteSaved).toContain("ctx.deleteFilter(name)");
         expect(deleteSaved).not.toContain("filterText = \"\"");
     });
 });

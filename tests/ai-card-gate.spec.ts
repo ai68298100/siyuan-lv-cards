@@ -33,6 +33,12 @@ describe("AI 闪卡质量硬门禁", () => {
         expect(selectImportableAiCandidates(candidates)).toEqual([candidates[1]]);
     });
 
+    it("preserves literal code syntax instead of classifying it as multiple questions or placeholders", () => {
+        expect(findAiCardGateIssues([{ q: "`for (let i=0; i<3; i++)` 循环执行多少次？", a: "三次" }])[0]).toEqual([]);
+        expect(findAiCardGateIssues([{ q: "模板字面量中的 `hello ${name}` 表示什么？", a: "变量插值" }])[0]).toEqual([]);
+        expect(findAiCardGateIssues([{ q: "`a ? b : c` 与 `a?.b` 中的问号分别是什么语法？", a: "条件运算符与可选链" }])[0]).not.toContain("multiple-questions");
+    });
+
     it("有阻断问题或结构问题时不能入库，普通评分提示不属于硬门禁", () => {
         const candidates = [
             { q: "TCP是什么；UDP是什么？", a: "传输协议", keep: true, review: "accepted" as const },

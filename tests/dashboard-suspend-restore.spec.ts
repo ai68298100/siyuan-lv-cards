@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/svelte";
 import i18n from "../public/i18n/zh-CN.json";
 import { emptyRevlog } from "../src/core/revlog";
@@ -35,6 +35,7 @@ const ctx = (restoreSuspendedToday: () => Promise<number>, getRevlog = emptyRevl
 });
 
 describe("dashboard restore suspended action", () => {
+    beforeEach(() => vi.resetAllMocks());
     afterEach(cleanup);
 
     it("preserves the count on write failure and retries with a locked pending state", async () => {
@@ -88,5 +89,37 @@ describe("dashboard restore suspended action", () => {
 
         const previousDay = (await screen.findByRole("list", { name: "本周每日学习记录" })).querySelectorAll("[role=listitem]");
         expect(Array.from(previousDay).some(day => day.getAttribute("aria-label")?.includes("正式复习 0 次 · 新卡 2 张"))).toBe(true);
+    });
+
+    it("stops automatic deep-statistics retries after failure and allows an explicit retry", async () => {
+        mocks.getRiffDecks.mockResolvedValue([{ id: "deck-a", name: "卡组", size: 2 }]);
+        mocks.dueGet.mockResolvedValue({ cards: [], unreviewedCount: 1, unreviewedNewCardCount: 0, unreviewedOldCardCount: 1 });
+        mocks.getRiffCards.mockRejectedValue(new Error("forecast offline"));
+        mocks.getRiffDueCards.mockRejectedValue(new Error("deck offline"));
+        render(Dashboard, { ctx: { ...ctx(vi.fn()), getDeepStatsOpen: () => true } });
+        await screen.findByText("forecast offline", { exact: false });
+        await screen.findByText("deck offline", { exact: false });
+        await new Promise(resolve => setTimeout(resolve, 50));
+        expect(mocks.getRiffCards).toHaveBeenCalledTimes(1);
+        expect(mocks.getRiffDueCards).toHaveBeenCalledTimes(1);
+        const forecastError = screen.getByText("forecast offline", { exact: false }).closest("[role=alert]")!;
+        await fireEvent.click(forecastError.querySelector("button")!);
+        await waitFor(() => expect(mocks.getRiffCards).toHaveBeenCalledTimes(2));
+        expect(mocks.getRiffDueCards).toHaveBeenCalledTimes(1);
+    });
+
+    it("disables the primary review action when refreshing the last snapshot fails", async () => {
+        mocks.getRiffDecks.mockResolvedValue([{ id: "deck-a", name: "卡组", size: 2 }]);
+        mocks.dueGet.mockResolvedValueOnce({ cards: [], unreviewedCount: 1, unreviewedNewCardCount: 0, unreviewedOldCardCount: 1 })
+            .mockRejectedValueOnce(new Error("due offline"));
+        const context = ctx(vi.fn());
+        const view = render(Dashboard, { ctx: context });
+        const primary = await screen.findByRole("button", { name: i18n.dashboardDecision.startReview }) as HTMLButtonElement;
+        expect(primary.disabled).toBe(false);
+        await fireEvent.click(screen.getByRole("button", { name: i18n.dashboard.refresh }));
+        await screen.findByRole("alert");
+        expect((screen.getByRole("button", { name: i18n.dashboardDecision.startReview }) as HTMLButtonElement).disabled).toBe(true);
+        expect(context.openReview).not.toHaveBeenCalled();
+        expect(view.container.querySelector(".lv-notice--warn")).toBeTruthy();
     });
 });

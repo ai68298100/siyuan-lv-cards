@@ -4,6 +4,7 @@
     import { getRiffDecks, getRiffCards, getRiffDueCards, type RiffDeck } from "@/api/riff";
     import { dueCache } from "@/api/due-shared";
     import { isSessionLive, type EndReason } from "@/core/session-state";
+    import { decideTodayAction } from "@/core/today-decision";
     import { buildDeckDashboard, type DeckDashboardRow } from "@/core/deck-dashboard";
     import { srExportLine, composeSrExport } from "@/core/obsidian-import";
     import { getFlashcardStatistics, summarizeStatistics, type MigrationStatus } from "@/api/flashcardV2";
@@ -69,6 +70,7 @@
         /** T08 待处理聚合（docs/40 批 5 简化版） */
         getInboxOpenCount?: () => number;
         getSuspendedCount?: () => number;
+        getMaintenanceDebtCount?: () => number;
         restoreSuspendedToday?: () => Promise<number>;
         /** 直达 hub 其他页签（收件箱等） */
         openHubTab?: (id: string) => void;
@@ -252,19 +254,46 @@
         return Math.min(100, Math.round((todayReview / target) * 100));
     }
 
+    const todayDecision = $derived.by(() => {
+        // 宿主的本地存储 getter 本身不是响应式源，每次成功快照和跨日后重新判定。
+        void lastSuccessfulAt;
+        void dayTick;
+        const revlog = ctx.getRevlog();
+        const lastEntry = revlog?.entries?.[revlog.entries.length - 1];
+        const daysGap = lastEntry?.ts ? Math.floor((Date.now() - lastEntry.ts) / 86400000) : null;
+        const maintDebt = ctx.getMaintenanceDebtCount ? ctx.getMaintenanceDebtCount() : 0;
+        return decideTodayAction({
+            dueCount,
+            unknownDue: Boolean(errorMsg),
+            hasLiveSession: sessLive,
+            sessionReviewedCount: sessReps,
+            daysGap,
+            inboxCount: inboxOpen,
+            maintenanceDebtCount: maintDebt,
+            suspendedCount: suspended,
+        }, t);
+    });
+
     function heroActionLabel(): string {
         if (totalCards === 0 && ctx.openQuickCard) return t.cmdQuickCard ?? "快速制卡";
-        if (sessLive) return t.dashboard.heroResume;
-        if (dueCount > 0 || newCount > 0) return t.dashboard.heroStart;
-        return t.dashboard.noDueAction ?? t.hubTabManage ?? "整理卡片";
+        return todayDecision.primaryActionLabel;
     }
 
     function heroAction(): void {
+        if (todayDecision.actionDisabled) return;
         if (totalCards === 0 && ctx.openQuickCard) {
             ctx.openQuickCard();
-        } else if (dueCount > 0 || newCount > 0 || sessLive) {
+            return;
+        }
+        if (todayDecision.primaryAction === "continue-review" || todayDecision.primaryAction === "start-review") {
             ctx.openReview();
-        } else {
+        } else if (todayDecision.primaryAction === "open-inbox") {
+            if (ctx.openHubTab) ctx.openHubTab("inbox");
+            else ctx.openManager();
+        } else if (todayDecision.primaryAction === "open-maintenance") {
+            if (ctx.openHubTab) ctx.openHubTab("maintenance");
+            else ctx.openManager();
+        } else if (todayDecision.primaryAction === "open-library") {
             ctx.openManager();
         }
     }
@@ -314,19 +343,20 @@
     let calCells = $state<CalendarCell[]>([]);
     let calLoading = $state(false);
     let calLoadedOnce = $state(false);
+    let calAttempted = $state(false);
     let calError = $state("");
     let calSeq = 0;
 
     // 首次展开深度统计时拉取一次；此后随 refresh() 的 heat 更新不再自动重拉（预测是旁路增强）
     $effect(() => {
-        if (deepOpen && !calLoadedOnce && !calLoading) void loadForecast();
-        if (deepOpen && !ddLoadedOnce && !ddLoading && decks.length > 0) void loadDeckDashboard();
+        if (deepOpen && !calAttempted) void loadForecast();
+        if (deepOpen && !ddAttempted && decks.length > 0) void loadDeckDashboard();
     });
 
     // T-卡组仪表盘（docs/41 P1）：近 30 天本地日志按卡组聚合；到期/新卡来自内核实时（每卡组一次，上限 12 组）
     let ddRows = $state<DeckDashboardRow[]>([]);
     let ddLoading = $state(false);
-    let ddLoadedOnce = $state(false);
+    let ddAttempted = $state(false);
     let ddError = $state("");
     let ddSeq = 0;
 
@@ -366,6 +396,8 @@
             showMessage(t.dashboard.ddShareDone
                 .replace("${qa}", String(lines.filter(l => l.kind === "qa").length))
                 .replace("${c}", String(lines.filter(l => l.kind === "cloze").length)), 2500, "info");
+        } catch (e) {
+            showMessage(friendlyError(e, t), 3500, "error");
         } finally {
             ddExportBusy = false;
         }
@@ -374,6 +406,7 @@
     async function loadDeckDashboard() {
         if (ddLoading || decks.length === 0) return;
         const seq = ++ddSeq;
+        ddAttempted = true;
         ddLoading = true;
         ddError = "";
         try {
@@ -388,7 +421,6 @@
                 dueByDeck.set(id, due);
             }
             ddRows = buildDeckDashboard(ctx.getRevlog().entries, decks.map(d => d.id), dueByDeck, { now: new Date() });
-            ddLoadedOnce = true;
         } catch (e) {
             if (seq === ddSeq) {
                 ddError = friendlyError(e, t);
@@ -402,6 +434,7 @@
     async function loadForecast() {
         if (calLoading) return;
         const seq = ++calSeq;
+        calAttempted = true;
         calLoading = true;
         calError = "";
         try {
@@ -521,10 +554,11 @@
             hasLoadedSnapshot = true;
             lastSuccessfulAt = Date.now();
             loading = false;
-            docCov = await docCovPromise;
+            const nextDocCov = await docCovPromise;
             if (seq !== refreshSeq) {
                 return; // 文档归属查询期间用户已刷新（AR-6 generation 守卫）
             }
+            docCov = nextDocCov;
             // 内核 V2（3.9.0）激活时，顺带拉取官方统计摘要（宽容解析，失败静默）
             if (ctx.getV2Status()) {
                 try {
@@ -568,6 +602,9 @@
         const offReviewed = ctx.onReviewed?.(() => scheduleRefresh());
         const offStores = ctx.onStoresChanged?.(() => scheduleRefresh());
         return () => {
+            refreshSeq += 1;
+            calSeq += 1;
+            ddSeq += 1;
             offFinished?.();
             offReviewed?.();
             offStores?.();
@@ -632,11 +669,18 @@
             <div class="lv-eyebrow">{t.hubPrimaryToday ?? "今日"}</div>
             <h2 id="lv-first-use-title">{t.dashboard.emptyStateTitle ?? "让第一张卡，简单一点"}</h2>
             <p>{t.dashboard.emptyStateDesc ?? t.dashboard.onboardingHint}</p>
+            <div class="lv-empty-note-card">
+                <div class="lv-empty-note-icon" aria-hidden="true">💡</div>
+                <div class="lv-empty-note-content">
+                    <strong>{t.dashboard.emptyGuideTitle ?? "思源笔记即是闪卡"}</strong>
+                    <p>{t.dashboard.emptyGuideDesc ?? "无需单独录入卡片。在文档中选中文本打上 ==挖空==，或点击段落块图标「制作闪卡」，即可自动生成复习卡片。"}</p>
+                </div>
+            </div>
             <div class="lv-first-use-actions">
                 {#if ctx.openQuickCard}
                 <button class="b3-button lv-btn-primary" disabled={!ctx.openQuickCard} aria-describedby={!ctx.openQuickCard ? "lv-first-use-title" : undefined} onclick={() => ctx.openQuickCard?.()}>{t.dashboard.emptyStateCreate ?? t.cmdQuickCard ?? "新建闪卡"}</button>
                 {/if}
-                <button class="b3-button b3-button--outline" onclick={ctx.openOnboarding}>{t.dashboard.emptyStateTry ?? t.dashboard.onboardingStart}</button>
+                <button class="b3-button b3-button--outline" onclick={ctx.openOnboarding}>{t.dashboard.emptyGuideTour ?? t.dashboard.emptyStateTry ?? t.dashboard.onboardingStart}</button>
             </div>
             <div class="lv-first-use-steps">
                 <div><span>1</span><p>{t.dashboard.emptyStepSource ?? "选一段值得记住的内容"}</p></div>
@@ -678,9 +722,7 @@
         <div class="lv-hero">
             <div class="lv-hero-text">
                 <div class="lv-hero-badge-row">
-                    {#if sessLive}
-                        <span class="lv-tag lv-tag--brand">{t.dashboard.heroResume}</span>
-                    {/if}
+                    <span class="lv-tag lv-tag--brand">{todayDecision.tag}</span>
                     <!-- T01 可用时间（R52 hero「可用时间 [15 分钟▾]」）：选择落偏好，复习开场生效；
                          日期 eyebrow 已上移页头，无续场时徽章行只留预算选择（不重复日期） -->
                     <div class="fn__flex" style="gap: calc(var(--lv-space-unit) * 3); align-items: center">
@@ -699,14 +741,13 @@
                     </div>
                 </div>
                 <div class="lv-hero-title">
-                    {totalCards === 0 ? (t.dashboard.emptyHeroTitle ?? t.dashboard.heroStartTitle) : sessLive ? t.dashboard.heroResumeTitle : dueCount > 0 || newCount > 0 ? t.dashboard.heroStartTitle : t.dashboard.noDueTitle ?? t.dashboard.heroStartTitle}
+                    {totalCards === 0 ? (t.dashboard.emptyHeroTitle ?? t.dashboard.heroStartTitle) : todayDecision.title}
                 </div>
                 <p class="lv-hero-desc">
-                    {#if sessLive}{t.dashboard.heroResumeLine.replace("${n}", String(sessReps))} · {/if}
-                    {t.dashboard.dueBreakdown?.replace("${total}", String(dueCount)).replace("${new}", String(newCount)).replace("${review}", String(oldCount)) ?? `${t.dashboard.todayDue} ${dueCount} · ${t.dashboard.newCards} ${newCount} · ${t.dashboard.reviewCards} ${oldCount}`}
+                    {todayDecision.summary}
                 </p>
                 <div class="lv-hero-cta">
-                    <button class="b3-button lv-btn-primary" disabled={loading && !hasLoadedSnapshot} onclick={heroAction}>
+                    <button class="b3-button lv-btn-primary" disabled={todayDecision.actionDisabled || (loading && !hasLoadedSnapshot)} onclick={heroAction}>
                         {heroActionLabel()}
                     </button>
                     <!-- R53 .hero .cta 右侧说明：有到期或目标才展示（不堆 0 值） -->
@@ -714,6 +755,7 @@
                 <span class="lv-hero-remaining">{t.dashboard.todayDue} {dueCount}{#if targets.review > 0} · {targetPct()}%{/if}</span>
                     {/if}
                 </div>
+                <p class="ft__smaller ft__on-surface" style="margin-top: 8px; opacity: 0.85;">{todayDecision.reason}</p>
             </div>
             <!-- R54 矢量工坊艺术图元：半透明交叠纸质闪卡与金色点缀，营造纸质温度感 -->
             <div class="lv-hero-art" aria-hidden="true">
@@ -1078,7 +1120,6 @@
                 <svg viewBox="0 0 320 100" class="lv-curve" bind:this={curveEl}>
                     <line x1="8" y1="90" x2="312" y2="90" class="lv-curve-axis" />
                     <polyline fill="none" stroke="var(--lv-color-text-muted)" stroke-width="1" stroke-dasharray="4 3" opacity="0.5" points={theoryPoints(curve)} />
-                    <polyline fill="none" stroke="var(--lv-color-text-muted)" stroke-width="1" stroke-dasharray="4 3" opacity="0.5" points={theoryPoints(curve)} />
                     <polyline fill="none" stroke="var(--lv-color-brand)" stroke-width="2" points={curvePoints(curve)} />
                     {#each curve as p (p.days)}
                         <circle cx={10 + (p.days / Math.max(...curve.map(q => q.days), 1)) * 290} cy={90 - p.rate * 80} r="2.5" class="lv-curve-dot">
@@ -1225,21 +1266,35 @@
     .lv-today-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--lv-sp-3); }
     .lv-today-stats .lv-stat-cell { min-width: 0; max-width: none; }
     :global(.lv-today-stats .lv-stat-cell .lv-card2) { min-width: 0; padding: 15px 14px; }
-    .lv-today-week { display: flex; min-width: 0; flex-direction: column; padding: 22px; }
+    .lv-today-week {
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+        padding: 22px;
+        box-shadow: var(--lv-shadow-card), var(--lv-inset-shine);
+    }
     .lv-today-week-head { display: flex; align-items: center; justify-content: space-between; gap: var(--lv-sp-2); }
     .lv-today-week-head h2 { font-size: var(--lv-type-label-size); line-height: 1.5; font-weight: var(--lv-fw-heading); }
     .lv-today-week-head > span { color: var(--lv-color-text-muted); }
     .lv-today-week-range { margin-top: calc(var(--lv-space-unit) * 2 + var(--lv-space-hairline)); color: var(--lv-color-text-muted); font-size: var(--lv-type-meta-size); }
     .lv-today-week-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: calc(var(--lv-space-unit) * 2 + var(--lv-space-hairline)); margin: 19px 0 16px; }
     .lv-today-week-day { display: flex; min-width: 0; align-items: center; flex-direction: column; gap: calc(var(--lv-space-unit) * 4 + var(--lv-space-hairline)); color: var(--lv-color-text-muted); font-size: var(--lv-type-caption-size); }
-    .lv-today-week-day i { display: grid; width: 25px; height: 25px; place-items: center; border-radius: var(--lv-r-circle); background: var(--lv-primary-softer); font-size: var(--lv-type-meta-size); font-style: normal; }
-    .lv-today-week-day-active i { background: var(--lv-primary-soft); color: var(--lv-color-brand); }
-    .lv-today-week-day-today i { outline: 2px solid var(--lv-primary-soft); }
+    .lv-today-week-day i { display: grid; width: 26px; height: 26px; place-items: center; border-radius: var(--lv-r-circle); background: var(--lv-primary-softer); font-size: var(--lv-type-meta-size); font-style: normal; transition: all var(--lv-dur-1) var(--lv-ease); }
+    .lv-today-week-day-active i { background: var(--lv-primary-soft); color: var(--lv-color-brand); font-weight: 600; box-shadow: 0 1px 3px color-mix(in srgb, var(--lv-color-brand) 20%, transparent); }
+    .lv-today-week-day-today i { outline: 2px solid var(--lv-color-brand); outline-offset: 1px; }
     .lv-today-week-day-future { opacity: .62; }
     .lv-today-week-summary { display: flex; align-items: center; justify-content: space-between; gap: var(--lv-sp-2); font-size: var(--lv-type-control-size); }
     .lv-today-week-summary strong { font-variant-numeric: tabular-nums; white-space: nowrap; }
     .lv-today-week-summary small { color: var(--lv-color-text-muted); font-size: 10px; font-weight: var(--lv-fw-normal); }
-    .lv-today-week-note { margin-top: auto; padding: 14px; border-radius: var(--lv-r-m); background: var(--lv-warn-soft); color: var(--lv-color-text); }
+    .lv-today-week-note {
+        margin-top: auto;
+        padding: 14px;
+        border-radius: var(--lv-r-m);
+        background: var(--lv-warn-soft);
+        color: var(--lv-color-text);
+        border: 1px solid color-mix(in srgb, var(--lv-color-warning) 24%, transparent);
+        box-shadow: var(--lv-shadow-card);
+    }
     .lv-today-week-note strong { font-size: var(--lv-type-body-size); }
     .lv-today-week-note p { margin: calc(var(--lv-space-unit) * 2) 0 0; color: var(--lv-color-text-muted); font-size: var(--lv-type-meta-size); line-height: 1.6; }
     .lv-cards { gap: var(--lv-sp-3); margin-bottom: var(--lv-sp-4); }
@@ -1254,6 +1309,37 @@
     }
     .lv-first-use h2 { margin: calc(var(--lv-space-unit) * 4) 0; font-size: 24px; line-height: var(--lv-lh-body); }
     .lv-first-use > p { max-width: 560px; margin: 0 auto; color: var(--lv-color-text-muted); font-size: 14px; line-height: var(--lv-lh-relaxed); }
+    .lv-empty-note-card {
+        display: flex;
+        align-items: flex-start;
+        gap: calc(var(--lv-space-unit) * 4);
+        max-width: 600px;
+        margin: calc(var(--lv-space-unit) * 8) auto 0;
+        padding: calc(var(--lv-space-unit) * 4) calc(var(--lv-space-unit) * 6);
+        border: 1px solid var(--lv-primary-border);
+        border-radius: var(--lv-r-m);
+        background: var(--lv-primary-soft);
+        text-align: left;
+    }
+    .lv-empty-note-icon {
+        font-size: 20px;
+        line-height: 1.2;
+        flex-shrink: 0;
+    }
+    .lv-empty-note-content strong {
+        display: block;
+        color: var(--lv-color-brand);
+        font-size: var(--lv-type-body-size);
+        font-weight: var(--lv-fw-semibold);
+        margin-bottom: 2px;
+    }
+    .lv-empty-note-content p {
+        margin: 0;
+        color: var(--lv-color-text);
+        font-size: var(--lv-type-control-size);
+        line-height: var(--lv-lh-reading);
+        opacity: 0.9;
+    }
     .lv-first-use-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: var(--lv-sp-2); margin: calc(var(--lv-space-unit) * 11) 0 calc(var(--lv-space-unit) * 13); }
     .lv-first-use-actions button { min-height: 44px; }
     .lv-first-use-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--lv-sp-3); text-align: left; }
@@ -1265,8 +1351,35 @@
     .lv-today-decks-head { display: flex; align-items: center; justify-content: space-between; gap: var(--lv-sp-2); margin-bottom: var(--lv-sp-2); }
     .lv-today-decks-head h3 { margin: 0; font-size: 14px; }
     .lv-today-decks-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--lv-sp-2); }
-    .lv-today-deck { display: flex; min-width: 0; min-height: 54px; align-items: center; justify-content: space-between; gap: var(--lv-sp-2); padding: calc(var(--lv-space-unit) * 5) calc(var(--lv-space-unit) * 6 + var(--lv-space-hairline)); border: 1px solid var(--lv-border); border-radius: var(--lv-r-m); background: var(--lv-color-surface); text-align: left; cursor: pointer; }
-    .lv-today-deck:hover { border-color: var(--lv-color-brand); background: var(--lv-primary-soft); }
+    .lv-today-deck {
+        display: flex;
+        min-width: 0;
+        min-height: 56px;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--lv-sp-2);
+        padding: calc(var(--lv-space-unit) * 5) calc(var(--lv-space-unit) * 6 + var(--lv-space-hairline));
+        border: 1px solid var(--lv-border);
+        border-radius: var(--lv-r-m);
+        background: var(--lv-color-surface);
+        box-shadow: var(--lv-shadow-card), var(--lv-inset-shine);
+        text-align: left;
+        cursor: pointer;
+        transition: transform var(--lv-dur-2) var(--lv-ease),
+            box-shadow var(--lv-dur-2) var(--lv-ease),
+            border-color var(--lv-dur-1) var(--lv-ease),
+            background var(--lv-dur-1) var(--lv-ease);
+
+        &:hover {
+            transform: translateY(-1px);
+            border-color: var(--lv-color-brand);
+            background: color-mix(in srgb, var(--lv-primary-soft) 40%, var(--lv-color-surface));
+            box-shadow: var(--lv-shadow-card-hover), var(--lv-inset-shine);
+        }
+        &:active {
+            transform: translateY(1px);
+        }
+    }
     .lv-today-deck:focus-visible { outline: 2px solid var(--lv-color-brand); outline-offset: 2px; }
     .lv-today-deck-name { min-width: 0; overflow-wrap: anywhere; font-size: var(--lv-type-body-size); font-weight: 600; }
     .lv-today-deck-count { flex: none; color: var(--lv-color-text-muted); font-size: var(--lv-type-control-size); font-variant-numeric: tabular-nums; }

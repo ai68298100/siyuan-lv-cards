@@ -4,6 +4,8 @@ import {
     DIMENSION_WEIGHTS,
     scoreCard,
     scoreBatch,
+    extractAssertions,
+    alignAssertionsWithSource,
     type Scorecard,
 } from "../src/core/ai-quality-scorecard";
 
@@ -83,5 +85,65 @@ describe("ai-quality-scorecard（BU-13）", () => {
                 expect(d.suggestKey).toBeTruthy();
             }
         }
+    });
+
+    it("正确抽取原子断言并与来源材料进行滑动窗口对齐", () => {
+        const answer = "TCP 经过三次握手建立连接。每次握手双方交换序列号；并且确认收发能力。";
+        const assertions = extractAssertions(answer);
+        expect(assertions).toHaveLength(3);
+        expect(assertions[0]).toContain("TCP 经过三次握手建立连接");
+
+        const source = "计算机网络传输层中，TCP 经过三次握手建立连接。在握手过程中，双方交换序列号并确认彼此的收发能力。";
+        const report = alignAssertionsWithSource(assertions, source);
+
+        expect(report.allSupported).toBe(false);
+        expect(report.unsupportedCount).toBe(0);
+        expect(report.assertions.some(a => a.status === "partial")).toBe(true);
+        expect(report.assertions[0].status).toBe("supported");
+        expect(report.assertions[0].matchedSourceExcerpt).toBeTruthy();
+
+        // 当来源缺少部分断言时，标记为 unsupported
+        const partialSource = "只包含第一句：TCP 经过三次握手建立连接。其他都没说。";
+        const partialReport = alignAssertionsWithSource(assertions, partialSource);
+        expect(partialReport.allSupported).toBe(false);
+        expect(partialReport.unsupportedCount).toBeGreaterThan(0);
+        expect(partialReport.assertions.some(a => a.status === "unsupported")).toBe(true);
+    });
+
+    it("scoreCard 集成断言分析并挂载 assertionReport", () => {
+        const card = scoreCard({
+            q: "什么是 TCP 握手？",
+            a: "双方交换初始序列号，确认彼此收发能力。",
+            source: "TCP 建立连接时，双方交换初始序列号，确认彼此收发能力。",
+        });
+
+        expect(card.assertionReport).toBeTruthy();
+        expect(card.assertionReport!.allSupported).toBe(true);
+        expect(card.dimensions.find(d => d.key === "source-coverage")!.score).toBe(0);
+
+        const ungroundedCard = scoreCard({
+            q: "什么是量子纠缠？",
+            a: "这是一种科幻小说里的瞬间超时空通信技术，没有任何物理限制。",
+            source: "物理学中的量子力学基本原理与测量理论。",
+        });
+        expect(ungroundedCard.assertionReport!.unsupportedCount).toBeGreaterThan(0);
+        expect(ungroundedCard.dimensions.find(d => d.key === "source-coverage")!.score).toBeGreaterThan(0);
+    });
+
+    it("treats approximate wording and changed numeric facts as partial evidence rather than verified support", () => {
+        const report = alignAssertionsWithSource(["此药每天服用100毫克"], "此药每天服用10毫克，具体剂量请核对说明书。");
+        expect(report.allSupported).toBe(false);
+        expect(report.assertions[0].status).toBe("partial");
+        expect(report.assertions[0].matchedSourceExcerpt).toBeUndefined();
+        expect(extractAssertions("3")).toEqual(["3"]);
+        expect(alignAssertionsWithSource(["3"], "3 次握手").allSupported).toBe(true);
+    });
+
+    it("uses actual source excerpts after normalization and never combines unrelated sentences into support", () => {
+        const exact = alignAssertionsWithSource(["tcp交换序列号"], "TCP 交换序列号。");
+        expect(exact.assertions[0].matchedSourceExcerpt).toBe("TCP 交换序列号");
+        const fragments = alignAssertionsWithSource(["北京是法国首都"], "北京是中国首都。法国首都是巴黎。");
+        expect(fragments.assertions[0].status).not.toBe("supported");
+        expect(fragments.allSupported).toBe(false);
     });
 });

@@ -109,4 +109,59 @@ describe("card detail preview loading", () => {
         await waitFor(() => expect(onSaved).toHaveBeenCalledWith("card-a"));
         expect(load).toHaveBeenCalledTimes(1);
     });
+
+    it("ignores an editor load from a previous card after switching", async () => {
+        getBlockDOM.mockResolvedValue("<p>Preview</p>");
+        const first = deferred<string>();
+        const saveA = vi.fn();
+        const saveB = vi.fn();
+        const view = render(CardDetail, {
+            ...props("card-a", "A"), editorCtx: { load: () => first.promise, save: saveA },
+        });
+        await screen.findByText("Preview");
+        await fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+        await view.rerender({
+            ...props("card-b", "B"), editorCtx: { load: async () => "Current B", save: saveB },
+        });
+        first.resolve("Stale content A");
+        await new Promise(resolve => setTimeout(resolve, 0));
+        expect(screen.queryByRole("textbox", { name: "Card markdown" })).toBeNull();
+        await fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+        expect((await screen.findByRole("textbox", { name: "Card markdown" }) as HTMLTextAreaElement).value).toBe("Current B");
+        expect(saveA).not.toHaveBeenCalled();
+        expect(saveB).not.toHaveBeenCalled();
+    });
+
+    it("does not navigate away from a new card when the previous save finishes", async () => {
+        getBlockDOM.mockResolvedValue("<p>Preview</p>");
+        const pendingSave = deferred<boolean>();
+        const onSaved = vi.fn();
+        const view = render(CardDetail, {
+            ...props("card-a", "A"), editorCtx: { load: async () => "Original A", save: () => pendingSave.promise }, onSaved,
+        });
+        await screen.findByText("Preview");
+        await fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+        await fireEvent.input(await screen.findByRole("textbox", { name: "Card markdown" }), { target: { value: "Changed A" } });
+        await new Promise(resolve => setTimeout(resolve, 220));
+        await fireEvent.click(screen.getByRole("button", { name: "Save" }));
+        await view.rerender({ ...props("card-b", "B"), editorCtx: { load: async () => "Current B", save: vi.fn() }, onSaved });
+        pendingSave.resolve(true);
+        await new Promise(resolve => setTimeout(resolve, 0));
+        expect(onSaved).not.toHaveBeenCalled();
+        expect(screen.queryByRole("textbox", { name: "Card markdown" })).toBeNull();
+        expect(screen.getByRole("button", { name: "Edit" })).toBeTruthy();
+    });
+
+    it("shows a comparison failure when current markdown is unavailable", async () => {
+        getBlockDOM.mockResolvedValue("<p>Preview</p>");
+        render(CardDetail, {
+            ...props("card-a", "A"), editorCtx: { load: async () => null, save: vi.fn() },
+            versions: [{ md: "Older content", at: 1, via: "editor" }],
+        });
+        await screen.findByText("Preview");
+        await fireEvent.click(screen.getByRole("button", { name: "History ▾" }));
+        await fireEvent.click(screen.getByRole("button", { name: "Compare with current" }));
+        expect(await screen.findByText("Could not load current content. Please retry.")).toBeTruthy();
+        expect(document.querySelector(".lv-diff" )).toBeNull();
+    });
 });

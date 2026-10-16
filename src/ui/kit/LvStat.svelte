@@ -48,17 +48,20 @@
             return;
         }
         const from = 0;
+        const target = value;
         const dur = 420;
         const t0 = performance.now();
+        let frame = 0;
         const step = (now: number) => {
             const p = Math.min(1, (now - t0) / dur);
             const eased = 1 - Math.pow(1 - p, 3);
-            display = Math.round(from + (value - from) * eased);
+            display = Math.round(from + (target - from) * eased);
             if (p < 1) {
-                requestAnimationFrame(step);
+                frame = requestAnimationFrame(step);
             }
         };
-        requestAnimationFrame(step);
+        frame = requestAnimationFrame(step);
+        return () => cancelAnimationFrame(frame);
     });
 
     // 零值态（R53 .num.zero）：0 降透明度保留原位，不隐藏不误读
@@ -84,6 +87,16 @@
 </div>
 
 <style>
+    :global(.lv-stat) {
+        transition: transform var(--lv-dur-2) var(--lv-ease),
+            box-shadow var(--lv-dur-2) var(--lv-ease),
+            border-color var(--lv-dur-1) var(--lv-ease);
+    }
+    :global(.lv-stat:hover) {
+        transform: translateY(-1px);
+        box-shadow: var(--lv-shadow-card-hover), var(--lv-inset-shine);
+        border-color: var(--lv-border-strong);
+    }
     .lv-stat .lv-stat-label {
         display: flex;
         align-items: center;

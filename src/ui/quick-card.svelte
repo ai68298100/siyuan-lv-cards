@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { onMount } from "svelte";
+    import { onDestroy, onMount } from "svelte";
     import { getRiffDecks, createRiffDeck, type RiffDeck } from "@/api/riff";
     import { serializeQaCard, validateQaDraft } from "@/core/flashcard-quality";
     import LvKbd from "./kit/LvKbd.svelte";
@@ -25,6 +25,9 @@
     let template = $state<"qa" | "cloze">("qa");
     let previewAnswer = $state(false);
     let createdNotice = $state("");
+    let editorRoot: HTMLDivElement;
+    let disposed = false;
+    onDestroy(() => { disposed = true; });
 
     const canCreateDeck = $derived(decks.some(d => d.id === selected) || !!newName.trim());
     const clozeParts = $derived(q.split("____"));
@@ -42,14 +45,17 @@
         deckLoadBusy = true;
         deckLoadError = "";
         try {
-            decks = await getRiffDecks();
+            const loadedDecks = await getRiffDecks();
+            if (disposed) return;
+            decks = [...loadedDecks, ...decks.filter(deck => !loadedDecks.some(loaded => loaded.id === deck.id))];
             if (decks.length > 0 && !decks.some(d => d.id === selected)) {
                 selected = decks[0].id;
             }
         } catch (e: any) {
+            if (disposed) return;
             deckLoadError = e?.message ?? String(e);
         } finally {
-            deckLoadBusy = false;
+            if (!disposed) deckLoadBusy = false;
         }
     }
 
@@ -83,6 +89,7 @@
                 ? question.split("____").join(`==${answer}==`)
                 : serializeQaCard(question, answer);
             await onCreate(markdown, deckID, deckName, question, answer);
+            if (disposed) return;
             if (embedded) {
                 q = "";
                 a = "";
@@ -92,14 +99,16 @@
                 onClose();
             }
         } catch (e: any) {
+            if (disposed) return;
             errorMsg = e?.message ?? String(e);
         } finally {
-            busy = false;
+            if (!disposed) busy = false;
         }
     }
 
     function onKeydown(e: KeyboardEvent) {
-        if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && canSubmit) {
+        if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && !e.repeat && !e.defaultPrevented && canSubmit
+            && e.target instanceof Node && editorRoot?.contains(e.target) && !editorRoot.closest("[hidden], [inert]")) {
             e.preventDefault();
             confirm();
         }
@@ -108,7 +117,7 @@
 
 <svelte:window on:keydown={onKeydown} />
 
-<div class="lv-quickcard b3-typography">
+<div class="lv-quickcard b3-typography" bind:this={editorRoot}>
     <div class="lv-qc-toolbar">
         <div class="lv-qc-template" role="group" aria-label={t.quickCardTemplateLabel}>
             <button type="button" class:lv-qc-template-active={template === "qa"} aria-pressed={template === "qa"} disabled={busy} onclick={() => setTemplate("qa")}>
@@ -154,14 +163,13 @@
         </section>
         <section class="lv-qc-preview" aria-label={t.quickCardPreviewTitle}>
             <div class="lv-qc-preview-heading"><span>{t.quickCardPreviewTitle}</span><span>{t.quickCardPreviewNote}</span></div>
-            <div class="lv-qc-preview-face" id="lv-qc-preview-face">
+            <div class="lv-qc-preview-face lv-unified-face" id="lv-qc-preview-face">
                 <span class="lv-qc-preview-label">{t.quickCardPreviewFront}</span>
                 {#if q.trim()}
                     {#if template === "cloze" && hasClozeMarker}
                         <p>{#each clozeParts as part, i (i)}{part}{#if i < clozeParts.length - 1}<span class="lv-qc-mask">{t.quickCardHiddenAnswer}</span>{/if}{/each}</p>
                     {:else}
-                        <p>{q}</p>
-                        {#if template === "qa" && a.trim()}<span class="lv-qc-mask">{t.quickCardHiddenAnswer}</span>{/if}
+                        <p>{q}{#if template === "qa" && a.trim()}<span class="lv-qc-mask">{t.quickCardHiddenAnswer}</span>{/if}</p>
                     {/if}
                 {:else}
                     <p class="lv-qc-placeholder">{t.quickCardPreviewEmpty}</p>
@@ -189,7 +197,7 @@
         <div class="ft__smaller lv-qc-error" role="alert">{errorMsg}</div>
     {/if}
     <div class="b3-dialog__action lv-qc-actions">
-        {#if !embedded}<button class="b3-button b3-button--cancel" onclick={onClose}>{window.siyuan.languages.cancel}</button>{/if}
+        {#if !embedded}<button class="b3-button b3-button--cancel" disabled={busy} onclick={onClose}>{window.siyuan.languages.cancel}</button>{/if}
         <button class="b3-button lv-btn-primary" disabled={!canSubmit} onclick={confirm}>
             {t.quickCardCreate} <LvKbd k="Ctrl ↵" />
         </button>

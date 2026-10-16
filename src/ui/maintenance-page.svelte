@@ -1,7 +1,7 @@
 <script lang="ts">
     // BI-25 维护债务队列（Hub 懒加载子页）：卡面无效/重复/泄漏/过长/待审核只读诊断。
     // 「暂缓今日」=今日不学（可逆，次日恢复，不改变 due 语义）；「打开来源」回原文档。
-    import { onMount } from "svelte";
+    import { onDestroy, onMount } from "svelte";
     import LvPage from "./kit/LvPage.svelte";
     import LvChip from "./kit/LvChip.svelte";
     import LvSkeleton from "./kit/LvSkeleton.svelte";
@@ -30,6 +30,13 @@
                 summary: { update: number; unchanged: number; rejected: number };
             }>;
             applyRepair: (previewID: string) => Promise<{ blockIDs: string[] }>;
+            getLastRepairRecord?: () => {
+                previewID: string;
+                appliedAt: number;
+                summary: { update: number; unchanged: number; rejected: number };
+                diffs: { blockID: string; action: string; beforeMarkdown?: string; afterMarkdown?: string; errors?: string[] }[];
+            } | null;
+            rollbackLastRepair?: () => Promise<{ blockIDs: string[]; previewID: string }>;
             /** Explicitly accept the current source and move its fingerprint baseline. */
             acknowledgeSourceHealth?: (blockID: string) => Promise<void>;
             suspendToday: (blockIDs: string[]) => Promise<void>;
@@ -43,6 +50,7 @@
     const t = $derived(i18n.maintenance);
 
     let scanning = $state(true);
+    let scanSeq = 0;
     let errorMsg = $state("");
     let groups = $state<Record<DebtKind, DebtItem[]>>(groupDebts([]));
     let excerpts = $state<Map<string, string>>(new Map());
@@ -54,6 +62,17 @@
     type SimilarDecision = { action: "keep"; blockID: string } | { action: "ignore" };
     const SIMILAR_DECISIONS_KEY = "lv-cards.maintenance.approximate-duplicates.v1";
     let similarDecisions = $state<Record<string, SimilarDecision>>({});
+
+    type LastRepair = NonNullable<ReturnType<NonNullable<typeof maintenance.getLastRepairRecord>>>;
+    let lastRepair = $state<LastRepair | null>(null);
+    let lastRepairDiffOpen = $state(false);
+    let rollbackBusy = $state(false);
+    let rollbackError = $state("");
+    let rollbackSuccess = $state("");
+
+    function refreshLastRepair() {
+        lastRepair = maintenance.getLastRepairRecord?.() ?? null;
+    }
     let suspended = $state<Set<string>>(new Set());
     let live = $state("");
     type SuspendAction = { type: "suspend" | "resume"; ids: string[]; message: string; group?: DebtKind };
@@ -176,7 +195,7 @@
     }
 
     async function previewRepairs() {
-        if (repairBusy) return;
+        if (repairBusy || rollbackBusy || scanning || sourceHealthPendingId) return;
         const proposals = Object.entries(repairDrafts).map(([blockID, afterMarkdown]) => ({
             blockID,
             afterMarkdown,
@@ -196,8 +215,29 @@
         }
     }
 
+    async function rollbackRepair() {
+        if (rollbackBusy || repairBusy || scanning || sourceHealthPendingId || !lastRepair || !maintenance.rollbackLastRepair) return;
+        const confirmText = repairText("rollbackConfirm", "确定撤销上次批量修复？卡片将恢复为修复前快照；若某张卡片已发生后续编辑，将自动阻断以保护最新内容。");
+        if (typeof window !== "undefined" && typeof window.confirm === "function" && !window.confirm(confirmText)) return;
+        rollbackBusy = true;
+        rollbackError = "";
+        rollbackSuccess = "";
+        try {
+            await maintenance.rollbackLastRepair();
+            rollbackSuccess = repairText("rollbackSuccess", "已成功撤销上次批量修复，卡片已恢复为修复前快照。");
+            live = rollbackSuccess;
+            repairPreview = null;
+            refreshLastRepair();
+            await runScan();
+        } catch (e) {
+            rollbackError = e instanceof Error ? e.message : String(e);
+        } finally {
+            rollbackBusy = false;
+        }
+    }
+
     async function applyRepairs() {
-        if (repairBusy || !repairPreview?.ok) return;
+        if (repairBusy || rollbackBusy || scanning || sourceHealthPendingId || !repairPreview?.ok) return;
         const confirmText = repairText("repairConfirm", "将写入 ${n} 张卡片并保留修复前快照，确定继续吗？")
             .replace("${n}", String(repairPreview.summary.update));
         if (typeof window !== "undefined" && typeof window.confirm === "function" && !window.confirm(confirmText)) return;
@@ -208,6 +248,7 @@
             live = repairText("repairDone", "批量修复已完成");
             repairDrafts = {};
             repairPreview = null;
+            refreshLastRepair();
             await runScan();
         } catch (e) {
             repairError = e instanceof Error ? e.message : String(e);
@@ -217,10 +258,13 @@
     }
 
     async function runScan() {
+        const seq = ++scanSeq;
         scanning = true;
+        repairPreview = null;
         errorMsg = "";
         try {
             const result = await maintenance.scan();
+            if (seq !== scanSeq) return;
             const scannedCards = result.items;
             groups = groupDebts(detectDebts(scannedCards));
             excerpts = new Map(scannedCards.map(c => [c.blockID, excerpt(c.md)]));
@@ -231,9 +275,9 @@
             errorMsg = result.error ? i18n.scanPartial.replace("${error}", result.error) : "";
             live = t.scanned;
         } catch (e: any) {
-            errorMsg = e?.message ?? String(e);
+            if (seq === scanSeq) errorMsg = e?.message ?? String(e);
         } finally {
-            scanning = false;
+            if (seq === scanSeq) scanning = false;
         }
     }
 
@@ -311,7 +355,7 @@
 
     async function acknowledgeSource(blockID: string) {
         const acknowledge = maintenance.acknowledgeSourceHealth;
-        if (!acknowledge || sourceHealthPendingId) return;
+        if (!acknowledge || sourceHealthPendingId || repairBusy || rollbackBusy || scanning) return;
         const confirmText = repairText("sourceHealthConfirm", "确认当前来源内容，并将它设为新的健康基线吗？");
         if (typeof window !== "undefined" && typeof window.confirm === "function" && !window.confirm(confirmText)) return;
         sourceHealthPendingId = blockID;
@@ -336,14 +380,16 @@
     }
 
     onMount(() => {
+        refreshLastRepair();
         loadSimilarDecisions();
         void runScan();
     });
+    onDestroy(() => { scanSeq += 1; });
 </script>
 
 <LvPage eyebrow="WORKSPACE / RECOVER" title={t.title} subtitle={t.queueCount.replace("${n}", String(total()))}>
     {#snippet actions()}
-        <button class="b3-button b3-button--small b3-button--outline" disabled={scanning || !!pendingAction || !!sourceHealthPendingId || repairBusy} onclick={runScan}>{scanning ? t.scanning : t.scan}</button>
+        <button class="b3-button b3-button--small b3-button--outline" disabled={scanning || !!pendingAction || !!sourceHealthPendingId || repairBusy || rollbackBusy} onclick={runScan}>{scanning ? t.scanning : t.scan}</button>
     {/snippet}
 
     <div class="lv-maint-note ft__smaller ft__on-surface">{t.impactNote}</div>
@@ -357,7 +403,7 @@
             {#each Object.entries(repairDrafts) as [blockID, draft] (blockID)}
                 <div class="lv-maint-repair-draft">
                     <div class="lv-maint-repair-draft-head"><code>{blockID}</code><button class="b3-button b3-button--small" disabled={repairBusy} onclick={() => removeRepairDraft(blockID)}>{repairText("repairRemove", "移除")}</button></div>
-                    <textarea class="b3-text-field fn__block" rows="4" value={draft} disabled={repairBusy} aria-label={`${repairText("repairDraft", "修复内容")} ${blockID}`} oninput={(event) => updateRepairDraft(blockID, (event.currentTarget as HTMLTextAreaElement).value)}></textarea>
+                    <textarea class="b3-text-field fn__block" rows="4" value={draft} disabled={repairBusy || rollbackBusy || scanning} aria-label={`${repairText("repairDraft", "修复内容")} ${blockID}`} oninput={(event) => updateRepairDraft(blockID, (event.currentTarget as HTMLTextAreaElement).value)}></textarea>
                 </div>
             {/each}
             {#if repairError}<div class="lv-maint-repair-error" role="alert">{repairError}</div>{/if}
@@ -379,10 +425,47 @@
                 </div>
             {/if}
             <div class="lv-maint-repair-actions">
-                <button class="b3-button b3-button--outline" disabled={repairBusy} aria-busy={repairBusy} onclick={previewRepairs}>{repairBusy ? t.saving : repairText("repairPreviewBtn", "生成预览")}</button>
-                {#if repairPreview?.ok}<button class="b3-button lv-btn-primary" disabled={repairBusy} onclick={applyRepairs}>{repairText("repairApply", "确认写入")}</button>{/if}
+                <button class="b3-button b3-button--outline" disabled={repairBusy || rollbackBusy || scanning || !!sourceHealthPendingId} aria-busy={repairBusy} onclick={previewRepairs}>{repairBusy ? t.saving : repairText("repairPreviewBtn", "生成预览")}</button>
+                {#if repairPreview?.ok}<button class="b3-button lv-btn-primary" disabled={repairBusy || rollbackBusy || scanning || !!sourceHealthPendingId} onclick={applyRepairs}>{repairText("repairApply", "确认写入")}</button>{/if}
             </div>
         </section>
+    {/if}
+
+    {#if lastRepair}
+        <section class="lv-card2 lv-maint-repair" aria-labelledby="lv-maint-last-repair-title" style="margin-bottom: var(--lv-sp-4);">
+            <div class="lv-maint-repair-draft-head">
+                <div>
+                    <h3 id="lv-maint-last-repair-title" style="margin: 0; font-size: 15px; font-weight: 600;">{repairText("lastRepairTitle", "上次批量修复记录")}</h3>
+                    <span class="ft__smaller ft__on-surface" style="margin-top: 4px; display: block;">
+                        {repairText("lastRepairApplied", "已更新 ${n} 张卡片 · ${time}").replace("${n}", String(lastRepair.summary.update)).replace("${time}", new Date(lastRepair.appliedAt).toLocaleString())}
+                    </span>
+                </div>
+                <div style="display: flex; gap: var(--lv-sp-2); align-items: center; flex-wrap: wrap;">
+                    <button class="b3-button b3-button--small lv-btn-ghost" onclick={() => (lastRepairDiffOpen = !lastRepairDiffOpen)}>
+                        {lastRepairDiffOpen ? repairText("lastRepairHideDiff", "收起差异") : repairText("lastRepairViewDiff", "查看修改差异")}
+                    </button>
+                    <button class="b3-button b3-button--small lv-btn-primary" disabled={rollbackBusy || repairBusy || scanning || !!sourceHealthPendingId} aria-busy={rollbackBusy} onclick={rollbackRepair}>
+                        {rollbackBusy ? repairText("rollbackRepairBusy", "正在撤销…") : repairText("rollbackRepairBtn", "撤销此次修复")}
+                    </button>
+                </div>
+            </div>
+            {#if rollbackError}
+                <div class="lv-maint-repair-error" role="alert" style="margin-top: var(--lv-sp-2);">{rollbackError}</div>
+            {/if}
+            {#if lastRepairDiffOpen}
+                <div class="lv-maint-repair-preview" style="margin-top: var(--lv-sp-3);">
+                    {#each lastRepair.diffs as diff (diff.blockID)}
+                        <div class="lv-maint-repair-diff">
+                            <span class="ft__smaller ft__on-surface">ID {diff.blockID}</span>
+                            <pre>{diff.beforeMarkdown !== undefined ? `【修复前】\n${diff.beforeMarkdown}\n\n` : ""}【修复后】\n{diff.afterMarkdown ?? ""}</pre>
+                        </div>
+                    {/each}
+                </div>
+            {/if}
+        </section>
+    {/if}
+    {#if rollbackSuccess}
+        <div class="lv-notice" role="status" style="color: var(--lv-color-success); margin-bottom: var(--lv-sp-4);">{rollbackSuccess}</div>
     {/if}
 
     {#if scanning}
@@ -450,7 +533,7 @@
                                 <button class="b3-button b3-button--small" disabled={repairBusy || Object.prototype.hasOwnProperty.call(repairDrafts, d.blockID)} onclick={() => addRepairDraft(d.blockID)}>{repairText("repairAdd", "加入修复")}</button>
                             {/if}
                             {#if kind === "sourceHealth" && maintenance.acknowledgeSourceHealth && cardMap.get(d.blockID)?.sourceHealthIssues?.some(issue => issue.kind === "moved" || issue.kind === "changed" || issue.kind === "license-changed")}
-                                <button class="b3-button b3-button--small" disabled={!!sourceHealthPendingId} aria-busy={sourceHealthPendingId === d.blockID} onclick={() => acknowledgeSource(d.blockID)}>{sourceHealthPendingId === d.blockID ? repairText("sourceHealthUpdating", "更新中…") : repairText("sourceHealthAcknowledge", "确认当前来源")}</button>
+                                <button class="b3-button b3-button--small" disabled={!!sourceHealthPendingId || repairBusy || rollbackBusy} aria-busy={sourceHealthPendingId === d.blockID} onclick={() => acknowledgeSource(d.blockID)}>{sourceHealthPendingId === d.blockID ? repairText("sourceHealthUpdating", "更新中…") : repairText("sourceHealthAcknowledge", "确认当前来源")}</button>
                             {/if}
                             <button class="b3-button b3-button--small" disabled={!!sourcePendingId} aria-busy={sourcePendingId === d.blockID} onclick={() => openSource(d.blockID)}>{sourcePendingId === d.blockID ? t.opening : t.open}</button>
                             <button class="b3-button b3-button--small" onclick={() => maintenance.openCard(d.blockID)}>{t.editCard}</button>

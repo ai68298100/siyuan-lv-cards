@@ -131,7 +131,7 @@ describe("R54 manual card workspace", () => {
 
         await fireEvent.input(screen.getByRole("textbox", { name: "问题" }), { target: { value: "水的化学式是什么？" } });
         await fireEvent.input(screen.getByRole("textbox", { name: "答案" }), { target: { value: "H2O" } });
-        await fireEvent.keyDown(window, { key: "Enter", ctrlKey: true });
+        await fireEvent.keyDown(screen.getByRole("textbox", { name: "答案" }), { key: "Enter", ctrlKey: true });
         await waitFor(() => expect(onCreate).toHaveBeenCalledWith("水的化学式是什么？ ==H2O==", "deck-1", "默认卡组", "水的化学式是什么？", "H2O"));
     });
 
@@ -202,6 +202,37 @@ describe("R54 manual card workspace", () => {
         await rerender({ ...props, isActive: true });
         await screen.findByRole("textbox", { name: "问题" });
         expect(loadQuickCard).toHaveBeenCalledOnce();
+    });
+
+    it("only handles Ctrl+Enter from the visible manual editor", async () => {
+        const onCreate = vi.fn().mockResolvedValue(undefined);
+        const { container } = render(QuickCard, { i18n, onCreate, onClose: vi.fn(), embedded: true });
+        const question = await screen.findByRole("textbox", { name: "问题" });
+        await fireEvent.input(question, { target: { value: "草稿问题" } });
+        await fireEvent.input(screen.getByRole("textbox", { name: "答案" }), { target: { value: "草稿答案" } });
+        await fireEvent.keyDown(window, { key: "Enter", ctrlKey: true });
+        expect(onCreate).not.toHaveBeenCalled();
+        container.hidden = true;
+        await fireEvent.keyDown(question, { key: "Enter", ctrlKey: true });
+        expect(onCreate).not.toHaveBeenCalled();
+        container.hidden = false;
+        await fireEvent.keyDown(question, { key: "Enter", ctrlKey: true });
+        await waitFor(() => expect(onCreate).toHaveBeenCalledOnce());
+    });
+
+    it("queues an AI request arriving while the manual chunk is loading", async () => {
+        let resolveManual!: (view: any) => void;
+        const manual = new Promise<any>(resolve => { resolveManual = resolve; });
+        const sharedProps = { i18n, onCreate: vi.fn(), onClose: vi.fn() };
+        const loadQuickCard = vi.fn(() => manual);
+        const loadWizard = vi.fn(async () => ({ Component: QuickCard, props: sharedProps }));
+        const props = { i18n, openOnboarding: vi.fn(), loadQuickCard, loadWizard, isActive: true, aiRequest: 0 };
+        const { rerender } = render(StudioWorkbench, props);
+        await waitFor(() => expect(loadQuickCard).toHaveBeenCalledOnce());
+        await rerender({ ...props, aiRequest: 1 });
+        resolveManual({ Component: QuickCard, props: sharedProps });
+        await waitFor(() => expect(loadWizard).toHaveBeenCalledOnce());
+        expect((screen.getByRole("button", { name: "AI 辅助" }) as HTMLButtonElement).getAttribute("aria-pressed")).toBe("true");
     });
 
     it("mounts a standalone chunk view through its own mounter", async () => {

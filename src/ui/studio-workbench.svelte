@@ -50,6 +50,8 @@
     let handledManualRequest = 0;
     let handledAiRequest = 0;
     let initialLoadStarted = false;
+    let disposed = false;
+    let pendingMode = $state<"manual" | "ai" | null>(null);
     // The hub chunk and dialogs chunk have separate Svelte runtimes. Keep the
     // returned handles outside reactive state; only the host DOM node is reactive.
     let quickCardHandle: { destroy(): void } | null = null;
@@ -91,6 +93,7 @@
     });
 
     onDestroy(() => {
+        disposed = true;
         quickCardHandle?.destroy();
         aiWizardHandle?.destroy();
     });
@@ -99,7 +102,7 @@
         error = "";
         mode = "manual";
         if (!QuickCard) {
-            if (loading) return;
+            if (loading) { pendingMode = "manual"; return; }
             if (!loadQuickCard) {
                 error = i18n.hubStudioManualUnavailable ?? "手工制卡暂不可用，请重新打开插件后重试。";
                 return;
@@ -107,16 +110,17 @@
             loading = true;
             try {
                 const view = await loadQuickCard();
+                if (disposed) return;
                 QuickCard = view.Component;
                 quickCardProps = view.props;
                 quickCardMount = view.mount ?? null;
             } catch (e: any) {
+                if (disposed) return;
                 error = e?.message ?? String(e);
             } finally {
-                loading = false;
+                if (!disposed) loading = false;
             }
         }
-        if (QuickCard) mode = "manual";
     }
 
     async function startAI(sources?: StudioSource[], onImportComplete?: (ids: string[]) => void) {
@@ -126,7 +130,7 @@
             return;
         }
         mode = "ai";
-        if (loading) return;
+        if (loading) { pendingMode = "ai"; return; }
         if (!loadWizard) {
             error = i18n.hubStudioAIUnavailable ?? "AI 制卡暂不可用，可先使用手工制卡。";
             return;
@@ -134,15 +138,16 @@
         loading = true;
         try {
             const view = await loadWizard(sources, onImportComplete);
+            if (disposed) return;
             AIWizard = view.Component;
             aiWizardProps = view.props;
             aiWizardMount = view.mount ?? null;
             wizardRun++;
-            mode = "ai";
         } catch (e: any) {
+            if (disposed) return;
             error = e?.message ?? String(e);
         } finally {
-            loading = false;
+            if (!disposed) loading = false;
         }
     }
 
@@ -157,21 +162,22 @@
         loading = true;
         try {
             const view = await loadWizard(undefined, undefined, jobId);
+            if (disposed) return;
             AIWizard = view.Component;
             aiWizardProps = view.props;
             aiWizardMount = view.mount ?? null;
             wizardRun++;
             pendingRecoveryJobId = "";
-            mode = "ai";
         } catch (e: any) {
+            if (disposed) return;
             error = e?.message ?? String(e);
         } finally {
-            loading = false;
+            if (!disposed) loading = false;
         }
     }
 
     function requestRecovery(jobId: string) {
-        if (AIWizard) {
+        if (AIWizard || loading) {
             pendingRecoveryJobId = jobId;
             mode = "ai";
             return;
@@ -185,6 +191,22 @@
         pendingRequest = null;
         void startAI(request.sources, request.onImportComplete);
     }
+
+    $effect(() => {
+        if (pendingRecoveryJobId && !AIWizard && !loading) {
+            const jobId = pendingRecoveryJobId;
+            pendingRecoveryJobId = "";
+            void startRecovery(jobId);
+        }
+    });
+
+    $effect(() => {
+        const request = pendingMode;
+        if (!request || loading) return;
+        pendingMode = null;
+        if (request === "manual") void startManual();
+        else void startAI();
+    });
 
     $effect(() => {
         const request = pendingRequest;

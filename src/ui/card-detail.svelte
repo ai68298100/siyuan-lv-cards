@@ -59,6 +59,7 @@
     let previewLoading = $state(false);
     let previewError = $state(false);
     let loadSeq = 0;
+    let cardSeq = 0;
     // T05 内容版本（docs/40）：历史列表折叠 + 单版本展开 + 对比当前（逐行 diff）
     let versionsOpen = $state(false);
     let verOpenAt = $state<number | null>(null);
@@ -72,17 +73,23 @@
         if (diffBusy) return;
         if (diffAt === at) { diffAt = null; diffError = false; return; }
         if (!editorCtx) return;
+        const blockID = block.id;
+        const seq = cardSeq;
+        const load = editorCtx.load;
         diffBusy = true;
         diffError = false;
         try {
-            const cur = await editorCtx.load();
-            diffRows = diffLines(versionMd, cur ?? "");
+            const cur = await load();
+            if (seq !== cardSeq || block.id !== blockID) return;
+            if (cur === null) throw new Error("Current content is unavailable");
+            diffRows = diffLines(versionMd, cur);
             diffAt = at;
         } catch {
+            if (seq !== cardSeq || block.id !== blockID) return;
             diffAt = null;
             diffError = true;
         } finally {
-            diffBusy = false;
+            if (seq === cardSeq && block.id === blockID) diffBusy = false;
         }
     }
     async function loadPreview(blockID: string): Promise<void> {
@@ -106,28 +113,41 @@
 
     async function registerKnowledgeObject() {
         if (koRegisterBusy || !koCtx) return;
+        const blockID = block.id;
+        const seq = cardSeq;
+        const register = koCtx.onregister;
         koRegisterBusy = true;
         koRegisterError = "";
         try {
-            await koCtx.onregister();
+            await register();
         } catch (error) {
-            koRegisterError = error instanceof Error && error.message ? error.message : (t.review?.ko?.actionFailed ?? "保存失败，请重试。");
+            if (seq === cardSeq && block.id === blockID) koRegisterError = error instanceof Error && error.message ? error.message : (t.review?.ko?.actionFailed ?? "保存失败，请重试。");
         } finally {
-            koRegisterBusy = false;
+            if (seq === cardSeq && block.id === blockID) koRegisterBusy = false;
         }
     }
 
     // 切换块时重置折叠/对比状态，并清空旧预览后加载当前块。
     $effect(() => {
         const blockID = block.id;
+        cardSeq += 1;
         versionsOpen = false;
         verOpenAt = null;
         diffAt = null;
         diffError = false;
+        diffBusy = false;
+        diffRows = [];
+        editing = false;
+        editorMd = "";
+        editorLoadBusy = false;
+        editorLoadFail = false;
+        koRegisterBusy = false;
+        koRegisterError = "";
         void loadPreview(blockID);
         return () => {
             // 使卸载或切换前发出的请求失效，晚到的响应不能覆盖当前块。
             loadSeq += 1;
+            cardSeq += 1;
         };
     });
     // T05 分面（docs/40）：内容/来源/学习记录/问题
@@ -169,9 +189,13 @@
 
     async function startEdit() {
         if (!editorCtx || editorLoadBusy) return;
+        const blockID = block.id;
+        const seq = cardSeq;
+        const load = editorCtx.load;
         editorLoadBusy = true;
         try {
-            const md = await editorCtx.load();
+            const md = await load();
+            if (seq !== cardSeq || block.id !== blockID) return;
             if (md === null) {
                 editorLoadFail = true;
                 return;
@@ -180,20 +204,24 @@
             editorMd = md;
             editing = true;
         } catch {
-            editorLoadFail = true;
+            if (seq === cardSeq && block.id === blockID) editorLoadFail = true;
         } finally {
-            editorLoadBusy = false;
+            if (seq === cardSeq && block.id === blockID) editorLoadBusy = false;
         }
     }
 
     async function saveEdit(md: string): Promise<boolean | string> {
         if (!editorCtx) return false;
+        const blockID = block.id;
+        const seq = cardSeq;
+        const saved = onSaved;
         const ok = await editorCtx.save(md);
+        if (seq !== cardSeq || block.id !== blockID) return ok;
         if (ok === true) {
             editing = false;
             // 写回成功后刷新预览（失败保留旧卡面）
-            await loadPreview(block.id);
-            await onSaved?.(block.id);
+            await loadPreview(blockID);
+            if (seq === cardSeq && block.id === blockID) await saved?.(blockID);
         }
         return ok;
     }
@@ -286,7 +314,7 @@
                 <button class="b3-button b3-button--small" onclick={() => loadPreview(block.id)}>{t.dashboard.refresh}</button>
             </div>
         {/if}
-        <div class="lv-detail-preview">{@html html || (block.content ?? "")}</div>
+        <div class="lv-detail-preview lv-unified-face b3-typography">{@html html || (block.content ?? "")}</div>
         {#if editing}
             <CardEditor t={t} original={editorMd} onsave={saveEdit} oncancel={() => (editing = false)} />
         {:else if editorLoadFail}
@@ -424,16 +452,32 @@
     /* T05 版本对比（docs/40）：逐行差异 */
     .lv-diff {
         margin-top: calc(var(--lv-space-unit) * 2);
-        padding: calc(var(--lv-space-unit) * 3) calc(var(--lv-space-unit) * 4);
+        padding: calc(var(--lv-space-unit) * 2) calc(var(--lv-space-unit) * 3);
         border: 1px solid var(--lv-border);
-        border-radius: var(--lv-r-compact);
+        border-radius: var(--lv-r-m);
         max-height: 220px;
         overflow: auto;
         font-size: var(--lv-type-control-size);
         line-height: var(--lv-lh-reading);
+        background: var(--lv-color-canvas);
+        box-shadow: inset 0 1px 2px color-mix(in srgb, black 3%, transparent);
     }
-    .lv-diff-row { white-space: pre-wrap; word-break: break-word; padding: 0 calc(var(--lv-space-unit) * 2); }
-    .lv-diff-del { background: var(--lv-danger-soft); color: var(--lv-color-danger); }
-    .lv-diff-add { background: var(--lv-good-soft); color: var(--lv-color-success); }
+    .lv-diff-row {
+        white-space: pre-wrap;
+        word-break: break-word;
+        padding: 2px calc(var(--lv-space-unit) * 3);
+        border-radius: 4px;
+        margin: 1px 0;
+    }
+    .lv-diff-del {
+        background: var(--lv-danger-soft);
+        color: var(--lv-color-danger);
+        border-left: 3px solid var(--lv-color-danger);
+    }
+    .lv-diff-add {
+        background: var(--lv-good-soft);
+        color: var(--lv-color-success);
+        border-left: 3px solid var(--lv-color-success);
+    }
     .lv-diff-same { opacity: 0.65; }
 </style>

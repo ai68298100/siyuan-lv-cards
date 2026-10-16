@@ -31,12 +31,39 @@ export interface DimensionScore {
     level?: "remember" | "understand" | "apply";
 }
 
+export type AssertionSupportStatus = "supported" | "unsupported" | "partial";
+
+/** 单个事实断言及其在来源材料中的依据情况。 */
+export interface CardAssertion {
+    /** 断言文本片段（原子命题或分句） */
+    text: string;
+    /** 该断言在来源中的支持状态 */
+    status: AssertionSupportStatus;
+    /** 在来源材料中匹配到的依据片段（如有） */
+    matchedSourceExcerpt?: string;
+    /** 重叠度/置信度 0-1 */
+    confidence: number;
+}
+
+/** 整张卡片逐断言来源对齐报告。 */
+export interface CardAssertionReport {
+    assertions: CardAssertion[];
+    /** 是否所有断言均有可靠来源支持 */
+    allSupported: boolean;
+    /** 存在未支持断言的数量 */
+    unsupportedCount: number;
+    /** 综合来源可信度评分 0-100 */
+    sourceTrustScore: number;
+}
+
 export interface Scorecard {
     dimensions: DimensionScore[];
     /** 综合分 0-100（加权扣分；仅审阅提示） */
     composite: number;
     /** 恒 true——综合分不绕过人工闸门（验收断言点） */
     advisoryOnly: true;
+    /** 逐断言来源依据对齐报告（提供了 source 时计算） */
+    assertionReport?: CardAssertionReport;
 }
 
 /** 维度权重（综合分扣分用；leak/duplicate 直接决定可用性故权重最高） */
@@ -70,6 +97,89 @@ function hasCommonGram(qNorm: string, aNorm: string, n = 4): boolean {
     return false;
 }
 
+/** 将答案文本拆分为原子断言片段。 */
+export function extractAssertions(answer: string, _question?: string): string[] {
+    const raw = String(answer ?? "").trim();
+    if (!raw) return [];
+    // 按语义标点与换行切分为断言候选
+    const parts = raw
+        .split(/[。；;！!\n\r]+/)
+        .map(p => p.trim())
+        .filter(p => p.length > 0);
+    return parts;
+}
+
+/** 逐断言在原材料中进行滑动窗口与 n-gram 对齐。 */
+export function alignAssertionsWithSource(assertions: string[], sourceText: string): CardAssertionReport {
+    const rawSource = String(sourceText ?? "").trim();
+    if (!rawSource || assertions.length === 0) {
+        return {
+            assertions: assertions.map(text => ({ text, status: "unsupported" as const, confidence: 0 })),
+            allSupported: false,
+            unsupportedCount: assertions.length,
+            sourceTrustScore: 0,
+        };
+    }
+
+    const passages = rawSource.split(/[。；;！!？?\n\r]+/).map(text => ({
+        text: text.trim(),
+        clean: norm(text).replace(/[^\p{L}\p{N}]/gu, ""),
+    })).filter(passage => passage.clean.length > 0);
+    let totalConfidence = 0;
+    let unsupportedCount = 0;
+
+    const alignedAssertions: CardAssertion[] = assertions.map(assertionText => {
+        const clean = norm(assertionText).replace(/[^\p{L}\p{N}]/gu, "");
+        if (clean.length === 0) {
+            unsupportedCount++;
+            return { text: assertionText, status: "unsupported", confidence: 0 };
+        }
+
+        // 1. 完全包含直接命中
+        const matchedPassage = passages.find(passage => passage.clean.includes(clean));
+        if (matchedPassage) {
+            // 摘录必须来自原文，不能将规范化后的答案伪装成来源引文。
+            const idx = matchedPassage.text.indexOf(assertionText);
+            const excerpt = matchedPassage.text.slice(Math.max(0, idx - 40), Math.max(0, idx) + Math.max(200, assertionText.length + 40));
+            totalConfidence += 1;
+            return { text: assertionText, status: "supported", matchedSourceExcerpt: excerpt, confidence: 1 };
+        }
+
+        // 2. 2-gram 窗口重叠度计算
+        const n = 2;
+        const totalGrams = Math.max(1, clean.length - n + 1);
+        const ratio = passages.reduce((best, passage) => {
+            let matchedGrams = 0;
+            for (let i = 0; i < totalGrams; i++) {
+                if (passage.clean.includes(clean.slice(i, i + n))) matchedGrams++;
+            }
+            return Math.max(best, matchedGrams / totalGrams);
+        }, 0);
+
+        // 字词重叠无法证明数值、否定关系或改写后的事实正确；只提示可能相关，留给人工核对。
+        if (ratio >= 0.25) {
+            const conf = Math.round(ratio * 100) / 100;
+            totalConfidence += conf;
+            return { text: assertionText, status: "partial", confidence: conf };
+        } else {
+            const conf = Math.round(ratio * 100) / 100;
+            totalConfidence += conf;
+            unsupportedCount++;
+            return { text: assertionText, status: "unsupported", confidence: conf };
+        }
+    });
+
+    const avgConfidence = totalConfidence / Math.max(1, assertions.length);
+    const sourceTrustScore = Math.round(avgConfidence * 100);
+
+    return {
+        assertions: alignedAssertions,
+        allSupported: unsupportedCount === 0 && alignedAssertions.every(a => a.status === "supported"),
+        unsupportedCount,
+        sourceTrustScore,
+    };
+}
+
 /** 单卡评分：seenKeys 提供批内查重上下文（调用方可复用 scoreBatch）；source 缺省=不判来源覆盖 */
 export function scoreCard(input: { q: string; a: string; source?: string }, seenKeys?: Set<string>): Scorecard {
     const q = input.q ?? "";
@@ -97,11 +207,15 @@ export function scoreCard(input: { q: string; a: string; source?: string }, seen
         ...(leak ? { noteKey: "aiScore.note.answer-leak.2", suggestKey: "aiScore.fix.answer-leak" } : {}),
     });
 
-    // 来源覆盖：答案关键词在来源中无依据（source 未提供=不判，0 分）
+    // 来源覆盖：基于逐断言来源依据对齐进行精准判定（source 未提供=不判，0 分）
     let coverage: DimScore = 0;
+    let assertionReport: CardAssertionReport | undefined = undefined;
     if (typeof input.source === "string" && input.source.trim()) {
-        const probe = aCore.slice(0, 24);
-        coverage = probe.length >= 4 && !norm(input.source).includes(probe) ? 1 : 0;
+        const assertions = extractAssertions(a, q);
+        assertionReport = alignAssertionsWithSource(assertions, input.source);
+        if (assertionReport.unsupportedCount > 0 || !assertionReport.allSupported) {
+            coverage = 1;
+        }
     }
     dims.push({
         key: "source-coverage",
@@ -154,7 +268,7 @@ export function scoreCard(input: { q: string; a: string; source?: string }, seen
         return sum + w * d.score;
     }, 0));
 
-    return { dimensions: dims, composite, advisoryOnly: true };
+    return { dimensions: dims, composite, advisoryOnly: true, assertionReport };
 }
 
 /** 批量评分：共享批内查重上下文（后出现的重复卡记 duplicate） */

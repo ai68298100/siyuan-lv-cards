@@ -208,7 +208,7 @@
     let queueSeq = 0;               // 队列请求序号（AQ-19：旧范围/旧重试响应不覆盖新队列）
     // AQ-13：题面呈现时刻（monotonic 按壁钟差），评分时按设置封顶后记入 revlog.dur
     let cardShownAt = 0;
-    let sessionSkipped: string[] = []; // 本场跳过排除集（AJ9：跳过的卡不再被下一批拉回）
+    let sessionSkipped = $state<string[]>([]); // 本场跳过排除集（AJ9：跳过的卡不再被下一批拉回）
     let qualityExcludedCardIDs = $state<string[]>([]); // 结构无效/未能验证的存量卡：仅本场排除，不改内核 due
     let lastAnswered = $state<{ html: string; card: RiffDueCard; revealed: boolean } | null>(null); // 回看数据源（AJ2：不再自动打开）
 
@@ -340,9 +340,13 @@
         queue: QueueCard[];
         pendingRequeues: DelayedRequeue<QueueCard>[];
         reviewedIDs: string[];
+        skippedIDs: string[];
         current: QueueCard;
         showAnswer: boolean;
         cardHtml: string;
+        expectedText: string;
+        faceError: string;
+        occlusion: OcclusionData | null;
         counters: { new: number; review: number; forget: number; skip: number };
     }
     // Svelte 5 state proxy keeps the completion actions in sync with the
@@ -465,7 +469,144 @@
     let rescheduleBusy = $state(false);
     let rescheduleError = $state("");
     const actionBusy = $derived(submitting || rescheduleBusy);
-    let retryReschedule: { cardID: string; days: number; due: string } | null = null;
+    let retryReschedule = $state<{ cardID: string; days: number; due: string } | null>(null);
+
+    // R54 原型高级交互：改期目标时间友好预览
+    function formatRescheduleTimestamp(d: Date): string {
+        if (!Number.isFinite(d.getTime())) return "";
+        const language = document.documentElement.lang || (window.siyuan as any)?.config?.lang || (window.siyuan as any)?.languages?.lang || navigator.language;
+        const options: Intl.DateTimeFormatOptions = { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23" };
+        try {
+            return new Intl.DateTimeFormat(String(language || "").replace(/_/g, "-") || undefined, options).format(d);
+        } catch {
+            return new Intl.DateTimeFormat(undefined, options).format(d);
+        }
+    }
+
+    function parseDueStringToDate(dueStr: string): Date | null {
+        if (!dueStr || dueStr.length < 14) return null;
+        const y = parseInt(dueStr.slice(0, 4), 10);
+        const m = parseInt(dueStr.slice(4, 6), 10) - 1;
+        const d = parseInt(dueStr.slice(6, 8), 10);
+        const h = parseInt(dueStr.slice(8, 10), 10);
+        const min = parseInt(dueStr.slice(10, 12), 10);
+        const s = parseInt(dueStr.slice(12, 14), 10);
+        const date = new Date(y, m, d, h, min, s);
+        return Number.isFinite(date.getTime()) ? date : null;
+    }
+
+    let previewTargetLabel = $derived.by(() => {
+        if (retryReschedule && retryReschedule.due) {
+            const d = parseDueStringToDate(retryReschedule.due);
+            if (d) return formatRescheduleTimestamp(d);
+        }
+        const days = Number(rescheduleDays);
+        if (!Number.isSafeInteger(days) || days < 1 || days > 36500) return "";
+        return formatRescheduleTimestamp(new Date(Date.now() + days * 86400000));
+    });
+
+    // R54 原型高级交互：暂停复习并返回今日
+    let showPauseModal = $state(false);
+    let sessionPaused = $state(false);
+    let pausedTimeoutSeconds: number | undefined;
+    function pauseSessionAndReturn() {
+        sessionPaused = true;
+        pausedTimeoutSeconds = timeoutLeft;
+        const s = {
+            date: todayKey(),
+            reviewedIDs,
+            skippedIDs: sessionSkipped,
+            counters: {
+                new: sessionNew,
+                review: sessionReview,
+                forget: sessionForget,
+                skip: sessionSkip,
+            },
+            completed: false,
+        };
+        ctx.saveSessionState(s);
+        stopTimeout();
+        stopRequeueTimers();
+        closeReviewAudio(audioCtx);
+        audioCtx = null;
+        showPauseModal = false;
+        try {
+            ctx.openDashboard("overview");
+        } catch (error) {
+            showMessage(friendlyError(error, t), 5000, "error");
+            return;
+        }
+        showMessage(t.review.pauseToast, 3000, "info");
+    }
+
+    function resumePausedSession() {
+        if (!sessionPaused) return;
+        sessionPaused = false;
+        scheduleRequeueTimer();
+        if (!showAnswer && faceReady) restartTimeout(pausedTimeoutSeconds);
+        pausedTimeoutSeconds = undefined;
+    }
+
+    // R54 原型高级交互：就地标记疑问
+    let markedIssueCardIDs = $state<Set<string>>(new Set());
+    // 专注复习顶栏：折叠收纳二级操作气泡
+    let showMoreToolbar = $state(false);
+    function toggleMarkIssue() {
+        if (!current || actionBusy || markedIssueCardIDs.has(current.cardID)) return;
+        const cardID = current.cardID;
+        markedIssueCardIDs.add(cardID);
+        markedIssueCardIDs = new Set(markedIssueCardIDs);
+        ctx.tagErrorReason?.(cardID, "question-unclear");
+        showMessage(t.review.issueMarked, 2500, "info");
+        announce(t.review.issueMarked, "polite");
+    }
+
+    // R54 原型高级交互：本场作答方式即时覆盖
+    let showSessionOptionsModal = $state(false);
+    let sessionModalEl: HTMLDivElement | null = $state(null);
+    let sessionModalWasOpen = false;
+    let sessionModalTimeoutSeconds: number | undefined;
+    $effect(() => {
+        const open = showPauseModal || showSessionOptionsModal;
+        if (open && sessionModalEl && !sessionModalWasOpen) {
+            sessionModalWasOpen = true;
+            sessionModalTimeoutSeconds = countdownCtrl?.getRemaining();
+            stopTimeout();
+            sessionModalEl.querySelector<HTMLElement>("button, select")?.focus();
+        } else if (!open && sessionModalWasOpen) {
+            sessionModalWasOpen = false;
+            if (sessionPaused) return;
+            returnFocus();
+            if (!showAnswer && faceReady) restartTimeout(sessionModalTimeoutSeconds);
+            sessionModalTimeoutSeconds = undefined;
+        }
+    });
+    let tempAnswerVariant = $state<"normal" | "typing" | "choice">("normal");
+    function openSessionOptions() {
+        tempAnswerVariant = eff().typingEnabled ? "typing" : eff().choiceEnabled ? "choice" : "normal";
+        showSessionOptionsModal = true;
+    }
+    function applySessionOptions() {
+        if (tempAnswerVariant === "typing") {
+            setOverride("typingEnabled", true);
+            setOverride("choiceEnabled", false);
+            setOverride("mixedRotation", false);
+            typingInput = "";
+        } else if (tempAnswerVariant === "choice") {
+            setOverride("typingEnabled", false);
+            setOverride("choiceEnabled", true);
+            setOverride("mixedRotation", false);
+            if (!choices) {
+                void startChoice();
+            }
+        } else {
+            setOverride("typingEnabled", false);
+            setOverride("choiceEnabled", false);
+            setOverride("mixedRotation", false);
+        }
+        showSessionOptionsModal = false;
+        showMessage(t.review.sessionOptionsApplied, 1500, "info");
+    }
     // 图片遮挡（M4·FR4 riff 先行）：数据来自块属性 lv-occlusion，坐标相对图片包围盒
     let cardEl: HTMLDivElement | null = $state(null);
     let rootEl: HTMLDivElement | null = $state(null);
@@ -488,6 +629,14 @@
             if (seq !== loadSeq) {
                 return; // 已切到新卡，丢弃旧响应
             }
+            if (cardHtml && cardHtml !== dom) {
+                // 编辑返回后题面变化：旧选择题、打字判分与请求都失效。
+                choiceRequestSeq++;
+                choices = null;
+                choiceLoading = false;
+                choiceFallbackMode = "none";
+                typingGrade = null;
+            }
             cardHtml = dom;
             faceError = "";
             // 打字题期望答案 = 挖空（mark）文本合集；无挖空则退化为全文
@@ -495,6 +644,7 @@
             holder.innerHTML = cardHtml;
             const marks = extractMarkTexts(holder);
             expectedText = marks.length > 0 ? marks.join(" / ") : (holder.textContent ?? "").trim();
+            answerCache.set(blockID, expectedText);
             // 遮挡数据（宽容解析，无属性即为普通卡）
             try {
                 const attrs = await getBlockAttrs(blockID);
@@ -571,8 +721,10 @@
             holder.innerHTML = dom;
             const marks = extractMarkTexts(holder);
             const text = marks.length > 0 ? marks.join(" / ") : (holder.textContent ?? "").trim();
-            answerCache.set(blockID, text);
-            return text;
+            // 当前卡面可能在采样请求期间已刷新，优先保留新卡面的权威答案。
+            const answer = answerCache.get(blockID) ?? text;
+            answerCache.set(blockID, answer);
+            return answer;
         } catch {
             return "";
         }
@@ -807,19 +959,8 @@
     }
 
     async function setCurrent(card: RiffDueCard) {
-        choiceRequestSeq++;
+        resetCardState();
         current = card;
-        showAnswer = false;
-        typingInput = "";
-        typingGrade = null;
-        choices = null;
-        choiceLoading = false;
-        choiceFallbackMode = "none";
-        occl = null;
-        occlBox = null;
-        occlHidden = [];
-        cardHtml = ""; // AS-3：切卡先清卡面——新卡加载失败显示占位而非上一张的残留内容
-        faceError = "";
         cardShownAt = Date.now(); // AQ-13：题面呈现即作答计时起点（与内核「题面到评分」口径一致）
         await loadBlockDOM(card.blockID);
         if (card !== current) {
@@ -830,6 +971,36 @@
         if (eff().typingEnabled && eff().dictationEnabled && expectedText) {
             speakText(expectedText);
         }
+    }
+
+    /** 切卡和撤销共用清理，防止上一张的倒计时、答案与异步响应污染新卡。 */
+    function resetCardState() {
+        stopTimeout();
+        choiceRequestSeq++;
+        loadSeq++;
+        contextRequestSeq++;
+        showAnswer = false;
+        expectedText = "";
+        typingInput = "";
+        typingGrade = null;
+        choices = null;
+        choiceLoading = false;
+        choiceFallbackMode = "none";
+        occl = null;
+        occlBox = null;
+        occlHidden = [];
+        cardHtml = ""; // AS-3：切卡先清卡面——新卡加载失败显示占位而非上一张的残留内容
+        faceError = "";
+        showReschedule = false;
+        rescheduleError = "";
+        retryReschedule = null;
+        showMoreToolbar = false;
+        ctxOpen = false;
+        ctxBlocks = [];
+        ctxLoading = false;
+        hintLevel = null;
+        hintText = "";
+        showErrTags = false;
     }
 
     /** TTS 朗读（Web Speech，防御式） */
@@ -860,11 +1031,11 @@
 
     // —— 超时模式 ——
 
-    function restartTimeout() {
+    function restartTimeout(remainingSeconds?: number) {
         stopTimeout();
         timeoutExpired = false;
         const s = eff();
-        if (s.timeoutMode === "off" || !current) {
+        if (s.timeoutMode === "off" || !current || !faceReady || sessionPaused || showPauseModal || showSessionOptionsModal) {
             timeoutLeft = 0;
             return;
         }
@@ -872,7 +1043,7 @@
         lastTimeoutSeconds = s.timeoutSeconds;
         countdownCtrl = createReviewCountdown({
             timeoutMode: s.timeoutMode,
-            timeoutSeconds: s.timeoutSeconds,
+            timeoutSeconds: remainingSeconds ?? s.timeoutSeconds,
             onTick: (left) => {
                 timeoutLeft = left;
             },
@@ -942,9 +1113,13 @@
             queue: [...queue],
             pendingRequeues: pendingRequeues.map(item => ({ ...item })),
             reviewedIDs: [...reviewedIDs],
+            skippedIDs: [...sessionSkipped],
             current: current!,
             showAnswer,
             cardHtml,
+            expectedText,
+            faceError,
+            occlusion: occl,
             counters: { new: sessionNew, review: sessionReview, forget: sessionForget, skip: sessionSkip },
         });
         if (history.length > 50) {
@@ -962,14 +1137,20 @@
             return;
         }
         errorMsg = "";
+        resetCardState();
         sessionDone = false;
         queue = snap.queue;
         pendingRequeues = snap.pendingRequeues;
         scheduleRequeueTimer();
         reviewedIDs = snap.reviewedIDs;
+        sessionSkipped = snap.skippedIDs;
         current = snap.current;
         showAnswer = false;
         cardHtml = snap.cardHtml;
+        expectedText = snap.expectedText;
+        faceError = snap.faceError;
+        occl = snap.occlusion;
+        cardShownAt = Date.now();
         sessionNew = snap.counters.new;
         sessionReview = snap.counters.review;
         sessionForget = snap.counters.forget;
@@ -980,7 +1161,7 @@
     }
 
     async function rate(rating: Rating, force = false) {
-        if (!current || (!showAnswer && !force) || submitting || rescheduleBusy) {
+        if (!current || sessionPaused || (!showAnswer && !force) || submitting || rescheduleBusy) {
             return;
         }
         recovery = null; // BI-9：已开始评分=隐式选择继续原场
@@ -1041,7 +1222,7 @@
     }
 
     async function skip() {
-        if (!current || submitting || rescheduleBusy) {
+        if (!current || sessionPaused || submitting || rescheduleBusy) {
             return;
         }
         recovery = null; // BI-9：同评分——有动作即隐式续场
@@ -1228,6 +1409,7 @@
         if (!current || !(e.target instanceof Node) || !rootEl?.contains(e.target)) {
             return;
         }
+        resumePausedSession();
         const now = Date.now();
         if (lastPanelPointer > 0 && now - lastPanelPointer >= 15000) {
             refreshCard();
@@ -1239,15 +1421,19 @@
     let ctxOpen = $state(false);
     let ctxBlocks = $state<{ id: string; html: string }[]>([]);
     let ctxLoading = $state(false);
+    let contextRequestSeq = 0;
     async function toggleContext() {
         ctxOpen = !ctxOpen;
+        const seq = ++contextRequestSeq;
         if (ctxOpen && current) {
+            const cardID = current.cardID;
             ctxLoading = true;
             ctxBlocks = [];
             try {
-                ctxBlocks = await ctx.getContextBlocks(current.blockID);
+                const blocks = await ctx.getContextBlocks(current.blockID);
+                if (seq === contextRequestSeq && current?.cardID === cardID && ctxOpen) ctxBlocks = blocks;
             } catch { /* 静默降级为空列表 */ }
-            ctxLoading = false;
+            if (seq === contextRequestSeq) ctxLoading = false;
         }
     }
 
@@ -1268,6 +1454,27 @@
     }
 
     function onKeydown(e: KeyboardEvent) {
+        if (sessionPaused) return;
+        if (showPauseModal || showSessionOptionsModal) {
+            if (e.key === "Escape") {
+                showPauseModal = false;
+                showSessionOptionsModal = false;
+                e.preventDefault();
+            } else if (e.key === "Tab" && sessionModalEl) {
+                const controls = Array.from(sessionModalEl.querySelectorAll<HTMLElement>("button:not(:disabled), select:not(:disabled)"));
+                const first = controls[0], last = controls[controls.length - 1];
+                if (e.shiftKey && document.activeElement === first) { last?.focus(); e.preventDefault(); }
+                else if (!e.shiftKey && document.activeElement === last) { first?.focus(); e.preventDefault(); }
+            }
+            return;
+        }
+        if (showMoreToolbar) {
+            if (e.key === "Escape") { showMoreToolbar = false; e.preventDefault(); returnFocus(); }
+            return;
+        }
+        if (e.defaultPrevented || e.isComposing || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
+        // Enter/Space 保留控件自身行为（展开菜单、选择选项、点击按钮），避免触发后台评分。
+        if ((e.key === "Enter" || e.key === " ") && e.target instanceof Element && e.target.closest("button, select, a, [role='button']")) return;
         const action = resolveReviewKeyAction(e, {
             peekOpen: Boolean(peek),
             helpOpen,
@@ -1376,6 +1583,7 @@
     }
 
     function onTouchEnd(e: TouchEvent) {
+        if (showPauseModal || showSessionOptionsModal || showMoreToolbar || isOverlayTarget(e.target)) return;
         if (shouldIgnoreSwipeTarget(e.target)) return;
         const dx = e.changedTouches[0].clientX - touchStartX;
         const dy = e.changedTouches[0].clientY - touchStartY;
@@ -1387,12 +1595,16 @@
     }
 
     function onContainerClick(e: MouseEvent) {
-        if (shouldIgnoreSwipeTarget(e.target)) {
+        if (showPauseModal || showSessionOptionsModal || showMoreToolbar || isOverlayTarget(e.target) || shouldIgnoreSwipeTarget(e.target)) {
             return;
         }
         if (!showAnswer && current && faceReady) {
             showAnswer = true;
         }
+    }
+
+    function isOverlayTarget(target: EventTarget | null): boolean {
+        return target instanceof Element && Boolean(target.closest(".lv-modal-backdrop, .lv-toolbar-more-scrim, .lv-toolbar-more-menu"));
     }
 
     onMount(() => {
@@ -1498,12 +1710,19 @@
     role="presentation"
     onclick={onContainerClick}
     onkeydown={(e) => onKeydown(e)}
+    onfocusin={resumePausedSession}
     ontouchstart={onTouchStart}
     ontouchend={onTouchEnd}
     tabindex="-1"
 >
     <!-- AS-4：读屏播报区域（视觉隐藏） -->
     <LvLive message={liveMsg} tone={liveTone} />
+    {#if sessionPaused}
+        <div class="lv-recover" role="status">
+            <span>{t.review.pauseTitle}</span>
+            <button class="b3-button b3-button--small" onclick={resumePausedSession}>{t.review.pauseContinue}</button>
+        </div>
+    {/if}
     <!-- BI-27 返场分流（docs/13 §4 BI-27 UI 接线）：方案展示可忽略，不自动改预算/队列 -->
     {#if returnBanner && !recovery}
         <div class="lv-notice" role="status">
@@ -1733,6 +1952,9 @@
                         {#if current.state === 0}<span class="lv-chip2 lv-chip2--primary">{t.review.tagNew}</span>{/if}
                         <span class="lv-chip2 lv-chip2--default">{t.review.reps} {current.reps} · {t.review.lapses} {current.lapses}</span>
                     {/if}
+                    {#if markedIssueCardIDs.has(current.cardID)}
+                        <span class="lv-chip2 lv-chip2--warn" title={t.review.issueMarked}>🚩 {t.review.issueChip}</span>
+                    {/if}
                 </span>
                 <span class="lv-progress">{reviewedIDs.length + 1} / {reviewedIDs.length + queue.length}</span>
             </div>
@@ -1773,16 +1995,52 @@
                     {t.purpose[purpose].end}
                 </span>
                 <div class="fn__flex-1"></div>
-                <!-- docs/13 §4：图标可读、操作不依赖 hover；R52 口径中性动作全部 ghost（主色只给激活态） -->
-                <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.ctxToggle} aria-label={t.review.ctxToggle} class:lv-btn-primary={ctxOpen} onclick={toggleContext}>{t.review.tbCtx}</button>
-                <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.prefsTitle} aria-label={t.review.prefsTitle} class:lv-btn-primary={prefsOpen || hasOverrides} onclick={() => (prefsOpen = !prefsOpen)}>{t.review.tbPrefs}{hasOverrides ? " ●" : ""}</button>
-                <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.refreshCard} aria-label={t.review.refreshCard} onclick={refreshCard}>{t.review.tbRefresh}</button>
-                <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.helpTitle} aria-label={t.review.helpTitle} onclick={() => (helpOpen = true)}>{t.review.tbHelp}</button>
+                <!-- docs/13 §4：图标可读、操作不依赖 hover；常驻核心高频操作，二级动作折叠进更多气泡 -->
+                <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.sessionOptionsTitle} aria-label={t.review.sessionOptionsTitle} onclick={openSessionOptions}>⚡ {t.review.sessionOptionsTitle.slice(0, 4)}</button>
+                <button class="b3-button b3-button--small lv-btn-ghost" class:lv-btn-primary={markedIssueCardIDs.has(current?.cardID ?? '')} title={markedIssueCardIDs.has(current?.cardID ?? '') ? t.review.issueMarked : t.review.tbMarkIssue} aria-label={t.review.tbMarkIssue} aria-pressed={markedIssueCardIDs.has(current?.cardID ?? '')} disabled={!current || actionBusy || markedIssueCardIDs.has(current?.cardID ?? '')} onclick={toggleMarkIssue}>🚩 {markedIssueCardIDs.has(current?.cardID ?? '') ? t.review.issueChip : t.review.tbMarkIssue}</button>
+                <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.pauseTitle} aria-label={t.review.pauseTitle} disabled={actionBusy} onclick={() => (showPauseModal = true)}>⏸ {t.review.tbPause}</button>
                 <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.undoTitle} aria-label={t.review.undoTitle} disabled={actionBusy || history.length === 0} onclick={undoHistory}>{t.review.tbUndo}</button>
-                <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.peekPrev} aria-label={t.review.peekPrev} disabled={!lastAnswered} onclick={togglePeek}>{t.review.peekPrev.slice(0, 2)}</button>
-                <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.openInEditor} onclick={openInEditor}>{t.review.open}</button>
-                <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.suspendToday} aria-label={t.review.suspendToday} disabled={actionBusy} onclick={suspendToday}>{t.review.tbSuspend}</button>
                 <button class="b3-button b3-button--small lv-btn-ghost" disabled={actionBusy} onclick={skip}>{t.review.skip}</button>
+                <div class="lv-toolbar-more-wrap">
+                    <button
+                        type="button"
+                        class="b3-button b3-button--small lv-btn-ghost"
+                        class:lv-btn-primary={showMoreToolbar}
+                        title={t.review.tbMoreDesc ?? t.review.tbMore}
+                        aria-label={t.review.tbMoreDesc ?? t.review.tbMore}
+                        aria-expanded={showMoreToolbar}
+                        onclick={() => (showMoreToolbar = !showMoreToolbar)}
+                    >
+                        ··· {t.review.tbMore}
+                    </button>
+                    {#if showMoreToolbar}
+                        <div class="lv-toolbar-more-scrim" onclick={() => (showMoreToolbar = false)}></div>
+                        <div class="lv-toolbar-more-menu" role="menu">
+                            <button type="button" class="lv-toolbar-menu-item" class:lv-active={ctxOpen} title={t.review.ctxToggle} onclick={() => { toggleContext(); showMoreToolbar = false; }}>
+                                <span class="lv-menu-icon" aria-hidden="true">📖</span><span>{t.review.tbCtx}</span>
+                            </button>
+                            <button type="button" class="lv-toolbar-menu-item" class:lv-active={prefsOpen || hasOverrides} title={t.review.prefsTitle} onclick={() => { prefsOpen = !prefsOpen; showMoreToolbar = false; }}>
+                                <span class="lv-menu-icon" aria-hidden="true">⚙️</span><span>{t.review.tbPrefs}{hasOverrides ? " ●" : ""}</span>
+                            </button>
+                            <button type="button" class="lv-toolbar-menu-item" disabled={!lastAnswered} title={t.review.peekPrev} onclick={() => { togglePeek(); showMoreToolbar = false; }}>
+                                <span class="lv-menu-icon" aria-hidden="true">👁️</span><span>{t.review.peekPrev}</span>
+                            </button>
+                            <button type="button" class="lv-toolbar-menu-item" title={t.review.openInEditor} onclick={() => { openInEditor(); showMoreToolbar = false; }}>
+                                <span class="lv-menu-icon" aria-hidden="true">📝</span><span>{t.review.openInEditor ?? t.review.open}</span>
+                            </button>
+                            <button type="button" class="lv-toolbar-menu-item" title={t.review.refreshCard} onclick={() => { refreshCard(); showMoreToolbar = false; }}>
+                                <span class="lv-menu-icon" aria-hidden="true">🔄</span><span>{t.review.tbRefresh}</span>
+                            </button>
+                            <button type="button" class="lv-toolbar-menu-item" disabled={actionBusy} title={t.review.suspendToday} onclick={() => { suspendToday(); showMoreToolbar = false; }}>
+                                <span class="lv-menu-icon" aria-hidden="true">🌙</span><span>{t.review.suspendToday ?? t.review.tbSuspend}</span>
+                            </button>
+                            <div class="lv-toolbar-menu-divider"></div>
+                            <button type="button" class="lv-toolbar-menu-item" title={t.review.helpTitle} onclick={() => { helpOpen = true; showMoreToolbar = false; }}>
+                                <span class="lv-menu-icon" aria-hidden="true">❓</span><span>{t.review.tbHelp}</span>
+                            </button>
+                        </div>
+                    {/if}
+                </div>
             </div>
         </div>
         <div class="lv-card b3-typography" class:lv-anim-glow={showAnswer} bind:this={cardEl} style={`max-width:${eff().cardMaxWidth}px; width:100%; margin:0 auto;`}>
@@ -1840,13 +2098,32 @@
             {#if !showAnswer}
                 {#if showReschedule}
                     {@const invalidRescheduleDays = !Number.isSafeInteger(rescheduleDays) || rescheduleDays < 1 || rescheduleDays > 36500}
-                    <div class="lv-reschedule" aria-busy={rescheduleBusy} style="display:flex;gap:var(--lv-sp-2);align-items:center;margin:var(--lv-sp-2) 0">
-                        <span class="ft__smaller ft__on-surface">{t.review.rescheduleIn}</span>
-                        <input class="b3-text-field" style="width:60px" type="number" min="1" max="36500" step="1" bind:value={rescheduleDays} aria-invalid={invalidRescheduleDays} aria-describedby={invalidRescheduleDays ? "lv-reschedule-error" : undefined} />
-                        <span class="ft__smaller ft__on-surface">{t.review.rescheduleDays}</span>
-                        {#if invalidRescheduleDays}<span id="lv-reschedule-error" class="ft__smaller" role="alert">{t.review.rescheduleRange}</span>{/if}
-                        {#if rescheduleError}<span class="ft__smaller lv-reschedule-error" role="alert">{rescheduleError}</span>{/if}
-                        <button class="b3-button b3-button--text" disabled={actionBusy || invalidRescheduleDays} aria-busy={rescheduleBusy} onclick={reschedule}>{rescheduleBusy ? t.dashboard.loading : window.siyuan.languages.confirm}</button>
+                    <div class="lv-reschedule lv-card2" aria-busy={rescheduleBusy} style="display:flex;flex-direction:column;gap:var(--lv-sp-2);padding:var(--lv-sp-3);margin:var(--lv-sp-2) 0;border:1px solid var(--lv-border);border-radius:12px;background:var(--lv-color-surface-subtle)">
+                        <div style="display:flex;gap:var(--lv-sp-2);align-items:center;flex-wrap:wrap">
+                            <span class="ft__smaller ft__on-surface">{t.review.rescheduleIn}</span>
+                            <input class="b3-text-field" style="width:70px" type="number" min="1" max="36500" step="1" bind:value={rescheduleDays} aria-invalid={invalidRescheduleDays} aria-describedby={invalidRescheduleDays ? "lv-reschedule-error" : undefined} />
+                            <span class="ft__smaller ft__on-surface">{t.review.rescheduleDays}</span>
+                            {#if previewTargetLabel}
+                                <span class="ft__smaller ft__on-surface" style="color:var(--lv-color-brand);margin-left:var(--lv-sp-2)">
+                                    {t.review.rescheduleTarget}: <strong>{previewTargetLabel}</strong>
+                                </span>
+                            {/if}
+                        </div>
+                        {#if invalidRescheduleDays}
+                            <span id="lv-reschedule-error" class="ft__smaller" role="alert" style="color:var(--b3-theme-error)">{t.review.rescheduleRange}</span>
+                        {/if}
+                        {#if rescheduleError}
+                            <div class="ft__smaller lv-reschedule-error" role="alert" style="color:var(--b3-theme-error);background:var(--lv-danger-soft);padding:var(--lv-sp-1) var(--lv-sp-2);border-radius:6px">
+                                <strong>{t.review.rescheduleErrorPreserved}</strong>: {rescheduleError}
+                            </div>
+                        {/if}
+                        <div style="display:flex;gap:var(--lv-sp-2);align-items:center;justify-content:flex-end">
+                            <button class="b3-button b3-button--text b3-button--small" onclick={() => { showReschedule = false; rescheduleError = ''; }}>{t.review.rescheduleCancel}</button>
+                            <button class="b3-button b3-button--small lv-btn-primary" disabled={actionBusy || invalidRescheduleDays} aria-busy={rescheduleBusy} onclick={reschedule}>
+                                {rescheduleBusy ? t.dashboard.loading : retryReschedule && rescheduleError ? t.review.rescheduleRetrySame : window.siyuan.languages.confirm}
+                            </button>
+                        </div>
+                        <span class="ft__smaller ft__on-surface" style="opacity:0.75;font-size:11px">{t.review.rescheduleTargetHint}</span>
                     </div>
                 {/if}
                 {#if answerVariant === "typing"}
@@ -2089,11 +2366,68 @@
             <div class="lv-peek-body b3-typography lv-card-content" class:lv-masked={!peek.revealed}>{@html peek.revealed ? peek.html : maskMarkedAnswersForQuestion(peek.html)}</div>
         </div>
     {/if}
+
+    {#if showPauseModal}
+        <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+        <div class="lv-modal-backdrop lv-glass" tabindex="-1" onclick={() => (showPauseModal = false)}>
+            <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+            <div class="lv-pause-dialog lv-card2" role="dialog" aria-modal="true" aria-label={t.review.pauseTitle} tabindex="-1" bind:this={sessionModalEl} onclick={(e: Event) => e.stopPropagation()}>
+                <div class="lv-help-head">
+                    <span style="font-weight:600;font-size:16px">{t.review.pauseTitle}</span>
+                    <div class="fn__flex-1"></div>
+                    <button class="b3-button b3-button--small" aria-label={window.siyuan.languages.cancel} onclick={() => (showPauseModal = false)}>✕</button>
+                </div>
+                <div style="padding:var(--lv-sp-3) 0">
+                    <p class="ft__smaller ft__on-surface" style="line-height:1.6">{t.review.pauseDesc}</p>
+                    <div style="margin-top:var(--lv-sp-2);font-size:12px;color:var(--lv-color-brand)">
+                        {t.review.doneConfirm}: <strong>{reviewedIDs.length}</strong> · {t.review.skipNotRated}: <strong>{sessionSkipped.length}</strong>
+                    </div>
+                </div>
+                <div style="display:flex;justify-content:flex-end;gap:var(--lv-sp-2);margin-top:var(--lv-sp-3)">
+                    <button class="b3-button b3-button--text" onclick={() => (showPauseModal = false)}>{t.review.pauseContinue}</button>
+                    <button class="b3-button lv-btn-primary" onclick={pauseSessionAndReturn}>{t.review.pauseConfirm}</button>
+                </div>
+            </div>
+        </div>
+    {/if}
+
+    {#if showSessionOptionsModal}
+        <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+        <div class="lv-modal-backdrop lv-glass" tabindex="-1" onclick={() => (showSessionOptionsModal = false)}>
+            <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+            <div class="lv-pause-dialog lv-card2" role="dialog" aria-modal="true" aria-label={t.review.sessionOptionsTitle} tabindex="-1" bind:this={sessionModalEl} onclick={(e: Event) => e.stopPropagation()}>
+                <div class="lv-help-head">
+                    <span style="font-weight:600;font-size:16px">{t.review.sessionOptionsTitle}</span>
+                    <div class="fn__flex-1"></div>
+                    <button class="b3-button b3-button--small" aria-label={window.siyuan.languages.cancel} onclick={() => (showSessionOptionsModal = false)}>✕</button>
+                </div>
+                <div style="padding:var(--lv-sp-3) 0;display:flex;flex-direction:column;gap:var(--lv-sp-2)">
+                    <p class="ft__smaller ft__on-surface">{t.review.sessionOptionsHint}</p>
+                    <label class="ft__smaller ft__on-surface" style="display:flex;align-items:center;gap:var(--lv-sp-2);margin-top:var(--lv-sp-1)">
+                        <span>{t.review.answerModeLabel}</span>
+                        <select class="b3-select fn__flex-1" bind:value={tempAnswerVariant}>
+                            <option value="normal">{t.review.modeRecall}</option>
+                            <option value="choice">{t.review.modeChoice}</option>
+                            <option value="typing">{t.review.modeTyping}</option>
+                        </select>
+                    </label>
+                </div>
+                <div style="display:flex;justify-content:flex-end;gap:var(--lv-sp-2);margin-top:var(--lv-sp-3)">
+                    <button class="b3-button b3-button--text" onclick={() => (showSessionOptionsModal = false)}>{window.siyuan.languages.cancel}</button>
+                    <button class="b3-button lv-btn-primary" onclick={applySessionOptions}>{t.review.applySessionOptions}</button>
+                </div>
+            </div>
+        </div>
+    {/if}
 </div>
 
 <style lang="scss">
     .lv-review {
         height: 100%;
+        min-height: 0;
+        min-width: 0;
+        overflow-y: auto;
+        overflow-x: hidden;
         display: flex;
         flex-direction: column;
         box-sizing: border-box;
@@ -2134,6 +2468,7 @@
             background: var(--lv-color-surface);
             border: 1px solid var(--lv-border);
             border-radius: var(--lv-r-l);
+            box-shadow: var(--lv-shadow-card-hover), var(--lv-inset-shine);
             padding: var(--lv-sp-5);
             text-align: left;
         }
@@ -2152,11 +2487,12 @@
             margin-bottom: var(--lv-sp-4);
         }
         .lv-done-check {
-            width: 30px; height: 30px; border-radius: var(--lv-r-circle);
+            width: 32px; height: 32px; border-radius: var(--lv-r-circle);
             display: inline-flex; align-items: center; justify-content: center;
             font-size: var(--lv-type-title-size); flex: none;
             background: var(--lv-good-soft);
             color: var(--lv-color-success);
+            box-shadow: 0 0 0 4px color-mix(in srgb, var(--lv-color-success) 14%, transparent);
         }
         .lv-done-title { font-size: var(--lv-type-display-size); font-weight: 650; letter-spacing: -0.03em; line-height: 1.4; }
         .lv-done-sub { font-size: var(--lv-type-body-size); color: var(--lv-color-text-muted); font-variant-numeric: tabular-nums; margin-top: 2px; }
@@ -2305,6 +2641,7 @@
 
         .lv-card {
             flex: 1;
+            box-sizing: border-box;
             position: relative;
             overflow: auto;
             background: var(--lv-color-surface);
@@ -2534,10 +2871,87 @@
                 background: var(--lv-color-surface);
                 color: var(--lv-color-text);
             }
-            .lv-b1:hover { border-color: var(--lv-danger-border); }
-            .lv-b2:hover { border-color: color-mix(in srgb, var(--lv-color-warning) 35%, transparent); }
-            .lv-b3:hover { border-color: var(--lv-primary-border); }
-            .lv-b4:hover { border-color: var(--lv-primary-border); }
+            .lv-b1:hover {
+                border-color: var(--lv-danger-border);
+                background: color-mix(in srgb, var(--lv-color-danger) 6%, var(--lv-color-surface));
+            }
+            .lv-b2:hover {
+                border-color: color-mix(in srgb, var(--lv-color-warning) 35%, transparent);
+                background: color-mix(in srgb, var(--lv-color-warning) 6%, var(--lv-color-surface));
+            }
+            .lv-b3:hover {
+                border-color: var(--lv-primary-border);
+                background: color-mix(in srgb, var(--lv-color-brand) 6%, var(--lv-color-surface));
+            }
+            .lv-b4:hover {
+                border-color: color-mix(in srgb, var(--lv-color-success) 35%, transparent);
+                background: color-mix(in srgb, var(--lv-color-success) 6%, var(--lv-color-surface));
+            }
+        }
+
+        .lv-toolbar-more-wrap {
+            position: relative;
+            display: inline-flex;
+        }
+        .lv-toolbar-more-scrim {
+            position: fixed;
+            inset: 0;
+            z-index: 100;
+            background: transparent;
+        }
+        .lv-toolbar-more-menu {
+            position: absolute;
+            top: calc(100% + 6px);
+            right: 0;
+            z-index: 101;
+            min-width: 180px;
+            background: var(--lv-color-surface);
+            border: 1px solid var(--lv-border);
+            border-radius: var(--lv-r-m);
+            box-shadow: var(--lv-shadow-float), var(--lv-inset-shine);
+            padding: calc(var(--lv-space-unit) * 2);
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            animation: lv-modal-pop var(--lv-dur-1) var(--lv-ease);
+        }
+        .lv-toolbar-menu-item {
+            display: flex;
+            align-items: center;
+            gap: calc(var(--lv-space-unit) * 3);
+            width: 100%;
+            padding: calc(var(--lv-space-unit) * 2) calc(var(--lv-space-unit) * 3);
+            border: 0;
+            border-radius: var(--lv-r-s);
+            background: transparent;
+            color: var(--lv-color-text);
+            font-size: var(--lv-type-control-size);
+            text-align: left;
+            cursor: pointer;
+            transition: background var(--lv-dur-1) var(--lv-ease), color var(--lv-dur-1) var(--lv-ease);
+
+            &:hover:not(:disabled) {
+                background: var(--lv-surface-hover);
+                color: var(--lv-color-brand);
+            }
+            &:disabled {
+                opacity: 0.45;
+                cursor: not-allowed;
+            }
+            &.lv-active {
+                color: var(--lv-color-brand);
+                background: var(--lv-primary-soft);
+                font-weight: var(--lv-fw-semibold);
+            }
+        }
+        .lv-menu-icon {
+            font-size: 13px;
+            flex-shrink: 0;
+        }
+        .lv-toolbar-menu-divider {
+            height: 1px;
+            background: var(--lv-border);
+            margin: calc(var(--lv-space-unit) * 1) 0;
         }
 
         .lv-peek {
@@ -2583,6 +2997,28 @@
                 font-size: var(--lv-type-body-size);
                 &:last-child { border-bottom: none; }
             }
+        }
+
+        .lv-modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.45);
+            backdrop-filter: blur(4px);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: var(--lv-sp-4);
+        }
+
+        .lv-pause-dialog {
+            width: min(460px, 92vw);
+            background: var(--lv-color-surface-raised, var(--lv-color-surface));
+            border: 1px solid var(--lv-border);
+            border-radius: var(--lv-r-l);
+            box-shadow: var(--lv-shadow-2);
+            padding: var(--lv-sp-4);
+            text-align: left;
         }
     }
 </style>

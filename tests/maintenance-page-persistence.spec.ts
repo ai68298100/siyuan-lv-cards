@@ -379,4 +379,76 @@ describe("maintenance pause persistence feedback", () => {
         expect(within(source).getByText("来源变化 0")).toBeTruthy();
         expect(within(source).queryByRole("button", { name: i18n.maintenance.sourceHealthShowEarlier })).toBeNull();
     });
+
+    it("renders last batch repair journal record and undos repair successfully", async () => {
+        const scan = vi.fn(async () => ({ items: [] }));
+        let hasAppliedRecord = true;
+        const rollbackLastRepair = vi.fn(async () => {
+            hasAppliedRecord = false;
+            return { blockIDs: ["card-a"], previewID: "prev-1" };
+        });
+        const lastRecord = {
+            previewID: "prev-1",
+            appliedAt: new Date("2026-10-16T12:00:00Z").getTime(),
+            summary: { update: 1, unchanged: 0, rejected: 0 },
+            diffs: [{
+                blockID: "card-a",
+                action: "update",
+                beforeMarkdown: "修前 ==答案==",
+                afterMarkdown: "修后 ==答案==",
+            }],
+        };
+
+        const page = renderPage({
+            scan,
+            getLastRepairRecord: () => hasAppliedRecord ? lastRecord : null,
+            rollbackLastRepair,
+        });
+
+        // 渲染上次批修记录卡片
+        expect(await screen.findByText(i18n.maintenance.lastRepairTitle)).toBeTruthy();
+        expect(screen.getByText(/已更新 1 张卡片/)).toBeTruthy();
+
+        // 展开差异对比
+        const viewDiffBtn = screen.getByRole("button", { name: i18n.maintenance.lastRepairViewDiff });
+        await fireEvent.click(viewDiffBtn);
+        expect(screen.getByText(/【修复前】/)).toBeTruthy();
+        expect(screen.getByText(/【修复后】/)).toBeTruthy();
+
+        // 点击撤销此次修复
+        vi.stubGlobal("confirm", () => true);
+        const undoBtn = screen.getByRole("button", { name: i18n.maintenance.rollbackRepairBtn });
+        await fireEvent.click(undoBtn);
+
+        await waitFor(() => expect(rollbackLastRepair).toHaveBeenCalledOnce());
+        expect(screen.getByText(i18n.maintenance.rollbackSuccess)).toBeTruthy();
+        expect(screen.queryByText(i18n.maintenance.lastRepairTitle)).toBeNull();
+        // 验证自动触发重新扫描
+        await waitFor(() => expect(scan).toHaveBeenCalledTimes(2));
+    });
+
+    it("locks rollback while a new repair preview is pending and invalidates the preview after rescanning", async () => {
+        let finishPreview!: (value: any) => void;
+        const previewRepair = vi.fn(() => new Promise(resolve => { finishPreview = resolve; }));
+        const rollbackLastRepair = vi.fn();
+        renderPage({
+            scan: async () => ({ items: [{ blockID: "broken", md: "==只有答案==" }] }),
+            previewRepair,
+            rollbackLastRepair,
+            getLastRepairRecord: () => ({
+                previewID: "prev-1", appliedAt: Date.now(), summary: { update: 1, unchanged: 0, rejected: 0 }, diffs: [],
+            }),
+        });
+        await fireEvent.click(await screen.findByRole("button", { name: i18n.maintenance.repairAdd }));
+        await fireEvent.click(screen.getByRole("button", { name: i18n.maintenance.repairPreviewBtn }));
+        const rollback = screen.getByRole("button", { name: i18n.maintenance.rollbackRepairBtn }) as HTMLButtonElement;
+        expect(rollback.disabled).toBe(true);
+        await fireEvent.click(rollback);
+        expect(rollbackLastRepair).not.toHaveBeenCalled();
+        finishPreview({ previewID: "new-preview", ok: true, errors: [], diffs: [], summary: { update: 1, unchanged: 0, rejected: 0 } });
+        await screen.findByRole("button", { name: i18n.maintenance.repairApply });
+        await fireEvent.click(screen.getByRole("button", { name: i18n.maintenance.scan, exact: true }));
+        await waitFor(() => expect(screen.queryByRole("button", { name: i18n.maintenance.repairApply })).toBeNull());
+        expect(screen.getByRole("textbox", { name: `${i18n.maintenance.repairDraft} broken` })).toBeTruthy();
+    });
 });

@@ -121,7 +121,12 @@ import {
     type SourceHealthData,
 } from "./core/source-health-store";
 import type { SourceCurrentFacts } from "./core/source-health";
-import type { BatchRepairProposal, BatchRepairPreview } from "./core/maintenance-repair";
+import type {
+    BatchRepairProposal,
+    BatchRepairPreview,
+    MaintenanceRepairJournal,
+} from "./core/maintenance-repair";
+import type { createMaintenanceRepairController } from "./core/maintenance-repair-controller";
 import type { RepairSnapshotWrite } from "./core/maintenance-repair-storage";
 import {
     buildBudgetPreview,
@@ -300,6 +305,12 @@ const AI_DENY_LIST_DATA = "ai-deny-list.json";
 const AI_COST_LEDGER_DATA = "ai-cost-ledger.json";
 /** Obsidian SR 导入弱台账（指纹→落点，幂等重导；不含卡片原文） */
 const OB_LEDGER_DATA = "ob-import-ledger.json";
+/** 批量修复持久化事务日志（成功写入后落盘，供重启后审计与撤销） */
+const MAINTENANCE_REPAIR_JOURNAL_DATA = "maintenance-repair-journal.json";
+
+function createEmptyRepairJournal(): MaintenanceRepairJournal {
+    return { schema: 1, entries: [] };
+}
 
 /** Capture a JSON-compatible store value without retaining a mutable runtime reference. */
 function cloneStore<T>(value: T): T {
@@ -380,6 +391,9 @@ export default class LvCardsPlugin extends Plugin {
     private sourceHealth: SourceHealthData = emptySourceHealth();
     /** 维护页批量修复预览：只在内存保留短期 token，确认后立即消费。 */
     private maintenanceRepairPreviews = new Map<string, BatchRepairPreview>();
+    /** 批量修复持久化事务日志（成功写入后落盘，供重启后审计与撤销） */
+    private repairJournal: MaintenanceRepairJournal = createEmptyRepairJournal();
+    private maintenanceRepairController: Promise<ReturnType<typeof createMaintenanceRepairController>> | null = null;
     /** 统一持久化队列（AQ-4）：同 key 串行 + 有限重试 + 失败可观测 */
     /** AT-6：启动/首交互/评分性能指标 */
     private perf = createPerf();
@@ -611,66 +625,35 @@ export default class LvCardsPlugin extends Plugin {
 
     /** 维护页批量修复：重新读取来源后生成预览，避免使用扫描页的陈旧快照。 */
     private async previewMaintenanceRepair(proposals: BatchRepairProposal[]): Promise<BatchRepairPreview> {
-        const ids = [...new Set(proposals.map(proposal => String(proposal.blockID ?? "")).filter(Boolean))];
-        const info = new Map<string, { md: string; root: string; ial: string }>();
-        if (ids.length > 0) {
-            const rows = await sqlQuery(`SELECT id, markdown, root_id, ial FROM blocks WHERE id IN (${ids.map(id => `'${id.replace(/'/g, "''")}'`).join(",")})`);
-            for (const row of rows) {
-                info.set(String(row.id), {
-                    md: String(row.markdown ?? ""),
-                    root: String(row.root_id ?? ""),
-                    ial: String(row.ial ?? ""),
-                });
-            }
-        }
-        const cards = [] as Array<{
-            blockID: string;
-            markdown: string;
-            rootID?: string;
-            exists?: boolean;
-            occlusionValid?: boolean;
-        }>;
-        for (const id of ids) {
-            const source = info.get(id);
-            const markdown = source?.md ?? "";
-            cards.push({
-                blockID: id,
-                markdown,
-                rootID: source?.root ?? "",
-                exists: Boolean(source),
-                occlusionValid: source ? await this.hasValidOcclusionCard(id, markdown) : false,
-            });
-        }
-        const { previewBatchRepair } = await loadHubServices();
-        const preview = previewBatchRepair(cards, proposals);
-        if (preview.ok) {
-            // Bound stale tokens so a tab left open cannot grow the plugin heap.
-            if (this.maintenanceRepairPreviews.size >= 20) {
-                const oldest = this.maintenanceRepairPreviews.keys().next().value;
-                if (oldest) this.maintenanceRepairPreviews.delete(oldest);
-            }
-            this.maintenanceRepairPreviews.set(preview.previewID, preview);
-        }
-        return preview;
+        return (await this.getMaintenanceRepairController()).preview(proposals);
     }
 
-    /** 维护页批量修复：确认 token 后才写入，写入链复用版本与质量门禁。 */
+    /** 维护页批量修复：确认 token 后才写入，写入链复用版本与质量门禁，成功写入后持久化事务日志。 */
     private async applyMaintenanceRepair(previewID: string): Promise<{ blockIDs: string[] }> {
-        const preview = this.maintenanceRepairPreviews.get(String(previewID ?? ""));
-        if (!preview) throw new Error("repair preview expired or not found");
-        const { confirmBatchRepair, applyBatchRepair, createMaintenanceRepairStorage } = await loadHubServices();
-        const transaction = confirmBatchRepair(preview, { previewID: preview.previewID, acknowledged: true });
-        const result = await applyBatchRepair(transaction, createMaintenanceRepairStorage(transaction.snapshot, {
-            readCard: async blockID => {
-                const rows = await sqlQuery(`SELECT id, markdown FROM blocks WHERE id='${blockID.replace(/'/g, "''")}' LIMIT 1`);
-                const row = rows[0];
-                return row ? { blockID: String(row.id), markdown: String(row.markdown ?? "") } : null;
-            },
-            saveMarkdown: (blockID, markdown, recovery) => this.saveBlockContentVersion(blockID, markdown, recovery),
-            logError: message => lvLog("error", message),
-        }));
-        this.maintenanceRepairPreviews.delete(preview.previewID);
-        return { blockIDs: result.blockIDs };
+        return (await this.getMaintenanceRepairController()).apply(String(previewID ?? ""));
+    }
+
+    /** 维护页撤销上次批量修复：按已落盘的快照恢复原值，带冲突保护（卡片已被二次编辑时报错拒绝覆盖）。 */
+    private async rollbackLastMaintenanceRepair(): Promise<{ blockIDs: string[]; previewID: string }> {
+        return (await this.getMaintenanceRepairController()).rollback();
+    }
+
+    private getMaintenanceRepairController() {
+        return this.maintenanceRepairController ??= loadHubServices().then(({ createMaintenanceRepairController }) =>
+            createMaintenanceRepairController({
+                previews: this.maintenanceRepairPreviews,
+                getJournal: () => this.repairJournal,
+                setJournal: journal => { this.repairJournal = journal; },
+                saveJournal: journal => this.persist.save(MAINTENANCE_REPAIR_JOURNAL_DATA, journal),
+                querySources: sqlQuery,
+                hasValidOcclusion: (blockID, markdown) => this.hasValidOcclusionCard(blockID, markdown),
+                saveMarkdown: (blockID, markdown, recovery) => this.saveBlockContentVersion(blockID, markdown, recovery),
+                logError: message => lvLog("error", message),
+            }),
+        ).catch(error => {
+            this.maintenanceRepairController = null;
+            throw error;
+        });
     }
 
     private saveBlockContentVersion(blockID: string, md: string, recovery?: RepairSnapshotWrite): Promise<boolean | string> {
@@ -720,7 +703,7 @@ export default class LvCardsPlugin extends Plugin {
     private lastDue = 0;
 
     /** AT-1：批量装载键（onload 与同步重载共用同一路径，防错位回归） */
-    private static readonly STORE_KEYS = [SETTINGS_DATA, REVLOG_DATA, SUSPEND_TODAY_DATA, EXAM_PLANS_DATA, AI_BATCHES_DATA, SESSION_STATE_DATA, AI_JOBS_DATA, KNOWLEDGE_OBJECTS_DATA, CARD_RELATIONS_DATA, ERROR_TAGS_DATA, INBOX_DATA, LEARNING_GOALS_DATA, ENTRY_CONTEXTS_DATA, CONTENT_LIFECYCLES_DATA, SOURCE_HEALTH_DATA, AI_KILL_SWITCH_DATA, ANKI_LEDGER_DATA, CONTENT_VERSIONS_DATA, AI_DENY_LIST_DATA, AI_COST_LEDGER_DATA, OB_LEDGER_DATA] as const;
+    private static readonly STORE_KEYS = [SETTINGS_DATA, REVLOG_DATA, SUSPEND_TODAY_DATA, EXAM_PLANS_DATA, AI_BATCHES_DATA, SESSION_STATE_DATA, AI_JOBS_DATA, KNOWLEDGE_OBJECTS_DATA, CARD_RELATIONS_DATA, ERROR_TAGS_DATA, INBOX_DATA, LEARNING_GOALS_DATA, ENTRY_CONTEXTS_DATA, CONTENT_LIFECYCLES_DATA, SOURCE_HEALTH_DATA, AI_KILL_SWITCH_DATA, ANKI_LEDGER_DATA, CONTENT_VERSIONS_DATA, AI_DENY_LIST_DATA, AI_COST_LEDGER_DATA, OB_LEDGER_DATA, MAINTENANCE_REPAIR_JOURNAL_DATA] as const;
 
     /** AT-1（保守版）：同步/覆盖变更 → 有界串行重载。防抖 2s、单飞、先冲刷本地在途写（绝不覆盖未 flush 的本地状态）。
      * 打开中的页签不会自动重渲染（完整 UI 刷新协议待真机专项）；重载后新读取即取到新数据，角标即时刷新。 */
@@ -867,6 +850,11 @@ export default class LvCardsPlugin extends Plugin {
         this.costLedger = normalizeCostLedger(loaded[AI_COST_LEDGER_DATA]);
         // Obsidian SR 导入弱台账装载（指纹→落点，幂等重导）
         this.obLedger = normalizeObLedger(loaded[OB_LEDGER_DATA]);
+        // 批量修复持久化事务日志装载
+        const rawJournal = loaded[MAINTENANCE_REPAIR_JOURNAL_DATA];
+        this.repairJournal = (rawJournal && Array.isArray((rawJournal as any).entries) && (rawJournal as any).entries.length)
+            ? (await loadHubServices()).normalizeRepairJournal(rawJournal)
+            : createEmptyRepairJournal();
         // AI 批次走 TypedStore 入口（322）：结构清洗 + 兜底，非法条目剔除（526）；复用批量加载结果不再二次读盘
         this.aiBatches = await loadStore(this, {
             key: AI_BATCHES_DATA,
@@ -1005,6 +993,10 @@ export default class LvCardsPlugin extends Plugin {
                             // T08 待处理聚合（docs/40 批 5 简化版）：疑问/暂停/恢复
                             getInboxOpenCount: () => plugin.inbox.items.filter((i) => i.status !== "dismissed").length,
                             getSuspendedCount: () => plugin.suspendToday.cardIDs.length,
+                            getMaintenanceDebtCount: () => {
+                                const unresolvedHealth = plugin.sourceHealth.entries.filter(e => e.history.some(h => !h.resolved)).length;
+                                return unresolvedHealth;
+                            },
                             restoreSuspendedToday: async () => {
                                 const ids = [...plugin.suspendToday.cardIDs];
                                 await plugin.suspendTodayMutations.unsuspend(ids);
@@ -1396,6 +1388,16 @@ export default class LvCardsPlugin extends Plugin {
                             },
                             previewRepair: (proposals: BatchRepairProposal[]) => plugin.previewMaintenanceRepair(proposals),
                             applyRepair: (previewID: string) => plugin.applyMaintenanceRepair(previewID),
+                            getLastRepairRecord: () => {
+                                const entry = plugin.repairJournal.entries.find(e => e.diffRecord.status === "applied");
+                                return entry ? {
+                                    previewID: entry.previewID,
+                                    appliedAt: entry.appliedAt,
+                                    summary: entry.summary,
+                                    diffs: entry.diffs,
+                                } : null;
+                            },
+                            rollbackLastRepair: () => plugin.rollbackLastMaintenanceRepair(),
                             acknowledgeSourceHealth: (blockID: string) => plugin.acknowledgeSourceHealth(blockID),
                             suspendToday: (blockIDs: string[]) => plugin.suspendTodayMutations.suspend(blockIDs),
                             // BI-25 验收「撤销」：批量恢复（今日不学移除，次日语义不受影响）

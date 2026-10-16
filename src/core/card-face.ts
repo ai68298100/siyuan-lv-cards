@@ -80,3 +80,164 @@ export function maskMarkedAnswersForQuestion(html: string): string {
     }
     return template.innerHTML;
 }
+
+export interface RenderedCardFace {
+    /** 问题态 HTML（答案已安全遮蔽，公式/代码/排版正常解析，防读屏泄露） */
+    questionHtml: string;
+    /** 答案态 HTML（答案已高亮揭晓，与题干形成鲜明对照） */
+    answerHtml: string;
+    /** 卡面包含的富文本/公式/代码/图片等特征分析 */
+    richness: FaceRichness;
+    /** 提取出的所有答案文本片段集合 */
+    extractedAnswers: string[];
+}
+
+function escapeHtml(text: string): string {
+    return String(text ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+}
+
+/**
+ * 轻量级安全卡面 Markdown 解析器：
+ * 转换公式、代码、粗斜体、图片和段落，与思源内核卡面渲染语义保持一致。
+ */
+export function formatMarkdownToSafeHtml(markdown: string): string {
+    let text = String(markdown ?? "");
+    if (!text.trim()) return "";
+
+    // 一次扫描保护代码、图片和公式；先开始的结构拥有内部文本，避免图片属性二次转义
+    // 或把代码示例里的 Markdown 图片变成真实图片。占位前缀避开原文，保留用户的字面标记。
+    let tokenPrefix = "@@LV_CARD_TOKEN_";
+    while (text.includes(tokenPrefix)) tokenPrefix += "_";
+    const protectedHtml: string[] = [];
+    text = text.replace(/```([a-zA-Z0-9_-]*)\r?\n([\s\S]*?)```|`([^`\n]+?)`|!\[([^\]]*)\]\(([^)\s]+)\)|\$\$([\s\S]+?)\$\$|\$([^$\n]+?)\$/g,
+        (_m, lang, blockCode, inlineCode, alt, url, blockMath, math) => {
+            let html: string;
+            if (blockCode !== undefined) {
+                const cls = lang ? ` class="language-${escapeHtml(lang)}"` : "";
+                html = `<pre><code${cls}>${escapeHtml(blockCode.trim())}</code></pre>`;
+            } else if (inlineCode !== undefined) {
+                html = `<code>${escapeHtml(inlineCode)}</code>`;
+            } else if (url !== undefined) {
+                html = `<img src="${escapeHtml(url)}" alt="${escapeHtml(alt)}" class="lv-card-img" />`;
+            } else if (blockMath !== undefined) {
+                html = `<div class="language-math katex-display">${escapeHtml(blockMath.trim())}</div>`;
+            } else {
+                html = `<span class="language-math katex-inline">${escapeHtml(math.trim())}</span>`;
+            }
+            return `${tokenPrefix}${protectedHtml.push(html) - 1}@@`;
+        });
+
+    // 3. 转义普通文本中的 HTML 字符
+    text = escapeHtml(text);
+
+    // 5. 粗体与斜体
+    text = text.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+    text = text.replace(/\*([^*]+)\*/g, "<em>$1</em>");
+
+    // 6. 换行与段落
+    text = text.replace(/\n{2,}/g, "</p><p>");
+    text = text.replace(/\n/g, "<br/>");
+    text = `<p>${text}</p>`;
+
+    // 7. 单次还原，保护结构内的字面内容不再参与 Markdown 解析。
+    text = text.replace(new RegExp(`${tokenPrefix}(\\d+)@@`, "g"), (_m, idx) => protectedHtml[Number(idx)] ?? "");
+
+    // 清理可能产生的空段落
+    return text.replace(/<p>\s*<\/p>/g, "");
+}
+
+/**
+ * 统一卡面解析与双态遮蔽管线（Unified Card Face Pipeline）：
+ * 支持从问答题（Q & A）或带 ==答案== 挖空的 Markdown 产出标准问题态与答案态 HTML。
+ * 纯逻辑函数，在 Node/Vitest 和浏览器端均可秒级运行，完全无需依赖思源在线内核。
+ */
+export function renderUnifiedCardFace(input: {
+    markdown?: string;
+    question?: string;
+    answer?: string;
+    template?: "qa" | "cloze";
+    /** 参考答案标题，用于国际化；缺省为 "参考答案" */
+    answerLabel?: string;
+}): RenderedCardFace {
+    const template = input.template ?? (input.markdown ? "cloze" : "qa");
+    let q = (input.question ?? "").trim();
+    let a = (input.answer ?? "").trim();
+    let md = (input.markdown ?? "").trim();
+
+    // 如果未传 markdown 但传了 q 和 a
+    if (!md && (q || a)) {
+        if (template === "cloze" && q.includes("____")) {
+            md = q.split("____").join(a ? `==${a}==` : "==答案==");
+        } else if (template === "cloze" && a) {
+            md = `${q} ==${a}==`;
+        }
+    }
+
+    const extractedAnswers: string[] = [];
+    // 单个等号属于答案内容（常见于公式/代码），只有连续两个等号才是挖空边界。
+    const clozePattern = /(?<!=)==((?:[^=]|=(?!=))+)==(?!=)/g;
+    const answerMatches = [...md.matchAll(clozePattern)];
+    const hasCloze = answerMatches.length > 0;
+
+    let questionHtml = "";
+    let answerHtml = "";
+
+    if (hasCloze) {
+        // 提取所有被 == 包裹的挖空答案
+        for (const m of answerMatches) {
+            const val = m[1]?.trim();
+            if (val) extractedAnswers.push(val);
+        }
+
+        // 问题态：将 ==答案== 替换为语义化的遮蔽占位符
+        const qMd = md.replace(clozePattern, (_m, _ans) => {
+            return `@@MASKED_SLOT@@`;
+        });
+        const formattedQ = formatMarkdownToSafeHtml(qMd);
+        questionHtml = formattedQ.replace(
+            /@@MASKED_SLOT@@/g,
+            `<mark class="lv-masked" data-type="mark" aria-hidden="true" title="答案遮蔽"><span class="lv-mask-slot">［ 回忆这里 ］</span></mark>`
+        );
+
+        // 答案态：将 ==答案== 替换为高亮揭晓标记
+        const aMd = md.replace(clozePattern, (_m, ans) => {
+            return `@@REVEALED_START@@${ans}@@REVEALED_END@@`;
+        });
+        const formattedA = formatMarkdownToSafeHtml(aMd);
+        answerHtml = formattedA
+            .replace(/@@REVEALED_START@@/g, `<mark class="lv-revealed" data-type="mark"><span class="lv-revealed-text">`)
+            .replace(/@@REVEALED_END@@/g, `</span></mark>`);
+    } else {
+        // 普通问答模式
+        const displayQ = q || md;
+        if (a) extractedAnswers.push(a);
+
+        questionHtml = `<div class="lv-card-q-section">${formatMarkdownToSafeHtml(displayQ)}</div>`;
+        if (a) {
+            const label = input.answerLabel ?? "参考答案";
+            answerHtml = [
+                `<div class="lv-card-q-section">${formatMarkdownToSafeHtml(displayQ)}</div>`,
+                `<div class="lv-card-answer-divider"></div>`,
+                `<div class="lv-card-a-section">`,
+                `  <div class="lv-eyebrow lv-card-a-label">${escapeHtml(label)}</div>`,
+                `  <div class="lv-card-a-body">${formatMarkdownToSafeHtml(a)}</div>`,
+                `</div>`,
+            ].join("\n");
+        } else {
+            answerHtml = questionHtml;
+        }
+    }
+
+    const richness = analyzeFaceRichness(answerHtml || questionHtml);
+    return {
+        questionHtml,
+        answerHtml,
+        richness,
+        extractedAnswers,
+    };
+}
