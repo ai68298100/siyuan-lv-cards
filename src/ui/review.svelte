@@ -10,9 +10,13 @@
         type RiffDueCard, type RiffDeck, type Rating,
     } from "@/api/riff";
     import { getNotebooks, getBlockAttrs, getBlockDOM, type Notebook } from "@/api/siyuan";
+    import * as siyuanApi from "@/api/siyuan";
     import { isCardNew, calcStreak, type RevlogData } from "@/core/revlog";
     import { gradeTyping, type Rating1to4 } from "@/core/card-types";
     import { parseOcclusion, type OcclusionData } from "@/core/occlusion";
+    import { hasQuestionMediaContent, validateFlashcardMarkdown } from "@/core/flashcard-quality";
+    import { partitionReviewCardsByQuality } from "@/core/review-queue-quality";
+    import { mapChunksOrdered } from "@/core/query-chunks";
     import { todayKey } from "@/core/exam";
     import { mergeSessionPrefs, pruneSessionPrefs } from "@/core/session-prefs";
     import { END_REASONS, hasSessionProgress, markSessionCompleted, withEndReason, type EndReason } from "@/core/session-state";
@@ -20,7 +24,7 @@
     import { avgSecPerCard, budgetLeftSec, BUDGET_PRESETS, clampBudgetMinutes, estimateCompletable, estimateLeftover, isBudgetExpired } from "@/core/session-budget";
     import { nominateVariant } from "@/core/question-rotation";
     import { buildChoiceOptions } from "@/core/choice-options";
-    import { analyzeFaceRichness, extractMarkTexts, faceHintKeys, hasRichContent } from "@/core/card-face";
+    import { analyzeFaceRichness, extractMarkTexts, faceHintKeys, hasRichContent, maskMarkedAnswersForQuestion } from "@/core/card-face";
     import { loadReliefChoices, type LoadChoice } from "@/core/load-relief";
     import { recoveryOptions, type RecoveryOption, type RecoverySnapshot } from "@/core/session-recovery";
     import { triageReturn, RETURN_REASONS, type ReturnReason } from "@/core/return-triage";
@@ -163,6 +167,7 @@
     let errTagCardID = $state("");
     let errTagged = $state(false);
     let cardHtml = $state("");
+    let maskedCardHtml = $derived(maskMarkedAnswersForQuestion(cardHtml));
     /** AS-3：卡面加载失败占位（区别于队列级 errorMsg——队列保持可用，占位可重试） */
     let faceError = $state("");
     // 卡面尚未加载时不允许提前翻面，避免空卡面进入评分流程。
@@ -204,7 +209,8 @@
     // AQ-13：题面呈现时刻（monotonic 按壁钟差），评分时按设置封顶后记入 revlog.dur
     let cardShownAt = 0;
     let sessionSkipped: string[] = []; // 本场跳过排除集（AJ9：跳过的卡不再被下一批拉回）
-    let lastAnswered = $state<{ html: string; card: RiffDueCard } | null>(null); // 回看数据源（AJ2：不再自动打开）
+    let qualityExcludedCardIDs = $state<string[]>([]); // 结构无效/未能验证的存量卡：仅本场排除，不改内核 due
+    let lastAnswered = $state<{ html: string; card: RiffDueCard; revealed: boolean } | null>(null); // 回看数据源（AJ2：不再自动打开）
 
     const requeueWaiting = $derived(!sessionDone && !current && pendingRequeues.length > 0 && !loading && !errorMsg);
     const requeueWaitSeconds = $derived(Math.max(0, Math.ceil((nextRequeueDelay(pendingRequeues, requeueNow) ?? 0) / 1000)));
@@ -356,7 +362,7 @@
     }
 
     // 回看上一张（M3·FR6）
-    let peek = $state<{ html: string; card: RiffDueCard } | null>(null);
+    let peek = $state<{ html: string; card: RiffDueCard; revealed: boolean } | null>(null);
     // 超时倒计时（M3·FR8）
     let timeoutLeft = $state(0);
     // docs/13 §6：「遗忘」限时到点标记——揭示答案并提示自评，不自动记分
@@ -534,7 +540,14 @@
             occlBox = null;
             return;
         }
-        occlBox = { l: img.offsetLeft, t: img.offsetTop, w: img.offsetWidth, h: img.offsetHeight };
+        const cardRect = cardEl.getBoundingClientRect();
+        const imageRect = img.getBoundingClientRect();
+        occlBox = {
+            l: imageRect.left - cardRect.left + cardEl.scrollLeft,
+            t: imageRect.top - cardRect.top + cardEl.scrollTop,
+            w: imageRect.width,
+            h: imageRect.height,
+        };
     }
 
     function shuffle<T>(arr: T[]): T[] {
@@ -623,15 +636,16 @@
         loading = true;
         errorMsg = "";
         try {
+            const kernelReviewedIDs = [...new Set([...reviewedIDs, ...qualityExcludedCardIDs])];
             let data;
             if (scopeKey.startsWith("deck:")) {
-                data = await getRiffDueCards(scopeKey.slice(5), reviewedIDs);
+                data = await getRiffDueCards(scopeKey.slice(5), kernelReviewedIDs);
             } else if (scopeKey.startsWith("notebook:")) {
-                data = await getNotebookRiffDueCards(scopeKey.slice(9), reviewedIDs);
+                data = await getNotebookRiffDueCards(scopeKey.slice(9), kernelReviewedIDs);
             } else if (scopeKey.startsWith("doc:")) {
-                data = await getTreeRiffDueCards(scopeKey.slice(4), reviewedIDs);
+                data = await getTreeRiffDueCards(scopeKey.slice(4), kernelReviewedIDs);
             } else {
-                data = await getRiffDueCards("", reviewedIDs);
+                data = await getRiffDueCards("", kernelReviewedIDs);
             }
             if (seq !== queueSeq) {
                 return; // 旧响应：不改队列、卡面、计数或计时器
@@ -639,6 +653,60 @@
             let cards = data.cards ?? [];
             // 「今天不学」+ 本场已跳过的卡本地过滤（内核调度不受影响，AJ9）
             cards = cards.filter(c => !ctx.isSuspendedToday(c.cardID) && !sessionSkipped.includes(c.cardID));
+            // 先验证源块的最终 Markdown，避免没有有效挖空标记的历史坏卡在问题态直接露出答案。
+            // 此处只从本场展示队列排除；不评分、不跳过、不修改真实 due。
+            if (cards.length > 0) {
+                // 测试/降级宿主若没有 SQL 读能力，不能把未验证内容当作安全卡面；
+                // 但保留已有的卡面加载路径，避免把整个复习页变成不可用状态。
+                let queryBlocks: typeof siyuanApi.sqlQuery | undefined;
+                try {
+                    queryBlocks = (siyuanApi as typeof siyuanApi).sqlQuery;
+                } catch {
+                    queryBlocks = undefined;
+                }
+                if (typeof queryBlocks !== "function") {
+                    // 兼容精简宿主/测试注入：没有只读 SQL 能力时保留原队列，
+                    // 真实思源运行时由共享入组门禁保证新卡结构，维护页负责存量扫描。
+                } else {
+                const blockIDs: string[] = Array.from(new Set(cards.map((card): string => String(card.blockID ?? "")).filter((id): id is string => Boolean(id))));
+                const chunkSize = 400;
+                const concurrency = 3;
+                const chunks: string[][] = Array.from({ length: Math.ceil(blockIDs.length / chunkSize) }, (_, index) =>
+                    blockIDs.slice(index * chunkSize, (index + 1) * chunkSize),
+                );
+                const rowsByChunk = await mapChunksOrdered(chunks, (ids: string[]) => {
+                    const safeIDs = ids.map(id => `'${String(id).replace(/'/g, "''")}'`).join(",");
+                    return queryBlocks(`SELECT id, markdown FROM blocks WHERE id IN (${safeIDs})`);
+                }, concurrency);
+                const rows = rowsByChunk.flat().map(row => ({ id: String(row.id ?? ""), markdown: String(row.markdown ?? "") }));
+                const markdownByID = new Map(rows.map(row => [row.id, row.markdown]));
+                const occlusionCandidates = blockIDs.filter(id => {
+                    const markdown = markdownByID.get(id);
+                    return Boolean(markdown && validateFlashcardMarkdown(markdown) === "missing-answer" && hasQuestionMediaContent(markdown));
+                });
+                const attrChunks: string[][] = Array.from({ length: Math.ceil(occlusionCandidates.length / concurrency) }, (_, index) =>
+                    occlusionCandidates.slice(index * concurrency, (index + 1) * concurrency),
+                );
+                const attrsByChunk = await mapChunksOrdered(attrChunks, (ids: string[]) => Promise.all(ids.map(async id => {
+                    try {
+                        return [id, await getBlockAttrs(id)] as const;
+                    } catch {
+                        return [id, {}] as const;
+                    }
+                })), concurrency);
+                if (seq !== queueSeq) return;
+                const validOcclusionIDs = new Set<string>();
+                for (const [id, attrs] of attrsByChunk.flat() as Array<[string, Record<string, string>]>) {
+                    if (parseOcclusion(attrs)?.rects.length) validOcclusionIDs.add(String(id));
+                }
+                const quality = partitionReviewCardsByQuality(cards, rows, validOcclusionIDs);
+                cards = quality.valid;
+                if (quality.invalid.length > 0) {
+                    qualityExcludedCardIDs = [...new Set([...qualityExcludedCardIDs, ...quality.invalid.map(item => item.cardID).filter(Boolean)])];
+                    announce(t.review.qualityExcluded.replace("${n}", String(qualityExcludedCardIDs.length)), "polite");
+                }
+                }
+            }
             // 仅新卡 / 仅旧卡模式（睡前巩固包，W 组）
             if (scopeKey === "new" || scopeKey === "old") {
                 cards = cards.filter(c => (scopeKey === "new") === (c.state === 0));
@@ -731,6 +799,11 @@
                 releaseDueRequeues();
             }
         }
+    }
+
+    async function recheckQualityExcluded() {
+        qualityExcludedCardIDs = [];
+        await loadQueue();
     }
 
     async function setCurrent(card: RiffDueCard) {
@@ -1053,7 +1126,7 @@
         errTagged = false;
         // 记录上一张供回看（AJ2：只存数据，不自动打开浮层）
         if (current) {
-            lastAnswered = { html: cardHtml, card: current };
+            lastAnswered = { html: cardHtml, card: current, revealed: showAnswer };
         }
         const idx = current ? queue.findIndex(c => c.cardID === current!.cardID) : -1;
         const rest = queue.slice(idx + 1);
@@ -1371,9 +1444,30 @@
         return () => offSettings?.();
     });
 
-    // 遮罩 overlay 定位：DOM 更新与窗口缩放后重算（$effect 兼容 runes 模式）
+    // 遮罩 overlay 定位：监听图片加载、卡面布局和视口变化，避免晚加载或窄屏时坐标过期。
     $effect(() => {
+        const activeOcclusion = occl;
+        const target = cardEl;
+        const html = cardHtml;
         positionOcclusion();
+        if (!activeOcclusion || !target || !html) return;
+        const image = target.querySelector("img");
+        if (!image) return;
+        const remeasure = () => positionOcclusion();
+        const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(remeasure) : null;
+        observer?.observe(target);
+        observer?.observe(image);
+        image.addEventListener("load", remeasure);
+        window.addEventListener("resize", remeasure);
+        window.visualViewport?.addEventListener("resize", remeasure);
+        window.visualViewport?.addEventListener("scroll", remeasure);
+        return () => {
+            observer?.disconnect();
+            image.removeEventListener("load", remeasure);
+            window.removeEventListener("resize", remeasure);
+            window.visualViewport?.removeEventListener("resize", remeasure);
+            window.visualViewport?.removeEventListener("scroll", remeasure);
+        };
     });
 
     onDestroy(() => {
@@ -1464,6 +1558,12 @@
                 <span class="ft__smaller ft__on-surface">{t.loadRelief.impact[reliefOpen]}</span>
             </div>
         {/if}
+    {/if}
+    {#if qualityExcludedCardIDs.length > 0}
+        <div class="lv-notice lv-notice--warn" role="status" aria-live="polite">
+            <span>{t.review.qualityExcluded.replace("${n}", String(qualityExcludedCardIDs.length))}</span>
+            <button class="b3-button b3-button--small b3-button--outline" onclick={recheckQualityExcluded}>{t.review.qualityRecheck}</button>
+        </div>
     {/if}
     {#if loading}
         <div class="lv-center">{t.dashboard.loading}</div>
@@ -1700,7 +1800,7 @@
             {:else}
                 {#key current?.cardID}
                     <!-- 灵动感（R53 纪律内）：切卡 140ms 单次淡入，只动 opacity；翻面淡入由 lv-anim-glow 承担 -->
-                    <div class="lv-card-content" class:lv-masked={!showAnswer} style={`font-size: ${eff().cardFontScale || 1}em`} in:fade={{ duration: getMotionDuration("standard") }}>{@html cardHtml}</div>
+                    <div class="lv-card-content" class:lv-masked={!showAnswer} style={`font-size: ${eff().cardFontScale || 1}em`} in:fade={{ duration: getMotionDuration("standard") }}>{@html showAnswer ? cardHtml : maskedCardHtml}</div>
                 {/key}
             {/if}
             {#if faceHints.length > 0 && !faceError}
@@ -1986,7 +2086,7 @@
                 <div class="fn__flex-1"></div>
                 <button class="b3-button b3-button--small" aria-label={window.siyuan.languages.cancel} onclick={togglePeek}>✕</button>
             </div>
-            <div class="lv-peek-body b3-typography">{@html peek.html}</div>
+            <div class="lv-peek-body b3-typography lv-card-content" class:lv-masked={!peek.revealed}>{@html peek.revealed ? peek.html : maskMarkedAnswersForQuestion(peek.html)}</div>
         </div>
     {/if}
 </div>

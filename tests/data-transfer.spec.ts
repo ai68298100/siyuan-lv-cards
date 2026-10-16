@@ -144,6 +144,33 @@ describe("data-transfer 数据导出与备份恢复事务", () => {
                 { action: "save", key: "file1.json", data: { v: "old-1" } },
             ]);
         });
+
+        it("rollbackFailedKey：适配器先落盘后抛错时也补偿失败 key", async () => {
+            const current: Record<string, unknown> = {
+                first: { v: "old-1" },
+                failed: { v: "old-fail" },
+            };
+            const history: Array<[string, unknown]> = [];
+            const saveFile = vi.fn(async (key: string, data: unknown) => {
+                current[key] = data;
+                history.push([key, data]);
+                if (key === "failed" && (data as any)?.v === "new-fail") throw new Error("late disk error");
+            });
+
+            await expect(applyRestoreTransaction({
+                restoreFiles: { first: { v: "new-1" }, failed: { v: "new-fail" } },
+                currentFiles: { first: { v: "old-1" }, failed: { v: "old-fail" } },
+                saveFile,
+                rollbackFailedKey: true,
+            })).rejects.toThrow("late disk error");
+            expect(current).toEqual({ first: { v: "old-1" }, failed: { v: "old-fail" } });
+            expect(history).toEqual([
+                ["first", { v: "new-1" }],
+                ["failed", { v: "new-fail" }],
+                ["failed", { v: "old-fail" }],
+                ["first", { v: "old-1" }],
+            ]);
+        });
     });
 
     describe("downloadFile 浏览器文件下载", () => {

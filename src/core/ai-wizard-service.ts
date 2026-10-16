@@ -4,6 +4,7 @@
  */
 
 import { assembleGeneratePrompt } from "./ai-pipeline";
+import { serializeQaCard } from "./flashcard-quality";
 
 export interface BudgetPreviewResult {
     budgetTokens: number;
@@ -96,5 +97,5 @@ export function buildAiCardMarker(jobId?: string, origIndex?: number): string {
  */
 export function buildAiCardBlockMarkdown(q: string, a: string, marker = ""): string {
     const prefix = marker ? `${marker}\n` : "";
-    return `${prefix}${q} ==${a}==`;
+    return `${prefix}${serializeQaCard(q, a)}`;
 }

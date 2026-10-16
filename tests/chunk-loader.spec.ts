@@ -121,4 +121,25 @@ describe("chunk-loader（AT-17）", () => {
         expect(document.querySelectorAll("#lv-chunk-css-hub")).toHaveLength(1);
         expect(document.querySelectorAll("#lv-chunk-js-hub")).toHaveLength(1);
     });
+
+    it("接口不兼容时清理已成功缓存的模块，修复部署后能重载且不清除其它模块", async () => {
+        const { loadChunk, invalidateChunk } = await import("../src/libs/chunk-loader");
+        const stale = { mount: () => ({ destroy() {} }) };
+        const review = { mount: () => ({ destroy() {} }) };
+        (window as any).__lvChunks = { hub: stale, review };
+        preinject("hub");
+        expect(await loadChunk("hub")).toBe(stale);
+
+        invalidateChunk("hub");
+        expect(document.getElementById("lv-chunk-js-hub")).toBeNull();
+        expect(document.getElementById("lv-chunk-css-hub")).toBeNull();
+        expect((window as any).__lvChunks.hub).toBeUndefined();
+        expect((window as any).__lvChunks.review).toBe(review);
+
+        const repaired = { ...stale, services: { previewBatchRepair() {} } };
+        (window as any).__lvChunks.hub = repaired;
+        preinject("hub");
+        expect(await loadChunk("hub")).toBe(repaired);
+        expect(document.querySelectorAll("#lv-chunk-css-hub")).toHaveLength(1);
+    });
 });

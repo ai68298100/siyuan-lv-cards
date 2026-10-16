@@ -130,7 +130,7 @@ export function helpMarkdown(lang: string): string {
  * 裸"问题\n答案"式示例会在问题态泄露答案（审计 D-1）。 */
 export function sampleCards(): string[] {
     return [
-        "示例 1 · 普通卡：思源内核的 FSRS 调度负责计算间隔，小驴闪卡（内测版）负责体验增强。",
+        "示例 1 · 普通卡：思源内核的 ==FSRS 调度负责计算间隔==，小驴闪卡（内测版）负责体验增强。",
         "示例 2 · 公式卡：质能方程 $E = mc^2$ 中 $c$ 代表什么？\n==光速（约 3×10⁸ m/s）。==",
         "示例 3 · 挖空卡：FSRS 的四个核心状态是 ==未学习、学习、复习、悬置==。",
         "示例 4 · 列表卡：FSRS 评分四档是 ==遗忘（Again）、困难（Hard）、良好（Good）、简单（Easy）==。",

@@ -19,6 +19,15 @@ export interface ChunkMount {
 
 const pending: Partial<Record<ChunkName, Promise<ChunkMount>>> = {};
 
+/** Drop an incompatible cached module so the next user action can fetch a repaired deployment. */
+export function invalidateChunk(name: ChunkName): void {
+    delete pending[name];
+    document.getElementById(`lv-chunk-js-${name}`)?.remove();
+    document.getElementById(`lv-chunk-css-${name}`)?.remove();
+    const registry = (window as any).__lvChunks;
+    if (registry) delete registry[name];
+}
+
 /** 注入 <link>（幂等）；CSS 加载失败不阻断 JS（组件仍可用，仅裸样式） */
 function injectCss(name: ChunkName, version: string): void {
     const id = `lv-chunk-css-${name}`;
@@ -80,8 +89,7 @@ export function loadChunk(name: ChunkName): Promise<Record<string, any>> {
         if (!mod || typeof mod !== "object") {
             // 脚本已执行但未注册模块时，移除占位节点，确保后续重试会真正
             // 重新请求脚本；仅删除 pending 会被同 id 的旧节点短路，永远无法恢复。
-            document.getElementById(`lv-chunk-js-${name}`)?.remove();
-            document.getElementById(`lv-chunk-css-${name}`)?.remove();
+            invalidateChunk(name);
             throw new Error(`lv chunk missing export: ${name}`);
         }
         return mod;

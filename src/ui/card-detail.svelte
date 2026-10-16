@@ -12,7 +12,7 @@
     import type { ContentState } from "@/core/content-lifecycle";
     import type { NextAction } from "@/core/next-action";
 
-    let { block, t, onOpenDoc, onClose, relationsCtx, koCtx, lcCtx, editorCtx, historyEntries = [], issues = [], versions = [], acceptVersion }: {
+    let { block, t, onOpenDoc, onClose, relationsCtx, koCtx, lcCtx, editorCtx, onSaved, historyEntries = [], issues = [], versions = [], acceptVersion }: {
         block: SearchBlock;
         t: any;
         onOpenDoc: () => void;
@@ -49,8 +49,10 @@
         /** BX-2 W2：卡片内容编辑（宿主注入；缺省=不显示编辑入口） */
         editorCtx?: {
             load: () => Promise<string | null>;
-            save: (md: string) => Promise<boolean>;
+            save: (md: string) => Promise<boolean | string>;
         };
+        /** 保存成功且预览回读完成后的导航钩子（例如维护页重扫）。 */
+        onSaved?: (blockID: string) => void | Promise<void>;
     } = $props();
 
     let html = $state("");
@@ -184,13 +186,14 @@
         }
     }
 
-    async function saveEdit(md: string): Promise<boolean> {
+    async function saveEdit(md: string): Promise<boolean | string> {
         if (!editorCtx) return false;
         const ok = await editorCtx.save(md);
-        if (ok) {
+        if (ok === true) {
             editing = false;
             // 写回成功后刷新预览（失败保留旧卡面）
             await loadPreview(block.id);
+            await onSaved?.(block.id);
         }
         return ok;
     }

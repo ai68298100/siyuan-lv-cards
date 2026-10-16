@@ -9,7 +9,7 @@
         /** 原始块内容（markdown） */
         original: string;
         /** 保存回调（宿主 updateBlock）；resolve(false)=保存失败，面板保持打开可重试 */
-        onsave: (md: string) => Promise<boolean>;
+        onsave: (md: string) => Promise<boolean | string>;
         oncancel: () => void;
     } = $props();
 
@@ -37,7 +37,8 @@
         errMsg = "";
         try {
             const ok = await onsave(text);
-            if (!ok) errMsg = t.editor.saveFail;
+            if (typeof ok === "string") errMsg = ok;
+            else if (!ok) errMsg = t.editor.saveFail;
         } catch (error) {
             // 宿主写入回调可能直接抛出网络/内核错误；保持编辑现场并给出可重试的同一保存入口。
             const reason = error instanceof Error ? error.message : String(error);

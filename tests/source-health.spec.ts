@@ -63,7 +63,22 @@ describe("source-health（BI-20）", () => {
         // 原地标记：发现记录保留在史中（detail 不丢）并置 resolved——「修复保留历史」
         expect(moved).toHaveLength(1);
         expect(moved[0].resolved).toBe(true);
+        expect(moved[0].resolvedAt).toBe(3000);
         expect(moved[0].detail).toBe("r1→r2");
         expect(openIssues(history).map(h => h.kind)).toEqual(["changed"]);
+    });
+
+    it("同一问题再次发生会追加新记录并分别保留解决时间", () => {
+        const issue = { kind: "moved" as const, detail: "r1→r2", impactKey: "k", affectsScheduling: false as const };
+        let history = recordIssues([], [issue], 100);
+        history = resolveIssue(history, "moved", 200);
+        history = recordIssues(history, [issue], 300);
+        expect(history).toEqual([
+            { at: 100, kind: "moved", detail: "r1→r2", resolved: true, resolvedAt: 200 },
+            { at: 300, kind: "moved", detail: "r1→r2", resolved: false },
+        ]);
+        history = resolveIssue(history, "moved", 400);
+        expect(history.map(item => item.resolvedAt)).toEqual([200, 400]);
+        expect(openIssues(history)).toEqual([]);
     });
 });

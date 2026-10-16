@@ -1,6 +1,7 @@
 <script lang="ts">
     import { onMount } from "svelte";
     import { getRiffDecks, createRiffDeck, type RiffDeck } from "@/api/riff";
+    import { serializeQaCard, validateQaDraft } from "@/core/flashcard-quality";
     import LvKbd from "./kit/LvKbd.svelte";
 
     let { i18n, onCreate, onClose, embedded = false }: {
@@ -28,7 +29,8 @@
     const canCreateDeck = $derived(decks.some(d => d.id === selected) || !!newName.trim());
     const clozeParts = $derived(q.split("____"));
     const hasClozeMarker = $derived(clozeParts.length > 1);
-    const canSubmit = $derived(!busy && !!q.trim() && !!a.trim() && canCreateDeck && (template !== "cloze" || hasClozeMarker));
+    const draftIssues = $derived(validateQaDraft(q, a));
+    const canSubmit = $derived(!busy && draftIssues.length === 0 && canCreateDeck && (template !== "cloze" || hasClozeMarker));
 
     function setTemplate(value: "qa" | "cloze") {
         template = value;
@@ -79,7 +81,7 @@
             const answer = a.trim();
             const markdown = template === "cloze"
                 ? question.split("____").join(`==${answer}==`)
-                : `${question} ==${answer}==`;
+                : serializeQaCard(question, answer);
             await onCreate(markdown, deckID, deckName, question, answer);
             if (embedded) {
                 q = "";

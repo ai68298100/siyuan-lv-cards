@@ -5,12 +5,16 @@
  * 幂等口径：guid 台账——重导时已导入的 guid 直接跳过，绝不重复建卡。
  */
 import type { PreviewCard } from "./anki-preview";
+import { concealUnmarkedText, hasMarkedAnswer, serializeQaCard } from "./flashcard-quality";
 
-/** 单卡 → SR 单行（与 core/obsidian-sr 导出约定一致：`q :: a`；换行折叠为 " / "） */
+/** 单卡 → 思源挖空单行；换行折叠为 " / "，确保答案在问题态被遮挡。 */
 export function composeCardLine(card: PreviewCard): string {
     const q = card.question.replace(/\s*\n+\s*/g, " / ").trim();
-    const a = (card.answer || "—").replace(/\s*\n+\s*/g, " / ").trim();
-    return `${q} :: ${a}`;
+    const a = card.answer.replace(/\s*\n+\s*/g, " / ").trim();
+    if (!card.cloze) return serializeQaCard(q, a);
+    const markedAnswer = a ? concealUnmarkedText(a) : "";
+    if (!hasMarkedAnswer(q) && !markedAnswer) throw new Error("invalid flashcard: missing cloze answer");
+    return [q, markedAnswer].filter(Boolean).join(" ");
 }
 
 /** 批次 → 单个导入文档 markdown：每行一卡（顺序即 cards 顺序，配对以此为准） */

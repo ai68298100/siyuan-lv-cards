@@ -19,14 +19,15 @@ The full-lifecycle flashcard learning platform for SiYuan — local-first, nativ
 
 > **Note**: The primary README and all design docs are in Chinese. This page covers the essentials; see [docs/](./docs/README.md) for full design material.
 
-Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current release is **v0.209.5** (2026-10-14), focused on settings scrolling and split-dialog lifecycle stability. The full Android SiYuan host matrix remains pending.
+Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.0** (2026-10-16), focused on card quality and maintenance. See GitHub Release for publishing status.
 
-## What's New in v0.209.5
+## What's New in v0.210.0
 
-- **New:** Viewport-bounded settings scrolling and regression coverage for embedded quick-card and AI-wizard chunk mounting.
-- **Improved:** Long settings forms keep a single scroll surface across short windows and narrow layouts; split dialog components now mount and unmount through their own chunk runtime.
-- **Fixed:** Settings content no longer gets trapped below the fold, and cross-runtime Svelte rendering no longer risks `effect_orphan` state leaks.
-- **Validation:** Svelte and TypeScript checks, 857 unit tests, i18n/documentation/governance checks, production build, and package smoke pass. Android host testing remains pending.
+- **Consistent card checks:** Creation, imports, and edits validate the final card before adding it. Ordinary cards require an answer marker and a visible question; image occlusion requires an image and valid regions. AI candidates gain high-confidence quality checks, and Anki/Obsidian imports gain safer cleaning and error feedback. These checks cannot establish factual accuracy; human review remains necessary.
+- **Old cards and maintenance:** Invalid old cards are isolated for the current review session without changing due dates, ratings, or logs. Maintenance detects answer-only cards, checks media, offers side-by-side approximate-duplicate review with saved decisions, and returns to a fresh scan after editing.
+- **Repair and source history:** Batch repairs offer drafts, before/after previews, and confirmation. Failed repairs restore the exact old snapshot, including invalid old cards that normal editing checks would reject; normal edits still require validation. Snapshots exist only in transaction memory for failure compensation and are not lasting backups. Successful batches do not yet have an undo button. Source fingerprints and issue history persist independently of the current deck, including detection and handling times; history records issue events rather than every edit.
+- **Recovery and device behavior:** Failed lazy loads can be retried, maintenance work loads on demand within the existing 55 KiB gzip entry budget, and review gestures and keyboard-driven viewport changes have been improved. AI settings add OpenAI, DeepSeek, Ollama, and LM Studio presets.
+- **Validation:** 1070 tests across 157 files, TypeScript/Svelte checks (0 errors and 0 warnings), 1679 aligned translation keys and 856 source references, documentation/governance checks, a clean production build, and package smoke pass. Smoke includes failed-repair compensation for invalid old cards through the production IIFE. The entry bundle is approximately 54 KiB gzip, within the 55 KiB budget. The five real SiYuan Chrome paths, Android host testing, and the real-model error matrix remain pending; automated checks do not replace them.
 
 <details>
 <summary>Previous releases</summary>

@@ -8,6 +8,7 @@ import type { AnkiPackage } from "./anki-package";
 import { cleanAnkiField } from "./anki-clean";
 import { cardFingerprint, findInPackageDuplicates } from "./anki-dedupe";
 import { planForModel } from "./anki-map";
+import { hasMarkedAnswer, validateQaDraft } from "./flashcard-quality";
 
 export interface PreviewCard {
     guid: string;
@@ -56,8 +57,19 @@ export function buildImportPreview(pkg: AnkiPackage): ImportPreview {
 
     const modelsById = new Map(pkg.models.map((m) => [m.id, m]));
     const deckByGuid = new Map(pkg.cards.map((c) => [c.noteGuid, c.deckId]));
+    const cardCountByGuid = new Map<string, number>();
+    for (const card of pkg.cards) cardCountByGuid.set(card.noteGuid, (cardCountByGuid.get(card.noteGuid) ?? 0) + 1);
 
     for (const note of pkg.notes) {
+        const generatedCardCount = cardCountByGuid.get(note.guid) ?? 0;
+        if (generatedCardCount === 0) {
+            losses.push({ guid: note.guid, reason: "该笔记没有生成的 Anki 卡片，已跳过" });
+            continue;
+        }
+        if (generatedCardCount > 1) {
+            losses.push({ guid: note.guid, reason: `该笔记生成了 ${generatedCardCount} 张 Anki 卡（不同模板或完形序号）；当前无法忠实拆分，已跳过` });
+            continue;
+        }
         const model = modelsById.get(note.modelId);
         if (!model) {
             losses.push({ guid: note.guid, reason: `引用未知模型 ${note.modelId}（无法映射字段）` });
@@ -81,6 +93,7 @@ export function buildImportPreview(pkg: AnkiPackage): ImportPreview {
             if (extra.text) extraAnswer += (extraAnswer ? "\n" : "") + `${model.fieldNames[idx]}：${extra.text}`;
         }
         const answer = [answerParts[0].text, extraAnswer].filter(Boolean).join("\n\n");
+        const isCloze = cleanQ.cloze || answerParts[0].cloze;
 
         // 媒体核对：引用了包里不存在的文件 → 损失（卡保留但标注）
         const mediaRefs = [...new Set([...cleanQ.mediaRefs, ...answerParts[0].mediaRefs])];
@@ -95,7 +108,27 @@ export function buildImportPreview(pkg: AnkiPackage): ImportPreview {
             losses.push({ guid: note.guid, reason: "清洗后问面为空（无法成卡）" });
             continue;
         }
-        if (cleanQ.cloze) clozeGuids.add(note.guid);
+        if (isCloze) {
+            if (!hasMarkedAnswer(cleanQ.text) && !hasMarkedAnswer(answer)) {
+                losses.push({ guid: note.guid, reason: "完形填空没有可遮挡的非空答案（无法成卡）" });
+                continue;
+            }
+            const ordinals = [...new Set([...cleanQ.clozeOrdinals, ...answerParts[0].clozeOrdinals])];
+            if (ordinals.length > 1) {
+                losses.push({ guid: note.guid, reason: `多个完形删除序号 ${ordinals.join(", ")} 无法忠实拆分，已跳过` });
+                continue;
+            }
+            if (extraAnswer || (answer && !answerParts[0].cloze)) {
+                losses.push({ guid: note.guid, reason: "完形卡的背面字段将与挖空答案一起隐藏" });
+            }
+            clozeGuids.add(note.guid);
+        } else {
+            const issues = validateQaDraft(cleanQ.text, answer);
+            if (issues.length > 0) {
+                losses.push({ guid: note.guid, reason: issues.includes("empty-answer") ? "清洗后答面为空（无法成卡）" : "问答包含保留的挖空标记（无法安全序列化）" });
+                continue;
+            }
+        }
 
         cards.push({
             guid: note.guid,
@@ -106,7 +139,7 @@ export function buildImportPreview(pkg: AnkiPackage): ImportPreview {
             tags: note.tags,
             mediaRefs,
             fingerprint: cardFingerprint(cleanQ.text),
-            cloze: cleanQ.cloze,
+            cloze: isCloze,
             extraAnswer,
         });
     }

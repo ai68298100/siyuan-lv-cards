@@ -17,8 +17,9 @@ const NOTE_CLOZE = { guid: "g-cloze", flds: `{{c1::线粒体::细胞器提示}}�
 const NOTE_DUP_A = { guid: "g-dup-a", flds: `握手的作用？\x1f同步序列号` };
 const NOTE_DUP_B = { guid: "g-dup-b", tags: "重复", flds: `握手的作用？ \x1f同步序列号` };
 const NOTE_EMPTY_Q = { guid: "g-empty", flds: `\x1f只有答案` };
+const NOTE_EMPTY_A = { guid: "g-empty-a", flds: `有问题？\x1f` };
 
-const ALL_NOTES = [NOTE_MAIN, NOTE_MEDIA, NOTE_MEDIA_MISSING, NOTE_CLOZE, NOTE_DUP_A, NOTE_DUP_B, NOTE_EMPTY_Q];
+const ALL_NOTES = [NOTE_MAIN, NOTE_MEDIA, NOTE_MEDIA_MISSING, NOTE_CLOZE, NOTE_DUP_A, NOTE_DUP_B, NOTE_EMPTY_Q, NOTE_EMPTY_A];
 
 function buildPkg() {
     const db = buildAnki2DbBytes(
@@ -53,9 +54,11 @@ describe("buildImportPreview（M2 全链）", () => {
 
     it("统计口径一致：可导入 = 笔记数 - 空问面", () => {
         expect(preview.stats.notes).toBe(ALL_NOTES.length);
-        expect(preview.cards).toHaveLength(ALL_NOTES.length - 1);
+        expect(preview.cards).toHaveLength(ALL_NOTES.length - 2);
         expect(byGuid.has("g-empty")).toBe(false);
+        expect(byGuid.has("g-empty-a")).toBe(false);
         expect(preview.losses.some((l) => l.guid === "g-empty" && l.reason.includes("问面为空"))).toBe(true);
+        expect(preview.losses.some((l) => l.guid === "g-empty-a" && l.reason.includes("答面为空"))).toBe(true);
     });
 
     it("HTML 清洗：粗斜体/换行/实体", () => {
@@ -73,10 +76,33 @@ describe("buildImportPreview（M2 全链）", () => {
     it("完形填空剥壳 + 提示丢弃记损失", () => {
         const c = byGuid.get("g-cloze")!;
         expect(c.cloze).toBe(true);
-        expect(c.question).toContain("线粒体");
+        expect(c.question).toContain("==线粒体==");
         expect(c.question).not.toContain("{{c1::");
         expect(preview.clozeGuids).toContain("g-cloze");
         expect(preview.losses.some((l) => l.guid === "g-cloze" && l.reason.includes("细胞器提示"))).toBe(true);
+    });
+
+    it("同一 Anki note 有多个 ord 时不错误合并成一张思源卡", () => {
+        const multiCardPkg = {
+            ...pkg,
+            cards: [...pkg.cards, { ...pkg.cards.find(c => c.noteGuid === "g-cloze")!, id: "extra-ord", ord: 1 }],
+        };
+        const multiPreview = buildImportPreview(multiCardPkg);
+        expect(multiPreview.cards.some(c => c.guid === "g-cloze")).toBe(false);
+        expect(multiPreview.losses.some(l => l.guid === "g-cloze" && l.reason.includes("无法忠实拆分，已跳过"))).toBe(true);
+    });
+
+    it("一个生成卡里包含多个完形序号时跳过，不把答案合并", () => {
+        const sourceNote = pkg.notes.find(n => n.guid === "g-cloze")!;
+        const sourceCard = pkg.cards.find(c => c.noteGuid === "g-cloze")!;
+        const multiOrdinalPkg = {
+            ...pkg,
+            notes: [...pkg.notes, { ...sourceNote, guid: "g-two-ord", fields: ["{{c1::A}} and {{c2::B}}", "补充"] }],
+            cards: [...pkg.cards, { ...sourceCard, id: "two-ord-card", noteGuid: "g-two-ord" }],
+        };
+        const multiPreview = buildImportPreview(multiOrdinalPkg);
+        expect(multiPreview.cards.some(c => c.guid === "g-two-ord")).toBe(false);
+        expect(multiPreview.losses.some(l => l.guid === "g-two-ord" && l.reason.includes("无法忠实拆分，已跳过"))).toBe(true);
     });
 
     it("包内重复：归一化问面相同 → 一组两 guid", () => {

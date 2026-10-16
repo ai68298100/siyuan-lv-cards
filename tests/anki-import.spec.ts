@@ -11,16 +11,23 @@ function card(guid: string, question: string, answer = "答案"): PreviewCard {
 }
 
 describe("composeCardLine / composeImportMarkdown", () => {
-    it("SR 单行约定：q :: a，换行折叠", () => {
-        expect(composeCardLine(card("g1", "两行\n问题", "多行\n答案"))).toBe("两行 / 问题 :: 多行 / 答案");
+    it("问答序列化为思源挖空格式，换行折叠", () => {
+        expect(composeCardLine(card("g1", "两行\n问题", "多行\n答案"))).toBe("两行 / 问题 ==多行 / 答案==");
     });
-    it("空答案占位（无分隔行的行不会成卡）", () => {
-        const line = composeCardLine(card("g2", "只有问面", ""));
-        expect(line).toBe("只有问面 :: —");
+    it("拒绝空答案，不再伪造占位卡", () => {
+        expect(() => composeCardLine(card("g2", "只有问面", ""))).toThrow("invalid flashcard");
+    });
+    it("完形卡把答案字段中的普通文本也隐藏，避免附加字段漏到题面", () => {
+        const cloze = { ...card("g-cloze", "句子 ==答案=="), cloze: true, answer: "==答案==\n\n备注：补充说明" };
+        expect(composeCardLine(cloze)).toBe("句子 ==答案== ==答案== ==备注：补充说明==");
+    });
+    it("完形答案字段里有损坏标记时拒绝序列化", () => {
+        const cloze = { ...card("g-cloze-bad", "句子 ==答案=="), cloze: true, answer: "==答案" };
+        expect(() => composeCardLine(cloze)).toThrow("invalid cloze markup");
     });
     it("文档：一卡一行、顺序保持", () => {
         const md = composeImportMarkdown([card("a", "Q1"), card("b", "Q2")]);
-        expect(md).toBe("Q1 :: 答案\n\nQ2 :: 答案");
+        expect(md).toBe("Q1 ==答案==\n\nQ2 ==答案==");
     });
 });
 
@@ -29,8 +36,8 @@ describe("pairImportedBlocks", () => {
     it("整行精确配对；缺失行进 unmatched", () => {
         const { byGuid, unmatchedGuids } = pairImportedBlocks(
             [
-                { id: "blk1", content: "Q1 :: 答案" },
-                { id: "blk2", content: "Q3 :: 答案" },
+                { id: "blk1", content: "Q1 ==答案==" },
+                { id: "blk2", content: "Q3 ==答案==" },
             ],
             cards,
         );

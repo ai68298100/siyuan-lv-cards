@@ -14,6 +14,8 @@ export interface CleanResult {
     losses: string[];
     /** 是否含完形填空语法 */
     cloze: boolean;
+    /** Anki 完形删除序号，用于提示多卡型合并损失 */
+    clozeOrdinals: number[];
 }
 
 const ENTITIES: Record<string, string> = {
@@ -27,14 +29,16 @@ function decodeEntities(s: string): string {
 }
 
 /** 完形填空：{{cN::答案(:提示)?}} → 答案；提示丢弃记损失 */
-function stripCloze(html: string, losses: string[]): { text: string; cloze: boolean } {
+function stripCloze(html: string, losses: string[]): { text: string; cloze: boolean; ordinals: number[] } {
     let cloze = false;
-    const text = html.replace(/\{\{c(\d+)::([^:{}]*?)(?::([^{}]*?))?\}\}/g, (_m, _n, answer, hint) => {
+    const ordinals = new Set<number>();
+    const text = html.replace(/\{\{c(\d+)::([^:{}]*?)(?::([^{}]*?))?\}\}/g, (_m, n, answer, hint) => {
         cloze = true;
+        ordinals.add(Number(n));
         if (hint) losses.push(`完形提示「${hint}」无法迁入普通问答，已丢弃`);
-        return answer;
+        return `==${answer}==`;
     });
-    return { text, cloze };
+    return { text, cloze, ordinals: [...ordinals].sort((a, b) => a - b) };
 }
 
 export function cleanAnkiField(html: string): CleanResult {
@@ -87,5 +91,5 @@ export function cleanAnkiField(html: string): CleanResult {
     s = decodeEntities(s);
     s = s.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
 
-    return { text: s, mediaRefs, losses, cloze: clozeR.cloze };
+    return { text: s, mediaRefs, losses, cloze: clozeR.cloze, clozeOrdinals: clozeR.ordinals };
 }

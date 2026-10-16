@@ -8,6 +8,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Window } from "happy-dom";
+import assert from "node:assert/strict";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const dist = resolve(root, "dist");
@@ -29,7 +30,10 @@ globalThis.window = win;
 globalThis.document = win.document;
 globalThis.__lvSiyuan = {}; // chunk IIFE 的 siyuan 形参，注册阶段仅透传
 const checks = {
-    hub: (reg) => typeof reg?.hub?.mount === "function",
+    hub: (reg) => typeof reg?.hub?.mount === "function"
+        && ["previewBatchRepair", "confirmBatchRepair", "applyBatchRepair", "findApproximateDuplicateCandidates", "helpMarkdown",
+            "renderExamReportMarkdown", "buildDiagnosticsText", "createMaintenanceRepairStorage"]
+            .every(key => typeof reg?.hub?.services?.[key] === "function"),
     review: (reg) => typeof reg?.review?.mount === "function",
     dialogs: (reg) =>
         typeof reg?.dialogs?.mountDialogComponent === "function" &&
@@ -55,6 +59,72 @@ for (const name of ["hub", "review", "dialogs"]) {
 }
 if (checks.hub(win.__lvChunks) && checks.review(win.__lvChunks) && checks.dialogs(win.__lvChunks)) {
     ok("三 chunk 注册共存（无整表覆盖）");
+}
+
+// Exercise the production service boundary, which dev-mode component tests do not load.
+if (checks.hub(win.__lvChunks)) {
+    try {
+        const services = win.__lvChunks.hub.services;
+        let markdown = "旧题面 ==旧答案==";
+        const preview = services.previewBatchRepair([{ blockID: "a", markdown, exists: true }], [
+            { blockID: "a", afterMarkdown: "新题面 ==新答案==" },
+        ]);
+        assert.equal(preview.ok, true);
+        const transaction = services.confirmBatchRepair(preview, { previewID: preview.previewID, acknowledged: true });
+        const applied = await services.applyBatchRepair(transaction, {
+            readCard: async blockID => ({ blockID, markdown }),
+            writeMarkdown: async (_blockID, content) => { markdown = content; },
+        });
+        assert.deepEqual(applied.blockIDs, ["a"]);
+        assert.equal(markdown, "新题面 ==新答案==");
+        const originals = { a: "==旧答案 A==", b: "没有答案标记 B" };
+        const current = { ...originals };
+        const recoveryPreview = services.previewBatchRepair(
+            Object.entries(originals).map(([blockID, content]) => ({ blockID, markdown: content })),
+            Object.keys(originals).map(blockID => ({ blockID, afterMarkdown: `题面 ${blockID} ==新答案==` })),
+        );
+        assert.equal(recoveryPreview.ok, true);
+        const recoveryTransaction = services.confirmBatchRepair(recoveryPreview,
+            { previewID: recoveryPreview.previewID, acknowledged: true });
+        const storage = services.createMaintenanceRepairStorage(recoveryTransaction.snapshot, {
+            readCard: async blockID => ({ blockID, markdown: current[blockID] }),
+            saveMarkdown: async (blockID, content, recovery) => {
+                if (recovery) {
+                    assert.equal(recovery.blockID, blockID);
+                    assert.equal(recovery.markdown, originals[blockID]);
+                    assert.equal(content, originals[blockID]);
+                } else if (!content.startsWith("题面 ")) return "missing question";
+                current[blockID] = content;
+                if (!recovery && blockID === "b") throw new Error("write failed after applying");
+                return true;
+            },
+        });
+        await assert.rejects(services.applyBatchRepair(recoveryTransaction, storage), /write failed after applying/);
+        assert.deepEqual(current, originals);
+        await assert.rejects(storage.restoreMarkdown("a", "任意内容"), /snapshot mismatch/);
+        assert.equal(services.findApproximateDuplicateCandidates([
+            { blockID: "a", md: "如何使用间隔重复算法？ ==按遗忘曲线安排复习==" },
+            { blockID: "b", md: "如何使用间隔重复？ ==按间隔复习记忆==" },
+        ]).length, 1);
+        assert.match(services.helpMarkdown("zh_CN"), /使用帮助/);
+        assert.match(services.helpMarkdown("en_US"), /Quick start/);
+        const report = services.renderExamReportMarkdown({
+            plan: { id: "p", name: "Smoke", examDate: "2026-11-15", scopeKind: "deck", scopeId: "d",
+                cramDays: 7, enabled: true, archived: false, createdAt: 1 },
+            entries: [{ cardID: "c", blockID: "a", deckID: "d", rating: 3, ts: 2 }],
+            inScopeFilter: entry => entry.deckID === "d",
+            now: new Date(3),
+        });
+        assert.match(report, /考试复盘：Smoke/);
+        assert.match(report, /窗口内复习：1 次/);
+        assert.match(services.buildDiagnosticsText({
+            pluginVersion: "smoke", kernelVersion: "smoke", modules: {}, revlogCount: 0,
+            streak: 0, dueToday: 0, plansCount: 0, persistStats: [], hasPersistFailures: false, dueCacheStats: {},
+        }), /plugin version: smoke/);
+        ok("hub 按需服务：修复事务及坏卡补偿、近似重复、双语帮助、复盘报告与诊断通过");
+    } catch (e) {
+        fail(`hub 按需服务执行失败：${e?.message ?? e}`);
+    }
 }
 
 if (failed) {

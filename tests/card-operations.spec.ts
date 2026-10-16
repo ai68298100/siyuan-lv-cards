@@ -115,7 +115,7 @@ describe("card-operations 卡片操作与制卡核心引擎", () => {
 
             const res = await executeQuickCardCreation({
                 nbId: "nb-1",
-                markdown: "光合作用是植物将光能转化为化学能的过程",
+                markdown: "什么是光合作用？ ==植物将光能转化为化学能==",
                 deckID: "deck-bio",
                 q: "什么是光合作用？",
                 a: "光合作用",
@@ -142,20 +142,35 @@ describe("card-operations 卡片操作与制卡核心引擎", () => {
             await expect(
                 executeQuickCardCreation({
                     nbId: "nb-1",
-                    markdown: "text",
+                    markdown: "Q ==A==",
                     deckID: "d1",
                 }),
             ).rejects.toThrow("quickCardFail");
         });
+
+        it("没有有效挖空答案时在创建文档前拒绝", async () => {
+            await expect(executeQuickCardCreation({ nbId: "nb-1", markdown: "只有题面", deckID: "d1" }))
+                .rejects.toThrow("quickCardInvalid");
+            expect(createDocWithMd).not.toHaveBeenCalled();
+            expect(addRiffCards).not.toHaveBeenCalled();
+        });
+
+        it("题面为空时在写块前拒绝，避免留下孤儿块", async () => {
+            await expect(executeQuickCardCreation({ nbId: "nb-1", markdown: "==答案==", deckID: "d1" }))
+                .rejects.toThrow("quickCardInvalid");
+            expect(createDocWithMd).not.toHaveBeenCalled();
+            expect(appendBlock).not.toHaveBeenCalled();
+        });
     });
 
     describe("extractMarkerCardItems 标记符解析", () => {
-        it("正确解析单行 :: 问答、多行问答与全块？结尾", () => {
+        it("解析问答与有效挖空块，忽略没有答案的问号段落", () => {
             const rows = [
                 { id: "b1", markdown: "光合作用::绿色植物吸收光能合成有机物的过程" },
                 { id: "b2", markdown: "光合作用的场所是哪里？\n?\n叶绿体" },
                 { id: "b3", markdown: "为什么植物叶片多为绿色？" },
-                { id: "b4", markdown: "普通段落文本不带标记" },
+                { id: "b4", markdown: "叶片为什么是绿色？ ==叶绿素==" },
+                { id: "b5", markdown: "普通段落文本不带标记" },
             ];
 
             const { items, wholeIds } = extractMarkerCardItems(rows);
@@ -169,12 +184,12 @@ describe("card-operations 卡片操作与制卡核心引擎", () => {
             });
             expect(items[1].kind).toBe("qa");
             expect(items[2]).toEqual({
-                blockID: "b3",
+                blockID: "b4",
                 kind: "whole",
-                front: "为什么植物叶片多为绿色？",
+                front: "叶片为什么是绿色？ ==叶绿素==",
                 back: "",
             });
-            expect(wholeIds).toEqual(["b3"]);
+            expect(wholeIds).toEqual(["b4"]);
         });
     });
 });

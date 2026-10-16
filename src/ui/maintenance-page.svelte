@@ -1,5 +1,5 @@
 <script lang="ts">
-    // BI-25 维护债务队列（Hub 懒加载子页）：重复/泄漏/过长/待审核四类只读诊断。
+    // BI-25 维护债务队列（Hub 懒加载子页）：卡面无效/重复/泄漏/过长/待审核只读诊断。
     // 「暂缓今日」=今日不学（可逆，次日恢复，不改变 due 语义）；「打开来源」回原文档。
     import { onMount } from "svelte";
     import LvPage from "./kit/LvPage.svelte";
@@ -8,6 +8,7 @@
     import LvEmpty from "./kit/LvEmpty.svelte";
     import LvError from "./kit/LvError.svelte";
     import { groupDebts, detectDebts, DEBT_KINDS, type DebtItem, type DebtKind } from "@/core/maintenance-queue";
+    import type { SourceHealthHistoryItem } from "@/core/source-health-store";
 
     let {
         i18n,
@@ -15,11 +16,27 @@
     }: {
         i18n: any;
         maintenance: {
-            scan: () => Promise<{ items: { blockID: string; md: string; state?: string; rootID?: string }[]; error?: string }>;
+            scan: () => Promise<{
+                items: { blockID: string; md: string; state?: string; rootID?: string; occlusion?: boolean; exists?: boolean; mediaRefs?: string[]; mediaBroken?: string[]; mediaUnknown?: string[]; sourceHealthIssues?: { kind: string; detail: string }[] }[];
+                sourceHealthHistory?: SourceHealthHistoryItem[];
+                approximateDuplicates?: { blockIDs: [string, string]; similarity: number; method: "containment" | "ngram" }[];
+                error?: string;
+            }>;
+            previewRepair: (proposals: { blockID: string; afterMarkdown: string; expectedMarkdown?: string; reason?: string }[]) => Promise<{
+                previewID: string;
+                ok: boolean;
+                errors: string[];
+                diffs: { blockID: string; action: string; beforeMarkdown?: string; afterMarkdown?: string; errors?: string[] }[];
+                summary: { update: number; unchanged: number; rejected: number };
+            }>;
+            applyRepair: (previewID: string) => Promise<{ blockIDs: string[] }>;
+            /** Explicitly accept the current source and move its fingerprint baseline. */
+            acknowledgeSourceHealth?: (blockID: string) => Promise<void>;
             suspendToday: (blockIDs: string[]) => Promise<void>;
             unsuspendToday: (blockIDs: string[]) => Promise<void>;
             isSuspendedToday: (blockID: string) => boolean;
             openSource: (blockID: string) => Promise<void>;
+            openCard: (blockID: string) => void;
         };
     } = $props();
 
@@ -29,6 +46,14 @@
     let errorMsg = $state("");
     let groups = $state<Record<DebtKind, DebtItem[]>>(groupDebts([]));
     let excerpts = $state<Map<string, string>>(new Map());
+    let cardMap = $state<Map<string, { md: string; rootID?: string; mediaRefs?: string[]; mediaBroken?: string[]; mediaUnknown?: string[]; sourceHealthIssues?: { kind: string; detail: string }[] }>>(new Map());
+    let sourceHistories = $state<SourceHealthHistoryItem[]>([]);
+    let historyExpanded = $state(false);
+    let historyLimits = $state<Record<string, number>>({});
+    let approximateDuplicates = $state<{ blockIDs: [string, string]; similarity: number; method: "containment" | "ngram" }[]>([]);
+    type SimilarDecision = { action: "keep"; blockID: string } | { action: "ignore" };
+    const SIMILAR_DECISIONS_KEY = "lv-cards.maintenance.approximate-duplicates.v1";
+    let similarDecisions = $state<Record<string, SimilarDecision>>({});
     let suspended = $state<Set<string>>(new Set());
     let live = $state("");
     type SuspendAction = { type: "suspend" | "resume"; ids: string[]; message: string; group?: DebtKind };
@@ -38,10 +63,157 @@
     let sourcePendingId = $state("");
     let sourceError = $state("");
     let sourceErrorId = $state("");
+    let sourceHealthPendingId = $state("");
+    let sourceHealthError = $state("");
+    let sourceHealthErrorId = $state("");
+    type RepairPreview = {
+        previewID: string;
+        ok: boolean;
+        errors: string[];
+        diffs: { blockID: string; action: string; beforeMarkdown?: string; afterMarkdown?: string; errors?: string[] }[];
+        summary: { update: number; unchanged: number; rejected: number };
+    };
+    let repairDrafts = $state<Record<string, string>>({});
+    let repairPreview = $state<RepairPreview | null>(null);
+    let repairBusy = $state(false);
+    let repairError = $state("");
+    const repairableKinds = new Set<DebtKind>(["invalidCard", "leak", "tooLong"]);
+    const repairText = (key: string, fallback: string): string => t[key] ?? fallback;
+
+    function healthKindLabel(kind: string): string {
+        return t.sourceHealthKinds?.[kind] ?? kind;
+    }
+
+    function healthDate(at?: number): { iso: string; text: string } | null {
+        if (typeof at !== "number" || !Number.isFinite(at)) return null;
+        const date = new Date(at);
+        if (!Number.isFinite(date.getTime())) return null;
+        return { iso: date.toISOString(), text: date.toLocaleString() };
+    }
+
+    function historySummary(records: SourceHealthHistoryItem["records"]): string {
+        const unresolved = records.filter(record => !record.resolved).length;
+        return t.sourceHealthHistoryCount.replace("${open}", String(unresolved)).replace("${resolved}", String(records.length - unresolved));
+    }
+
+    function lastHealthEvent(source: SourceHealthHistoryItem): number {
+        return source.records.reduce((latest, record) => Math.max(latest, record.at, record.resolvedAt ?? record.at), 0);
+    }
 
     function excerpt(md: string): string {
         const text = (md ?? "").replace(/==([^=]*)==/g, "$1").replace(/\s+/g, " ").trim();
         return text.length > 60 ? `${text.slice(0, 60)}…` : text;
+    }
+
+    /**
+     * Keep the decision attached to the pair's IDs rather than its scan order.
+     * A later scan can return the same pair in the opposite order.
+     */
+    function similarPairKey(blockIDs: readonly [string, string]): string {
+        return [...blockIDs].map(String).sort().join("\u001f");
+    }
+
+    function loadSimilarDecisions() {
+        try {
+            const raw = window.localStorage.getItem(SIMILAR_DECISIONS_KEY);
+            if (!raw) return;
+            const parsed = JSON.parse(raw) as unknown;
+            if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return;
+            const next: Record<string, SimilarDecision> = {};
+            for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+                if (!value || typeof value !== "object" || Array.isArray(value)) continue;
+                const item = value as Record<string, unknown>;
+                if (item.action === "ignore") next[key] = { action: "ignore" };
+                else if (item.action === "keep" && typeof item.blockID === "string" && item.blockID) {
+                    next[key] = { action: "keep", blockID: item.blockID };
+                }
+            }
+            similarDecisions = next;
+        } catch {
+            // Private mode or a blocked storage API should never stop the scan.
+        }
+    }
+
+    function persistSimilarDecisions() {
+        try {
+            window.localStorage.setItem(SIMILAR_DECISIONS_KEY, JSON.stringify(similarDecisions));
+        } catch {
+            // Decisions are advisory UI state; an unavailable local store is safe.
+        }
+    }
+
+    function decideSimilar(candidate: { blockIDs: [string, string] }, decision: SimilarDecision) {
+        const key = similarPairKey(candidate.blockIDs);
+        similarDecisions = { ...similarDecisions, [key]: decision };
+        persistSimilarDecisions();
+        live = decision.action === "ignore" ? t.decisionIgnored : t.decisionKept;
+    }
+
+    function decisionFor(candidate: { blockIDs: [string, string] }): SimilarDecision | undefined {
+        return similarDecisions[similarPairKey(candidate.blockIDs)];
+    }
+
+    function addRepairDraft(blockID: string) {
+        const card = cardMap.get(blockID);
+        if (!card || Object.prototype.hasOwnProperty.call(repairDrafts, blockID)) return;
+        repairDrafts = { ...repairDrafts, [blockID]: card.md };
+        repairPreview = null;
+        repairError = "";
+    }
+
+    function updateRepairDraft(blockID: string, value: string) {
+        repairDrafts = { ...repairDrafts, [blockID]: value };
+        repairPreview = null;
+        repairError = "";
+    }
+
+    function removeRepairDraft(blockID: string) {
+        const next = { ...repairDrafts };
+        delete next[blockID];
+        repairDrafts = next;
+        repairPreview = null;
+        repairError = "";
+    }
+
+    async function previewRepairs() {
+        if (repairBusy) return;
+        const proposals = Object.entries(repairDrafts).map(([blockID, afterMarkdown]) => ({
+            blockID,
+            afterMarkdown,
+            expectedMarkdown: cardMap.get(blockID)?.md,
+            reason: "maintenance-manual-repair",
+        }));
+        if (proposals.length === 0) return;
+        repairBusy = true;
+        repairError = "";
+        try {
+            repairPreview = await maintenance.previewRepair(proposals);
+        } catch (e) {
+            repairPreview = null;
+            repairError = e instanceof Error ? e.message : String(e);
+        } finally {
+            repairBusy = false;
+        }
+    }
+
+    async function applyRepairs() {
+        if (repairBusy || !repairPreview?.ok) return;
+        const confirmText = repairText("repairConfirm", "将写入 ${n} 张卡片并保留修复前快照，确定继续吗？")
+            .replace("${n}", String(repairPreview.summary.update));
+        if (typeof window !== "undefined" && typeof window.confirm === "function" && !window.confirm(confirmText)) return;
+        repairBusy = true;
+        repairError = "";
+        try {
+            await maintenance.applyRepair(repairPreview.previewID);
+            live = repairText("repairDone", "批量修复已完成");
+            repairDrafts = {};
+            repairPreview = null;
+            await runScan();
+        } catch (e) {
+            repairError = e instanceof Error ? e.message : String(e);
+        } finally {
+            repairBusy = false;
+        }
     }
 
     async function runScan() {
@@ -49,10 +221,13 @@
         errorMsg = "";
         try {
             const result = await maintenance.scan();
-            const cards = result.items;
-            groups = groupDebts(detectDebts(cards));
-            excerpts = new Map(cards.map(c => [c.blockID, excerpt(c.md)]));
-            suspended = new Set(cards.filter(c => maintenance.isSuspendedToday(c.blockID)).map(c => c.blockID));
+            const scannedCards = result.items;
+            groups = groupDebts(detectDebts(scannedCards));
+            excerpts = new Map(scannedCards.map(c => [c.blockID, excerpt(c.md)]));
+            cardMap = new Map(scannedCards.map(c => [c.blockID, { md: c.md, rootID: c.rootID, mediaRefs: c.mediaRefs, mediaBroken: c.mediaBroken, mediaUnknown: c.mediaUnknown, sourceHealthIssues: c.sourceHealthIssues }]));
+            sourceHistories = [...(result.sourceHealthHistory ?? [])].sort((left, right) => lastHealthEvent(right) - lastHealthEvent(left));
+            approximateDuplicates = result.approximateDuplicates ?? [];
+            suspended = new Set(scannedCards.filter(c => maintenance.isSuspendedToday(c.blockID)).map(c => c.blockID));
             errorMsg = result.error ? i18n.scanPartial.replace("${error}", result.error) : "";
             live = t.scanned;
         } catch (e: any) {
@@ -134,19 +309,81 @@
         }
     }
 
+    async function acknowledgeSource(blockID: string) {
+        const acknowledge = maintenance.acknowledgeSourceHealth;
+        if (!acknowledge || sourceHealthPendingId) return;
+        const confirmText = repairText("sourceHealthConfirm", "确认当前来源内容，并将它设为新的健康基线吗？");
+        if (typeof window !== "undefined" && typeof window.confirm === "function" && !window.confirm(confirmText)) return;
+        sourceHealthPendingId = blockID;
+        sourceHealthError = "";
+        sourceHealthErrorId = "";
+        try {
+            await acknowledge(blockID);
+            await runScan();
+            historyExpanded = true;
+            live = repairText("sourceHealthUpdated", "来源健康基线已更新");
+        } catch (e) {
+            const detail = e instanceof Error ? e.message : String(e);
+            sourceHealthError = repairText("sourceHealthUpdateFailed", "更新来源健康基线失败：${error}").replace("${error}", detail);
+            sourceHealthErrorId = blockID;
+        } finally {
+            sourceHealthPendingId = "";
+        }
+    }
+
     function total(): number {
         return DEBT_KINDS.reduce((sum, k) => sum + groups[k].length, 0);
     }
 
-    onMount(() => { void runScan(); });
+    onMount(() => {
+        loadSimilarDecisions();
+        void runScan();
+    });
 </script>
 
 <LvPage eyebrow="WORKSPACE / RECOVER" title={t.title} subtitle={t.queueCount.replace("${n}", String(total()))}>
     {#snippet actions()}
-        <button class="b3-button b3-button--small b3-button--outline" disabled={scanning || !!pendingAction} onclick={runScan}>{scanning ? t.scanning : t.scan}</button>
+        <button class="b3-button b3-button--small b3-button--outline" disabled={scanning || !!pendingAction || !!sourceHealthPendingId || repairBusy} onclick={runScan}>{scanning ? t.scanning : t.scan}</button>
     {/snippet}
 
     <div class="lv-maint-note ft__smaller ft__on-surface">{t.impactNote}</div>
+
+    {#if Object.keys(repairDrafts).length > 0}
+        <section class="lv-card2 lv-maint-repair" aria-labelledby="lv-maint-repair-title">
+            <div class="lv-maint-group-head">
+                <LvChip tone="warn">{repairText("repairTitle", "批量修复草稿")}</LvChip>
+                <span id="lv-maint-repair-title" class="ft__smaller ft__on-surface">{repairText("repairNote", "先编辑并预览，确认后才会写入来源块。")}</span>
+            </div>
+            {#each Object.entries(repairDrafts) as [blockID, draft] (blockID)}
+                <div class="lv-maint-repair-draft">
+                    <div class="lv-maint-repair-draft-head"><code>{blockID}</code><button class="b3-button b3-button--small" disabled={repairBusy} onclick={() => removeRepairDraft(blockID)}>{repairText("repairRemove", "移除")}</button></div>
+                    <textarea class="b3-text-field fn__block" rows="4" value={draft} disabled={repairBusy} aria-label={`${repairText("repairDraft", "修复内容")} ${blockID}`} oninput={(event) => updateRepairDraft(blockID, (event.currentTarget as HTMLTextAreaElement).value)}></textarea>
+                </div>
+            {/each}
+            {#if repairError}<div class="lv-maint-repair-error" role="alert">{repairError}</div>{/if}
+            {#if repairPreview}
+                <div class="lv-maint-repair-preview" role="status">
+                    <strong>{repairText("repairPreview", "预览结果")}</strong>
+                    <span>{repairText("repairSummary", "将更新 ${u} 张，保持 ${n} 张，拒绝 ${r} 张")
+                        .replace("${u}", String(repairPreview.summary.update)).replace("${n}", String(repairPreview.summary.unchanged)).replace("${r}", String(repairPreview.summary.rejected))}</span>
+                    {#if repairPreview.errors.length > 0}<div class="lv-maint-repair-error">{repairPreview.errors.join("；")}</div>{/if}
+                    {#each repairPreview.diffs as diff (diff.blockID)}
+                        <details class="lv-maint-repair-diff">
+                            <summary>{diff.blockID} · {diff.action}</summary>
+                            {#if diff.beforeMarkdown !== undefined}<pre><strong>{repairText("repairBefore", "修复前")}</strong>
+{diff.beforeMarkdown}</pre>{/if}
+                            {#if diff.afterMarkdown !== undefined}<pre><strong>{repairText("repairAfter", "修复后")}</strong>
+{diff.afterMarkdown}</pre>{/if}
+                        </details>
+                    {/each}
+                </div>
+            {/if}
+            <div class="lv-maint-repair-actions">
+                <button class="b3-button b3-button--outline" disabled={repairBusy} aria-busy={repairBusy} onclick={previewRepairs}>{repairBusy ? t.saving : repairText("repairPreviewBtn", "生成预览")}</button>
+                {#if repairPreview?.ok}<button class="b3-button lv-btn-primary" disabled={repairBusy} onclick={applyRepairs}>{repairText("repairApply", "确认写入")}</button>{/if}
+            </div>
+        </section>
+    {/if}
 
     {#if scanning}
         <div class="lv-maint-list">
@@ -158,6 +395,7 @@
         {#if actionError}<LvError message={actionError} onretry={failedAction && !pendingAction ? retryAction : undefined} retryLabel={t.retry} />{/if}
         {#if errorMsg}<LvError message={errorMsg} onretry={runScan} retryLabel={i18n.dashboard.refresh} />{/if}
         {#if sourceError}<LvError message={sourceError} onretry={sourceErrorId && !sourcePendingId ? () => openSource(sourceErrorId) : undefined} retryLabel={t.retry} />{/if}
+        {#if sourceHealthError}<LvError message={sourceHealthError} onretry={sourceHealthErrorId && !sourceHealthPendingId ? () => acknowledgeSource(sourceHealthErrorId) : undefined} retryLabel={t.retry} />{/if}
         {#if total() === 0 && !errorMsg}<LvEmpty text={t.none} />{/if}
         {#each DEBT_KINDS as kind (kind)}
             {#if groups[kind].length > 0}
@@ -175,7 +413,32 @@
                         <div class="lv-card2 lv-maint-row">
                             <div class="lv-maint-main">
                                 <div class="lv-maint-excerpt">{excerpts.get(d.blockID) || d.blockID}</div>
-                                {#if d.detail}<div class="ft__smaller ft__on-surface">{d.detail}</div>{/if}
+                                {#if kind === "sourceHealth"}
+                                    <ul class="lv-maint-health-issues ft__smaller ft__on-surface">
+                                        {#each cardMap.get(d.blockID)?.sourceHealthIssues ?? [] as issue (issue.kind)}
+                                            <li>{healthKindLabel(issue.kind)}: {issue.detail}</li>
+                                        {/each}
+                                    </ul>
+                                {:else if d.detail}<div class="ft__smaller ft__on-surface">{kind === "invalidCard" ? (t.qualityReasons?.[d.detail] ?? d.detail) : d.detail}</div>{/if}
+                                {#if cardMap.has(d.blockID)}
+                                    {@const card = cardMap.get(d.blockID)!}
+                                    <details class="lv-maint-preview">
+                                        <summary>{t.preview}</summary>
+                                        <div class="lv-maint-preview-face">{card.md || d.blockID}</div>
+                                        {#if card.mediaRefs?.length}
+                                            <div class="ft__smaller ft__on-surface">{t.mediaRefs}: {card.mediaRefs.join(", ")}</div>
+                                        {/if}
+                                        {#if card.mediaBroken?.length}
+                                            <div class="ft__smaller lv-maint-media-broken">{t.mediaBroken}: {card.mediaBroken.join(", ")}</div>
+                                        {/if}
+                                        {#if card.mediaUnknown?.length}
+                                            <div class="ft__smaller ft__on-surface">{t.mediaUnknown}: {card.mediaUnknown.join(", ")}</div>
+                                        {/if}
+                                        {#if card.rootID}
+                                            <div class="ft__smaller ft__on-surface">{t.sourceBlock}: {card.rootID}</div>
+                                        {/if}
+                                    </details>
+                                {/if}
                             </div>
                             {#if suspended.has(d.blockID)}
                                 <button class="b3-button b3-button--small" disabled={!!pendingAction} aria-busy={actionIsPending("resume", d.blockID)} onclick={() => resumeOne(d.blockID)}>{actionIsPending("resume", d.blockID) ? t.saving : t.resumeTodayBtn}</button>
@@ -183,12 +446,132 @@
                             {:else}
                                 <button class="b3-button b3-button--small" disabled={!!pendingAction} aria-busy={actionIsPending("suspend", d.blockID)} onclick={() => suspendOne(d.blockID)}>{actionIsPending("suspend", d.blockID) ? t.saving : t.suspendTodayBtn}</button>
                             {/if}
+                            {#if repairableKinds.has(kind)}
+                                <button class="b3-button b3-button--small" disabled={repairBusy || Object.prototype.hasOwnProperty.call(repairDrafts, d.blockID)} onclick={() => addRepairDraft(d.blockID)}>{repairText("repairAdd", "加入修复")}</button>
+                            {/if}
+                            {#if kind === "sourceHealth" && maintenance.acknowledgeSourceHealth && cardMap.get(d.blockID)?.sourceHealthIssues?.some(issue => issue.kind === "moved" || issue.kind === "changed" || issue.kind === "license-changed")}
+                                <button class="b3-button b3-button--small" disabled={!!sourceHealthPendingId} aria-busy={sourceHealthPendingId === d.blockID} onclick={() => acknowledgeSource(d.blockID)}>{sourceHealthPendingId === d.blockID ? repairText("sourceHealthUpdating", "更新中…") : repairText("sourceHealthAcknowledge", "确认当前来源")}</button>
+                            {/if}
                             <button class="b3-button b3-button--small" disabled={!!sourcePendingId} aria-busy={sourcePendingId === d.blockID} onclick={() => openSource(d.blockID)}>{sourcePendingId === d.blockID ? t.opening : t.open}</button>
+                            <button class="b3-button b3-button--small" onclick={() => maintenance.openCard(d.blockID)}>{t.editCard}</button>
                         </div>
                     {/each}
                 </div>
             {/if}
         {/each}
+        {#if sourceHistories.length > 0}
+            <details class="lv-card2 lv-maint-health-history" bind:open={historyExpanded}>
+                <summary>{t.sourceHealthHistory} · {sourceHistories.length}</summary>
+                {#if historyExpanded}
+                    <p class="ft__smaller ft__on-surface">{t.sourceHealthHistoryNote}</p>
+                    {#each sourceHistories as source (source.blockID)}
+                        <details class="lv-maint-health-source">
+                            <summary>
+                                <span>{excerpts.get(source.blockID) || source.blockID}</span>
+                                <span class="ft__smaller ft__on-surface">{historySummary(source.records)}</span>
+                            </summary>
+                            <code class="lv-maint-health-block">{source.blockID}</code>
+                            {#if !cardMap.has(source.blockID)}<p class="ft__smaller ft__on-surface">{t.sourceHealthOutsideScan}</p>{/if}
+                            <ol class="lv-maint-health-records">
+                                {#each source.records.map((record, index) => ({ record, index })).slice(-(historyLimits[source.blockID] ?? 20)).reverse() as { record, index } (index)}
+                                    {@const discovered = healthDate(record.at)}
+                                    {@const resolved = healthDate(record.resolvedAt)}
+                                    <li>
+                                        <div class="lv-maint-health-record-head">
+                                            <span class={record.resolved ? "lv-maint-health-resolved" : "lv-maint-health-open"}>{record.resolved ? t.sourceHealthResolved : t.sourceHealthOpen}</span>
+                                            <strong>{healthKindLabel(record.kind)}</strong>
+                                        </div>
+                                        <div class="lv-maint-health-detail">{record.detail}</div>
+                                        <div class="ft__smaller ft__on-surface">{t.sourceHealthDiscovered}: {#if discovered}<time datetime={discovered.iso}>{discovered.text}</time>{:else}{t.sourceHealthUnknownDate}{/if}</div>
+                                        {#if record.resolved}
+                                            <div class="ft__smaller ft__on-surface">{t.sourceHealthResolvedTime}: {#if resolved}<time datetime={resolved.iso}>{resolved.text}</time>{:else}{t.sourceHealthUnknownDate}{/if}</div>
+                                        {/if}
+                                    </li>
+                                {/each}
+                            </ol>
+                            {#if source.records.length > (historyLimits[source.blockID] ?? 20)}
+                                <button class="b3-button b3-button--small" onclick={() => { historyLimits = { ...historyLimits, [source.blockID]: (historyLimits[source.blockID] ?? 20) + 20 }; }}>{t.sourceHealthShowEarlier}</button>
+                            {/if}
+                            <div class="lv-maint-repair-actions">
+                                <button class="b3-button b3-button--small" disabled={!!sourcePendingId} onclick={() => openSource(source.blockID)}>{t.open}</button>
+                                {#if cardMap.has(source.blockID)}<button class="b3-button b3-button--small" onclick={() => maintenance.openCard(source.blockID)}>{t.editCard}</button>{/if}
+                            </div>
+                        </details>
+                    {/each}
+                {/if}
+            </details>
+        {/if}
+        {#if approximateDuplicates.length > 0}
+            <section class="lv-maint-group lv-maint-similar" aria-labelledby="lv-maint-similar-title">
+                <div class="lv-maint-group-head">
+                    <LvChip tone="warn">{t.approximateDuplicates} {approximateDuplicates.length}</LvChip>
+                </div>
+                <p id="lv-maint-similar-title" class="ft__smaller ft__on-surface">{t.approximateDuplicatesNote}</p>
+                {#each approximateDuplicates as candidate (candidate.blockIDs.join(":"))}
+                    {@const leftID = candidate.blockIDs[0]}
+                    {@const rightID = candidate.blockIDs[1]}
+                    {@const leftCard = cardMap.get(leftID)}
+                    {@const rightCard = cardMap.get(rightID)}
+                    {@const decision = decisionFor(candidate)}
+                    <div class="lv-card2 lv-maint-similar-row">
+                        <div class="lv-maint-main">
+                            <div class="lv-maint-excerpt">{t.compareCards}</div>
+                            <div class="ft__smaller ft__on-surface">{t.similarity}: {Math.round(candidate.similarity * 100)}% · {candidate.method === "containment" ? t.containment : t.ngram}</div>
+                            <div class="lv-maint-similar-cards" role="group" aria-label={t.compareCards}>
+                                <article class="lv-maint-similar-card">
+                                    <header class="lv-maint-similar-card-head">
+                                        <strong>{t.cardA}</strong>
+                                        <code>{leftID}</code>
+                                    </header>
+                                    <pre class="lv-maint-similar-face">{leftCard?.md || leftID}</pre>
+                                    {#if leftCard?.mediaRefs?.length}
+                                        <div class="ft__smaller ft__on-surface">{t.mediaRefs}: {leftCard.mediaRefs.join(", ")}</div>
+                                    {/if}
+                                    {#if leftCard?.mediaBroken?.length}
+                                        <div class="ft__smaller lv-maint-media-broken">{t.mediaBroken}: {leftCard.mediaBroken.join(", ")}</div>
+                                    {/if}
+                                </article>
+                                <article class="lv-maint-similar-card">
+                                    <header class="lv-maint-similar-card-head">
+                                        <strong>{t.cardB}</strong>
+                                        <code>{rightID}</code>
+                                    </header>
+                                    <pre class="lv-maint-similar-face">{rightCard?.md || rightID}</pre>
+                                    {#if rightCard?.mediaRefs?.length}
+                                        <div class="ft__smaller ft__on-surface">{t.mediaRefs}: {rightCard.mediaRefs.join(", ")}</div>
+                                    {/if}
+                                    {#if rightCard?.mediaBroken?.length}
+                                        <div class="ft__smaller lv-maint-media-broken">{t.mediaBroken}: {rightCard.mediaBroken.join(", ")}</div>
+                                    {/if}
+                                </article>
+                            </div>
+                            {#if decision?.action === "keep"}
+                                <LvChip tone="primary">{t.decisionKept}: {decision.blockID}</LvChip>
+                            {:else if decision?.action === "ignore"}
+                                <LvChip>{t.decisionIgnored}</LvChip>
+                            {:else}
+                                <LvChip tone="warn">{t.decisionPending}</LvChip>
+                            {/if}
+                        </div>
+                        <div class="lv-maint-similar-actions">
+                            <div class="lv-maint-similar-action-row">
+                                <button class="b3-button b3-button--small" disabled={!!sourcePendingId} onclick={() => openSource(leftID)}>{t.open} · {t.cardA}</button>
+                                <button class="b3-button b3-button--small" disabled={!!sourcePendingId} onclick={() => openSource(rightID)}>{t.open} · {t.cardB}</button>
+                            </div>
+                            <div class="lv-maint-similar-action-row">
+                                <button class="b3-button b3-button--small" onclick={() => maintenance.openCard(leftID)}>{t.editCard} · {t.cardA}</button>
+                                <button class="b3-button b3-button--small" onclick={() => maintenance.openCard(rightID)}>{t.editCard} · {t.cardB}</button>
+                            </div>
+                            <div class="lv-maint-similar-action-row">
+                                <button class="b3-button b3-button--small" class:lv-maint-decision-active={decision?.action === "keep" && decision.blockID === leftID} onclick={() => decideSimilar(candidate, { action: "keep", blockID: leftID })}>{t.keepCard} · {t.cardA}</button>
+                                <button class="b3-button b3-button--small" class:lv-maint-decision-active={decision?.action === "keep" && decision.blockID === rightID} onclick={() => decideSimilar(candidate, { action: "keep", blockID: rightID })}>{t.keepCard} · {t.cardB}</button>
+                                <button class="b3-button b3-button--small" class:lv-maint-decision-active={decision?.action === "ignore"} onclick={() => decideSimilar(candidate, { action: "ignore" })}>{t.ignoreCandidate}</button>
+                            </div>
+                        </div>
+                    </div>
+                {/each}
+            </section>
+        {/if}
     {/if}
 </LvPage>
 
@@ -213,6 +596,47 @@
     }
     .lv-maint-main { flex: 1; min-width: 0; }
     .lv-maint-excerpt { font-size: var(--lv-type-body-size); overflow-wrap: anywhere; }
+    .lv-maint-preview { margin-top: var(--lv-sp-1); }
+    .lv-maint-preview summary { cursor: pointer; color: var(--b3-theme-primary); font-size: var(--lv-type-caption-size); }
+    .lv-maint-preview-face { margin-top: var(--lv-sp-1); padding: var(--lv-sp-2); border-radius: var(--b3-border-radius); background: var(--b3-theme-surface); white-space: pre-wrap; overflow-wrap: anywhere; }
+    .lv-maint-media-broken { color: var(--b3-theme-error); overflow-wrap: anywhere; }
+    .lv-maint-health-issues { margin: var(--lv-sp-1) 0 0; padding-left: var(--lv-sp-4); overflow-wrap: anywhere; }
+    .lv-maint-health-history { margin-bottom: var(--lv-sp-4); padding: var(--lv-sp-3); }
+    .lv-maint-health-history summary { cursor: pointer; color: var(--b3-theme-primary); font-size: var(--lv-type-caption-size); }
+    .lv-maint-health-source { padding: var(--lv-sp-2) 0; border-top: 1px solid var(--b3-border-color); }
+    .lv-maint-health-source summary { overflow-wrap: anywhere; }
+    .lv-maint-health-source summary span + span { margin-left: var(--lv-sp-2); }
+    .lv-maint-health-block { display: block; margin-top: var(--lv-sp-2); overflow-wrap: anywhere; }
+    .lv-maint-health-records { margin: var(--lv-sp-2) 0; padding-left: var(--lv-sp-4); }
+    .lv-maint-health-records li { padding: var(--lv-sp-2) 0; overflow-wrap: anywhere; }
+    .lv-maint-health-record-head { display: flex; flex-wrap: wrap; gap: var(--lv-sp-2); }
+    .lv-maint-health-detail { margin: var(--lv-sp-1) 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .lv-maint-health-open { color: var(--b3-theme-error); }
+    .lv-maint-health-resolved { color: var(--b3-theme-success); }
+    .lv-maint-repair { margin-bottom: var(--lv-sp-4); }
+    .lv-maint-repair-draft { margin-top: var(--lv-sp-2); }
+    .lv-maint-repair-draft-head { display: flex; align-items: center; justify-content: space-between; gap: var(--lv-sp-2); margin-bottom: var(--lv-sp-1); }
+    .lv-maint-repair-draft textarea { resize: vertical; min-height: 84px; }
+    .lv-maint-repair-actions { display: flex; flex-wrap: wrap; gap: var(--lv-sp-2); margin-top: var(--lv-sp-3); }
+    .lv-maint-repair-preview { display: flex; flex-direction: column; gap: var(--lv-sp-1); margin-top: var(--lv-sp-3); padding: var(--lv-sp-2); border: 1px solid var(--b3-border-color); border-radius: var(--b3-border-radius); }
+    .lv-maint-repair-diff summary { cursor: pointer; color: var(--b3-theme-primary); }
+    .lv-maint-repair-diff pre { max-height: 150px; margin: var(--lv-sp-1) 0 0; padding: var(--lv-sp-2); overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; background: var(--b3-theme-surface); font: inherit; }
+    .lv-maint-repair-error { color: var(--b3-theme-error); margin-top: var(--lv-sp-1); overflow-wrap: anywhere; }
+    .lv-maint-similar-row { display: flex; align-items: center; gap: var(--lv-sp-2); margin-bottom: var(--lv-sp-2); }
+    .lv-maint-similar-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--lv-sp-2); margin-top: var(--lv-sp-2); }
+    .lv-maint-similar-card { min-width: 0; padding: var(--lv-sp-2); border: 1px solid var(--b3-border-color); border-radius: var(--b3-border-radius); background: var(--b3-theme-surface); }
+    .lv-maint-similar-card-head { display: flex; align-items: baseline; gap: var(--lv-sp-1); margin-bottom: var(--lv-sp-1); }
+    .lv-maint-similar-card-head code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--b3-theme-on-surface-light); font-size: var(--lv-type-caption-size); }
+    .lv-maint-similar-face { max-height: 220px; margin: 0; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; line-height: 1.45; }
+    .lv-maint-similar-actions { display: flex; flex-direction: column; gap: var(--lv-sp-1); }
+    .lv-maint-similar-action-row { display: flex; flex-wrap: wrap; gap: var(--lv-sp-1); }
+    .lv-maint-decision-active { outline: 2px solid var(--b3-theme-primary); outline-offset: 1px; }
+    @media (max-width: 740px) {
+        .lv-maint-row, .lv-maint-similar-row { align-items: flex-start; flex-wrap: wrap; }
+        .lv-maint-row .lv-maint-main, .lv-maint-similar-row .lv-maint-main { flex: 1 1 100%; }
+        .lv-maint-similar-cards { grid-template-columns: 1fr; }
+        .lv-maint-similar-actions { width: 100%; }
+    }
     .lv-visually-hidden {
         position: absolute;
         width: 1px; height: 1px; margin: calc(var(--lv-space-hairline) * -1); padding: 0;

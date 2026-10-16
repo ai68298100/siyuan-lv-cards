@@ -19,10 +19,12 @@
     // Anki M3：本地 .apkg 导入（docs/39 §3）——宿主适配 + 解析/预览/编排
     import { detectSqlite, openSqliteFile } from "@/api/anki-host";
     import { getNotebooks, createNotebook, createDocWithMd, sqlQuery } from "@/api/siyuan";
-    import { createRiffDeck, addRiffCards, getRiffDecks } from "@/api/riff";
+    import { createRiffDeck, getRiffDecks } from "@/api/riff";
+    import { addRiffCards, formatRiffCardEntryError } from "@/api/due-shared";
     import { parseAnkiPackage } from "@/core/anki-package";
     import { buildImportPreview } from "@/core/anki-preview";
     import { composeImportMarkdown, pairImportedBlocks, partitionNew, normalizeLedger, mergeLedger } from "@/core/anki-import";
+    import { validateFlashcardMarkdown } from "@/core/flashcard-quality";
     // Obsidian SR 导入（v0.202.0）：块级解析 → 计划（去重/剥 tag）→ 一卡一段落落库 → 按序对位
     import { planObsidianImport, composeObsidianImportMarkdown, deckNameFor, groupByDeckHint, partitionByLedger, normalizeObLedger, mergeObLedger, type ObLedgerEntry } from "@/core/obsidian-import";
 
@@ -54,6 +56,8 @@
             load: () => Promise<unknown>;
             save: (entries: unknown) => Promise<void>;
         };
+        /** 来源健康基线：导入成功后登记来源指纹。 */
+        rememberSourceFingerprint?: (blockID: string, rootID?: string, markdown?: string) => Promise<void>;
         /** BU-31：紧急停用/撤销同意（可选——旧宿主不传则不显示该行） */
         killswitch?: {
             snapshot: () => any;
@@ -109,6 +113,9 @@
     let ankiStatus = $state<{ kind: "info" | "warn" | "error"; text: string } | null>(null);
     // Anki M3：损失明细（导入完成时可一键复制）
     let ankiLosses = $state<string[]>([]);
+    function escapeDialogHtml(value: string): string {
+        return value.replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]!);
+    }
     /** Obsidian SR 导入（W2）：台账幂等分区 → 确认 → 建文档（一卡一段落）→ 按序对位 → deckHint 分卡组入组。
      * 数量不符即中止（防错位）；双向卡按正向导入（诚实计数）。 */
     let obBusy = $state(false);
@@ -155,11 +162,13 @@
             const docID = await createDocWithMd(nbId, `Obsidian SR/${base} ${new Date().toISOString().slice(0, 10)}`, composeObsidianImportMarkdown(fresh));
             if (!docID) { throw new Error("createDocWithMd 返回空"); }
             // 一卡一段落对位：数量不符中止（防错位，诚实失败）
-            const blockRows = await sqlQuery(`SELECT id FROM blocks WHERE root_id='${docID}' AND type IN ('p','h','u','o') ORDER BY sort`);
+            const blockRows = await sqlQuery(`SELECT id, markdown FROM blocks WHERE root_id='${docID}' AND type IN ('p','h','u','o') ORDER BY sort`);
             if (blockRows.length !== fresh.length) {
                 throw new Error((t.settings.obImportMismatch || "落块数 ${a} 与卡数 ${b} 不一致，已中止")
                     .replace("${a}", String(blockRows.length)).replace("${b}", String(fresh.length)));
             }
+            const invalidMarkdown = blockRows.find(row => validateFlashcardMarkdown(String(row.markdown ?? "")) !== null);
+            if (invalidMarkdown) throw new Error(t.settings.obImportInvalidCard ?? "导入内容未生成有效答案标记，已停止入组");
             const blockIDs = blockRows.map((r) => String(r.id));
             // deckHint 分卡组：同名牌组复用，缺失创建；blockID 按全局序归组
             const existingDecks = await getRiffDecks();
@@ -182,6 +191,7 @@
                 const groupBlocks = blockIDs.slice(cursor, cursor + group.cards.length);
                 cursor += group.cards.length;
                 await addRiffCards(deckID, groupBlocks);
+                await Promise.all(groupBlocks.map(id => ctx.rememberSourceFingerprint?.(id, docID)));
                 added += groupBlocks.length;
                 group.cards.forEach((c, i) => ledgerAdditions.push({ fingerprint: c.fingerprint, deckID, blockID: groupBlocks[i] ?? "", importedAt: now }));
             }
@@ -190,7 +200,8 @@
             }
             obStatus = { kind: "info", text: (t.settings.obImportDone || "已导入 ${ok} 张（文件内去重 ${dup}）").replace("${ok}", String(added)).replace("${dup}", String(plan.duplicates)).replace("${skip}", String(already.length)) };
         } catch (e: any) {
-            obStatus = { kind: "warn", text: (t.settings.obImportFail || "导入失败：${m}").replace("${m}", e?.message ?? String(e)) };
+            const detail = formatRiffCardEntryError(e, t, e?.message ?? String(e));
+            obStatus = { kind: "warn", text: (t.settings.obImportFail || "导入失败：${m}").replace("${m}", detail) };
         } finally {
             obBusy = false;
         }
@@ -230,6 +241,13 @@
                 ankiStatus = { kind: "info", text: t.settings.ankiImportDone.replace("${ok}", "0").replace("${skip}", String(already.length)).replace("${loss}", String(preview.losses.length)) };
                 return;
             }
+            const details = preview.losses.slice(0, 8).map(l => escapeDialogHtml(`[${l.guid}] ${l.reason}`)).join("<br>");
+            const remaining = preview.losses.length > 8 ? `<br>… ${preview.losses.length - 8}` : "";
+            const proceed = await confirmDialogBool({
+                title: t.settings.ankiImportPreviewTitle,
+                content: `<div class="b3-typography">${t.settings.ankiImportPreviewBody.replace("${n}", String(fresh.length)).replace("${skip}", String(already.length)).replace("${loss}", String(preview.losses.length))}<br>${details}${remaining}</div>`,
+            });
+            if (!proceed) return;
             // 落点笔记本：存在同名即用，缺失创建
             const nbName = t.settings.ankiNbName || "Anki Import";
             const boxes = await getNotebooks();
@@ -238,16 +256,22 @@
             const base = file.name.replace(/\.(apkg|colpkg)$/i, "");
             const docID = await createDocWithMd(nbId, `Anki/${base} ${new Date().toISOString().slice(0, 10)}`, composeImportMarkdown(fresh));
             if (!docID) throw new Error("createDocWithMd 返回空");
-            const blockRows = await sqlQuery(`SELECT id, content FROM blocks WHERE root_id='${docID}' AND type='p' ORDER BY sort`);
+            const blockRows = await sqlQuery(`SELECT id, content, markdown FROM blocks WHERE root_id='${docID}' AND type='p' ORDER BY sort`);
             const { byGuid } = pairImportedBlocks(
                 blockRows.map((r) => ({ id: String(r.id), content: String(r.content ?? "") })),
                 fresh,
                 { orderFallback: true },
             );
+            if (byGuid.size !== fresh.length) throw new Error(`卡片与落块未能完整配对（${byGuid.size}/${fresh.length}），已停止入组`);
             const blockIDs = fresh.map((c) => byGuid.get(c.guid)).filter((x): x is string => Boolean(x));
+            const markdownByID = new Map(blockRows.map(row => [String(row.id), String(row.markdown ?? "")]));
+            if (blockIDs.some(id => validateFlashcardMarkdown(markdownByID.get(id) ?? "") !== null)) {
+                throw new Error(t.settings.ankiImportInvalidCard ?? "导入内容未生成有效答案标记，已停止入组");
+            }
             const deck = await createRiffDeck(`Anki: ${base}`) as any;
             const deckID = deck?.id ?? deck?.deck?.id ?? "";
             await addRiffCards(deckID, blockIDs);
+            await Promise.all(blockIDs.map(id => ctx.rememberSourceFingerprint?.(id, docID, markdownByID.get(id))));
             const now = Date.now();
             if (ctx.ankiLedger) {
                 await ctx.ankiLedger.save(mergeLedger(rawLedger, fresh.map((c) => ({ guid: c.guid, deckID, blockID: byGuid.get(c.guid) ?? "", importedAt: now }))));
@@ -260,7 +284,8 @@
                 ankiLosses = preview.losses.map((l) => `[${l.guid}] ${l.reason}`);
             }
         } catch (e) {
-            ankiStatus = { kind: "error", text: (t.settings.ankiImportFail || "导入失败").replace("${m}", e instanceof Error ? e.message : String(e)) };
+            const detail = formatRiffCardEntryError(e, t, e instanceof Error ? e.message : String(e));
+            ankiStatus = { kind: "error", text: (t.settings.ankiImportFail || "导入失败").replace("${m}", detail) };
         } finally {
             ankiBusy = false;
         }

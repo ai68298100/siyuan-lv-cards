@@ -16,6 +16,8 @@ describe("occlusion 数据契约（M4·FR4）", () => {
         expect(parseOcclusion({ "lv-occlusion": "{not json" })).toBeNull();
         expect(parseOcclusion({ "lv-occlusion": JSON.stringify({ v: 2, rects: [] }) })).toBeNull();
         expect(parseOcclusion({ "lv-occlusion": JSON.stringify({ v: 1, rects: "x" }) })).toBeNull();
+        expect(parseOcclusion({ "lv-occlusion": JSON.stringify({ v: 1, rects: [{ x: -1, y: 0, w: 0.5, h: 0.5 }] }) })).toBeNull();
+        expect(parseOcclusion({ "lv-occlusion": JSON.stringify({ v: 1, rects: [{ x: 0, y: 0, w: 2, h: 0.5 }] }) })).toBeNull();
         expect(parseOcclusion({ "lv-occlusion": "null" })).toBeNull();
     });
 

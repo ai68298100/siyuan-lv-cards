@@ -7,6 +7,8 @@
     import { lintAICards } from "@/core/ai-lint";
     import { maskSensitive, scanSensitive, type SensitiveHit } from "@/core/ai-sensitive";
     import { scoreBatch, type Scorecard } from "@/core/ai-quality-scorecard";
+    import { validateQaDraft } from "@/core/flashcard-quality";
+    import { inspectAiCandidates, selectImportableAiCandidates, type AiCardGateIssue } from "@/core/ai-card-gate";
     import { planReview, type ReviewPlan } from "@/core/ai-review-strategy";
     import { appendVersion, type CardProvenance, type ProvenanceVersion } from "@/core/ai-provenance";
     import { getMotionDuration } from "./kit/motion";
@@ -141,7 +143,9 @@
 
     /** T03 片二：审阅状态——已选(keep)≠已审(review)；入库只取 已选+已接受 */
     let candidates: { q: string; a: string; d?: number; keep: boolean; origIndex: number; review: "pending" | "accepted" | "verified" }[] = $state([]);
-    let acceptedCount = $derived(candidates.filter((c) => c.keep && c.review === "accepted").length);
+    let draftIssues = $derived(candidates.map(c => validateQaDraft(c.q, c.a)));
+    let gateIssues: AiCardGateIssue[][] = $derived(inspectAiCandidates(candidates));
+    let acceptedCount = $derived(selectImportableAiCandidates(candidates).length);
     const canImport = $derived(acceptedCount > 0 && (decks.some(d => d.id === selected) || !!newName.trim()));
     /** 编辑已接受卡 → 退回未审（修改后需重新核对，docs/13 §5） */
     function touchCandidate(i: number) {
@@ -151,6 +155,14 @@
         }
     }
     function setReview(i: number, review: "accepted" | "verified" | "pending") {
+        if (review === "accepted" && draftIssues[i]?.length) {
+            errorMsg = t.aiWizard.invalidDraft;
+            return;
+        }
+        if (review === "accepted" && gateIssues[i]?.length) {
+            errorMsg = t.aiWizard.qualityBlocked;
+            return;
+        }
         if (review === "accepted") {
             recordUserVersion(i); // BU-15：接受即留痕用户当前文本（编辑后接受=用户版本）
         }
@@ -158,12 +170,14 @@
         candidates = [...candidates];
     }
     function acceptAll() {
-        candidates = candidates.map((c) => (c.keep && c.review !== "verified" ? { ...c, review: "accepted" } : c));
+        const hasBlockedCard = candidates.some((c, i) => c.keep && gateIssues[i].length > 0);
+        candidates = candidates.map((c, i) => (c.keep && c.review !== "verified" && draftIssues[i].length === 0 && gateIssues[i].length === 0 ? { ...c, review: "accepted" } : c));
+        errorMsg = hasBlockedCard ? t.aiWizard.qualityBlocked : "";
     }
     /** AQ-16 预览 lint：随 candidates（含编辑）响应式重算（批内重复/过长/过短） */
     let lintWarnings: string[][] = $derived.by(() => lintAICards(candidates.map(c => ({ q: c.q, a: c.a }))));
     /** BU-13 质量评分卡：随候选（含编辑）响应式重算；综合分仅审阅提示 */
-    let scorecards: Scorecard[] = $derived(scoreBatch(candidates.map(c => ({ q: c.q, a: c.a }))));
+    let scorecards: Scorecard[] = $derived(scoreBatch(candidates.map(c => ({ q: c.q, a: c.a, source }))));
     /** BU-14 审阅计划：按因子就高不就低（模型登记/来源可信/批量均分/问题卡占比） */
     let reviewPlan: ReviewPlan | null = $derived.by(() => {
         if (candidates.length === 0) {
@@ -221,6 +235,14 @@
     function aiErrorText(err: unknown): string {
         const v = classifyAiFailure(err);
         const dict = (t as any).aiError ?? {};
+        const raw = err instanceof Error ? err.message : String(err ?? "");
+        // 思源网关未配置时，部分版本只返回 "Field [msg] is required"；
+        // 不把宿主内部校验细节直接展示给用户，改成可操作的配置/手工制卡提示。
+        if (/Field \[msg\] is required/i.test(raw)) {
+            const eligibility = (t as any).aiElig ?? {};
+            return [eligibility["not-configured"], eligibility.alt?.["not-configured"]].filter(Boolean).join(" ")
+                || (dict.unknown ?? raw.slice(0, 300));
+        }
         const key = v.cls === "rate-limit" ? "rateLimit"
             : v.cls === "server" ? "server"
                 : v.cls === "auth" ? "auth"
@@ -232,8 +254,8 @@
         // 前置 eligibility、停用开关和格式拒答会用本地化的可操作说明，
         // 它们不属于网络错误分类；保留原文，避免把“未配置/预算超限”抹成笼统失败。
         const text = v.cls === "unknown"
-            ? (err instanceof Error ? err.message : String(err ?? "")).slice(0, 300)
-            : (dict[key] ?? (err instanceof Error ? err.message : String(err ?? "")));
+            ? raw.slice(0, 300)
+            : (dict[key] ?? raw);
         if (v.cls === "rate-limit" && v.retryAfterMs && dict.retryAfter) {
             return `${text} ${dict.retryAfter.replace("${n}", String(Math.ceil(v.retryAfterMs / 1000)))}`;
         }
@@ -589,7 +611,7 @@
     async function importCards() {
         // ADR-7：origIndex 随候选对象存续（✕ 移除后仍指向作业 candidates 原位）
         // T03：入库口径 = 已选 + 已接受（待核实/未审不入库）
-        const picked = candidates.filter(c => c.keep && c.review === "accepted");
+        const picked = selectImportableAiCandidates(candidates);
         if (picked.length === 0 || creating) {
             return;
         }
@@ -860,6 +882,12 @@
                             {#each lintWarnings[i] ?? [] as warn (warn)}
                                 <LvChip tone="warn">{warn === "duplicate" ? t.aiWizard.lintDup : warn === "overlong" ? t.aiWizard.lintLong : warn === "tooshort" ? t.aiWizard.lintShort : warn}</LvChip>
                             {/each}
+                            {#each draftIssues[i] ?? [] as issue (issue)}
+                                <LvChip tone="error">{issue === "empty-question" ? t.aiWizard.missingQuestion : issue === "empty-answer" ? t.aiWizard.missingAnswer : t.aiWizard.invalidMarkup}</LvChip>
+                            {/each}
+                            {#each gateIssues[i] ?? [] as issue (issue)}
+                                <LvChip tone="error">{issue === "duplicate-question" ? t.aiWizard.qualityDuplicate : issue === "answer-in-question" ? t.aiWizard.qualityLeak : issue === "multiple-questions" ? t.aiWizard.qualityMultiple : t.aiWizard.qualityTemplate}</LvChip>
+                            {/each}
                             {#each scorecards[i]?.dimensions ?? [] as dim (dim.key)}
                                 {#if dim.score >= 1 && dim.key !== "cognitive" && dim.key !== "difficulty"}
                                     <!-- BU-13：问题维度 chip（1=提示 warn / 2=问题 error），点「卡面预览」看说明与建议 -->
@@ -867,7 +895,7 @@
                                 {/if}
                             {/each}
                             <div class="fn__flex-1"></div>
-                            {#if c.review === "accepted"}<LvChip tone="primary">{t.aiWizard.reviewAccepted}</LvChip>{:else if c.review === "verified"}<LvChip tone="warn">{t.aiWizard.reviewVerified}</LvChip>{/if}
+                            {#if gateIssues[i].length > 0}<LvChip tone="error">{t.aiWizard.qualityBlockStatus}</LvChip>{:else if c.review === "accepted"}<LvChip tone="primary">{t.aiWizard.reviewAccepted}</LvChip>{:else if c.review === "verified"}<LvChip tone="warn">{t.aiWizard.reviewVerified}</LvChip>{/if}
                             <button class="b3-button b3-button--small" title={t.aiWizard.cardPreview} onclick={() => (previewIdx = previewIdx === i ? null : i)}>{t.aiWizard.cardPreview}</button>
                             <button class="b3-button b3-button--small" title={restoredCandidates ? t.aiWizard.recoveredRegenHint : t.aiWizard.regenerate} aria-label={restoredCandidates ? t.aiWizard.recoveredRegenHint : t.aiWizard.regenerate} disabled={regenBusy === i || restoredCandidates} onclick={() => regenerateCard(i)}>↻</button>
                             <button class="b3-button b3-button--small" title={t.aiWizard.removeCandidate} aria-label={t.aiWizard.removeCandidate} onclick={() => (candidates = candidates.filter((_, j) => j !== i))}>✕</button>
@@ -875,7 +903,7 @@
                         <textarea class="b3-text-field fn__block" rows="2" bind:value={c.q} oninput={() => touchCandidate(i)} placeholder={t.quickCardQ}></textarea>
                         <textarea class="b3-text-field fn__block" rows="2" bind:value={c.a} oninput={() => touchCandidate(i)} placeholder={t.quickCardA}></textarea>
                         <div class="fn__flex" style="gap: calc(var(--lv-space-unit) * 3); margin-top: 6px">
-                            <button class="b3-button b3-button--small {c.review === 'accepted' ? 'lv-btn-primary' : ''}" onclick={() => setReview(i, "accepted")}>{c.review === "accepted" ? t.aiWizard.reviewAccepted : t.aiWizard.acceptVer}</button>
+                            <button class="b3-button b3-button--small {c.review === 'accepted' ? 'lv-btn-primary' : ''}" disabled={draftIssues[i].length > 0 || gateIssues[i].length > 0} onclick={() => setReview(i, "accepted")}>{c.review === "accepted" ? t.aiWizard.reviewAccepted : t.aiWizard.acceptVer}</button>
                             <button class="b3-button b3-button--small {c.review === 'verified' ? 'lv-btn-primary' : ''}" onclick={() => setReview(i, "verified")}>{t.aiWizard.markVerified}</button>
                             <div class="fn__flex-1"></div>
                             <button class="b3-button b3-button--small" title={t.aiWizard.cardPreview} onclick={() => (previewIdx = previewIdx === i ? null : i)}>{t.aiWizard.cardPreview}</button>

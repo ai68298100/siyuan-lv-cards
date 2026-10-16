@@ -6,6 +6,10 @@
  */
 import { addRiffCards as kernelAddRiffCards, getRiffDueCards, type RiffDueCardsData } from "./riff";
 import { createDueCache } from "../libs/due-cache";
+import { getBlockAttrs, SQL_QUERY_CHUNK_SIZE, SQL_QUERY_CONCURRENCY, sqlQuery } from "./siyuan";
+import { hasQuestionMediaContent, validateFlashcardMarkdown } from "../core/flashcard-quality";
+import { validateCardEntries, type CardEntryDecision } from "../core/card-entry-gate";
+import { mapChunksOrdered } from "../core/query-chunks";
 
 export const dueCache = createDueCache<RiffDueCardsData>({ fetcher: key => getRiffDueCards(key) });
 
@@ -25,8 +29,81 @@ export const cachedDueBlockIDs = async (scope = ""): Promise<string[]> => {
 export const invalidateDueCache = () => dueCache.invalidate();
 
 /** 制卡统一入口（index.ts 全部建卡路径经此）：成功后新卡即时到期，同步失效共享缓存 */
+export class RiffCardEntryGateError extends Error {
+    readonly decisions: CardEntryDecision[];
+
+    constructor(decisions: CardEntryDecision[]) {
+        const rejected = decisions.filter(decision => !decision.ok);
+        const details = rejected.slice(0, 12).map(decision => `${decision.blockID || "?"} (${decision.issue ?? "invalid"})`).join(", ");
+        const remaining = rejected.length > 12 ? `, +${rejected.length - 12}` : "";
+        super(`Flashcard entry blocked: ${details}${remaining}`);
+        this.name = "RiffCardEntryGateError";
+        this.decisions = rejected;
+    }
+}
+
+/** Convert the shared gate failure into a host-localized message at UI edges. */
+export const riffCardEntryIssueKey = (issue: CardEntryDecision["issue"]): string => {
+    if (issue === "empty-card") return "qualityEmpty";
+    if (issue === "missing-answer") return "qualityMissingAnswer";
+    if (issue === "missing-question") return "qualityMissingQuestion";
+    if (issue === "invalid-markup") return "qualityInvalidMarkup";
+    if (issue === "invalid-occlusion") return "qualityInvalidOcclusion";
+    if (issue === "missing-block") return "qualityMissingBlock";
+    return "qualityInvalidMarkup";
+};
+
+export const formatRiffCardEntryError = (error: unknown, i18n: Record<string, any>, fallback?: string): string => {
+    if (!(error instanceof RiffCardEntryGateError)) return error instanceof Error ? error.message : String(error);
+    const first = error.decisions[0];
+    const key = riffCardEntryIssueKey(first?.issue);
+    return i18n[key] ?? i18n.editor?.[key] ?? fallback ?? i18n.qualityInvalidMarkup ?? i18n.editor?.qualityInvalidMarkup ?? "卡片结构无效，请先修复后再入组。";
+};
+
+async function validateRiffCardEntries(blockIDs: string[]): Promise<CardEntryDecision[]> {
+    const uniqueIDs = [...new Set(blockIDs.map(id => String(id ?? "")))];
+    const queryIDs = uniqueIDs.filter(Boolean);
+    const chunks = Array.from({ length: Math.ceil(queryIDs.length / SQL_QUERY_CHUNK_SIZE) }, (_, index) =>
+        queryIDs.slice(index * SQL_QUERY_CHUNK_SIZE, (index + 1) * SQL_QUERY_CHUNK_SIZE),
+    );
+    const rowsByChunk = await mapChunksOrdered(chunks, ids => {
+        const safeIDs = ids.map(id => `'${id.replace(/'/g, "''")}'`).join(",");
+        return sqlQuery(`SELECT id, markdown FROM blocks WHERE id IN (${safeIDs})`);
+    }, SQL_QUERY_CONCURRENCY);
+    const rows = rowsByChunk.flat();
+    const markdownByID = new Map(rows.map(row => [String(row.id), String(row.markdown ?? "")]));
+    const occlusionCandidates = uniqueIDs.filter(id => {
+        const markdown = markdownByID.get(id);
+        return Boolean(markdown && validateFlashcardMarkdown(markdown) === "missing-answer" && hasQuestionMediaContent(markdown));
+    });
+    const attrChunks = Array.from({ length: Math.ceil(occlusionCandidates.length / SQL_QUERY_CONCURRENCY) }, (_, index) =>
+        occlusionCandidates.slice(index * SQL_QUERY_CONCURRENCY, (index + 1) * SQL_QUERY_CONCURRENCY),
+    );
+    const attrsByID = new Map<string, Record<string, string>>();
+    const attrsByChunk = await mapChunksOrdered(attrChunks, ids => Promise.all(ids.map(async id => {
+        try {
+            return [id, await getBlockAttrs(id)] as const;
+        } catch {
+            return [id, {}] as const;
+        }
+    })), SQL_QUERY_CONCURRENCY);
+    for (const entries of attrsByChunk.flat()) attrsByID.set(entries[0], entries[1]);
+
+    return validateCardEntries(uniqueIDs.map(blockID => ({
+        blockID,
+        markdown: markdownByID.get(blockID) ?? "",
+        exists: markdownByID.has(blockID),
+        attrs: attrsByID.get(blockID),
+    })));
+}
+
 export const addRiffCards = async (deckID: string, blockIDs: string[]) => {
-    const r = await kernelAddRiffCards(deckID, blockIDs);
+    const uniqueBlockIDs = [...new Set(blockIDs.map(id => String(id ?? "")).filter(Boolean))];
+    if (uniqueBlockIDs.length > 0) {
+        const decisions = await validateRiffCardEntries(uniqueBlockIDs);
+        if (decisions.some(decision => !decision.ok)) throw new RiffCardEntryGateError(decisions);
+    }
+    const r = await kernelAddRiffCards(deckID, uniqueBlockIDs);
     invalidateDueCache();
     return r;
 };

@@ -25,7 +25,7 @@
     };
 
     let {
-        i18n, dashboardBase, managerCtx, exam, inbox, goals, maintenance, recovery, uiMode = "advanced", initialTab = "overview", onTabChange,
+        i18n, dashboardBase, managerCtx, exam, inbox, goals, maintenance, recovery, uiMode = "advanced", initialTab = "overview", initialBlockID = "", onTabChange,
         openWizard, openDrill, openQuickCard, loadWizardView, loadQuickCardView, openSettings, openPalette, getSettingsHealth,
     }: {
         i18n: any;
@@ -86,16 +86,27 @@
         };
         /** BI-25 维护债务通道（只读扫描 + 今日暂缓可逆 + 回来源） */
         maintenance: {
-            scan: () => Promise<{ items: { blockID: string; md: string; state?: string; rootID?: string }[]; error?: string }>;
+            scan: () => Promise<{ items: { blockID: string; md: string; state?: string; rootID?: string; occlusion?: boolean; exists?: boolean; mediaRefs?: string[]; mediaBroken?: string[]; mediaUnknown?: string[]; sourceHealthIssues?: { kind: string; detail: string }[] }[]; sourceHealthHistory?: import("@/core/source-health-store").SourceHealthHistoryItem[]; error?: string }>;
+            previewRepair: (proposals: { blockID: string; afterMarkdown: string; expectedMarkdown?: string; reason?: string }[]) => Promise<{
+                previewID: string;
+                ok: boolean;
+                errors: string[];
+                diffs: { blockID: string; action: string; beforeMarkdown?: string; afterMarkdown?: string; errors?: string[] }[];
+                summary: { update: number; unchanged: number; rejected: number };
+            }>;
+            applyRepair: (previewID: string) => Promise<{ blockIDs: string[] }>;
+            acknowledgeSourceHealth?: (blockID: string) => Promise<void>;
             suspendToday: (blockIDs: string[]) => void;
             unsuspendToday: (blockIDs: string[]) => void;
             isSuspendedToday: (blockID: string) => boolean;
             openSource: (blockID: string) => Promise<void>;
+            openCard: (blockID: string) => void;
         };
         recovery: { load: () => Promise<RecoverySnapshot> };
         /** BI-14：界面模式（simple=隐藏考试/维护高级入口；纯显示控制） */
         uiMode?: "simple" | "advanced";
         initialTab?: string;
+        initialBlockID?: string;
         onTabChange?: (id: string) => void;
     } = $props();
 
@@ -141,6 +152,8 @@
     }
     // svelte-ignore state_referenced_locally
     let active = $state(initialRoute(initialTab));
+    // svelte-ignore state_referenced_locally -- the initial focus is copied once; later requests arrive through the switch event.
+    let managerInitialBlockID = $state(initialBlockID);
 
     function primaryFor(route: string): string {
         if (route === "manage") return "library";
@@ -170,6 +183,9 @@
     let studioManualSeq = $state(0);
     let studioAISeq = $state(0);
     let managerDeckScope = $state<{ id: string; name: string } | null>(null);
+    // 维护页打开卡片时建立一次性返回点；保存成功后由管理器回到维护页，
+    // 维护页重新挂载并自动执行扫描。
+    let managerReturnToMaintenance = $state(false);
 
     function openFullSettings() {
         openSettings?.(() => {
@@ -289,12 +305,27 @@
     function switchTab(id: string, preserveDeckScope = false) {
         const route = id === "today" ? "overview" : id === "library" ? "manage" : id === "studio" ? "authoring" : id === "learning" ? "goals" : id;
         if (!knownIds.has(route) && route !== "settings") return;
+        // 离开管理器即放弃未完成的维护页返回点，避免随后从普通卡库编辑时误跳回维护页。
+        if (route !== "manage") managerReturnToMaintenance = false;
         if (route !== "manage" || !preserveDeckScope) managerDeckScope = null;
         active = route;
         // settings 是 Hub 内部的稳定入口，旧宿主没有对应的 lastHubTab route，
         // 仍允许保存它以便返回时保留现场；外部旧入口照旧写入原 id。
         onTabChange?.(route);
         void tick().then(() => document.getElementById(active === "authoring" ? "lv-hub-studio-panel" : "lv-hub-panel")?.focus());
+    }
+
+    async function handleManagerCardSaved(_blockID: string) {
+        if (!managerReturnToMaintenance) return;
+        managerReturnToMaintenance = false;
+        managerInitialBlockID = "";
+        switchTab("maintenance");
+    }
+
+    function openMaintenanceCard(blockID: string) {
+        managerReturnToMaintenance = true;
+        managerInitialBlockID = blockID;
+        switchTab("manage");
     }
 
     async function prepareInboxCards(blockIDs: string[]) {
@@ -315,8 +346,12 @@
     let onSwitchTab: ((e: Event) => void) | null = null;
     onMount(() => {
         onSwitchTab = (e: Event) => {
-            const id = (e as CustomEvent<string>).detail;
-            if (typeof id === "string" && knownIds.has(id)) switchTab(id);
+            const detail = (e as CustomEvent<string | { tab?: string; focusBlockID?: string }>).detail;
+            const id = typeof detail === "string" ? detail : detail?.tab;
+            if (typeof id === "string" && knownIds.has(id)) {
+                if (typeof detail !== "string" && detail.focusBlockID) managerInitialBlockID = detail.focusBlockID;
+                switchTab(id);
+            }
         };
         hubRoot?.addEventListener("lv-switch-tab", onSwitchTab);
         if (inbox) {
@@ -446,7 +481,7 @@
                     <!-- T08：注入页签切换（待处理分区直达收件箱） -->
                     <Dashboard ctx={{ ...dctx, openHubTab: (id: string) => switchTab(id) }} />
                 {:else if active === "manage"}
-                    <Manager ctx={{ ...managerCtx, deckScope: managerDeckScope, clearDeckScope: () => (managerDeckScope = null) }} />
+                    <Manager ctx={{ ...managerCtx, initialBlockID: managerInitialBlockID, onInitialBlockConsumed: () => (managerInitialBlockID = ""), onCardContentSaved: handleManagerCardSaved, deckScope: managerDeckScope, clearDeckScope: () => (managerDeckScope = null) }} />
                 {:else if active === "settings"}
                     <div class="lv-r54-settings">
                         <div class="lv-pagehead">
@@ -479,7 +514,7 @@
                     {/if}
                 {:else if active === "maintenance"}
                     {#if MaintComp}
-                        <MaintComp i18n={i18n} maintenance={maintenance} />
+                        <MaintComp i18n={i18n} maintenance={{ ...maintenance, openCard: openMaintenanceCard }} />
                     {:else if maintError}
                         <div style="padding: var(--lv-sp-5); color: var(--lv-color-danger); font-size: var(--lv-type-body-size)">
                             <div style="margin-bottom: calc(var(--lv-space-unit) * 4)">{maintError}</div>

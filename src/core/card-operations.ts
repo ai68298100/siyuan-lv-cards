@@ -7,6 +7,8 @@ import { addRiffCards, invalidateDueCache } from "../api/due-shared";
 import { getRiffCardsByBlockIDs, removeRiffCards } from "../api/riff";
 import { appendBlock, createDocWithMd } from "../api/siyuan";
 import { detachCard, type CardRelationsData } from "./card-relations";
+import { validateCardEntry } from "./card-entry-gate";
+import { validateFlashcardMarkdown } from "./flashcard-quality";
 import { deriveInstance, registerObject, type KnowledgeObjectsData } from "./knowledge-objects";
 import { parseSrLine, parseSrMultiline, stripSrMarkers } from "./obsidian-sr";
 
@@ -60,6 +62,7 @@ export interface QuickCardFlowInput {
     nbId: string;
     markdown: string;
     deckID: string;
+    qualityErrorMessage?: string;
     q?: string;
     a?: string;
     mutateKnowledgeObjects?: (mutator: (next: KnowledgeObjectsData) => void) => Promise<unknown>;
@@ -71,6 +74,8 @@ export interface QuickCardFlowInput {
 export async function executeQuickCardCreation(
     input: QuickCardFlowInput,
 ): Promise<{ docID: string; blockID: string }> {
+    const draftDecision = validateCardEntry({ blockID: "quick-card-draft", markdown: input.markdown });
+    if (!draftDecision.ok || validateFlashcardMarkdown(input.markdown)) throw new Error(input.qualityErrorMessage || "quickCardInvalid");
     const docID = await createDocWithMd(input.nbId, "小驴闪卡/快速制卡", "");
     if (!docID) {
         throw new Error("quickCardFail");
@@ -152,7 +157,7 @@ export function extractMarkerCardItems(rows: Array<{ id?: string; markdown?: str
         }
 
         // 以「？」结尾的块：整块直接入组
-        if (md.endsWith("？")) {
+        if ((md.endsWith("？") || md.includes("==")) && !validateFlashcardMarkdown(md)) {
             items.push({ blockID, kind: "whole", front: md.replace(/[*`#]/g, ""), back: "" });
             wholeIds.push(blockID);
         }

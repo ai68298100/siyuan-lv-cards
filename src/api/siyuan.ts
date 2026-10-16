@@ -5,6 +5,7 @@ import { fetchSyncPost } from "siyuan";
 import { dataStr } from "@/libs/kernel-response";
 import { requestKernelData } from "@/libs/kernel-request";
 import type { KernelRequestOptions } from "@/libs/kernel-request";
+import { withTimeout } from "@/libs/timeout";
 import { mapChunksOrdered } from "@/core/query-chunks";
 
 /** 通用内核请求上限：避免文档/DOM/SQL 请求永久挂起。 */
@@ -106,6 +107,55 @@ export const exportMdContent = async (id: string): Promise<{ hPath: string; cont
 /** SQL 查询（只读；AI 向导笔记本范围源用） */
 export const sqlQuery = async (stmt: string): Promise<Record<string, unknown>[]> => {
     return (await kernelRead<Record<string, unknown>[]>("/api/query/sql", { stmt })) ?? [];
+};
+
+export interface AssetProbeResult {
+    /** 明确由宿主确认存在的本地资源。 */
+    present: string[];
+    /** 明确由 statAsset 返回 code=1 判定缺失的本地资源。 */
+    missing: string[];
+    /** 超时、权限、未知响应等无法判定的资源；调用方不得把它们当成损坏。 */
+    unknown: string[];
+}
+
+/**
+ * 只读检查一批本地媒体引用。
+ *
+ * statAsset 对不存在资源使用 code=1（而普通 kernelRead 会把非 0 直接抛错），
+ * 因此这里保留响应码并把权限/网络/宿主差异降级为 unknown，避免维护扫描误报。
+ */
+export const probeAssetRefs = async (refs: string[], concurrency = 4): Promise<AssetProbeResult> => {
+    const unique = [...new Set(refs.map(ref => String(ref ?? "").trim()).filter(Boolean))];
+    const out: AssetProbeResult = { present: [], missing: [], unknown: [] };
+    let cursor = 0;
+    const worker = async () => {
+        while (cursor < unique.length) {
+            const index = cursor++;
+            const path = unique[index];
+            // statAsset only accepts workspace asset paths (or file URLs). The
+            // parser deliberately keeps other relative references for display,
+            // but they are not safe to label missing without document context.
+            if (!/^assets\//i.test(path)) {
+                out.unknown.push(path);
+                continue;
+            }
+            try {
+                const response = await withTimeout(fetchSyncPost("/api/asset/statAsset", { path }), SIYUAN_API_TIMEOUT_MS, "/api/asset/statAsset");
+                const code = Number((response as { code?: unknown } | null)?.code);
+                if (code === 0) out.present.push(path);
+                else if (code === 1) out.missing.push(path);
+                else out.unknown.push(path);
+            } catch {
+                out.unknown.push(path);
+            }
+        }
+    };
+    const workers = Array.from({ length: Math.min(Math.max(1, concurrency), unique.length || 1) }, () => worker());
+    await Promise.all(workers);
+    out.present.sort();
+    out.missing.sort();
+    out.unknown.sort();
+    return out;
 };
 
 export interface BlockDocInfo {

@@ -88,6 +88,12 @@ export interface RestoreTransactionParams {
     currentFiles: Record<string, unknown>;
     /** 单文件保存异步委托 */
     saveFile: (key: string, data: unknown) => Promise<void>;
+    /**
+     * 某些宿主写入接口可能在落盘后才抛错。开启后会把当前正在写入的
+     * key 也加入补偿集合，失败 key 会再次写回旧快照；默认关闭以保持
+     * 旧调用方的历史写入序列与语义。
+     */
+    rollbackFailedKey?: boolean;
     /** 错误日志记录回调 */
     logError?: (msg: string) => void;
 }
@@ -100,15 +106,17 @@ export interface RestoreTransactionParams {
 export async function applyRestoreTransaction(
     params: RestoreTransactionParams,
 ): Promise<string[]> {
-    const { restoreFiles, currentFiles, saveFile, logError } = params;
+    const { restoreFiles, currentFiles, saveFile, logError, rollbackFailedKey = false } = params;
     const restoreKeys = Object.keys(restoreFiles);
     const appliedKeys: string[] = [];
 
     try {
         for (const key of restoreKeys) {
             // 保存不可变快照，防止异步竞争更改原引用
+            // 对可能“写入后抛错”的适配器，先登记当前 key，补偿阶段也会恢复它。
+            if (rollbackFailedKey) appliedKeys.push(key);
             await saveFile(key, cloneData(restoreFiles[key]));
-            appliedKeys.push(key);
+            if (!rollbackFailedKey) appliedKeys.push(key);
         }
         return appliedKeys;
     } catch (error) {

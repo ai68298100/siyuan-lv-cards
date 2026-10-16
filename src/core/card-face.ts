@@ -4,7 +4,7 @@
  * 富内容特征识别，供复习面板显示「渲染提示行」（公式/图片/嵌入/代码/表格/超长链接 +
  * 窄屏横向滚动提示）——提示只是告知特征，不改变渲染本身。
  * 降级口径：加载失败由调用方显示占位+重试（UI 态，不入本模块）；问题态遮挡沿用既有
- * CSS 掩码（lv-masked），本模块不参与答案隐藏。
+ * CSS 掩码（lv-masked），并提供问题态 HTML 副本，避免读屏和复制时直接读到答案。
  */
 
 export interface FaceRichness {
@@ -62,4 +62,21 @@ export function extractMarkTexts(holder: HTMLElement): string[] {
     return Array.from(holder.querySelectorAll(MARK_SELECTOR))
         .map(m => (m.textContent ?? "").trim())
         .filter(Boolean);
+}
+
+/**
+ * Create a display-only question-side copy: marked answers remain the same
+ * approximate width, while their text/media are absent from selection and the
+ * accessibility tree. Keep the original HTML for answer reveal and scoring.
+ */
+export function maskMarkedAnswersForQuestion(html: string): string {
+    if (typeof document === "undefined") return String(html ?? "");
+    const template = document.createElement("template");
+    template.innerHTML = String(html ?? "");
+    for (const mark of Array.from(template.content.querySelectorAll(MARK_SELECTOR))) {
+        const length = Math.max(1, Array.from(mark.textContent ?? "").length);
+        mark.textContent = "\u00a0".repeat(length);
+        mark.setAttribute("aria-hidden", "true");
+    }
+    return template.innerHTML;
 }

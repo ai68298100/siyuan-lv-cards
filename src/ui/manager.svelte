@@ -1,7 +1,7 @@
 <script lang="ts">
     import { onMount, tick } from "svelte";
     import { openTab, showMessage } from "siyuan";
-    import { getRiffCards, removeRiffCards, resetRiffCards, type SearchBlock } from "@/api/riff";
+    import { getRiffCards, getRiffCardsByBlockIDs, removeRiffCards, resetRiffCards, type SearchBlock } from "@/api/riff";
     import { invalidateDueCache } from "@/api/due-shared";
     import { friendlyError } from "@/api/errors";
 import { confirmDialog } from "@/libs/dialog";
@@ -66,9 +66,14 @@ import { confirmDialog } from "@/libs/dialog";
         };
         /** BX-2 W2：卡片内容读写（可选——旧宿主不传则详情不显示编辑入口） */
         blockContent?: (blockID: string) => Promise<string | null>;
-        saveBlockContent?: (blockID: string, md: string) => Promise<boolean>;
+        saveBlockContent?: (blockID: string, md: string) => Promise<boolean | string>;
+        /** 内容保存并回读预览后通知宿主（维护页可借此返回并重新扫描）。 */
+        onCardContentSaved?: (blockID: string) => void | Promise<void>;
         deckScope?: { id: string; name: string } | null;
         clearDeckScope?: () => void;
+        /** 维护页定点打开的卡片；只读导航参数，不改变筛选或调度。 */
+        initialBlockID?: string;
+        onInitialBlockConsumed?: () => void;
     }
 
     let { ctx }: { ctx: ManagerCtx } = $props();
@@ -137,6 +142,7 @@ import { confirmDialog } from "@/libs/dialog";
     let detailKo: { registered: boolean; fact: string; instances: { cardID: string; cardType: string; capability: string | null; disabled: boolean }[] } | null = $state(null);
     let koDeriving = $state(false);
     let detailLc: import("@/core/content-lifecycle").ContentLifecycle | null = $state(null);
+    let initialDetailOpened = "";
     let storesChangedTimer: ReturnType<typeof setTimeout> | null = null;
     // svelte-ignore state_referenced_locally -- Hub creates a fresh Manager for each deck route.
     let deckScope = $state(ctx.deckScope ?? null);
@@ -498,6 +504,23 @@ import { confirmDialog } from "@/libs/dialog";
         detailLc = ctx.lc ? ctx.lc.snapshot(b.id) : null;
     }
 
+    // 维护页可以在管理器已挂载时再次请求定点打开；监听上下文变化，避免只在首次加载时处理。
+    $effect(() => {
+        const targetID = ctx.initialBlockID?.trim();
+        if (!targetID || targetID === initialDetailOpened) return;
+        initialDetailOpened = targetID;
+        void (async () => {
+            try {
+                const target = (await getRiffCardsByBlockIDs([targetID])).blocks?.find(b => b.id === targetID);
+                if (target) openDetail(target);
+            } catch {
+                // 定点详情失败不影响管理器列表；列表错误仍由本次 load 负责呈现。
+            } finally {
+                ctx.onInitialBlockConsumed?.();
+            }
+        })();
+    });
+
     function openDoc(block: SearchBlock) {
         const rootId = (block.rootID as string) || block.id;
         openTab({ app: ctx.app, doc: { id: rootId } });
@@ -828,6 +851,7 @@ import { confirmDialog } from "@/libs/dialog";
             load: () => ctx.blockContent!(detail!.id),
             save: (md) => ctx.saveBlockContent!(detail!.id, md),
         } : undefined}
+        onSaved={ctx.onCardContentSaved}
     />
 {/if}
 

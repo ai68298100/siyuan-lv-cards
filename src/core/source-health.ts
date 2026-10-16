@@ -42,6 +42,8 @@ export interface SourceHealthRecord {
     kind: HealthKind;
     /** true=已修复/已确认 */
     resolved: boolean;
+    /** 解决/确认时间；旧版本记录可能没有此字段。 */
+    resolvedAt?: number;
     detail: string;
 }
 
@@ -81,11 +83,19 @@ export function recordIssues(history: SourceHealthRecord[], issues: HealthIssue[
 
 /** 修复确认：原地标记 resolved（原发现记录保留在史中不删除）；无未解决记录时追加一条解决档案 */
 export function resolveIssue(history: SourceHealthRecord[], kind: HealthKind, now: number = Date.now()): SourceHealthRecord[] {
-    const openIdx = history.findIndex(h => h.kind === kind && !h.resolved);
-    if (openIdx >= 0) {
-        return history.map((h, i) => (i === openIdx ? { ...h, resolved: true } : h));
+    // A kind can recur after an earlier occurrence was resolved. Resolve the
+    // latest open occurrence, which is also the one returned by openIssues().
+    let openIdx = -1;
+    for (let index = history.length - 1; index >= 0; index -= 1) {
+        if (history[index].kind === kind && !history[index].resolved) {
+            openIdx = index;
+            break;
+        }
     }
-    return [...history, { at: now, kind, resolved: true, detail: "resolved" }];
+    if (openIdx >= 0) {
+        return history.map((h, i) => (i === openIdx ? { ...h, resolved: true, resolvedAt: now } : h));
+    }
+    return [...history, { at: now, kind, resolved: true, resolvedAt: now, detail: "resolved" }];
 }
 
 /** 当前未解决的健康问题（存在未解决记录 或 调用方用最新评估结果对照） */

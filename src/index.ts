@@ -3,7 +3,7 @@ import "./index.scss";
 import { Plugin, getAllEditor, showMessage, openTab, getAllTabs } from "siyuan";
 import * as siyuanNamespace from "siyuan";
 
-import { loadChunk, type ChunkMount } from "./libs/chunk-loader";
+import { invalidateChunk, loadChunk, type ChunkMount } from "./libs/chunk-loader";
 import { setDialogMounter } from "./libs/dialog";
 import { svelteDialog, confirmDialogBool } from "./libs/dialog";
 
@@ -28,7 +28,7 @@ import {
 import { detectFlashcardV2, type MigrationStatus } from "./api/flashcardV2";
 import { getRiffCards, getRiffCardsByBlockIDs } from "./api/riff";
 // AT-4：addRiffCards 取经 due-shared 的包装版（建卡成功即失效共享 due 缓存），badge/提醒走共享缓存
-import { addRiffCards, cachedDueBlockIDs, cachedDueCount, dueCache, invalidateDueCache } from "./api/due-shared";
+import { addRiffCards, cachedDueBlockIDs, cachedDueCount, dueCache, formatRiffCardEntryError, invalidateDueCache } from "./api/due-shared";
 import { createPerf } from "./libs/perf";
 import { cardsCreatedEvent, gatewayChangedEvent, LV_EVENTS, reviewedEvent, sessionFinishedEvent, settingsChangedEvent, storesChangedEvent, streakChangedEvent } from "./libs/events";
 import { deriveInstance, emptyKnowledgeObjects, findBySource, normalizeKnowledgeObjects, registerObject, removeInstance, toggleInstance, type KnowledgeObjectsData } from "./core/knowledge-objects";
@@ -39,7 +39,7 @@ import { addInboxItem, bulkSetStatus, emptyInbox, normalizeInbox, removeInboxIte
 import { emptyGoals, normalizeGoals, daysUntilDeadline, isGoalActive, type LearningGoalsData, type LearningGoal } from "./core/learning-goal";
 import { emptyEntryContexts, isContextFresh, normalizeEntryContexts, removeContext, upsertContext, type EntryContextData, type EntryKind } from "./core/entry-context";
 import { ensureLifecycle, emptyLifecycles, lifecycleStats, normalizeLifecycles, transition, type ContentLifecyclesData, type ContentState } from "./core/content-lifecycle";
-import { appendBlock, createDocWithMd, getNotebooks, getBlockDOM, getBlockDocMap, getDocTitles, exportMdContent, sqlQuery, kernelVersion, updateBlock } from "./api/siyuan";
+import { appendBlock, createDocWithMd, getNotebooks, getBlockAttrs, getBlockDOM, getBlockDocMap, getDocTitles, exportMdContent, sqlQuery, kernelVersion, updateBlock, probeAssetRefs } from "./api/siyuan";
 import { aiChat, estimateTokens, parseCards, isAICanceled } from "./api/ai";
 import { normalizeSuspendToday, rollDateIfNeeded, isSuspended, type SuspendTodayData } from "./core/suspend-today";
 import { createSuspendTodayMutations } from "./core/suspend-today-persistence";
@@ -69,7 +69,6 @@ import {
     shouldReloadExamPlans,
 } from "./core/exam-plan-sync";
 import { scanAllMaintenanceCardIds } from "./core/maintenance-scan";
-import { buildDiagnosticsText } from "./core/diagnostics";
 import { registerPluginCommands } from "./bootstrap/commands";
 import { showPluginTopbarMenu } from "./bootstrap/topbar-menu";
 import { createFullSampleWorkspace, createOnboardingSampleCards } from "./core/workspace-samples";
@@ -92,7 +91,6 @@ import { computeBlockMenuItems, extractBlockIDs } from "./bootstrap/block-menu";
 import {
     resolveTargetNotebook,
     queryNotebookBlockIDs,
-    renderExamReportMarkdown,
     assembleWeeklyReportPayload,
 } from "./core/report-writer";
 import {
@@ -107,6 +105,24 @@ import {
     executeQuickCardCreation,
     extractMarkerCardItems,
 } from "./core/card-operations";
+import { hasImageContent, serializeQaCard } from "./core/flashcard-quality";
+import { findAiCardGateIssues } from "./core/ai-card-gate";
+import { validateCardEntry } from "./core/card-entry-gate";
+import { parseOcclusion } from "./core/occlusion";
+import { extractMediaRefs } from "./core/media-refs";
+import type { HubServices } from "./core/hub-services";
+import {
+    acknowledgeSourceHealth as acknowledgeSourceHealthStore,
+    emptySourceHealth,
+    normalizeSourceHealth,
+    reconcileSourceHealth,
+    sourceHealthHistories,
+    upsertSourceFingerprint,
+    type SourceHealthData,
+} from "./core/source-health-store";
+import type { SourceCurrentFacts } from "./core/source-health";
+import type { BatchRepairProposal, BatchRepairPreview } from "./core/maintenance-repair";
+import type { RepairSnapshotWrite } from "./core/maintenance-repair-storage";
 import {
     buildBudgetPreview,
     queryNotebookMaterialText,
@@ -156,6 +172,19 @@ const mountComp = process.env.DEV_MODE
 const loadHubMount: () => Promise<ChunkMount["mount"]> = process.env.DEV_MODE
     ? mountComp(() => import("./ui/hub.svelte"))
     : () => loadChunk("hub").then(m => m.mount);
+// Keep maintenance-only computation out of startup; adapters and stores stay in the shell.
+const loadHubServices: () => Promise<HubServices> = process.env.DEV_MODE
+    ? () => import("./core/hub-services").then(m => m.hubServices)
+    : async () => {
+        const { services } = await loadChunk("hub");
+        if (!services || !["previewBatchRepair", "confirmBatchRepair", "applyBatchRepair", "createMaintenanceRepairStorage",
+            "findApproximateDuplicateCandidates", "helpMarkdown", "renderExamReportMarkdown", "buildDiagnosticsText"]
+            .every(key => typeof services[key] === "function")) {
+            invalidateChunk("hub");
+            throw new Error("lv hub chunk missing services");
+        }
+        return services;
+    };
 const loadReviewMount: () => Promise<ChunkMount["mount"]> = process.env.DEV_MODE
     ? mountComp(() => import("./ui/review.svelte"))
     : () => loadChunk("review").then(m => m.mount);
@@ -259,6 +288,7 @@ const INBOX_DATA = "inbox.json";
 const LEARNING_GOALS_DATA = "learning-goals.json";
 const ENTRY_CONTEXTS_DATA = "entry-contexts.json";
 const CONTENT_LIFECYCLES_DATA = "content-lifecycles.json";
+const SOURCE_HEALTH_DATA = "source-health.json";
 const AI_KILL_SWITCH_DATA = "ai-killswitch.json";
 /** Anki M3：guid 导入台账（幂等重导） */
 const ANKI_LEDGER_DATA = "anki-ledger.json";
@@ -346,6 +376,10 @@ export default class LvCardsPlugin extends Plugin {
     private entryContexts: EntryContextData = emptyEntryContexts();
     /** BI-5：内容生命周期（十态轨迹，转移带原因与时间） */
     private contentLifecycles: ContentLifecyclesData = emptyLifecycles();
+    /** BI-20：来源指纹与健康历史；健康状态永远不参与 due/评分。 */
+    private sourceHealth: SourceHealthData = emptySourceHealth();
+    /** 维护页批量修复预览：只在内存保留短期 token，确认后立即消费。 */
+    private maintenanceRepairPreviews = new Map<string, BatchRepairPreview>();
     /** 统一持久化队列（AQ-4）：同 key 串行 + 有限重试 + 失败可观测 */
     /** AT-6：启动/首交互/评分性能指标 */
     private perf = createPerf();
@@ -360,6 +394,12 @@ export default class LvCardsPlugin extends Plugin {
                 this.notifyPersistFail();
             },
         },
+    );
+    private sourceHealthMutations = createSnapshotMutationQueue<SourceHealthData>(
+        () => this.sourceHealth,
+        current => cloneStore(current),
+        next => this.persist.save(SOURCE_HEALTH_DATA, next),
+        next => { this.sourceHealth = next; },
     );
     private suspendTodayMutations = createSuspendTodayMutations(
         () => this.suspendToday,
@@ -461,8 +501,200 @@ export default class LvCardsPlugin extends Plugin {
         return this.contentVersions.blocks.reduce((n, b) => n + b.versions.length, 0);
     }
 
-    private saveBlockContentVersion(blockID: string, md: string): Promise<boolean> {
+    private async hasValidOcclusionCard(blockID: string, markdown: string): Promise<boolean> {
+        if (!hasImageContent(markdown)) return false;
+        try {
+            const occlusion = parseOcclusion(await getBlockAttrs(blockID));
+            return !!occlusion?.rects.length;
+        } catch {
+            return false;
+        }
+    }
+
+    private async rememberSourceFingerprint(blockID: string, rootID?: string, markdown?: string): Promise<void> {
+        let md = markdown;
+        let root = rootID;
+        if (md === undefined || root === undefined) {
+            try {
+                const safe = blockID.replace(/'/g, "''");
+                const rows = await sqlQuery(`SELECT markdown, root_id FROM blocks WHERE id='${safe}' LIMIT 1`);
+                if (md === undefined) md = typeof rows[0]?.markdown === "string" ? rows[0].markdown : "";
+                if (root === undefined) root = String(rows[0]?.root_id ?? "");
+            } catch {
+                // Source bookkeeping is an audit sidecar; a temporary SQL failure
+                // must never undo a successful card creation.
+                return;
+            }
+        }
+        const content = String(md ?? "");
+        const fingerprint = {
+            blockID,
+            rootID: String(root ?? ""),
+            contentHash: fnv1a(content),
+            mediaRefs: extractMediaRefs(content).map(ref => ref.normalized),
+        };
+        try {
+            await this.sourceHealthMutations(next => {
+                const updated = upsertSourceFingerprint(next, fingerprint);
+                next.entries = updated.entries;
+            });
+        } catch (error) {
+            lvLog("warn", `[source-health] fingerprint save failed: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    }
+
+    private async reconcileSourceHealthForScan(
+        cards: Array<{ blockID: string; md: string; rootID?: string; exists?: boolean; mediaRefs?: string[]; mediaBroken?: string[]; mediaUnknown?: string[]; sourceHealthIssues?: { kind: string; detail: string }[] }>,
+    ): Promise<void> {
+        const mediaByCard = new Map(cards.map(card => {
+            const present: Record<string, boolean> = {};
+            for (const ref of card.mediaRefs ?? []) {
+                if ((card.mediaBroken ?? []).includes(ref)) present[ref] = false;
+                else if (!(card.mediaUnknown ?? []).includes(ref)) present[ref] = true;
+            }
+            return [card.blockID, present] as const;
+        }));
+        try {
+            await this.sourceHealthMutations(next => {
+                for (const card of cards) {
+                    const current: SourceCurrentFacts | null = card.exists === false ? null : {
+                        rootID: String(card.rootID ?? ""),
+                        contentHash: fnv1a(card.md),
+                        mediaPresent: mediaByCard.get(card.blockID) ?? {},
+                    };
+                    const result = reconcileSourceHealth(next, card.blockID, current);
+                    next.entries = result.data.entries;
+                    card.sourceHealthIssues = result.issues.map(issue => ({ kind: issue.kind, detail: issue.detail }));
+                }
+            });
+        } catch (error) {
+            lvLog("warn", `[source-health] scan reconcile failed: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    }
+
+    /**
+     * Explicitly accept the source currently on disk as the new health
+     * baseline.  This is only called from the maintenance UI after a human
+     * action; scans themselves never mutate the baseline.
+     */
+    private async acknowledgeSourceHealth(blockID: string): Promise<void> {
+        const safe = String(blockID ?? "").replace(/'/g, "''");
+        if (!safe) throw new Error("来源块 ID 为空，无法更新来源基线");
+        const rows = await sqlQuery(`SELECT markdown, root_id FROM blocks WHERE id='${safe}' LIMIT 1`);
+        const row = rows[0];
+        if (!row) throw new Error("来源块不存在，无法更新来源基线");
+        const markdown = String(row.markdown ?? "");
+        const mediaRefs = extractMediaRefs(markdown).map(ref => ref.normalized);
+        const mediaPresent: Record<string, boolean> = {};
+        if (mediaRefs.length > 0) {
+            const probe = await probeAssetRefs(mediaRefs);
+            const missing = new Set(probe.missing);
+            const unknown = new Set(probe.unknown.filter(ref => ref.toLowerCase().startsWith("assets/")));
+            for (const ref of mediaRefs) {
+                if (missing.has(ref)) mediaPresent[ref] = false;
+                else if (!unknown.has(ref)) mediaPresent[ref] = true;
+            }
+        }
+        const fingerprint = {
+            blockID: String(blockID),
+            rootID: String(row.root_id ?? ""),
+            contentHash: fnv1a(markdown),
+            mediaRefs,
+        };
+        await this.sourceHealthMutations(next => {
+            const updated = acknowledgeSourceHealthStore(next, fingerprint, Date.now(), {
+                mediaPresent,
+            });
+            next.entries = updated.entries;
+        });
+    }
+
+    /** 维护页批量修复：重新读取来源后生成预览，避免使用扫描页的陈旧快照。 */
+    private async previewMaintenanceRepair(proposals: BatchRepairProposal[]): Promise<BatchRepairPreview> {
+        const ids = [...new Set(proposals.map(proposal => String(proposal.blockID ?? "")).filter(Boolean))];
+        const info = new Map<string, { md: string; root: string; ial: string }>();
+        if (ids.length > 0) {
+            const rows = await sqlQuery(`SELECT id, markdown, root_id, ial FROM blocks WHERE id IN (${ids.map(id => `'${id.replace(/'/g, "''")}'`).join(",")})`);
+            for (const row of rows) {
+                info.set(String(row.id), {
+                    md: String(row.markdown ?? ""),
+                    root: String(row.root_id ?? ""),
+                    ial: String(row.ial ?? ""),
+                });
+            }
+        }
+        const cards = [] as Array<{
+            blockID: string;
+            markdown: string;
+            rootID?: string;
+            exists?: boolean;
+            occlusionValid?: boolean;
+        }>;
+        for (const id of ids) {
+            const source = info.get(id);
+            const markdown = source?.md ?? "";
+            cards.push({
+                blockID: id,
+                markdown,
+                rootID: source?.root ?? "",
+                exists: Boolean(source),
+                occlusionValid: source ? await this.hasValidOcclusionCard(id, markdown) : false,
+            });
+        }
+        const { previewBatchRepair } = await loadHubServices();
+        const preview = previewBatchRepair(cards, proposals);
+        if (preview.ok) {
+            // Bound stale tokens so a tab left open cannot grow the plugin heap.
+            if (this.maintenanceRepairPreviews.size >= 20) {
+                const oldest = this.maintenanceRepairPreviews.keys().next().value;
+                if (oldest) this.maintenanceRepairPreviews.delete(oldest);
+            }
+            this.maintenanceRepairPreviews.set(preview.previewID, preview);
+        }
+        return preview;
+    }
+
+    /** 维护页批量修复：确认 token 后才写入，写入链复用版本与质量门禁。 */
+    private async applyMaintenanceRepair(previewID: string): Promise<{ blockIDs: string[] }> {
+        const preview = this.maintenanceRepairPreviews.get(String(previewID ?? ""));
+        if (!preview) throw new Error("repair preview expired or not found");
+        const { confirmBatchRepair, applyBatchRepair, createMaintenanceRepairStorage } = await loadHubServices();
+        const transaction = confirmBatchRepair(preview, { previewID: preview.previewID, acknowledged: true });
+        const result = await applyBatchRepair(transaction, createMaintenanceRepairStorage(transaction.snapshot, {
+            readCard: async blockID => {
+                const rows = await sqlQuery(`SELECT id, markdown FROM blocks WHERE id='${blockID.replace(/'/g, "''")}' LIMIT 1`);
+                const row = rows[0];
+                return row ? { blockID: String(row.id), markdown: String(row.markdown ?? "") } : null;
+            },
+            saveMarkdown: (blockID, markdown, recovery) => this.saveBlockContentVersion(blockID, markdown, recovery),
+            logError: message => lvLog("error", message),
+        }));
+        this.maintenanceRepairPreviews.delete(preview.previewID);
+        return { blockIDs: result.blockIDs };
+    }
+
+    private saveBlockContentVersion(blockID: string, md: string, recovery?: RepairSnapshotWrite): Promise<boolean | string> {
         const operation = this.contentVersionQueue.then(async () => {
+            // Only the transaction adapter can supply a captured exact old value.
+            // Recovery must accept legacy invalid content or a failed batch stays half applied.
+            const restoring = recovery?.blockID === blockID && recovery.markdown === md;
+            const riff = restoring ? null : await getRiffCardsByBlockIDs([blockID]);
+            if (riff?.blocks?.some(block => block.id === blockID)) {
+                const decision = validateCardEntry({
+                    blockID,
+                    markdown: md,
+                    exists: true,
+                    occlusionValid: await this.hasValidOcclusionCard(blockID, md),
+                });
+                if (!decision.ok) {
+                    const errorKey = decision.issue === "empty-card" ? "qualityEmpty"
+                        : decision.issue === "missing-answer" ? "qualityMissingAnswer"
+                            : decision.issue === "missing-question" ? "qualityMissingQuestion"
+                                : decision.issue === "invalid-occlusion" ? "qualityInvalidOcclusion"
+                                    : decision.issue === "missing-block" ? "qualityMissingBlock" : "qualityInvalidMarkup";
+                    return ((this.i18n.editor as any)[errorKey] ?? (this.i18n.editor as any).qualityInvalidMarkup) as string;
+                }
+            }
             await updateBlock("markdown", md, blockID);
             const next = appendVersion(this.contentVersions, blockID, md, Date.now(), "editor");
             await this.persist.save(CONTENT_VERSIONS_DATA, next);
@@ -488,7 +720,7 @@ export default class LvCardsPlugin extends Plugin {
     private lastDue = 0;
 
     /** AT-1：批量装载键（onload 与同步重载共用同一路径，防错位回归） */
-    private static readonly STORE_KEYS = [SETTINGS_DATA, REVLOG_DATA, SUSPEND_TODAY_DATA, EXAM_PLANS_DATA, AI_BATCHES_DATA, SESSION_STATE_DATA, AI_JOBS_DATA, KNOWLEDGE_OBJECTS_DATA, CARD_RELATIONS_DATA, ERROR_TAGS_DATA, INBOX_DATA, LEARNING_GOALS_DATA, ENTRY_CONTEXTS_DATA, CONTENT_LIFECYCLES_DATA, AI_KILL_SWITCH_DATA, ANKI_LEDGER_DATA, CONTENT_VERSIONS_DATA, AI_DENY_LIST_DATA, AI_COST_LEDGER_DATA, OB_LEDGER_DATA] as const;
+    private static readonly STORE_KEYS = [SETTINGS_DATA, REVLOG_DATA, SUSPEND_TODAY_DATA, EXAM_PLANS_DATA, AI_BATCHES_DATA, SESSION_STATE_DATA, AI_JOBS_DATA, KNOWLEDGE_OBJECTS_DATA, CARD_RELATIONS_DATA, ERROR_TAGS_DATA, INBOX_DATA, LEARNING_GOALS_DATA, ENTRY_CONTEXTS_DATA, CONTENT_LIFECYCLES_DATA, SOURCE_HEALTH_DATA, AI_KILL_SWITCH_DATA, ANKI_LEDGER_DATA, CONTENT_VERSIONS_DATA, AI_DENY_LIST_DATA, AI_COST_LEDGER_DATA, OB_LEDGER_DATA] as const;
 
     /** AT-1（保守版）：同步/覆盖变更 → 有界串行重载。防抖 2s、单飞、先冲刷本地在途写（绝不覆盖未 flush 的本地状态）。
      * 打开中的页签不会自动重渲染（完整 UI 刷新协议待真机专项）；重载后新读取即取到新数据，角标即时刷新。 */
@@ -624,6 +856,7 @@ export default class LvCardsPlugin extends Plugin {
         this.learningGoals = normalizeGoals(loaded[LEARNING_GOALS_DATA]);
         this.entryContexts = normalizeEntryContexts(loaded[ENTRY_CONTEXTS_DATA]);
         this.contentLifecycles = normalizeLifecycles(loaded[CONTENT_LIFECYCLES_DATA]);
+        this.sourceHealth = normalizeSourceHealth(loaded[SOURCE_HEALTH_DATA]);
         // Anki M3：guid 导入台账（幂等重导）——启动装载进内存，ctx 读写内存副本
         this.ankiLedger = normalizeLedger(loaded[ANKI_LEDGER_DATA]);
         // T05：内容版本快照装载
@@ -722,6 +955,7 @@ export default class LvCardsPlugin extends Plugin {
                     handle = mnt(div, {
                         i18n: plugin.i18n,
                         initialTab: (this.data?.tab as string) ?? plugin.settings.lastHubTab,
+                        initialBlockID: typeof this.data?.focusBlockID === "string" ? this.data.focusBlockID : "",
                         // BI-14：界面模式（挂载时定格；设置修改后重开页签生效）
                         uiMode: plugin.settings.uiMode,
                         // T02 工作台入口页：向导对话框与修卡演练的常驻入口
@@ -1019,8 +1253,8 @@ export default class LvCardsPlugin extends Plugin {
                             saveBlockContent: async (blockID: string, md: string) => {
                                 try {
                                     return await plugin.saveBlockContentVersion(blockID, md);
-                                } catch {
-                                    return false;
+                                } catch (error) {
+                                    return error instanceof Error ? error.message : false;
                                 }
                             },
                             // T05：内容分面「版本 N」历史
@@ -1103,7 +1337,8 @@ export default class LvCardsPlugin extends Plugin {
                         // BI-25：维护债务通道（只读扫描 + 今日暂缓可逆 + 回来源；不改变 due 语义）
                         maintenance: {
                             scan: async () => {
-                                const out: { blockID: string; md: string; state?: string; rootID?: string }[] = [];
+                                const { findApproximateDuplicateCandidates } = await loadHubServices();
+                                const out: { blockID: string; md: string; state?: string; rootID?: string; occlusion?: boolean; exists?: boolean; mediaRefs?: string[]; mediaBroken?: string[]; mediaUnknown?: string[]; sourceHealthIssues?: { kind: string; detail: string }[] }[] = [];
                                 let error = "";
                                 try {
                                     // 按内核 pageCount/total 完整分页；异常时保留已扫描 ID 并告知 UI。
@@ -1113,20 +1348,55 @@ export default class LvCardsPlugin extends Plugin {
                                         ? ((plugin.i18n as any).maintenance[scan.issue.kind === "empty-page" ? "scanEmptyPage" : "scanRepeatedPage"] as string)
                                             .replace("${page}", String(scan.issue.page))
                                         : "");
-                                    const info = new Map<string, { md: string; root: string }>();
+                                    const info = new Map<string, { md: string; root: string; ial: string }>();
                                     for (let i = 0; i < ids.length; i += 50) {
                                         const chunk = ids.slice(i, i + 50);
-                                        const rows = await sqlQuery(`SELECT id, markdown, root_id FROM blocks WHERE id IN (${chunk.map(id => `'${id.replace(/'/g, "''")}'`).join(",")})`);
-                                        for (const r of rows) info.set(String(r.id), { md: String(r.markdown ?? ""), root: String(r.root_id ?? "") });
+                                        const rows = await sqlQuery(`SELECT id, markdown, root_id, ial FROM blocks WHERE id IN (${chunk.map(id => `'${id.replace(/'/g, "''")}'`).join(",")})`);
+                                        for (const r of rows) info.set(String(r.id), { md: String(r.markdown ?? ""), root: String(r.root_id ?? ""), ial: String(r.ial ?? "") });
                                     }
+                                    const occlusionIds = new Set<string>();
+                                    const occlusionCandidates = [...info.entries()].filter(([, meta]) => meta.ial.includes("lv-occlusion") && hasImageContent(meta.md));
+                                    await Promise.all(occlusionCandidates.map(async ([id, meta]) => {
+                                        if (await plugin.hasValidOcclusionCard(id, meta.md)) occlusionIds.add(id);
+                                    }));
                                     const states = new Map(plugin.contentLifecycles.lifecycles.map(l => [l.blockID, l.state]));
                                     for (const id of ids) {
                                         const meta = info.get(id);
-                                        out.push({ blockID: id, md: meta?.md ?? "", rootID: meta?.root ?? "", state: states.get(id) });
+                                        const md = meta?.md ?? "";
+                                        out.push({
+                                            blockID: id,
+                                            md,
+                                            rootID: meta?.root ?? "",
+                                            state: states.get(id),
+                                            occlusion: occlusionIds.has(id),
+                                            exists: Boolean(meta),
+                                            mediaRefs: extractMediaRefs(md).map(ref => ref.normalized),
+                                        });
                                     }
+                                    const refs = [...new Set(out.flatMap(card => card.mediaRefs ?? []))];
+                                    if (refs.length > 0) {
+                                        const probe = await probeAssetRefs(refs);
+                                        const missing = new Set(probe.missing);
+                                        const unknown = new Set(probe.unknown.filter(ref => /^assets\//i.test(ref)));
+                                        for (const card of out) {
+                                            const broken = (card.mediaRefs ?? []).filter(ref => missing.has(ref));
+                                            const unresolved = (card.mediaRefs ?? []).filter(ref => unknown.has(ref));
+                                            if (broken.length > 0) card.mediaBroken = broken;
+                                            if (unresolved.length > 0) card.mediaUnknown = unresolved;
+                                        }
+                                    }
+                                    await plugin.reconcileSourceHealthForScan(out);
                                 } catch (e) { error = e instanceof Error ? e.message : String(e); }
-                                return { items: out, error: error || undefined };
+                                return {
+                                    items: out,
+                                    sourceHealthHistory: sourceHealthHistories(plugin.sourceHealth),
+                                    approximateDuplicates: findApproximateDuplicateCandidates(out),
+                                    error: error || undefined,
+                                };
                             },
+                            previewRepair: (proposals: BatchRepairProposal[]) => plugin.previewMaintenanceRepair(proposals),
+                            applyRepair: (previewID: string) => plugin.applyMaintenanceRepair(previewID),
+                            acknowledgeSourceHealth: (blockID: string) => plugin.acknowledgeSourceHealth(blockID),
                             suspendToday: (blockIDs: string[]) => plugin.suspendTodayMutations.suspend(blockIDs),
                             // BI-25 验收「撤销」：批量恢复（今日不学移除，次日语义不受影响）
                             unsuspendToday: (blockIDs: string[]) => plugin.suspendTodayMutations.unsuspend(blockIDs),
@@ -1140,6 +1410,7 @@ export default class LvCardsPlugin extends Plugin {
                                     openTab({ app: plugin.app, doc: { id: blockID } });
                                 }
                             },
+                            openCard: (blockID: string) => this.openTabOf(TAB_DASHBOARD, { tab: "manage", focusBlockID: blockID }),
                         },
                         recovery: {
                             load: async () => ({
@@ -1669,6 +1940,25 @@ export default class LvCardsPlugin extends Plugin {
                     if (opts.skipAdd) {
                         return;
                     }
+                    const escapedIDs = blockIDs.map(id => `'${id.replace(/'/g, "''")}'`).join(",");
+                    const rows = await sqlQuery(`SELECT id, markdown FROM blocks WHERE id IN (${escapedIDs})`);
+                    const markdownById = new Map(rows.map(row => [String(row.id), String(row.markdown ?? "")]));
+                    const invalidIds: string[] = [];
+                    for (const id of blockIDs) {
+                        const markdown = markdownById.get(id) ?? "";
+                        const occlusionValid = await this.hasValidOcclusionCard(id, markdown);
+                        const decision = validateCardEntry({
+                            blockID: id,
+                            markdown,
+                            exists: markdownById.has(id),
+                            occlusionValid,
+                        });
+                        if (!decision.ok) invalidIds.push(id);
+                    }
+                    if (invalidIds.length > 0) {
+                        showMessage(this.i18n.flashcardNeedsAnswer, 3000, "error");
+                        return false;
+                    }
                     const dupes = await checkDuplicateCards(blockIDs);
                     if (dupes > 0) {
                         return confirmDialogBool({
@@ -1679,7 +1969,12 @@ export default class LvCardsPlugin extends Plugin {
                 },
                 onConfirm: async (deckID: string) => {
                     if (!opts.skipAdd) {
-                        await addRiffCards(deckID, blockIDs);
+                        try {
+                            await addRiffCards(deckID, blockIDs);
+                        } catch (error) {
+                            showMessage(formatRiffCardEntryError(error, this.i18n), 3000, "error");
+                            return false;
+                        }
                         showMessage(this.i18n.deckAdded.replace("${n}", String(blockIDs.length)), 2000, "info");
                     }
                     opts.onPicked?.(deckID);
@@ -1723,6 +2018,7 @@ export default class LvCardsPlugin extends Plugin {
                 blockID,
                 onSave: async () => {
                     await addRiffCards(deckID, [blockID]);
+                    await this.rememberSourceFingerprint(blockID);
                     showMessage((this.i18n as any).occlusion.occlusionSaved, 2000, "info");
                 },
                 onClose: () => { /* svelteDialog 自理销毁 */ },
@@ -1743,34 +2039,37 @@ export default class LvCardsPlugin extends Plugin {
             }
             showMessage(this.i18n.deckRemoved.replace("${n}", String(result.removedCount)), 2000, "info");
         } catch (e: any) {
-            showMessage(e?.message ?? String(e), 3000, "error");
+            showMessage(formatRiffCardEntryError(e, this.i18n, e?.message ?? String(e)), 3000, "error");
         }
     }
 
     /** 自诊断（AD）：脱敏环境信息复制到剪贴板，供 issue 附带 */
     private async copyDiagnostics() {
-        let kv = "?";
         try {
-            kv = await kernelVersion();
-        } catch { /* 旁路 */ }
-        const text = buildDiagnosticsText({
-            pluginVersion: (this as any).manifest?.version ?? "unknown",
-            kernelVersion: kv,
-            v2State: this.flashcardV2 ? this.flashcardV2.state : null,
-            modules: this.settings.modules,
-            revlogCount: this.revlog.entries.length,
-            streak: calcStreak(this.revlog),
-            dueToday: this.lastDue,
-            plansCount: this.examPlans.plans.length,
-            persistStats: this.persist.stats(),
-            hasPersistFailures: this.persist.hasFailures(),
-            dueCacheStats: dueCache.stats(),
-            recentLogDump: lvLogDump(),
-        });
-        navigator.clipboard.writeText(text).then(
-            () => showMessage(this.i18n.diagCopied, 2000, "info"),
-            () => showMessage(this.i18n.diagFail, 3000, "error"),
-        );
+            const { buildDiagnosticsText } = await loadHubServices();
+            let kv = "?";
+            try {
+                kv = await kernelVersion();
+            } catch { /* 旁路 */ }
+            const text = buildDiagnosticsText({
+                pluginVersion: (this as any).manifest?.version ?? "unknown",
+                kernelVersion: kv,
+                v2State: this.flashcardV2 ? this.flashcardV2.state : null,
+                modules: this.settings.modules,
+                revlogCount: this.revlog.entries.length,
+                streak: calcStreak(this.revlog),
+                dueToday: this.lastDue,
+                plansCount: this.examPlans.plans.length,
+                persistStats: this.persist.stats(),
+                hasPersistFailures: this.persist.hasFailures(),
+                dueCacheStats: dueCache.stats(),
+                recentLogDump: lvLogDump(),
+            });
+            await navigator.clipboard.writeText(text);
+            showMessage(this.i18n.diagCopied, 2000, "info");
+        } catch {
+            showMessage(this.i18n.diagFail, 3000, "error");
+        }
     }
 
     /** AnkiConnect 客户端连接测试（M9·FR1） */
@@ -1835,6 +2134,7 @@ export default class LvCardsPlugin extends Plugin {
     }
 
     private async buildExamReportMd(plan: ExamPlan): Promise<string> {
+        const { renderExamReportMarkdown } = await loadHubServices();
         // AR-11：时间窗固定为「计划创建以来」，范围按计划过滤；无法归属的记录单独列示
         let inScope: ((e: { deckID?: string; blockID?: string }) => boolean) | undefined;
         if (plan.scopeKind === "deck") {
@@ -1864,21 +2164,25 @@ export default class LvCardsPlugin extends Plugin {
     }
 
     /** 内置帮助文档（485）：同路径复用「小驴闪卡/使用帮助」文档，内容随插件更新；
-     * 帮助文案经动态 import 走独立 chunk（不占主包体积预算） */
+     * 帮助文案随 hub chunk 按需加载。 */
     private async openHelpDoc() {
-        const nb = await this.targetNotebook();
-        if (!nb) {
-            showMessage(this.i18n.onboardingNoNotebook, 2500, "error");
-            return;
+        try {
+            const nb = await this.targetNotebook();
+            if (!nb) {
+                showMessage(this.i18n.onboardingNoNotebook, 2500, "error");
+                return;
+            }
+            const { helpMarkdown } = await loadHubServices();
+            const lang = (window.siyuan as any)?.languages?.lang ?? "zh_CN";
+            const docID = await createDocWithMd(nb.id, "小驴闪卡/使用帮助", helpMarkdown(lang));
+            if (!docID) {
+                showMessage(this.i18n.quickCardFail, 2500, "error");
+                return;
+            }
+            openTab({ app: this.app, doc: { id: docID } });
+        } catch (error) {
+            this.reportDialogOpenFailure(this.i18n.openHelp, error);
         }
-        const { helpMarkdown } = await import("./help");
-        const lang = (window.siyuan as any)?.languages?.lang ?? "zh_CN";
-        const docID = await createDocWithMd(nb.id, "小驴闪卡/使用帮助", helpMarkdown(lang));
-        if (!docID) {
-            showMessage(this.i18n.quickCardFail, 2500, "error");
-            return;
-        }
-        openTab({ app: this.app, doc: { id: docID } });
     }
 
     /** 示例工作区（476）：创建 5 张不同形态的示例卡（普通/公式/挖空/列表/问答）并入「示例卡组」 */
@@ -1913,14 +2217,16 @@ export default class LvCardsPlugin extends Plugin {
         if (!nb) {
             throw new Error(this.i18n.onboardingNoNotebook);
         }
-        await executeQuickCardCreation({
+        const created = await executeQuickCardCreation({
             nbId: nb.id,
             markdown,
             deckID,
+            qualityErrorMessage: this.i18n.flashcardNeedsAnswer,
             q,
             a,
             mutateKnowledgeObjects: (mutator) => this.knowledgeObjectsMutations(mutator),
         });
+        await this.rememberSourceFingerprint(created.blockID, created.docID, markdown);
         showMessage(this.i18n.quickCardDone, 2000, "info");
     }
 
@@ -2023,7 +2329,7 @@ export default class LvCardsPlugin extends Plugin {
                     const qaIds: string[] = [];
                     for (const it of picked.filter(p => p.kind === "qa")) {
                         // 单块问答：软换行分隔问/答（与快速制卡同构）
-                        const ids = await appendBlock("markdown", `${it.front}\n${it.back}`, docID);
+                        const ids = await appendBlock("markdown", serializeQaCard(it.front, it.back), docID);
                         if (ids?.length) {
                             qaIds.push(ids[0]);
                         }
@@ -2031,7 +2337,13 @@ export default class LvCardsPlugin extends Plugin {
                     const wholePicked = picked.filter(p => p.kind === "whole").map(p => p.blockID);
                     const all = [...qaIds, ...wholePicked];
                     if (all.length > 0) {
-                        await addRiffCards(deckID, all);
+                        try {
+                            await addRiffCards(deckID, all);
+                            await Promise.all(qaIds.map(id => this.rememberSourceFingerprint(id, docID)));
+                            await Promise.all(wholePicked.map(id => this.rememberSourceFingerprint(id)));
+                        } catch (error) {
+                            throw new Error(formatRiffCardEntryError(error, this.i18n));
+                        }
                     }
                     showMessage(this.i18n.markerCreated.replace("${n}", String(all.length)), 2500, "info");
                 },
@@ -2596,6 +2908,15 @@ export default class LvCardsPlugin extends Plugin {
     }
 
     private async createAICardsOnce(cards: { q: string; a: string; origIndex: number }[], deckID: string, _deckName: string, jobId: string) {
+        const qualityIssues = findAiCardGateIssues(cards);
+        if (qualityIssues.some(issues => issues.length > 0)) {
+            throw new Error((this.i18n as any).aiWizard.qualityBlocked);
+        }
+        try {
+            for (const card of cards) serializeQaCard(card.q, card.a);
+        } catch {
+            throw new Error((this.i18n as any).aiWizard.invalidDraft);
+        }
         const nb = await this.targetNotebook();
         if (!nb) {
             throw new Error(this.i18n.onboardingNoNotebook);
@@ -2623,6 +2944,7 @@ export default class LvCardsPlugin extends Plugin {
             const candidate = job?.candidates[card.origIndex];
             if (candidate?.status === "created" && candidate.blockID) {
                 blockIDs.push(candidate.blockID);
+                await this.rememberSourceFingerprint(candidate.blockID, docID);
                 continue;
             }
             // 写入前先按作业+候选稳定标记查找。若内核写成功后进程在记账前崩溃，
@@ -2639,14 +2961,16 @@ export default class LvCardsPlugin extends Plugin {
                     // 查询不可用时仍允许继续写入；成功后候选状态会阻止同一进程内重复。
                 }
             }
+            const cardMarkdown = buildAiCardBlockMarkdown(card.q, card.a, marker);
             if (!blockID) {
-                const ids = await appendBlock("markdown", buildAiCardBlockMarkdown(card.q, card.a, marker), docID);
+                const ids = await appendBlock("markdown", cardMarkdown, docID);
                 blockID = ids[0] ?? "";
             }
             if (!blockID) throw new Error(this.i18n.quickCardFail);
             blockIDs.push(blockID);
             // ADR-7：逐卡入组成功即记账（单卡批），origIndex 指向作业 candidates 原位（✕ 移除后仍正确）
             await addRiffCards(deckID, [blockID]);
+            await this.rememberSourceFingerprint(blockID, docID, cardMarkdown);
             if (job) {
                 const r = transitionJob(job, { type: "CARD_CREATED", index: card.origIndex, blockID });
                 if (r.ok) {
@@ -3082,7 +3406,7 @@ export default class LvCardsPlugin extends Plugin {
             if (type === TAB_DASHBOARD && data?.tab && typeof data.tab === "string") {
                 existing.panelElement
                     ?.querySelector(".lv-hub")
-                    ?.dispatchEvent(new CustomEvent("lv-switch-tab", { detail: data.tab }));
+                    ?.dispatchEvent(new CustomEvent("lv-switch-tab", { detail: { tab: data.tab, focusBlockID: data.focusBlockID } }));
             }
             return;
         }
@@ -3190,6 +3514,7 @@ export default class LvCardsPlugin extends Plugin {
                             }
                         },
                     },
+                    rememberSourceFingerprint: (blockID: string, rootID?: string, markdown?: string) => this.rememberSourceFingerprint(blockID, rootID, markdown),
                     // BU-31：紧急停用/撤销同意（停用即清理待发队列；事件记录不含敏感内容）
                     killswitch: {
                         snapshot: () => this.killSwitch,

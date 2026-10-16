@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { analyzeFaceRichness, hasRichContent, faceHintKeys, plainFace } from "../src/core/card-face";
+import { analyzeFaceRichness, hasRichContent, faceHintKeys, plainFace, maskMarkedAnswersForQuestion } from "../src/core/card-face";
 
 // AS-3 富内容卡面分析：六特征识别 + 提示键派生；纯文本全 false
 describe("card-face（AS-3 富内容分析）", () => {
@@ -34,5 +34,17 @@ describe("card-face（AS-3 富内容分析）", () => {
     it("提示键有序且与特征一一对应", () => {
         const r = analyzeFaceRichness("<table></table><img src='x'/>");
         expect(faceHintKeys(r)).toEqual(["aiFace.hint.image", "aiFace.hint.table"]);
+    });
+});
+
+describe("问题态答案副本", () => {
+    it("清空挖空文本与富内容并从读屏树隐藏，保留近似空白长度", () => {
+        const holder = document.createElement("div");
+        holder.innerHTML = maskMarkedAnswersForQuestion('<p>线粒体的功能是 <span data-type="mark"><b>产生 ATP</b><img alt="答案图" src="x.png" /></span></p>');
+        const mark = holder.querySelector("span[data-type='mark']")!;
+        expect(mark.textContent).toBe("\u00a0".repeat(6));
+        expect(mark.getAttribute("aria-hidden")).toBe("true");
+        expect(mark.querySelector("img")).toBeNull();
+        expect(holder.textContent).not.toContain("产生 ATP");
     });
 });
