@@ -56,7 +56,29 @@
     // 初值：默认样例的坏卡题面（切换样例时由 pickSample 重置）
     // svelte-ignore state_referenced_locally -- 初值刻意的
     draft = samples[0].brokenQ;
+
+    function onKeydown(e: KeyboardEvent) {
+        if (e.key === "Escape") {
+            e.preventDefault();
+            onClose();
+            return;
+        }
+        if (e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement) return;
+        if (e.key === "ArrowRight") {
+            if (step < STEPS) {
+                e.preventDefault();
+                step += 1;
+            }
+        } else if (e.key === "ArrowLeft") {
+            if (step > 1) {
+                e.preventDefault();
+                step -= 1;
+            }
+        }
+    }
 </script>
+
+<svelte:window on:keydown={onKeydown} />
 
 <div class="lv-aiwiz b3-typography">
     <div class="lv-ob-head">
@@ -122,7 +144,7 @@
                     {#if revealed}
                         <div style="border-top: 1px solid var(--lv-border); padding-top: 12px; margin-top: calc(var(--lv-space-unit) * 6); line-height: 1.65">{sample.answer}</div>
                     {:else}
-                        <button class="b3-button" style="margin-top: calc(var(--lv-space-unit) * 4)" onclick={() => (revealed = true)}>{t.drillReveal}</button>
+                        <button class="b3-button lv-btn-primary" style="margin-top: calc(var(--lv-space-unit) * 4)" onclick={() => (revealed = true)}>{t.drillReveal}</button>
                     {/if}
                 </div>
                 <div class="lv-notice">{t.drillPracticeNote}</div>
@@ -141,3 +163,17 @@
     </div>
     <div class="ft__smaller ft__on-surface" style="margin-top: var(--lv-sp-3); text-align: center">{t.drillFoot}</div>
 </div>
+
+<style>
+    .lv-aiwiz :global(.lv-card2) {
+        transition: transform var(--lv-dur-2) var(--lv-ease),
+            border-color var(--lv-dur-1) var(--lv-ease),
+            box-shadow var(--lv-dur-2) var(--lv-ease);
+
+        &:hover {
+            transform: translateY(-1px);
+            border-color: var(--lv-border-strong);
+            box-shadow: var(--lv-shadow-card-hover), var(--lv-inset-shine);
+        }
+    }
+</style>
