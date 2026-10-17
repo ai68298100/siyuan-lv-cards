@@ -915,7 +915,7 @@
         <!-- 深度统计首行：连续/用时/总量瓦片（R53 T01 上限 4——次级指标折叠在此） -->
         <div class="fn__flex fn__flex-wrap lv-cards">
             <div class="lv-stat-cell">
-                <LvStat label={t.dashboard.streak} value={streak} tone="warn" animate />
+                <LvStat label={t.dashboard.streak} value={streak} tone="warn" animate badge={streak >= 3 ? "🔥" : undefined} />
             </div>
             {#if todayStudyMinutes > 0}
                 <div class="lv-stat-cell">

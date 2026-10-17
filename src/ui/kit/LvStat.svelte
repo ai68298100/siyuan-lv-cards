@@ -1,7 +1,7 @@
 <script lang="ts">
     import LvProgress from "./LvProgress.svelte";
 
-    let { label, value, detail = "", denom = "", tone = "primary", progress = -1, animate = false, spark = null }: {
+    let { label, value, detail = "", denom = "", tone = "primary", progress = -1, animate = false, spark = null, badge = "" }: {
         label: string;
         value: number | string;
         detail?: string;
@@ -15,6 +15,8 @@
         animate?: boolean;
         /** R53 迷你走势（真实近期数据才传；null 不渲染） */
         spark?: number[] | null;
+        /** 激励角标（如连击火焰 🔥） */
+        badge?: string;
     } = $props();
 
     const toneColor = {
@@ -73,7 +75,9 @@
         <span class="lv-stat-dot" style={`background: ${toneColor[tone]}`}></span>{label}
     </div>
     {#if detail}<div class="lv-stat-detail">{detail}</div>{/if}
-    <div class="lv-hero-num" class:lv-num-zero={isZero}>{display}{#if denom && denom !== "0"}<span class="lv-stat-denom">/ {denom}</span>{/if}</div>
+    <div class="lv-hero-num" class:lv-num-zero={isZero}>
+        {display}{#if denom && denom !== "0"}<span class="lv-stat-denom">/ {denom}</span>{/if}{#if badge}<span class="lv-stat-badge" aria-label={badge}>{badge}</span>{/if}
+    </div>
     {#if progress >= 0}
         <div class="lv-stat-progress"><LvProgress value={progress} /></div>
     {/if}
@@ -114,6 +118,17 @@
         -webkit-background-clip: initial;
         background-clip: initial;
         margin-left: calc(var(--lv-space-unit) * 2);
+    }
+    .lv-stat-badge {
+        font-size: 16px;
+        margin-left: calc(var(--lv-space-unit) * 2);
+        display: inline-block;
+        vertical-align: middle;
+        animation: lv-streak-pop var(--lv-dur-2) var(--lv-ease);
+    }
+    @keyframes lv-streak-pop {
+        from { transform: scale(0.6); opacity: 0; }
+        to { transform: scale(1); opacity: 1; }
     }
     .lv-stat .lv-stat-detail {
         min-height: 18px;

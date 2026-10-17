@@ -640,7 +640,17 @@ import { confirmDialog } from "@/libs/dialog";
     subtitle={t.manager.scopeNote}
 >
     {#snippet actions()}
-        <input id="lv-manager-filter" class="b3-text-field lv-filter" type="text" aria-label={t.manager.filterLabel} placeholder={t.manager.filterPlaceholder} bind:value={filterText} oninput={() => { selected = []; filterDirty = true; }} />
+        <div class="lv-filter-wrap">
+            <input id="lv-manager-filter" class="b3-text-field lv-filter" type="text" aria-label={t.manager.filterLabel} placeholder={t.manager.filterPlaceholder} bind:value={filterText} oninput={() => { selected = []; filterDirty = true; }} />
+            {#if filterText}
+                <button
+                    type="button"
+                    class="lv-filter-clear"
+                    aria-label={t.manager.clearSearch ?? "清空搜索"}
+                    onclick={() => { filterText = ""; selected = []; filterDirty = true; }}
+                >✕</button>
+            {/if}
+        </div>
         <button class="b3-button b3-button--small lv-btn-ghost" disabled={loading || batchBusy !== null} onclick={load}>{t.dashboard.refresh}</button>
     {/snippet}
 
@@ -873,6 +883,35 @@ import { confirmDialog } from "@/libs/dialog";
 {/if}
 
 <style lang="scss">
+    .lv-filter-wrap {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+
+        .lv-filter {
+            padding-right: calc(var(--lv-space-unit) * 7);
+        }
+    }
+    .lv-filter-clear {
+        position: absolute;
+        right: calc(var(--lv-space-unit) * 3);
+        width: 18px;
+        height: 18px;
+        border: 0;
+        border-radius: var(--lv-r-circle);
+        background: color-mix(in srgb, var(--lv-color-text) 12%, transparent);
+        color: var(--lv-color-text-muted);
+        font-size: 10px;
+        display: grid;
+        place-items: center;
+        cursor: pointer;
+        transition: background var(--lv-dur-1) var(--lv-ease), color var(--lv-dur-1) var(--lv-ease);
+
+        &:hover {
+            background: color-mix(in srgb, var(--lv-color-text) 22%, transparent);
+            color: var(--lv-color-text);
+        }
+    }
     .lv-filter {
         width: min(100%, 280px);
         min-height: 38px;
@@ -912,15 +951,21 @@ import { confirmDialog } from "@/libs/dialog";
     }
 
     .lv-batchbar {
+        position: sticky;
+        top: var(--lv-sp-2);
+        z-index: 10;
         display: flex;
         align-items: center;
         gap: var(--lv-sp-2);
         border: 1px solid var(--lv-primary-border);
         border-radius: var(--lv-r-m);
-        background: var(--lv-primary-softer);
-        box-shadow: var(--lv-shadow-card), var(--lv-inset-shine);
-        padding: var(--lv-sp-2) var(--lv-sp-3);
+        background: color-mix(in srgb, var(--lv-primary-soft) 85%, var(--lv-color-surface));
+        backdrop-filter: blur(10px) saturate(1.15);
+        -webkit-backdrop-filter: blur(10px) saturate(1.15);
+        box-shadow: var(--lv-shadow-card-hover), var(--lv-inset-shine);
+        padding: calc(var(--lv-space-unit) * 3) var(--lv-sp-3);
         margin-bottom: var(--lv-sp-2);
+        animation: lv-modal-pop var(--lv-dur-1) var(--lv-ease);
     }
     .lv-batch-error {
         color: var(--lv-color-danger);

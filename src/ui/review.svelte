@@ -2662,6 +2662,23 @@
 
             &:hover { box-shadow: var(--lv-shadow-card-hover), var(--lv-inset-shine); }
 
+            // 超长卡面底部柔和滚动指示羽化（防突兀截断）
+            &::after {
+                content: "";
+                position: sticky;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                height: 20px;
+                background: linear-gradient(to bottom, transparent, var(--lv-color-surface));
+                pointer-events: none;
+                margin-top: -20px;
+                display: block;
+                border-bottom-left-radius: var(--lv-r-dialog);
+                border-bottom-right-radius: var(--lv-r-dialog);
+                opacity: 0.9;
+            }
+
             // 问题态遮罩规则已移至 index.scss 全局（scoped 编译会误剪 :global 结尾选择器）
 
             .lv-typing { margin-top: var(--lv-sp-3); }

@@ -629,6 +629,7 @@
         "filterEmpty": "No cards match this filter",
         "filterEmptyCurrentPage": "No matches on this page. Search and filters apply only to the loaded page; clear the filters to continue browsing.",
         "filterClear": "Clear filter",
+        "clearSearch": "Clear search",
         "batchSelected": "${n} selected",
         "batchRemove": "Remove",
         "batchReset": "Reset",
