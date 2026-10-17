@@ -1006,14 +1006,25 @@
                     </thead>
                     <tbody>
                         {#each ddRows as row (row.deckID)}
+                            {@const deckName = decks.find(d => d.id === row.deckID)?.name ?? row.deckID}
                             <tr>
-                                <td>{decks.find(d => d.id === row.deckID)?.name ?? row.deckID}</td>
+                                <td class="lv-deck-name">
+                                    <button
+                                        type="button"
+                                        class="b3-button b3-button--text lv-deck-btn"
+                                        title={deckName}
+                                        onclick={() => ctx.openManagerDeck?.(row.deckID, deckName)}
+                                    >
+                                        <span>{deckName}</span>
+                                        <span class="lv-arrow" aria-hidden="true">›</span>
+                                    </button>
+                                </td>
                                 <td style="text-align:right;font-variant-numeric:tabular-nums">{row.dueToday}</td>
                                 <td style="text-align:right;font-variant-numeric:tabular-nums">{row.newCount}</td>
                                 <td style="text-align:right;font-variant-numeric:tabular-nums">{row.reviews7}</td>
-                                <td style="text-align:right;font-variant-numeric:tabular-nums">{row.retention === null ? t.dashboard.unknown : row.retention + "%"}</td>
-                                <td style="text-align:right;font-variant-numeric:tabular-nums">{row.leeches}</td>
-                                <td style="text-align:right"><button class="b3-button b3-button--small lv-btn-ghost" disabled={ddExportBusy} onclick={() => exportDeckShare(row.deckID, decks.find(d => d.id === row.deckID)?.name ?? row.deckID)}>{t.dashboard.ddShareBtn}</button></td>
+                                <td style="text-align:right;font-variant-numeric:tabular-nums" class:lv-dd-retention-good={row.retention !== null && row.retention >= 85} class:lv-dd-retention-low={row.retention !== null && row.retention < 70}>{row.retention === null ? t.dashboard.unknown : row.retention + "%"}</td>
+                                <td style="text-align:right;font-variant-numeric:tabular-nums" class:lv-dd-leech-warn={row.leeches > 0}>{row.leeches > 0 ? `⚠️ ${row.leeches}` : 0}</td>
+                                <td style="text-align:right"><button class="b3-button b3-button--small lv-btn-ghost" disabled={ddExportBusy} onclick={() => exportDeckShare(row.deckID, deckName)}>{t.dashboard.ddShareBtn}</button></td>
                             </tr>
                         {/each}
                     </tbody>
@@ -1529,6 +1540,34 @@
         .lv-first-use { margin: var(--lv-sp-3) 0; }
         .lv-first-use-steps { grid-template-columns: 1fr; gap: 0; }
         .lv-first-use-steps > div { padding: var(--lv-sp-2) 0; }
+    }
+
+    .lv-deck-btn {
+        padding: 0;
+        text-align: left;
+        color: var(--lv-color-text);
+        font-weight: var(--lv-fw-medium);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 220px;
+        display: inline-flex;
+        align-items: center;
+
+        &:hover {
+            color: var(--lv-color-brand);
+        }
+    }
+    .lv-dd-retention-good {
+        color: var(--lv-color-success);
+        font-weight: var(--lv-fw-semibold);
+    }
+    .lv-dd-retention-low {
+        color: var(--lv-color-danger);
+    }
+    .lv-dd-leech-warn {
+        color: var(--lv-color-warning);
+        font-weight: var(--lv-fw-semibold);
     }
 
     .lv-table .lv-deck-name .lv-arrow {

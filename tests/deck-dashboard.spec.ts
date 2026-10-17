@@ -35,7 +35,7 @@ describe("buildDeckDashboard", () => {
         expect(rows.find(r => r.deckID === "d2")!.retention).toBeNull();
     });
 
-    it("顽固卡：窗口内遗忘 ≥3 次的卡计数一次", () => {
+    it("易混淆卡：窗口内遗忘 ≥3 次的卡计数一次", () => {
         const entries = [
             e("d1", "cx", 1, 1), e("d1", "cx", 1, 3), e("d1", "cx", 1, 5),  // 同卡 3 遗忘 → 1 张
             e("d1", "cy", 1, 2), e("d1", "cy", 1, 4),                        // 2 遗忘 → 不足

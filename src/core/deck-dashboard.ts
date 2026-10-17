@@ -1,10 +1,10 @@
 /**
  * 卡组仪表盘（T-卡组 · docs/41 P1 · 纯逻辑 node 可单测）。
  * 口径（docs/28 数据边界）：
- * - 复习/遗忘/保持率/顽固卡全部来自本地复习日志（revlog 条目自带 deckID）；
+ * - 复习/遗忘/保持率/易混淆卡全部来自本地复习日志（revlog 条目自带 deckID）；
  * - 今日到期/新卡来自内核 getRiffDueCards(deckID)（调用方预取后传入）；
- * - 保持率样本不足（<minRetentionSamples）如实标 null；「顽固卡」= 窗口内遗忘 ≥leechForgotten 次的卡，
- *   是近窗口的近似口径，不冒充内核的全量烂卡判定。
+ * - 保持率样本不足（<minRetentionSamples）如实标 null；「易混淆卡」= 窗口内遗忘 ≥leechForgotten 次的卡，
+ *   是近窗口的近似口径，不冒充内核的全量易混淆卡判定。
  */
 
 export interface DeckDashEntry {
@@ -27,7 +27,7 @@ export interface DeckDashboardRow {
     newCount: number;
     /** 近 30 天保持率（rating>1 占比）0-100；样本不足为 null */
     retention: number | null;
-    /** 窗口内遗忘 ≥ leechForgotten 次的卡数（近似顽固卡） */
+    /** 窗口内遗忘 ≥ leechForgotten 次的卡数（近似易混淆卡） */
     leeches: number;
 }
 
@@ -39,7 +39,7 @@ export interface DeckDashOptions {
     retentionDays?: number;
     /** 保持率最小样本数，低于则 null，默认 8 */
     minRetentionSamples?: number;
-    /** 顽固卡遗忘次数阈值，默认 3 */
+    /** 易混淆卡遗忘次数阈值，默认 3 */
     leechForgotten?: number;
 }
 
