@@ -42,6 +42,8 @@ export interface LvCardsSettings {
     gatewayState: string;
     /** 卡面字号缩放（438）：0.85-1.25，1=跟随主题 */
     cardFontScale: number;
+    /** 自定义卡面样式（仅作用于卡面正文内部） */
+    customCardCss: string;
     /** 热力图范围（439）：周数 */
     heatmapWeeks: number;
     /** T01 深度统计展开态（docs/40）：记忆用户上次的选择 */
@@ -187,6 +189,7 @@ export function defaultSettings(): LvCardsSettings {
         markerEnabled: true,
         gatewayState: "",
         cardFontScale: 1,
+        customCardCss: "",
         heatmapWeeks: 17,
         deepStatsOpen: false,
         sessionBudgetMin: 15,
@@ -269,7 +272,7 @@ const BOOL_FIELDS: (keyof LvCardsSettings)[] = [
     "sfxEnabled", "examEnabled", "dailyTipEnabled", "onboarded", "aiCostBudgetEnabled", "weeklyReportEnabled",
 ];
 const STR_FIELDS: (keyof LvCardsSettings)[] = [
-    "weeklyReportLast",
+    "weeklyReportLast", "customCardCss",
     "gatewayState", "ttsVoice", "aiEndpoint", "aiKey", "aiModel", "aiFallbackEndpoint", "aiFallbackKey",
     "aiFallbackModel", "aiSensitiveTerms", "aiPromptTemplate", "targetNotebookId", "ankiClientKey", "lastHubTab", "lastReviewScope", "lastManagerView",
 ];

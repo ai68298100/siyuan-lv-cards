@@ -27,6 +27,8 @@ export interface DeckDashboardRow {
     newCount: number;
     /** 近 30 天保持率（rating>1 占比）0-100；样本不足为 null */
     retention: number | null;
+    /** 近 7 天通过率 0-100；无作答为 null */
+    passRate7: number | null;
     /** 窗口内遗忘 ≥ leechForgotten 次的卡数（近似易混淆卡） */
     leeches: number;
 }
@@ -72,6 +74,7 @@ export function buildDeckDashboard(
                 dueToday: due?.due ?? 0,
                 newCount: due?.newCards ?? 0,
                 retention: null,
+                passRate7: null,
                 leeches: 0,
             };
             rows.set(deckID, r);
@@ -112,6 +115,8 @@ export function buildDeckDashboard(
         const pass = passBy.get(deckID) ?? 0;
         const fail = failBy.get(deckID) ?? 0;
         row.retention = pass + fail < minSamples ? null : Math.round((pass / (pass + fail)) * 100);
+        const total7 = row.reviews7 + row.forgotten7;
+        row.passRate7 = total7 > 0 ? Math.round((row.reviews7 / total7) * 100) : null;
     }
     for (const [key, n] of forgetByCard) {
         if (n < leechForgotten) continue;

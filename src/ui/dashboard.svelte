@@ -1023,7 +1023,7 @@
                                 </td>
                                 <td style="text-align:right;font-variant-numeric:tabular-nums">{row.dueToday}</td>
                                 <td style="text-align:right;font-variant-numeric:tabular-nums">{row.newCount}</td>
-                                <td style="text-align:right;font-variant-numeric:tabular-nums">{row.reviews7}</td>
+                                <td style="text-align:right;font-variant-numeric:tabular-nums" title={row.passRate7 !== null ? `7 天复习 ${row.reviews7} 次 · 通过率 ${row.passRate7}%` : `7 天复习 ${row.reviews7} 次`}>{row.reviews7}</td>
                                 <td style="text-align:right;font-variant-numeric:tabular-nums" class:lv-dd-retention-good={row.retention !== null && row.retention >= 85} class:lv-dd-retention-low={row.retention !== null && row.retention < 70}>{row.retention === null ? t.dashboard.unknown : row.retention + "%"}</td>
                                 <td style="text-align:right;font-variant-numeric:tabular-nums" class:lv-dd-leech-warn={row.leeches > 0}>{row.leeches > 0 ? `⚠️ ${row.leeches}` : 0}</td>
                                 <td style="text-align:right"><button class="b3-button b3-button--small lv-btn-ghost" disabled={ddExportBusy} onclick={() => exportDeckShare(row.deckID, deckName)}>{t.dashboard.ddShareBtn}</button></td>

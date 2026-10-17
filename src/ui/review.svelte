@@ -66,6 +66,8 @@
         dailyReviewTarget: number;
         /** 卡面字号缩放（438） */
         cardFontScale: number;
+        /** 自定义卡面样式（仅作用于卡面正文内部） */
+        customCardCss?: string;
         /** 评分按钮密度（441） */
         ratingDensity: "cozy" | "compact";
         /** 评分音效开关与风格（250） */
@@ -2225,7 +2227,12 @@
             {:else}
                 {#key current?.cardID}
                     <!-- 灵动感（R53 纪律内）：切卡 140ms 单次淡入，只动 opacity；翻面淡入由 lv-anim-glow 承担 -->
-                    <div class="lv-card-content" class:lv-masked={!showAnswer} onclick={onCardContentClick} style={`font-size: ${eff().cardFontScale || 1}em`} in:fade={{ duration: getMotionDuration("standard") }}>{@html showAnswer ? cardHtml : maskedCardHtml}</div>
+                    <div class="lv-card-content" class:lv-masked={!showAnswer} onclick={onCardContentClick} style={`font-size: ${eff().cardFontScale || 1}em`} in:fade={{ duration: getMotionDuration("standard") }}>
+                        {#if eff().customCardCss}
+                            {@html `<style>${eff().customCardCss}</style>`}
+                        {/if}
+                        {@html showAnswer ? cardHtml : maskedCardHtml}
+                    </div>
                 {/key}
             {/if}
             {#if showAnswer}

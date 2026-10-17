@@ -746,6 +746,9 @@
             <div class="ft__smaller ft__on-surface" style="margin-top: calc(var(--lv-space-unit) * 2)">{t.settings.previewSub}</div>
         </div>
         <div class="lv-card2" style={`max-width: 340px; font-size: ${draft.cardFontScale || 1}em; flex: 1; padding: calc(var(--lv-space-unit) * 6) calc(var(--lv-space-unit) * 8);`}>
+            {#if draft.customCardCss}
+                {@html `<style>${draft.customCardCss}</style>`}
+            {/if}
             <strong>{t.settings.previewQ}</strong>
             <div class="ft__smaller ft__on-surface" style="margin-top: calc(var(--lv-space-unit) * 2)">{t.settings.previewA}</div>
             <div class="lv-settings-preview-rating" style="margin-top: var(--lv-sp-3); display: flex; gap: var(--lv-sp-1); flex-wrap: wrap;">
@@ -1244,6 +1247,16 @@
     <LvSection title={t.settings.appearance}>
         <LvRow label={t.settings.cardFontScale}>
             <LvSlider value={draft.cardFontScale} min={0.85} max={1.25} step={0.05} suffix="×" onchange={(v) => (draft.cardFontScale = v)} />
+        </LvRow>
+        <LvRow label={t.settings.customCardCss ?? "自定义卡面样式（CSS）"} hint={t.settings.customCardCssHint ?? "注入自定义 CSS 规则，仅作用于卡面内容（如字体、颜色、字间距等）"}>
+            {#snippet children()}
+                <textarea
+                    class="b3-text-field fn__block"
+                    rows="3"
+                    placeholder={t.settings.customCardCssPlaceholder ?? ".lv-card-content { font-family: sans-serif; }"}
+                    bind:value={draft.customCardCss}
+                ></textarea>
+            {/snippet}
         </LvRow>
         <LvRow label={t.settings.ratingDensity}>
             <LvSegmented

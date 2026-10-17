@@ -21,8 +21,8 @@ describe("buildDeckDashboard", () => {
         ]);
         const rows = buildDeckDashboard(entries, ["d1", "d2"], due, { now: NOW });
         expect(rows[0].deckID).toBe("d1"); // 到期多者在前
-        expect(rows[0]).toMatchObject({ reviews7: 1, forgotten7: 1, dueToday: 4, newCount: 2 });
-        expect(rows[1]).toMatchObject({ reviews7: 1, forgotten7: 0, dueToday: 0 });
+        expect(rows[0]).toMatchObject({ reviews7: 1, forgotten7: 1, dueToday: 4, newCount: 2, passRate7: 50 });
+        expect(rows[1]).toMatchObject({ reviews7: 1, forgotten7: 0, dueToday: 0, passRate7: 100 });
     });
 
     it("保持率：样本足够才算百分比，不足为 null", () => {
@@ -53,6 +53,6 @@ describe("buildDeckDashboard", () => {
     it("无复习记录的卡组仍显示到期/新卡", () => {
         const due = new Map([["d9", { due: 6, newCards: 3 }]]);
         const rows = buildDeckDashboard([], ["d9"], due, { now: NOW });
-        expect(rows[0]).toMatchObject({ deckID: "d9", dueToday: 6, newCount: 3, reviews7: 0, retention: null });
+        expect(rows[0]).toMatchObject({ deckID: "d9", dueToday: 6, newCount: 3, reviews7: 0, retention: null, passRate7: null });
     });
 });

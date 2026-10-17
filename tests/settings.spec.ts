@@ -129,6 +129,9 @@ describe("settings 运行时字段校验（AQ-22）", () => {
         expect(s.mixedRotation).toBe(false);
         expect(normalizeSettings({ mixedRotation: true }).mixedRotation).toBe(true);
         expect(s.aiKey).toBe("");
+        expect(s.customCardCss).toBe("");
+        expect(normalizeSettings({ customCardCss: ".card { color: red; }" }).customCardCss).toBe(".card { color: red; }");
+        expect(normalizeSettings({ topbarDirectReview: true }).topbarDirectReview).toBe(true);
         expect(s.ankiClientUrl).toBe("http://127.0.0.1:8765");
         expect(s.reminderTime).toBe("20:00");
         expect(s.quietStart).toBe("23:00");
