@@ -419,6 +419,8 @@
         "liveQueued": "复习队列已加载 ${n} 张",
         "qualityExcluded": "本场已隔离 ${n} 张结构异常或无法验证的卡片；它们仍保持原到期状态。修复后可重新检查。",
         "qualityRecheck": "修复后重新检查",
+        "openMaintenance": "前往维护中心修复",
+        "createCards": "去制作新卡",
         "tbPause": "暂停",
         "pauseTitle": "暂停这场复习",
         "pauseDesc": "当前范围、进度与本场偏好已安全保留。未提交的卡片不会计为完成。",

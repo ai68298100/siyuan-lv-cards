@@ -1886,9 +1886,12 @@
         {/if}
     {/if}
     {#if qualityExcludedCardIDs.length > 0}
-        <div class="lv-notice lv-notice--warn" role="status" aria-live="polite">
+        <div class="lv-notice lv-notice--warn" role="status" aria-live="polite" style="display: flex; align-items: center; justify-content: space-between; gap: var(--lv-sp-2); flex-wrap: wrap;">
             <span>{t.review.qualityExcluded.replace("${n}", String(qualityExcludedCardIDs.length))}</span>
-            <button class="b3-button b3-button--small b3-button--outline" onclick={recheckQualityExcluded}>{t.review.qualityRecheck}</button>
+            <div style="display: flex; gap: var(--lv-sp-2); align-items: center;">
+                <button class="b3-button b3-button--small b3-button--outline" onclick={recheckQualityExcluded}>{t.review.qualityRecheck}</button>
+                <button class="b3-button b3-button--small lv-btn-primary" onclick={() => ctx.openDashboard("maintenance")}>{t.review.openMaintenance ?? "前往维护中心修复"}</button>
+            </div>
         </div>
     {/if}
     {#if loading}
@@ -1951,8 +1954,9 @@
                         {/if}
                     </select>
                 </label>
-                <div class="fn__flex lv-done-actions" style="justify-content: center; margin-top: var(--lv-sp-4); gap: var(--lv-sp-2)">
+                <div class="fn__flex lv-done-actions" style="justify-content: center; margin-top: var(--lv-sp-4); gap: var(--lv-sp-2); flex-wrap: wrap;">
                     <button class="b3-button lv-btn-primary" onclick={() => ctx.openDashboard()}>🏠 {t.review.returnHome ?? "返回闪卡主页"}</button>
+                    <button class="b3-button b3-button--outline" onclick={() => ctx.openDashboard("authoring")}>+ {t.review.createCards ?? "去制作新卡"}</button>
                     <button class="b3-button b3-button--outline" onclick={() => ctx.openDashboard("manage")}>{t.menuManager}</button>
                     <button class="b3-button b3-button--outline" onclick={loadQueue}>{t.dashboard.refresh}</button>
                 </div>

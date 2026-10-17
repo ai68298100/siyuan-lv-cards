@@ -419,6 +419,8 @@
         "liveQueued": "Review queue loaded: ${n} cards",
         "qualityExcluded": "${n} cards with invalid or unverifiable structure were set aside for this session; their due state is unchanged. Recheck after repairing them.",
         "qualityRecheck": "Recheck after repair",
+        "openMaintenance": "Go to Maintenance to Repair",
+        "createCards": "Create Cards",
         "tbPause": "Pause",
         "pauseTitle": "Pause Current Session",
         "pauseDesc": "Current scope, progress and session preferences are preserved. Unsubmitted cards will not count as completed.",

@@ -566,4 +566,20 @@ describe("review async action guards", () => {
         expect(testCtx.openDashboard).toHaveBeenCalledOnce();
         view.unmount();
     });
+
+    it("navigates to authoring and dashboard from empty queue panel", async () => {
+        const testCtx = ctx();
+        getRiffDueCards.mockResolvedValueOnce({ cards: [] });
+        const view = render(Review, { ctx: testCtx });
+
+        const authoringBtn = await screen.findByRole("button", { name: /\+ (t\.review\.createCards|去制作新卡)/ });
+        await fireEvent.click(authoringBtn);
+        expect(testCtx.openDashboard).toHaveBeenCalledWith("authoring");
+
+        const homeBtns = screen.getAllByRole("button", { name: /🏠 (t\.review\.returnHome|返回闪卡主页|返回主页)/ });
+        expect(homeBtns.length).toBeGreaterThan(0);
+        await fireEvent.click(homeBtns[0]);
+        expect(testCtx.openDashboard).toHaveBeenCalledWith();
+        view.unmount();
+    });
 });
