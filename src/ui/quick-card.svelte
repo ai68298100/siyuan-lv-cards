@@ -30,6 +30,8 @@
     let disposed = false;
     onDestroy(() => { disposed = true; });
 
+    const isMac = typeof navigator !== "undefined" && /(Mac|iPhone|iPod|iPad)/i.test(navigator.userAgent || navigator.platform || "");
+
     const canCreateDeck = $derived(decks.some(d => d.id === selected) || !!newName.trim());
     const clozeParts = $derived(q.split("____"));
     const hasClozeMarker = $derived(clozeParts.length > 1);
@@ -138,10 +140,10 @@
     <div class="lv-qc-toolbar">
         <div class="lv-qc-template" role="group" aria-label={t.quickCardTemplateLabel}>
             <button type="button" class:lv-qc-template-active={template === "qa"} aria-pressed={template === "qa"} disabled={busy} onclick={() => setTemplate("qa")}>
-                <strong>{t.quickCardTemplateQA}</strong><span>{t.quickCardTemplateQADesc}</span>
+                <strong>💬 {t.quickCardTemplateQA}</strong><span>{t.quickCardTemplateQADesc}</span>
             </button>
             <button type="button" class:lv-qc-template-active={template === "cloze"} aria-pressed={template === "cloze"} disabled={busy} onclick={() => setTemplate("cloze")}>
-                <strong>{t.quickCardTemplateCloze}</strong><span>{t.quickCardTemplateClozeDesc}</span>
+                <strong>✏️ {t.quickCardTemplateCloze}</strong><span>{t.quickCardTemplateClozeDesc}</span>
             </button>
         </div>
         <div class="lv-qc-field lv-qc-deck">
@@ -185,7 +187,18 @@
             <p class="lv-qc-guidance">{t.quickCardOneFactHint}</p>
         </section>
         <section class="lv-qc-preview" aria-label={t.quickCardPreviewTitle}>
-            <div class="lv-qc-preview-heading"><span>{t.quickCardPreviewTitle}</span><span>{t.quickCardPreviewNote}</span></div>
+            <div class="lv-qc-preview-heading">
+                <div class="lv-qc-preview-tags">
+                    <span>{t.quickCardPreviewTitle}</span>
+                    <span class="lv-chip2 lv-chip2--default">
+                        {#if template === "qa" && isBidirectional}⇄ {t.cardTypeBadgeBidi ?? "双向"}
+                        {:else if template === "cloze"}✏️ {t.cardTypeBadgeCloze ?? "挖空"}
+                        {:else}💬 {t.cardTypeBadgeQA ?? "问答"}
+                        {/if}
+                    </span>
+                </div>
+                <span>{t.quickCardPreviewNote}</span>
+            </div>
             <div class="lv-qc-preview-face lv-unified-face" id="lv-qc-preview-face">
                 <span class="lv-qc-preview-label">{t.quickCardPreviewFront}</span>
                 {#if q.trim()}
@@ -222,7 +235,7 @@
     <div class="b3-dialog__action lv-qc-actions">
         {#if !embedded}<button class="b3-button b3-button--cancel" disabled={busy} onclick={onClose}>{window.siyuan.languages.cancel}</button>{/if}
         <button class="b3-button lv-btn-primary" disabled={!canSubmit} onclick={confirm}>
-            {t.quickCardCreate} <LvKbd k="Ctrl ↵" />
+            {t.quickCardCreate} <LvKbd k={isMac ? "⌘ ↵" : "Ctrl ↵"} />
         </button>
     </div>
 </div>
@@ -291,7 +304,8 @@
     .lv-quickcard .lv-qc-help { margin-top: calc(var(--lv-space-unit) * 2 + var(--lv-space-hairline)); }
     .lv-qc-guidance { margin: 0; color: var(--lv-color-text-muted); font-size: var(--lv-type-control-size); line-height: 1.65; }
     .lv-qc-preview { display: flex; min-width: 0; flex-direction: column; gap: var(--lv-sp-3); margin: 0; }
-    .lv-qc-preview-heading { display: flex; justify-content: space-between; gap: calc(var(--lv-space-unit) * 5); font-size: 13px; font-weight: var(--lv-fw-semibold); }
+    .lv-qc-preview-heading { display: flex; justify-content: space-between; align-items: center; gap: calc(var(--lv-space-unit) * 5); font-size: 13px; font-weight: var(--lv-fw-semibold); }
+    .lv-qc-preview-tags { display: inline-flex; align-items: center; gap: var(--lv-sp-2); }
     .lv-qc-preview-heading span + span { color: var(--lv-color-text-muted); font-size: 11px; font-weight: var(--lv-fw-normal); }
     .lv-qc-preview-face {
         min-width: 0;

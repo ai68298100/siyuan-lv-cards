@@ -1342,10 +1342,50 @@
     }
     .lv-first-use-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: var(--lv-sp-2); margin: calc(var(--lv-space-unit) * 11) 0 calc(var(--lv-space-unit) * 13); }
     .lv-first-use-actions button { min-height: 44px; }
-    .lv-first-use-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--lv-sp-3); text-align: left; }
-    .lv-first-use-steps > div { display: flex; min-width: 0; align-items: center; gap: var(--lv-sp-2); padding: var(--lv-sp-3); border-top: 1px solid var(--lv-border); }
-    .lv-first-use-steps span { display: grid; width: 28px; height: 28px; flex: none; place-items: center; border-radius: 50%; background: var(--lv-primary-soft); color: var(--lv-color-brand); font-size: var(--lv-type-control-size); font-weight: 700; }
-    .lv-first-use-steps p { color: var(--lv-color-text); font-size: 13px; line-height: var(--lv-lh-meta); }
+    .lv-first-use-steps {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: var(--lv-sp-3);
+        text-align: left;
+    }
+    .lv-first-use-steps > div {
+        display: flex;
+        min-width: 0;
+        align-items: center;
+        gap: var(--lv-sp-3);
+        padding: calc(var(--lv-space-unit) * 4) calc(var(--lv-space-unit) * 5);
+        border: 1px solid var(--lv-border);
+        border-radius: var(--lv-r-m);
+        background: var(--lv-color-surface);
+        box-shadow: var(--lv-shadow-card), var(--lv-inset-shine);
+        transition: transform var(--lv-dur-1) var(--lv-ease),
+            border-color var(--lv-dur-1) var(--lv-ease),
+            box-shadow var(--lv-dur-1) var(--lv-ease);
+
+        &:hover {
+            transform: translateY(-1px);
+            border-color: var(--lv-border-strong);
+            box-shadow: var(--lv-shadow-card-hover), var(--lv-inset-shine);
+        }
+    }
+    .lv-first-use-steps span {
+        display: grid;
+        width: 28px;
+        height: 28px;
+        flex: none;
+        place-items: center;
+        border-radius: 50%;
+        background: var(--lv-primary-soft);
+        color: var(--lv-color-brand);
+        font-size: var(--lv-type-control-size);
+        font-weight: 700;
+    }
+    .lv-first-use-steps p {
+        margin: 0;
+        color: var(--lv-color-text);
+        font-size: 13px;
+        line-height: var(--lv-lh-meta);
+    }
     .lv-refresh-status { margin: 0 0 var(--lv-sp-2); color: var(--lv-color-text-muted); font-size: var(--lv-type-control-size); }
     .lv-today-decks { margin: var(--lv-sp-4) 0; }
     .lv-today-decks-head { display: flex; align-items: center; justify-content: space-between; gap: var(--lv-sp-2); margin-bottom: var(--lv-sp-2); }
@@ -1395,6 +1435,7 @@
     }
     @container lv-hub (max-width: 560px) {
         .lv-today-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .lv-first-use-steps { grid-template-columns: 1fr; }
     }
 
     /* AQ-12 覆盖：首屏一行 caption + 深度区行明细 */

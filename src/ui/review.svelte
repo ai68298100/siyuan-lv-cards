@@ -2155,22 +2155,6 @@
                     <span class="lv-breadcrumb-text">{currentHPath}</span>
                 </button>
             {/if}
-            {#if cardMemo && showAnswer}
-                <!-- 汲取自渐进学习插件：给未来的自己留助记线索 -->
-                <div class="lv-card-memo-callout">
-                    <span class="lv-memo-icon" aria-hidden="true">💡</span>
-                    <div class="lv-memo-body">
-                        <strong>{t.review.memoTitle ?? "助记线索"}</strong>
-                        <p>{cardMemo}</p>
-                    </div>
-                    <button
-                        type="button"
-                        class="b3-button b3-button--text b3-button--small lv-memo-edit-btn"
-                        title={t.review.memoEdit ?? "修改助记线索"}
-                        onclick={() => (showMemoEditor = true)}
-                    >✎</button>
-                </div>
-            {/if}
             {#if !cardHtml && faceError}
                 <!-- AS-3：卡面加载失败占位（不白屏；重试不丢队列位置） -->
                 <div class="lv-center" style="display: flex; flex-direction: column; gap: calc(var(--lv-space-unit) * 5); align-items: center; justify-content: center; min-height: 220px" role="status">
@@ -2187,6 +2171,36 @@
                     <!-- 灵动感（R53 纪律内）：切卡 140ms 单次淡入，只动 opacity；翻面淡入由 lv-anim-glow 承担 -->
                     <div class="lv-card-content" class:lv-masked={!showAnswer} style={`font-size: ${eff().cardFontScale || 1}em`} in:fade={{ duration: getMotionDuration("standard") }}>{@html showAnswer ? cardHtml : maskedCardHtml}</div>
                 {/key}
+            {/if}
+            {#if showAnswer}
+                {#if cardMemo}
+                    <!-- 汲取自渐进学习插件：给未来的自己留助记线索 -->
+                    <div class="lv-card-memo-callout">
+                        <span class="lv-memo-icon" aria-hidden="true">💡</span>
+                        <div class="lv-memo-body">
+                            <strong>{t.review.memoTitle ?? "助记线索"}</strong>
+                            <p>{cardMemo}</p>
+                        </div>
+                        <button
+                            type="button"
+                            class="b3-button b3-button--text b3-button--small lv-memo-edit-btn"
+                            title={t.review.memoEdit ?? "修改助记线索"}
+                            onclick={() => (showMemoEditor = true)}
+                        >✎</button>
+                    </div>
+                {:else if cardHtml && !faceError}
+                    <!-- 翻面后轻量静默入口：随时为该卡记录口诀与线索 -->
+                    <div class="lv-memo-prompt">
+                        <button
+                            type="button"
+                            class="lv-memo-add-btn"
+                            title={t.review.memoModalTitle ?? "给未来的自己留助记线索"}
+                            onclick={() => (showMemoEditor = true)}
+                        >
+                            <span>💡 {t.review.tbMemo ?? "助记便签"}</span>
+                        </button>
+                    </div>
+                {/if}
             {/if}
             {#if faceHints.length > 0 && !faceError}
                 <!-- AS-3：富内容提示行（特征告知 + 窄屏横滚提示；只读不遮挡） -->
@@ -3115,6 +3129,37 @@
                 p { margin: 0; color: var(--lv-color-text); line-height: 1.5; font-size: var(--lv-type-control-size); }
             }
             .lv-memo-edit-btn { flex: none; opacity: 0.7; &:hover { opacity: 1; } }
+        }
+
+        .lv-memo-prompt {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: var(--lv-sp-2);
+        }
+        .lv-memo-add-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            border: 1px dashed var(--lv-border);
+            border-radius: var(--lv-r-pill);
+            background: transparent;
+            color: var(--lv-color-text-muted);
+            font-size: 11px;
+            padding: 2px 8px;
+            cursor: pointer;
+            opacity: 0.75;
+            transition: all var(--lv-dur-1) var(--lv-ease);
+
+            &:hover {
+                opacity: 1;
+                color: var(--lv-color-brand);
+                border-color: var(--lv-primary-border);
+                background: var(--lv-surface-hover);
+                transform: translateY(-1px);
+            }
+            &:active {
+                transform: translateY(1px);
+            }
         }
 
         .lv-menu-danger {

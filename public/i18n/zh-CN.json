@@ -991,6 +991,7 @@
     "cardTypeBadgeCode": "代码",
     "cardTypeBadgeList": "清单",
     "cardTypeBadgeOcclusion": "遮挡",
+    "cardTypeBadgeBidi": "双向",
     "quickCardFail": "制卡失败，请重试",
     "quickCardDeckLoading": "正在读取卡组…",
     "quickCardDeckLoadFail": "读取卡组失败：${error}",

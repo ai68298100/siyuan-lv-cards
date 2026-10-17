@@ -991,6 +991,7 @@
     "cardTypeBadgeCode": "Code",
     "cardTypeBadgeList": "List",
     "cardTypeBadgeOcclusion": "Occlusion",
+    "cardTypeBadgeBidi": "Bidirectional",
     "quickCardFail": "Card creation failed, please retry",
     "quickCardDeckLoading": "Loading decks…",
     "quickCardDeckLoadFail": "Could not load decks: ${error}",
