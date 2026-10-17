@@ -98,7 +98,7 @@
         "stats": "统计中心",
         "stats_desc": "热力图、连击、官方统计可视化（V2）、报告导出",
         "manager": "闪卡管理器",
-        "manager_desc": "跨复习集浏览、搜索、批量操作、烂卡工作台",
+        "manager_desc": "跨复习集浏览、搜索、批量操作、易混淆卡工作台",
         "create": "制卡工作流",
         "create_desc": "块菜单制卡与 AI 制卡向导（必过预览）",
         "exam": "考试模式",
@@ -516,7 +516,7 @@
         "tplAtomicSplit": "原子事实拆解",
         "tplClozeLeakCheck": "题面反泄漏审查",
         "tplDistractorCause": "带错因干扰项",
-        "tplLeechRewrite": "烂卡改写",
+        "tplLeechRewrite": "易混淆卡改写",
         "recoveryTitle": "上次会话现场",
         "returnTriageTitle": "欢迎回来——根据上次的收工原因，今天的建议方案",
         "returnDismiss": "知道了，按我的节奏来",
@@ -654,7 +654,7 @@
         "deleteSaved": "删除该筛选",
         "deleteSavedConfirm": "确定删除已保存的筛选？此操作不可撤销。",
         "filterSaved": "筛选已收藏",
-        "leechFilter": "只看烂卡",
+        "leechFilter": "只看易混淆卡",
         "statusLabel": "按状态过滤",
         "statusAll": "状态：全部",
         "statusNew": "状态：新卡",
@@ -727,7 +727,7 @@
         "timeoutForget": "到点揭示并提醒自评",
         "timeoutSeconds": "超时秒数",
         "randomOrder": "随机顺序（本插件内洗牌）",
-        "leechThreshold": "烂卡（leech）遗忘次数阈值",
+        "leechThreshold": "易混淆卡（Leech）遗忘次数门限",
         "exam": "考试模式",
         "examEnabled": "启用考试 deadline 模式",
         "examDate": "考试日期",
@@ -1234,11 +1234,11 @@
         "none": "还没有 AI 制卡批次。"
     },
     "leech": {
-        "title": "烂卡重写清单",
+        "title": "易混淆卡重写清单",
         "sub": "遗忘次数达到阈值的卡（阈值在设置中调整）；起点为插件启用日",
         "lapses": "遗忘",
         "rewrite": "打开改写",
-        "none": "没有达到阈值的烂卡 ✓",
+        "none": "没有达到遗忘门限的易混淆卡片 ✓",
         "rewriteAI": "AI 改写"
     },
     "cmdOpenExam": "打开考试中心",
@@ -1527,7 +1527,7 @@
     "tplAtomicSplit": "原子事实拆解",
     "tplClozeLeakCheck": "挖空反泄漏审查",
     "tplDistractorCause": "带错因干扰项",
-    "tplLeechRewrite": "烂卡改写",
+    "tplLeechRewrite": "易混淆卡改写",
     "loadRelief": {
         "title": "负荷重？可以换个打法（点击看影响）",
         "narrow": "缩小范围",
@@ -1898,7 +1898,7 @@
     "aiEquiv": {
         "entry": {
             "cards-generate": "AI 制卡向导",
-            "leech-rewrite": "烂卡 AI 改写",
+            "leech-rewrite": "易混淆卡 AI 改写",
             "repair-drill": "修卡演练（零 AI）",
             "no-ai": "全程不使用 AI"
         },
@@ -1910,7 +1910,7 @@
             ],
             "leech-rewrite": [
                 "手动改写：打开卡片来源，自行重写题面（改写三步法见修卡演练）",
-                "删除重建：删掉烂卡后用快速制卡重写"
+                "删除重建：删掉难点卡后用快速制卡重写"
             ]
         },
         "loss": {

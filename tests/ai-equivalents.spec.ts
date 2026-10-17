@@ -14,7 +14,7 @@ describe("ai-equivalents（BU-40）", () => {
         }
     });
 
-    it("有 AI 的入口（制卡/烂卡改写）必须至少一条替代路径；零 AI 入口无替代（自身即路径）", () => {
+    it("有 AI 的入口（制卡/易混淆卡改写）必须至少一条替代路径；零 AI 入口无替代（自身即路径）", () => {
         expect(aiPoweredEntries().map(e => e.entry)).toEqual(["cards-generate", "leech-rewrite"]);
         expect(AI_EQUIVALENTS["cards-generate"].altKeys.length).toBeGreaterThanOrEqual(3);
         expect(AI_EQUIVALENTS["leech-rewrite"].altKeys.length).toBeGreaterThanOrEqual(2);

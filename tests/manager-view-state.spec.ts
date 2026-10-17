@@ -31,7 +31,7 @@ const i18n = {
         openDoc: "打开文档", emptyContentFallback: "空卡面", dueLoadFailed: "今日到期列表加载失败",
         filterEmptyCurrentPage: "当前页没有匹配项", filterClear: "清除筛选", empty: "没有卡片",
         saveFilter: "收藏筛选", savedFilters: "已存筛选", deleteSaved: "删除筛选", filterSaved: "筛选已收藏",
-        leechFilter: "只看烂卡", batchConfirm: "确认批量操作 ${n}", batchRemove: "移除", batchReset: "重置",
+        leechFilter: "只看易混淆卡", batchConfirm: "确认批量操作 ${n}", batchRemove: "移除", batchReset: "重置",
         batchCancel: "取消选择", exportCsv: "导出 CSV", obExportHint: "导出提示", obExport: "导出 Obsidian",
         batchSelected: "已选 ${n} 张", batchDone: "已移除 ${n} 张", batchResetDone: "已重置 ${n} 张",
         deleteCard: "移除这张卡", deleteConfirm: "确认移除", deleteDone: "已移除", deckScopeClear: "查看全部卡组",

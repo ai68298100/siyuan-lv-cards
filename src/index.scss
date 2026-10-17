@@ -735,11 +735,16 @@
         color: var(--lv-color-text);
     }
 
+    &:not(:disabled):active {
+        transform: translateY(1px) scale(0.97);
+    }
+
     &.lv-chipbtn-active {
         background: var(--lv-primary-soft);
-        border-color: transparent;
+        border-color: var(--lv-primary-border);
         color: var(--lv-color-brand);
         font-weight: var(--lv-fw-semibold);
+        box-shadow: 0 1px 2px color-mix(in srgb, var(--lv-color-brand) 12%, transparent);
     }
 
     .lv-chipbtn-count { font-variant-numeric: tabular-nums; opacity: 0.75; font-weight: var(--lv-fw-emphasis); }
@@ -1192,5 +1197,41 @@
         background: var(--lv-color-canvas);
         border: 1px solid var(--lv-border);
         margin: var(--lv-sp-2) 0;
+    }
+
+    // 引用块排版与温和品牌色边线
+    blockquote {
+        border-left: 3px solid var(--lv-color-brand);
+        padding: var(--lv-sp-2) var(--lv-sp-3);
+        margin: var(--lv-sp-2) 0;
+        background: var(--lv-surface-hover);
+        border-radius: 0 var(--lv-r-s) var(--lv-r-s) 0;
+        color: var(--lv-color-text-muted);
+        font-style: italic;
+    }
+
+    // 列表间距与排版
+    ul, ol {
+        padding-left: calc(var(--lv-space-unit) * 6);
+        margin: var(--lv-sp-2) 0;
+        li {
+            margin: 3px 0;
+            line-height: var(--lv-lh-reading-loose);
+        }
+    }
+
+    // 表格卡面自适应
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: var(--lv-sp-3) 0;
+        th, td {
+            padding: var(--lv-sp-2) var(--lv-sp-3);
+            border: 1px solid var(--lv-border);
+        }
+        th {
+            background: var(--lv-color-canvas);
+            font-weight: var(--lv-fw-semibold);
+        }
     }
 }
