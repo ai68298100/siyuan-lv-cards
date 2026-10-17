@@ -536,7 +536,7 @@
                                 <button class="b3-button b3-button--small" disabled={!!sourceHealthPendingId || repairBusy || rollbackBusy} aria-busy={sourceHealthPendingId === d.blockID} onclick={() => acknowledgeSource(d.blockID)}>{sourceHealthPendingId === d.blockID ? repairText("sourceHealthUpdating", "更新中…") : repairText("sourceHealthAcknowledge", "确认当前来源")}</button>
                             {/if}
                             <button class="b3-button b3-button--small" disabled={!!sourcePendingId} aria-busy={sourcePendingId === d.blockID} onclick={() => openSource(d.blockID)}>{sourcePendingId === d.blockID ? t.opening : t.open}</button>
-                            <button class="b3-button b3-button--small" onclick={() => maintenance.openCard(d.blockID)}>{t.editCard}</button>
+                            <button class="b3-button b3-button--small lv-btn-primary" onclick={() => maintenance.openCard(d.blockID)}>{t.editCard}</button>
                         </div>
                     {/each}
                 </div>
@@ -676,6 +676,20 @@
         align-items: center;
         gap: var(--lv-sp-2);
         margin-bottom: var(--lv-sp-2);
+        padding: calc(var(--lv-space-unit) * 3) calc(var(--lv-space-unit) * 4);
+        border: 1px solid var(--lv-border);
+        border-radius: var(--lv-r-m);
+        background: var(--lv-color-surface);
+        box-shadow: var(--lv-shadow-card), var(--lv-inset-shine);
+        transition: transform var(--lv-dur-2) var(--lv-ease),
+            border-color var(--lv-dur-1) var(--lv-ease),
+            box-shadow var(--lv-dur-2) var(--lv-ease);
+
+        &:hover {
+            transform: translateY(-1px);
+            border-color: var(--lv-border-strong);
+            box-shadow: var(--lv-shadow-card-hover), var(--lv-inset-shine);
+        }
     }
     .lv-maint-main { flex: 1; min-width: 0; }
     .lv-maint-excerpt { font-size: var(--lv-type-body-size); overflow-wrap: anywhere; }
@@ -705,7 +719,26 @@
     .lv-maint-repair-diff summary { cursor: pointer; color: var(--b3-theme-primary); }
     .lv-maint-repair-diff pre { max-height: 150px; margin: var(--lv-sp-1) 0 0; padding: var(--lv-sp-2); overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; background: var(--b3-theme-surface); font: inherit; }
     .lv-maint-repair-error { color: var(--b3-theme-error); margin-top: var(--lv-sp-1); overflow-wrap: anywhere; }
-    .lv-maint-similar-row { display: flex; align-items: center; gap: var(--lv-sp-2); margin-bottom: var(--lv-sp-2); }
+    .lv-maint-similar-row {
+        display: flex;
+        align-items: center;
+        gap: var(--lv-sp-2);
+        margin-bottom: var(--lv-sp-2);
+        padding: calc(var(--lv-space-unit) * 3) calc(var(--lv-space-unit) * 4);
+        border: 1px solid var(--lv-border);
+        border-radius: var(--lv-r-m);
+        background: var(--lv-color-surface);
+        box-shadow: var(--lv-shadow-card), var(--lv-inset-shine);
+        transition: transform var(--lv-dur-2) var(--lv-ease),
+            border-color var(--lv-dur-1) var(--lv-ease),
+            box-shadow var(--lv-dur-2) var(--lv-ease);
+
+        &:hover {
+            transform: translateY(-1px);
+            border-color: var(--lv-border-strong);
+            box-shadow: var(--lv-shadow-card-hover), var(--lv-inset-shine);
+        }
+    }
     .lv-maint-similar-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--lv-sp-2); margin-top: var(--lv-sp-2); }
     .lv-maint-similar-card { min-width: 0; padding: var(--lv-sp-2); border: 1px solid var(--b3-border-color); border-radius: var(--b3-border-radius); background: var(--b3-theme-surface); }
     .lv-maint-similar-card-head { display: flex; align-items: baseline; gap: var(--lv-sp-1); margin-bottom: var(--lv-sp-1); }
