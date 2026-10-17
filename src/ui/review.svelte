@@ -42,6 +42,7 @@
     import LvError from "./kit/LvError.svelte";
     import LvSkeleton from "./kit/LvSkeleton.svelte";
     import { friendlyError } from "@/api/errors";
+    import { triggerHaptic } from "@/core/haptic";
     import { lvLog } from "@/libs/log";
 
     export interface ReviewSettings {
@@ -1257,6 +1258,7 @@
         if (!current || sessionPaused || (!showAnswer && !force) || submitting || rescheduleBusy) {
             return;
         }
+        triggerHaptic(rating === 1 ? [15, 30, 15] : 12);
         recovery = null; // BI-9：已开始评分=隐式选择继续原场
         submitting = true;
         pushHistory();
@@ -1605,7 +1607,7 @@
                 returnFocus();
                 break;
             case "reveal":
-                showAnswer = true;
+                revealAnswer();
                 break;
             case "rate-default":
                 rate(3);
@@ -1698,7 +1700,13 @@
         const action = reviewSwipeAction(showAnswer, dx, dy);
         if (action === "good") { rate(3); }
         else if (action === "again") { rate(1); }
-        else if (action === "reveal" && faceReady) { showAnswer = true; }
+        else if (action === "reveal" && faceReady) { revealAnswer(); }
+    }
+
+    function revealAnswer() {
+        if (!faceReady || showAnswer) return;
+        showAnswer = true;
+        triggerHaptic(10);
     }
 
     function onContainerClick(e: MouseEvent) {
@@ -1706,7 +1714,7 @@
             return;
         }
         if (!showAnswer && current && faceReady) {
-            showAnswer = true;
+            revealAnswer();
         }
     }
 
@@ -2373,7 +2381,7 @@
                     {#if !showAnswer}
                         <button class="b3-button b3-button--small lv-btn-ghost" onclick={advanceHint}>{t.review.hintBtn}</button>
                     {/if}
-                    <button class="b3-button b3-button--text lv-reveal" disabled={!faceReady} onclick={() => (showAnswer = true)}>{t.review.showAnswer}</button>
+                    <button class="b3-button b3-button--text lv-reveal" disabled={!faceReady} onclick={revealAnswer}>{t.review.showAnswer}</button>
                 </div>
                 <span class="lv-reveal-hint" aria-hidden="true">⎵ {t.review.revealHint}</span>
             {/if}
@@ -2500,7 +2508,7 @@
             {/if}
             <div class="lv-actions" class:lv-actions-compact={eff().ratingDensity === "compact"}>
             {#if !showAnswer}
-                <button class="b3-button lv-btn-primary lv-btn-wide" disabled={!faceReady} onclick={() => (showAnswer = true)}>{t.review.showAnswer}<span class="lv-btn-wide-kbd">Space</span></button>
+                <button class="b3-button lv-btn-primary lv-btn-wide" disabled={!faceReady} onclick={revealAnswer}>{t.review.showAnswer}<span class="lv-btn-wide-kbd">Space</span></button>
             {:else if eff().ratingStyle === "three"}
                 <button class="b3-button lv-btn-rate lv-b1" disabled={actionBusy} onclick={() => rate(1)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.unknown}</span><LvKbd k="1" /></span><small>{dueText("1")}</small></button>
                 <button class="b3-button lv-btn-rate lv-b2" disabled={actionBusy} onclick={() => rate(2)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.vague}</span><LvKbd k="2" /></span><small>{dueText("2")}</small></button>
