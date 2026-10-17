@@ -582,7 +582,7 @@
     let sessionModalWasOpen = false;
     let sessionModalTimeoutSeconds: number | undefined;
     $effect(() => {
-        const open = showPauseModal || showSessionOptionsModal;
+        const open = showPauseModal || showSessionOptionsModal || showMemoEditor || showRetireModal;
         if (open && sessionModalEl && !sessionModalWasOpen) {
             sessionModalWasOpen = true;
             sessionModalTimeoutSeconds = countdownCtrl?.getRemaining();
@@ -1535,13 +1535,16 @@
 
     function onKeydown(e: KeyboardEvent) {
         if (sessionPaused) return;
-        if (showPauseModal || showSessionOptionsModal) {
+        if (showPauseModal || showSessionOptionsModal || showMemoEditor || showRetireModal) {
             if (e.key === "Escape") {
                 showPauseModal = false;
                 showSessionOptionsModal = false;
+                showMemoEditor = false;
+                showRetireModal = false;
                 e.preventDefault();
+                returnFocus();
             } else if (e.key === "Tab" && sessionModalEl) {
-                const controls = Array.from(sessionModalEl.querySelectorAll<HTMLElement>("button:not(:disabled), select:not(:disabled)"));
+                const controls = Array.from(sessionModalEl.querySelectorAll<HTMLElement>("button:not(:disabled), select:not(:disabled), textarea:not(:disabled)"));
                 const first = controls[0], last = controls[controls.length - 1];
                 if (e.shiftKey && document.activeElement === first) { last?.focus(); e.preventDefault(); }
                 else if (!e.shiftKey && document.activeElement === last) { first?.focus(); e.preventDefault(); }
@@ -2565,7 +2568,7 @@
         <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
         <div class="lv-modal-backdrop lv-glass" tabindex="-1" onclick={() => (showMemoEditor = false)}>
             <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-            <div class="lv-pause-dialog lv-card2" role="dialog" aria-modal="true" aria-label={t.review.memoModalTitle} tabindex="-1" onclick={(e: Event) => e.stopPropagation()}>
+            <div class="lv-pause-dialog lv-card2" role="dialog" aria-modal="true" aria-label={t.review.memoModalTitle} tabindex="-1" bind:this={sessionModalEl} onclick={(e: Event) => e.stopPropagation()}>
                 <div class="lv-help-head">
                     <span style="font-weight:600;font-size:16px">💡 {t.review.memoModalTitle ?? "给未来的自己留助记线索"}</span>
                     <div class="fn__flex-1"></div>
@@ -2596,7 +2599,7 @@
         <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
         <div class="lv-modal-backdrop lv-glass" tabindex="-1" onclick={() => (showRetireModal = false)}>
             <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-            <div class="lv-pause-dialog lv-card2" role="dialog" aria-modal="true" aria-label={t.review.retireCardTitle} tabindex="-1" onclick={(e: Event) => e.stopPropagation()}>
+            <div class="lv-pause-dialog lv-card2" role="dialog" aria-modal="true" aria-label={t.review.retireCardTitle} tabindex="-1" bind:this={sessionModalEl} onclick={(e: Event) => e.stopPropagation()}>
                 <div class="lv-help-head">
                     <span style="font-weight:600;font-size:16px">🚫 {t.review.retireCardTitle ?? "移出复习卡组"}</span>
                     <div class="fn__flex-1"></div>
