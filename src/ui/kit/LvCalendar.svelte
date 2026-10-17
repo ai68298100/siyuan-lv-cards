@@ -108,6 +108,16 @@
         background: var(--lv-color-surface);
         min-height: 34px;
         box-sizing: border-box;
+        transition: transform var(--lv-dur-1) var(--lv-ease),
+            border-color var(--lv-dur-1) var(--lv-ease),
+            box-shadow var(--lv-dur-1) var(--lv-ease);
+
+        &:not(.lv-cal-off):hover {
+            transform: scale(1.08);
+            border-color: var(--lv-border-strong);
+            box-shadow: var(--lv-shadow-card-hover), var(--lv-inset-shine);
+            z-index: 1;
+        }
     }
     .lv-cal-day b { font-size: var(--lv-type-control-size); color: var(--lv-color-text); font-weight: var(--lv-fw-semibold); }
     .lv-cal-off { border-color: transparent; background: transparent; }
@@ -150,6 +160,13 @@
         border-top: 2px solid var(--lv-color-warning);
         border-radius: var(--lv-r-xs) var(--lv-r-xs) 0 0;
         min-height: 6px;
+        transition: transform var(--lv-dur-1) var(--lv-ease), background var(--lv-dur-1) var(--lv-ease);
+        cursor: pointer;
+
+        &:hover {
+            transform: scaleY(1.08);
+            background: color-mix(in srgb, var(--lv-color-warning) 45%, var(--lv-color-surface));
+        }
     }
     .lv-forecast i.lv-forecast-hi {
         background: color-mix(in srgb, var(--lv-color-warning) 40%, var(--lv-color-surface));
