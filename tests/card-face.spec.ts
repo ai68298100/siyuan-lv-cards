@@ -83,14 +83,44 @@ describe("统一卡面渲染管线（renderUnifiedCardFace & formatMarkdownToSaf
         expect(card.questionHtml).toContain('class="lv-masked"');
         expect(card.questionHtml).toContain('data-type="mark"');
         expect(card.questionHtml).toContain('aria-hidden="true"');
-        expect(card.questionHtml).toContain("［ 回忆这里 ］");
+        expect(card.questionHtml).toContain("［ 1: 回忆这里 ］");
+        expect(card.questionHtml).toContain("［ 2: 回忆这里 ］");
         expect(card.questionHtml).not.toContain("无状态");
         expect(card.questionHtml).not.toContain("80");
 
         expect(card.answerHtml).toContain('class="lv-revealed"');
+        expect(card.answerHtml).toContain('<span class="lv-revealed-idx">1</span>');
+        expect(card.answerHtml).toContain('<span class="lv-revealed-idx">2</span>');
         expect(card.answerHtml).toContain("无状态");
         expect(card.answerHtml).toContain("80");
         expect(card.richness.formula).toBe(false);
+        expect(card.cardType).toBe("cloze");
+        expect(card.clozeCount).toBe(2);
+    });
+
+    it("单挖空卡面保持简洁槽位（无需多余 1: 序号）", () => {
+        const card = renderUnifiedCardFace({
+            markdown: "光合作用发生在 ==叶绿体== 中。",
+        });
+        expect(card.extractedAnswers).toEqual(["叶绿体"]);
+        expect(card.questionHtml).toContain("［ 回忆这里 ］");
+        expect(card.questionHtml).not.toContain("［ 1:");
+        expect(card.cardType).toBe("cloze");
+        expect(card.clozeCount).toBe(1);
+    });
+
+    it("双向卡片支持逆向回忆模式（A ➔ Q 翻转问答）", () => {
+        const card = renderUnifiedCardFace({
+            question: "Mitochondria",
+            answer: "Powerhouse of the cell",
+            template: "qa",
+            reversed: true,
+        });
+        expect(card.questionHtml).toContain("Powerhouse of the cell");
+        expect(card.answerHtml).toContain("Powerhouse of the cell");
+        expect(card.answerHtml).toContain("Mitochondria");
+        expect(card.answerHtml).toContain("原问题 / 概念");
+        expect(card.cardType).toBe("qa");
     });
 
     it("正确处理普通问答题的题干与参考答案分区", () => {

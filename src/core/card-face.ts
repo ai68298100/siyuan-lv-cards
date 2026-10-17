@@ -90,6 +90,10 @@ export interface RenderedCardFace {
     richness: FaceRichness;
     /** 提取出的所有答案文本片段集合 */
     extractedAnswers: string[];
+    /** 卡片识别类型（供卡面呈现类型认知预备徽章） */
+    cardType: "cloze" | "qa" | "code" | "list";
+    /** 挖空数量（若为挖空卡） */
+    clozeCount: number;
 }
 
 function escapeHtml(text: string): string {
@@ -163,6 +167,8 @@ export function renderUnifiedCardFace(input: {
     template?: "qa" | "cloze";
     /** 参考答案标题，用于国际化；缺省为 "参考答案" */
     answerLabel?: string;
+    /** 双向卡逆向回忆模式（A ➔ Q） */
+    reversed?: boolean;
 }): RenderedCardFace {
     const template = input.template ?? (input.markdown ? "cloze" : "qa");
     let q = (input.question ?? "").trim();
@@ -194,38 +200,61 @@ export function renderUnifiedCardFace(input: {
             if (val) extractedAnswers.push(val);
         }
 
-        // 问题态：将 ==答案== 替换为语义化的遮蔽占位符
+        const isMulti = answerMatches.length > 1;
+
+        // 问题态：将 ==答案== 替换为语义化的遮蔽占位符（多空自动标号）
+        let qIdx = 0;
         const qMd = md.replace(clozePattern, (_m, _ans) => {
-            return `@@MASKED_SLOT@@`;
+            qIdx++;
+            return isMulti ? `@@MASKED_SLOT_${qIdx}@@` : `@@MASKED_SLOT@@`;
         });
         const formattedQ = formatMarkdownToSafeHtml(qMd);
-        questionHtml = formattedQ.replace(
-            /@@MASKED_SLOT@@/g,
-            `<mark class="lv-masked" data-type="mark" aria-hidden="true" title="答案遮蔽"><span class="lv-mask-slot">［ 回忆这里 ］</span></mark>`
-        );
+        questionHtml = isMulti
+            ? formattedQ.replace(
+                /@@MASKED_SLOT_(\d+)@@/g,
+                (_m, n) => `<mark class="lv-masked" data-type="mark" aria-hidden="true" title="答案遮蔽第 ${n} 空"><span class="lv-mask-slot">［ ${n}: 回忆这里 ］</span></mark>`
+            )
+            : formattedQ.replace(
+                /@@MASKED_SLOT@@/g,
+                `<mark class="lv-masked" data-type="mark" aria-hidden="true" title="答案遮蔽"><span class="lv-mask-slot">［ 回忆这里 ］</span></mark>`
+            );
 
-        // 答案态：将 ==答案== 替换为高亮揭晓标记
+        // 答案态：将 ==答案== 替换为高亮揭晓标记（多空带微徽标）
+        let aIdx = 0;
         const aMd = md.replace(clozePattern, (_m, ans) => {
-            return `@@REVEALED_START@@${ans}@@REVEALED_END@@`;
+            aIdx++;
+            return isMulti ? `@@REVEALED_START_${aIdx}@@${ans}@@REVEALED_END@@` : `@@REVEALED_START@@${ans}@@REVEALED_END@@`;
         });
         const formattedA = formatMarkdownToSafeHtml(aMd);
-        answerHtml = formattedA
-            .replace(/@@REVEALED_START@@/g, `<mark class="lv-revealed" data-type="mark"><span class="lv-revealed-text">`)
-            .replace(/@@REVEALED_END@@/g, `</span></mark>`);
+        answerHtml = isMulti
+            ? formattedA
+                .replace(/@@REVEALED_START_(\d+)@@/g, (_m, n) => `<mark class="lv-revealed" data-type="mark"><span class="lv-revealed-idx">${n}</span><span class="lv-revealed-text">`)
+                .replace(/@@REVEALED_END@@/g, `</span></mark>`)
+            : formattedA
+                .replace(/@@REVEALED_START@@/g, `<mark class="lv-revealed" data-type="mark"><span class="lv-revealed-text">`)
+                .replace(/@@REVEALED_END@@/g, `</span></mark>`);
     } else {
-        // 普通问答模式
-        const displayQ = q || md;
-        if (a) extractedAnswers.push(a);
+        // 普通问答模式（支持双向卡逆向回忆模式）
+        let displayQ = q || md;
+        let displayA = a;
+        let label = input.answerLabel ?? "参考答案";
+
+        if (input.reversed && a) {
+            displayQ = a;
+            displayA = q || md;
+            label = input.answerLabel ?? "原问题 / 概念";
+        }
+
+        if (displayA) extractedAnswers.push(displayA);
 
         questionHtml = `<div class="lv-card-q-section">${formatMarkdownToSafeHtml(displayQ)}</div>`;
-        if (a) {
-            const label = input.answerLabel ?? "参考答案";
+        if (displayA) {
             answerHtml = [
                 `<div class="lv-card-q-section">${formatMarkdownToSafeHtml(displayQ)}</div>`,
                 `<div class="lv-card-answer-divider"></div>`,
                 `<div class="lv-card-a-section">`,
                 `  <div class="lv-eyebrow lv-card-a-label">${escapeHtml(label)}</div>`,
-                `  <div class="lv-card-a-body">${formatMarkdownToSafeHtml(a)}</div>`,
+                `  <div class="lv-card-a-body">${formatMarkdownToSafeHtml(displayA)}</div>`,
                 `</div>`,
             ].join("\n");
         } else {
@@ -234,10 +263,27 @@ export function renderUnifiedCardFace(input: {
     }
 
     const richness = analyzeFaceRichness(answerHtml || questionHtml);
+
+    let cardType: "cloze" | "qa" | "code" | "list" = "qa";
+    if (hasCloze) {
+        cardType = "cloze";
+    } else if (richness.code) {
+        cardType = "code";
+    } else if (
+        (q && (q.includes("\n- ") || q.includes("\n1. "))) ||
+        (a && (a.includes("\n- ") || a.includes("\n1. "))) ||
+        md.includes("\n- ") ||
+        md.includes("\n1. ")
+    ) {
+        cardType = "list";
+    }
+
     return {
         questionHtml,
         answerHtml,
         richness,
         extractedAnswers,
+        cardType,
+        clozeCount: hasCloze ? extractedAnswers.length : 0,
     };
 }

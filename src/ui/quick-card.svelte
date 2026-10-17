@@ -23,6 +23,7 @@
     let deckLoadError = $state("");
     let errorMsg = $state("");
     let template = $state<"qa" | "cloze">("qa");
+    let isBidirectional = $state(false);
     let previewAnswer = $state(false);
     let createdNotice = $state("");
     let editorRoot: HTMLDivElement;
@@ -85,18 +86,34 @@
             }
             const question = q.trim();
             const answer = a.trim();
-            const markdown = template === "cloze"
-                ? question.split("____").join(`==${answer}==`)
-                : serializeQaCard(question, answer);
-            await onCreate(markdown, deckID, deckName, question, answer);
-            if (disposed) return;
-            if (embedded) {
-                q = "";
-                a = "";
-                previewAnswer = false;
-                createdNotice = t.quickCardDone;
+            if (template === "qa" && isBidirectional) {
+                // 双向卡片：互为问答生成两张卡片（A -> B 与 B -> A）
+                await onCreate(serializeQaCard(question, answer), deckID, deckName, question, answer);
+                await onCreate(serializeQaCard(answer, question), deckID, deckName, answer, question);
+                if (disposed) return;
+                if (embedded) {
+                    q = "";
+                    a = "";
+                    isBidirectional = false;
+                    previewAnswer = false;
+                    createdNotice = t.quickCardBidiDone ?? "双向卡片已生成（2 张）并加入卡组";
+                } else {
+                    onClose();
+                }
             } else {
-                onClose();
+                const markdown = template === "cloze"
+                    ? question.split("____").join(`==${answer}==`)
+                    : serializeQaCard(question, answer);
+                await onCreate(markdown, deckID, deckName, question, answer);
+                if (disposed) return;
+                if (embedded) {
+                    q = "";
+                    a = "";
+                    previewAnswer = false;
+                    createdNotice = t.quickCardDone;
+                } else {
+                    onClose();
+                }
             }
         } catch (e: any) {
             if (disposed) return;
@@ -159,6 +176,12 @@
                 <div class="lv-qc-label">{t.quickCardA}</div>
                 <textarea class="b3-text-field fn__block" aria-label={t.quickCardA} rows="4" bind:value={a} placeholder={t.quickCardA} disabled={busy}></textarea>
             </label>
+            {#if template === "qa"}
+                <label class="lv-qc-bidi-toggle">
+                    <input type="checkbox" class="lv-check" bind:checked={isBidirectional} disabled={busy} />
+                    <span>{t.quickCardBidiLabel ?? "生成双向卡片（互为问答 A ↔ B）"}</span>
+                </label>
+            {/if}
             <p class="lv-qc-guidance">{t.quickCardOneFactHint}</p>
         </section>
         <section class="lv-qc-preview" aria-label={t.quickCardPreviewTitle}>
@@ -245,6 +268,17 @@
         width: 100%;
     }
     .lv-quickcard .lv-qc-field { margin-bottom: var(--lv-sp-3); }
+    .lv-qc-bidi-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--lv-sp-2);
+        font-size: var(--lv-type-control-size);
+        color: var(--lv-color-text-muted);
+        cursor: pointer;
+        margin-bottom: var(--lv-sp-2);
+        user-select: none;
+        &:hover { color: var(--lv-color-text); }
+    }
     .lv-quickcard .lv-qc-label {
         font-size: var(--lv-type-control-size);
         font-weight: var(--lv-fw-semibold);

@@ -1954,6 +1954,13 @@
                         {#if current.state === 0}<span class="lv-chip2 lv-chip2--primary">{t.review.tagNew}</span>{/if}
                         <span class="lv-chip2 lv-chip2--default">{t.review.reps} {current.reps} · {t.review.lapses} {current.lapses}</span>
                     {/if}
+                    <span class="lv-chip2 lv-chip2--default">
+                        {#if occl}🖼️ {t.cardTypeBadgeOcclusion ?? "遮挡"}
+                        {:else if cardHtml?.includes("language-")}💻 {t.cardTypeBadgeCode ?? "代码"}
+                        {:else if cardHtml?.includes("lv-masked")}✏️ {t.cardTypeBadgeCloze ?? "挖空"}
+                        {:else}💬 {t.cardTypeBadgeQA ?? "问答"}
+                        {/if}
+                    </span>
                     {#if current.lapses >= (eff().leechThreshold ?? 4)}
                         <span class="lv-chip2 lv-chip2--warn" title={t.review.leechTip?.replace("${n}", String(current.lapses)) ?? `已遗忘 ${current.lapses} 次，建议拆解知识点`}>⚠️ {t.review.leechChip ?? "易混淆"}</span>
                     {/if}

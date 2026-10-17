@@ -259,4 +259,26 @@ describe("R54 manual card workspace", () => {
         unmount();
         expect(destroy).toHaveBeenCalledOnce();
     });
+
+    it("creates bidirectional QA cards (swapping Q and A) when bidirectional option is checked", async () => {
+        const onCreate = vi.fn(async () => undefined);
+        render(QuickCard, { i18n, onCreate, onClose: vi.fn(), embedded: true });
+
+        await fireEvent.input(await screen.findByRole("textbox", { name: "问题" }), { target: { value: "Apple" } });
+        await fireEvent.input(screen.getByRole("textbox", { name: "答案" }), { target: { value: "苹果" } });
+
+        const bidiCheckbox = screen.getByRole("checkbox");
+        expect(bidiCheckbox).toBeTruthy();
+        await fireEvent.click(bidiCheckbox);
+
+        await fireEvent.click(screen.getByRole("button", { name: /制卡/ }));
+        await waitFor(() => expect(onCreate).toHaveBeenCalledTimes(2));
+
+        expect(onCreate).toHaveBeenNthCalledWith(1,
+            "Apple ==苹果==", "deck-1", "默认卡组", "Apple", "苹果"
+        );
+        expect(onCreate).toHaveBeenNthCalledWith(2,
+            "苹果 ==Apple==", "deck-1", "默认卡组", "苹果", "Apple"
+        );
+    });
 });

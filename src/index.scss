@@ -1142,6 +1142,23 @@
         border-bottom: 2px solid var(--lv-color-brand);
     }
 
+    .lv-revealed-idx {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 15px;
+        height: 15px;
+        font-size: 10px;
+        font-weight: 700;
+        line-height: 1;
+        border-radius: var(--lv-r-circle);
+        background: var(--lv-color-brand);
+        color: var(--lv-color-on-brand, #fff);
+        margin-right: 4px;
+        padding: 0 2px;
+        vertical-align: 1px;
+    }
+
     .lv-card-answer-divider {
         height: 1px;
         background: var(--lv-border);
