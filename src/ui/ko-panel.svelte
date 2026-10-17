@@ -102,7 +102,7 @@
                 aria-label={t.review.ko.reviseLabel}
             ></textarea>
             <div class="fn__flex" style="gap: var(--lv-sp-2); margin-top: var(--lv-sp-2)">
-                <button class="b3-button b3-button--text lv-btn-primary" onclick={saveRevise}>{t.review.ko.saveRevise}</button>
+                <button class="b3-button lv-btn-primary" onclick={saveRevise}>{t.review.ko.saveRevise}</button>
                 <button class="b3-button b3-button--text" onclick={() => (revising = false)}>{t.review.ko.cancelRevise}</button>
             </div>
         </div>
@@ -157,7 +157,7 @@
                 <option value={c.id}>{typeName(c.id)}</option>
             {/each}
         </select>
-        <button class="b3-button b3-button--text" disabled={deriving} aria-busy={deriving} onclick={deriveSelected}>
+        <button class="b3-button lv-btn-primary" disabled={deriving} aria-busy={deriving} onclick={deriveSelected}>
             {deriving ? t.review.ko.deriving : deriveError ? (t.review.ko.retryDerive ?? "重试派生") : t.review.ko.derive}
         </button>
     </div>
@@ -167,18 +167,34 @@
     .lv-ko { font-size: var(--lv-type-body-size); }
     .lv-ko-title { font-weight: var(--lv-fw-medium); margin-bottom: var(--lv-sp-2); }
     .lv-ko-fact {
-        padding: var(--lv-sp-2);
+        padding: var(--lv-sp-2) var(--lv-sp-3);
         border-left: 3px solid var(--lv-color-brand);
         background: var(--lv-color-surface);
-        border-radius: var(--b3-border-radius);
+        border-radius: var(--lv-r-m);
         margin-bottom: var(--lv-sp-3);
+        box-shadow: var(--lv-shadow-card), var(--lv-inset-shine);
     }
     .lv-ko-sub { color: var(--lv-color-text-muted); margin-bottom: var(--lv-sp-1); }
     .lv-ko-empty { color: var(--lv-color-text-muted); opacity: .7; padding: var(--lv-sp-1) 0; }
     .lv-ko-row {
-        display: flex; align-items: center; gap: var(--lv-sp-2);
-        padding: var(--lv-sp-1) 0;
-        border-bottom: 1px dashed var(--b3-border-color);
+        display: flex;
+        align-items: center;
+        gap: var(--lv-sp-2);
+        padding: var(--lv-sp-2) var(--lv-sp-3);
+        border: 1px solid var(--lv-border);
+        border-radius: var(--lv-r-m);
+        margin-bottom: var(--lv-sp-1);
+        background: var(--lv-color-surface);
+        box-shadow: var(--lv-shadow-card), var(--lv-inset-shine);
+        transition: transform var(--lv-dur-1) var(--lv-ease),
+            border-color var(--lv-dur-1) var(--lv-ease),
+            box-shadow var(--lv-dur-1) var(--lv-ease);
+
+        &:hover {
+            transform: translateY(-1px);
+            border-color: var(--lv-border-strong);
+            box-shadow: var(--lv-shadow-card-hover), var(--lv-inset-shine);
+        }
     }
     .lv-ko-row-disabled { opacity: .5; }
     .lv-ko-id { font-family: var(--b3-font-family-code, monospace); font-size: 12px; word-break: break-all; }

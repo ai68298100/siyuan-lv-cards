@@ -140,7 +140,7 @@
                     <option value={type}>{typeName(type)}</option>
                 {/each}
             </select>
-            <button class="b3-button b3-button--text" disabled={busy} aria-busy={busy} onclick={submit}>{busy ? (t.relations.saving ?? "保存中…") : t.relations.add}</button>
+            <button class="b3-button lv-btn-primary" disabled={busy} aria-busy={busy} onclick={submit}>{busy ? (t.relations.saving ?? "保存中…") : t.relations.add}</button>
         </div>
     </div>
 </div>
