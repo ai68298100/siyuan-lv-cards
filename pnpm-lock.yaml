@@ -177,7 +177,7 @@ importers:
         version: 7.3.1(svelte@5.57.2)(vite@8.3.4(@types/node@26.6.4)(sass@1.105.1))
       '@testing-library/svelte':
         specifier: ^5.4.2
-        version: 5.4.2(svelte@5.57.2)(vite@8.3.4(@types/node@26.6.4)(sass@1.105.1))(vitest@5.0.3(@types/node@26.6.4)(happy-dom@20.14.5)(vite@8.3.4(@types/node@26.6.4)(sass@1.105.1)))
+        version: 5.4.2(svelte@5.57.2)(vite@8.3.4(@types/node@26.6.4)(sass@1.105.1))(vitest@5.0.3(@types/node@26.6.4)(happy-dom@21.0.1)(vite@8.3.4(@types/node@26.6.4)(sass@1.105.1)))
       '@tsconfig/svelte':
         specifier: ^5.0.8
         version: 5.0.8
@@ -200,8 +200,8 @@ importers:
         specifier: ^13.0.6
         version: 13.0.6
       happy-dom:
-        specifier: ^20.14.5
-        version: 20.14.5
+        specifier: ^21.0.1
+        version: 21.0.1
       js-yaml:
         specifier: ^5.4.3
         version: 5.4.3
@@ -243,7 +243,7 @@ importers:
         version: 1.2.4(vite@8.3.4(@types/node@26.6.4)(sass@1.105.1))
       vitest:
         specifier: ^5.0.3
-        version: 5.0.3(@types/node@26.6.4)(happy-dom@20.14.5)(vite@8.3.4(@types/node@26.6.4)(sass@1.105.1))
+        version: 5.0.3(@types/node@26.6.4)(happy-dom@21.0.1)(vite@8.3.4(@types/node@26.6.4)(sass@1.105.1))
 
 packages:
 
@@ -771,8 +771,8 @@ packages:
     resolution: {integrity: sha512-Wjlyrolmm8uDpm/ogGyXZXb1Z+Ca2B8NbJwqBVg0axK9GbBeoS7yGV6vjXnYdGm6X53iehEuxxbyiKp8QmN4Vw==}
     engines: {node: 18 || 20 || >=22}
 
-  happy-dom@20.14.5:
-    resolution: {integrity: sha512-x/RzkpWO40bTjIoT30iQtt64FLLmH/iRcUCN2X//bLx7H3ifkdfPXyqsro/OYtqzIAhiLMMA7mmiOR9C3NOKjQ==}
+  happy-dom@21.0.1:
+    resolution: {integrity: sha512-pRBs/u9fhrncyByOl58DMex0R2uAj6ZPKWIjV5j5yNGZBqLw3P6BTRhlc0DD5b/Ht4/6JYTMuE2LJhUWRC6SGw==}
     engines: {node: '>=20.0.0'}
 
   immediate@3.0.6:
@@ -1509,14 +1509,14 @@ snapshots:
     dependencies:
       svelte: 5.57.2
 
-  '@testing-library/svelte@5.4.2(svelte@5.57.2)(vite@8.3.4(@types/node@26.6.4)(sass@1.105.1))(vitest@5.0.3(@types/node@26.6.4)(happy-dom@20.14.5)(vite@8.3.4(@types/node@26.6.4)(sass@1.105.1)))':
+  '@testing-library/svelte@5.4.2(svelte@5.57.2)(vite@8.3.4(@types/node@26.6.4)(sass@1.105.1))(vitest@5.0.3(@types/node@26.6.4)(happy-dom@21.0.1)(vite@8.3.4(@types/node@26.6.4)(sass@1.105.1)))':
     dependencies:
       '@testing-library/dom': 10.4.2
       '@testing-library/svelte-core': 1.1.3(svelte@5.57.2)
       svelte: 5.57.2
     optionalDependencies:
       vite: 8.3.4(@types/node@26.6.4)(sass@1.105.1)
-      vitest: 5.0.3(@types/node@26.6.4)(happy-dom@20.14.5)(vite@8.3.4(@types/node@26.6.4)(sass@1.105.1))
+      vitest: 5.0.3(@types/node@26.6.4)(happy-dom@21.0.1)(vite@8.3.4(@types/node@26.6.4)(sass@1.105.1))
 
   '@tsconfig/node10@1.0.13': {}
 
@@ -1713,7 +1713,7 @@ snapshots:
       minipass: 7.1.3
       path-scurry: 2.0.2
 
-  happy-dom@20.14.5:
+  happy-dom@21.0.1:
     dependencies:
       '@types/node': 26.6.4
       '@types/whatwg-mimetype': 3.0.2
@@ -2120,7 +2120,7 @@ snapshots:
     optionalDependencies:
       vite: 8.3.4(@types/node@26.6.4)(sass@1.105.1)
 
-  vitest@5.0.3(@types/node@26.6.4)(happy-dom@20.14.5)(vite@8.3.4(@types/node@26.6.4)(sass@1.105.1)):
+  vitest@5.0.3(@types/node@26.6.4)(happy-dom@21.0.1)(vite@8.3.4(@types/node@26.6.4)(sass@1.105.1)):
     dependencies:
       '@types/chai': 5.2.3
       '@vitest/mocker': 5.0.3(vite@8.3.4(@types/node@26.6.4)(sass@1.105.1))
@@ -2138,7 +2138,7 @@ snapshots:
       why-is-node-running: 3.2.1
     optionalDependencies:
       '@types/node': 26.6.4
-      happy-dom: 20.14.5
+      happy-dom: 21.0.1
     transitivePeerDependencies:
       - msw
 
