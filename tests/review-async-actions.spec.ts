@@ -4,7 +4,7 @@ import Review from "../src/ui/review.svelte";
 
 vi.mock("svelte/transition", () => ({ fade: () => ({ duration: 0, css: () => "" }) }));
 
-const { getRiffDueCards, getRiffDecks, batchSetRiffCardsDueTime, reviewRiffCard, skipReviewRiffCard, getNotebooks, getBlockAttrs, getBlockDOM } = vi.hoisted(() => ({
+const { getRiffDueCards, getRiffDecks, batchSetRiffCardsDueTime, reviewRiffCard, skipReviewRiffCard, getNotebooks, getBlockAttrs, getBlockDOM, setBlockAttrs, sqlQuery } = vi.hoisted(() => ({
     getRiffDueCards: vi.fn(),
     getRiffDecks: vi.fn(),
     batchSetRiffCardsDueTime: vi.fn(),
@@ -13,11 +13,22 @@ const { getRiffDueCards, getRiffDecks, batchSetRiffCardsDueTime, reviewRiffCard,
     getNotebooks: vi.fn(),
     getBlockAttrs: vi.fn(),
     getBlockDOM: vi.fn(),
+    setBlockAttrs: vi.fn().mockResolvedValue(undefined),
+    sqlQuery: vi.fn().mockImplementation(async (stmt: string) => {
+        if (stmt.includes("hpath")) return [{ hpath: "/notebook/chapter/doc" }];
+        if (stmt.includes("markdown FROM blocks")) {
+            return [
+                { id: "block-a", markdown: "block-a question ==block-a answer==" },
+                { id: "block-b", markdown: "block-b question ==block-b answer==" },
+            ];
+        }
+        return [];
+    }),
 }));
 
 vi.mock("@/api/riff", () => ({ getRiffDueCards, getRiffDecks, batchSetRiffCardsDueTime, reviewRiffCard, skipReviewRiffCard }));
-vi.mock("@/api/siyuan", () => ({ getNotebooks, getBlockAttrs, getBlockDOM }));
-vi.mock("@/api/due-shared", () => ({ dueCache: { get: vi.fn() }, invalidateDueCache: vi.fn() }));
+vi.mock("@/api/siyuan", () => ({ getNotebooks, getBlockAttrs, getBlockDOM, setBlockAttrs, sqlQuery }));
+vi.mock("@/api/due-shared", () => ({ dueCache: { get: vi.fn().mockResolvedValue({ unreviewedCount: 0 }) }, invalidateDueCache: vi.fn() }));
 vi.mock("siyuan", () => ({ openTab: vi.fn(), showMessage: vi.fn() }));
 
 const deferred = <T,>() => {
@@ -109,6 +120,16 @@ describe("review async action guards", () => {
         getNotebooks.mockReset().mockResolvedValue([]);
         getBlockAttrs.mockReset().mockResolvedValue({});
         getBlockDOM.mockReset().mockImplementation(async (id: string) => `<p>${id} body</p>`);
+        sqlQuery.mockReset().mockImplementation(async (stmt: string) => {
+            if (stmt.includes("hpath")) return [{ hpath: "/notebook/chapter/doc" }];
+            if (stmt.includes("markdown FROM blocks")) {
+                return [
+                    { id: "block-a", markdown: "block-a question ==block-a answer==" },
+                    { id: "block-b", markdown: "block-b question ==block-b answer==" },
+                ];
+            }
+            return [];
+        });
     });
 
     afterEach(() => {
@@ -459,6 +480,58 @@ describe("review async action guards", () => {
             await fireEvent.click(breadcrumb);
             expect(view.container.querySelector(".lv-ctxpanel")).toBeTruthy();
         }
+        view.unmount();
+    });
+
+    it("retires a card from deck directly within review UI without modifying document content", async () => {
+        const testCtx = ctx();
+        testCtx.removeFromDeck = vi.fn().mockResolvedValue(undefined);
+        Object.defineProperty(window, "siyuan", {
+            configurable: true,
+            value: { languages: { confirm: "Confirm", cancel: "Cancel" } },
+        });
+        const view = render(Review, { ctx: testCtx });
+        await screen.findByText("block-a body");
+
+        // 打开更多菜单
+        const moreBtn = screen.getByRole("button", { name: /(t\.review\.tbMore|t\.review\.tbMoreDesc)/ });
+        await fireEvent.click(moreBtn);
+
+        // 点击移出卡组
+        const retireItem = screen.getByRole("button", { name: /t\.review\.retireCard/ });
+        await fireEvent.click(retireItem);
+
+        // 确认移出
+        const confirmBtn = screen.getByRole("button", { name: /t\.review\.retireCardConfirm/ });
+        await fireEvent.click(confirmBtn);
+
+        expect(testCtx.removeFromDeck).toHaveBeenCalledWith("block-a");
+        await screen.findByText("block-b body");
+        view.unmount();
+    });
+
+    it("saves a mnemonic note (memo to future self) via SiYuan block memo and presents it in future review", async () => {
+        const testCtx = ctx();
+        Object.defineProperty(window, "siyuan", {
+            configurable: true,
+            value: { languages: { confirm: "Confirm", cancel: "Cancel" } },
+        });
+        const view = render(Review, { ctx: testCtx });
+        await screen.findByText("block-a body");
+
+        // 打开更多菜单并点击助记便签
+        const moreBtn = screen.getByRole("button", { name: /(t\.review\.tbMore|t\.review\.tbMoreDesc)/ });
+        await fireEvent.click(moreBtn);
+        const memoBtn = screen.getByRole("button", { name: /t\.review\.tbMemo/ });
+        await fireEvent.click(memoBtn);
+
+        // 输入助记心得并保存
+        const textarea = screen.getByRole("textbox");
+        await fireEvent.input(textarea, { target: { value: "注意区分TCP与UDP报文格式" } });
+        const saveBtn = screen.getByRole("button", { name: /t\.review\.memoSave/ });
+        await fireEvent.click(saveBtn);
+
+        expect(setBlockAttrs).toHaveBeenCalledWith("block-a", { memo: "注意区分TCP与UDP报文格式" });
         view.unmount();
     });
 });

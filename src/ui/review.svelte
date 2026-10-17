@@ -117,6 +117,8 @@
         returnToEntry?: (returnPoint: string) => void;
         /** BI-3：显式清除入口记录（取消/重开不丢——只有用户点 × 才删） */
         dismissEntry?: (entryKind: string, sourceID: string) => void;
+        /** 汲取自番茄插件：复习端就地将卡片移出卡组（不伤正文） */
+        removeFromDeck?: (blockID: string) => Promise<{ success: boolean; removedCount?: number } | void>;
     }
 
     let { ctx, initialScope = "all", initialCram = false, initialEntry = null }: {
@@ -199,9 +201,9 @@
     let remainingDue = $state<number | null>(null);
     $effect(() => {
         if (!sessionDone) return;
-        dueCache.get("")
-            .then((d) => (remainingDue = d.unreviewedCount))
-            .catch(() => (remainingDue = null));
+        dueCache.get?.("")
+            ?.then((d) => (remainingDue = d?.unreviewedCount ?? null))
+            ?.catch(() => (remainingDue = null));
     });
     let loading = $state(false);
     let errorMsg = $state("");
@@ -555,6 +557,15 @@
     let showMoreToolbar = $state(false);
     // 汲取自闪卡小助手 ZY 与 RemNote：卡片所属文档上下文路径
     let currentHPath = $state("");
+    // 汲取自渐进学习插件：给未来的自己留助记线索
+    let cardMemo = $state("");
+    let showMemoEditor = $state(false);
+    let memoDraft = $state("");
+    let memoSaving = $state(false);
+
+    // 汲取自番茄插件：复习端就地移出卡组
+    let showRetireModal = $state(false);
+    let retireBusy = $state(false);
     function toggleMarkIssue() {
         if (!current || actionBusy || markedIssueCardIDs.has(current.cardID)) return;
         const cardID = current.cardID;
@@ -655,6 +666,8 @@
                 if (seq === loadSeq) {
                     occl = parseOcclusion(attrs);
                     occlHidden = [];
+                    cardMemo = String(attrs.memo || attrs["custom-card-memo"] || "").trim();
+                    memoDraft = cardMemo;
                 }
             } catch {
                 if (seq === loadSeq) {
@@ -1013,12 +1026,61 @@
         retryReschedule = null;
         showMoreToolbar = false;
         currentHPath = "";
+        cardMemo = "";
+        showMemoEditor = false;
+        memoDraft = "";
+        memoSaving = false;
+        showRetireModal = false;
+        retireBusy = false;
         ctxOpen = false;
         ctxBlocks = [];
         ctxLoading = false;
         hintLevel = null;
         hintText = "";
         showErrTags = false;
+    }
+
+    /** 汲取自渐进学习插件：保存助记便签（给未来的自己留线索） */
+    async function saveCardMemo() {
+        if (!current || memoSaving) return;
+        memoSaving = true;
+        try {
+            const trimmed = memoDraft.trim();
+            if (siyuanApi.setBlockAttrs) {
+                await siyuanApi.setBlockAttrs(current.blockID, { memo: trimmed });
+            }
+            cardMemo = trimmed;
+            showMemoEditor = false;
+            showMessage(t.review.memoSavedToast ?? "助记便签已保存，下次复习时将提醒你", 2500, "info");
+        } catch (e: any) {
+            showMessage(friendlyError(e, t), 4000, "error");
+        } finally {
+            memoSaving = false;
+        }
+    }
+
+    /** 汲取自番茄插件：复习端就地移出卡组（安全不修改正文） */
+    async function retireCurrentCard() {
+        if (!current || retireBusy) return;
+        retireBusy = true;
+        try {
+            if (ctx.removeFromDeck) {
+                await ctx.removeFromDeck(current.blockID);
+            }
+            showMessage(t.review.retireCardDone ?? "已将卡片移出卡组", 2500, "info");
+            showRetireModal = false;
+            const retiredID = current.cardID;
+            queue = queue.filter(c => c.cardID !== retiredID);
+            if (queue.length > 0) {
+                await setCurrent(queue[0]);
+            } else {
+                current = null;
+            }
+        } catch (e: any) {
+            showMessage(friendlyError(e, t), 4000, "error");
+        } finally {
+            retireBusy = false;
+        }
     }
 
     /** TTS 朗读（Web Speech，防御式） */
@@ -2062,6 +2124,12 @@
                             <button type="button" class="lv-toolbar-menu-item" disabled={actionBusy} title={t.review.suspendToday} onclick={() => { suspendToday(); showMoreToolbar = false; }}>
                                 <span class="lv-menu-icon" aria-hidden="true">🌙</span><span>{t.review.suspendToday ?? t.review.tbSuspend}</span>
                             </button>
+                            <button type="button" class="lv-toolbar-menu-item" disabled={!current || actionBusy} title={t.review.tbMemo} onclick={() => { showMemoEditor = true; showMoreToolbar = false; }}>
+                                <span class="lv-menu-icon" aria-hidden="true">💡</span><span>{t.review.tbMemo ?? "助记便签"}</span>
+                            </button>
+                            <button type="button" class="lv-toolbar-menu-item lv-menu-danger" disabled={!current || actionBusy} title={t.review.retireCard} onclick={() => { showRetireModal = true; showMoreToolbar = false; }}>
+                                <span class="lv-menu-icon" aria-hidden="true">🚫</span><span>{t.review.retireCard ?? "移出卡组"}</span>
+                            </button>
                             <div class="lv-toolbar-menu-divider"></div>
                             <button type="button" class="lv-toolbar-menu-item" title={t.review.helpTitle} onclick={() => { helpOpen = true; showMoreToolbar = false; }}>
                                 <span class="lv-menu-icon" aria-hidden="true">❓</span><span>{t.review.tbHelp}</span>
@@ -2083,6 +2151,22 @@
                     <span class="lv-breadcrumb-icon" aria-hidden="true">📚</span>
                     <span class="lv-breadcrumb-text">{currentHPath}</span>
                 </button>
+            {/if}
+            {#if cardMemo && showAnswer}
+                <!-- 汲取自渐进学习插件：给未来的自己留助记线索 -->
+                <div class="lv-card-memo-callout">
+                    <span class="lv-memo-icon" aria-hidden="true">💡</span>
+                    <div class="lv-memo-body">
+                        <strong>{t.review.memoTitle ?? "助记线索"}</strong>
+                        <p>{cardMemo}</p>
+                    </div>
+                    <button
+                        type="button"
+                        class="b3-button b3-button--text b3-button--small lv-memo-edit-btn"
+                        title={t.review.memoEdit ?? "修改助记线索"}
+                        onclick={() => (showMemoEditor = true)}
+                    >✎</button>
+                </div>
             {/if}
             {#if !cardHtml && faceError}
                 <!-- AS-3：卡面加载失败占位（不白屏；重试不丢队列位置） -->
@@ -2472,6 +2556,60 @@
                 <div style="display:flex;justify-content:flex-end;gap:var(--lv-sp-2);margin-top:var(--lv-sp-3)">
                     <button class="b3-button b3-button--text" onclick={() => (showSessionOptionsModal = false)}>{window.siyuan.languages.cancel}</button>
                     <button class="b3-button lv-btn-primary" onclick={applySessionOptions}>{t.review.applySessionOptions}</button>
+                </div>
+            </div>
+        </div>
+    {/if}
+
+    {#if showMemoEditor && current}
+        <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+        <div class="lv-modal-backdrop lv-glass" tabindex="-1" onclick={() => (showMemoEditor = false)}>
+            <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+            <div class="lv-pause-dialog lv-card2" role="dialog" aria-modal="true" aria-label={t.review.memoModalTitle} tabindex="-1" onclick={(e: Event) => e.stopPropagation()}>
+                <div class="lv-help-head">
+                    <span style="font-weight:600;font-size:16px">💡 {t.review.memoModalTitle ?? "给未来的自己留助记线索"}</span>
+                    <div class="fn__flex-1"></div>
+                    <button class="b3-button b3-button--small" aria-label={window.siyuan.languages.cancel} onclick={() => (showMemoEditor = false)}>✕</button>
+                </div>
+                <div style="padding:var(--lv-sp-3) 0">
+                    <p class="ft__smaller ft__on-surface" style="line-height:1.6">{t.review.memoModalDesc ?? "写下一句巧记口诀、易错陷阱或关键关联。下次复习此卡时将直接呈现。"}</p>
+                    <textarea
+                        class="b3-text-field fn__block"
+                        rows="3"
+                        style="margin-top:var(--lv-sp-2)"
+                        placeholder={t.review.memoPlaceholder ?? "例如：谐音记忆口诀、与某定理的对比..."}
+                        bind:value={memoDraft}
+                        disabled={memoSaving}
+                    ></textarea>
+                </div>
+                <div style="display:flex;justify-content:flex-end;gap:var(--lv-sp-2);margin-top:var(--lv-sp-3)">
+                    <button class="b3-button b3-button--text" disabled={memoSaving} onclick={() => (showMemoEditor = false)}>{window.siyuan.languages.cancel ?? "取消"}</button>
+                    <button class="b3-button lv-btn-primary" disabled={memoSaving} onclick={saveCardMemo}>
+                        {memoSaving ? t.dashboard.loading : (t.review.memoSave ?? "保存便签")}
+                    </button>
+                </div>
+            </div>
+        </div>
+    {/if}
+
+    {#if showRetireModal && current}
+        <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+        <div class="lv-modal-backdrop lv-glass" tabindex="-1" onclick={() => (showRetireModal = false)}>
+            <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+            <div class="lv-pause-dialog lv-card2" role="dialog" aria-modal="true" aria-label={t.review.retireCardTitle} tabindex="-1" onclick={(e: Event) => e.stopPropagation()}>
+                <div class="lv-help-head">
+                    <span style="font-weight:600;font-size:16px">🚫 {t.review.retireCardTitle ?? "移出复习卡组"}</span>
+                    <div class="fn__flex-1"></div>
+                    <button class="b3-button b3-button--small" aria-label={window.siyuan.languages.cancel} onclick={() => (showRetireModal = false)}>✕</button>
+                </div>
+                <div style="padding:var(--lv-sp-3) 0">
+                    <p class="ft__smaller ft__on-surface" style="line-height:1.6">{t.review.retireCardDesc ?? "将此卡移出当前复习卡组，不再参与复习调度。思源笔记正文内容不会受到任何修改。确认移出？"}</p>
+                </div>
+                <div style="display:flex;justify-content:flex-end;gap:var(--lv-sp-2);margin-top:var(--lv-sp-3)">
+                    <button class="b3-button b3-button--text" disabled={retireBusy} onclick={() => (showRetireModal = false)}>{window.siyuan.languages.cancel ?? "取消"}</button>
+                    <button class="b3-button lv-btn-danger" disabled={retireBusy} onclick={retireCurrentCard}>
+                        {retireBusy ? t.dashboard.loading : (t.review.retireCardConfirm ?? "确认移出")}
+                    </button>
                 </div>
             </div>
         </div>
@@ -2952,6 +3090,35 @@
                 display: flex;
                 gap: var(--lv-sp-2);
                 flex-wrap: wrap;
+            }
+        }
+
+        .lv-card-memo-callout {
+            display: flex;
+            align-items: flex-start;
+            gap: calc(var(--lv-space-unit) * 3);
+            padding: calc(var(--lv-space-unit) * 3) calc(var(--lv-space-unit) * 4);
+            margin-top: var(--lv-sp-3);
+            border: 1px solid color-mix(in srgb, var(--lv-color-warning) 30%, transparent);
+            border-radius: var(--lv-r-m);
+            background: color-mix(in srgb, var(--lv-warn-soft) 70%, var(--lv-color-surface));
+            font-size: var(--lv-type-control-size);
+            animation: lv-modal-pop var(--lv-dur-2) var(--lv-ease);
+
+            .lv-memo-icon { font-size: 16px; flex: none; line-height: 1.3; }
+            .lv-memo-body {
+                flex: 1;
+                strong { display: block; font-weight: var(--lv-fw-semibold); color: var(--lv-color-warning); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px; }
+                p { margin: 0; color: var(--lv-color-text); line-height: 1.5; font-size: var(--lv-type-control-size); }
+            }
+            .lv-memo-edit-btn { flex: none; opacity: 0.7; &:hover { opacity: 1; } }
+        }
+
+        .lv-menu-danger {
+            color: var(--lv-color-danger) !important;
+            &:hover:not(:disabled) {
+                background: var(--lv-danger-soft) !important;
+                color: var(--lv-color-danger) !important;
             }
         }
 

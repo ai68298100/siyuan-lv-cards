@@ -1516,6 +1516,8 @@ export default class LvCardsPlugin extends Plugin {
                         suspendToday: (cardID: string) => {
                             void plugin.suspendTodayMutations.suspend([cardID]).catch(() => { /* 页面保留旧状态并提示 */ });
                         },
+                        // 汲取自番茄插件：复习端就地移出卡组，不再参与调度
+                        removeFromDeck: (blockID: string) => plugin.removeCardsFromDeck([blockID]),
                         openDashboard: (tab?: string) => plugin.openTabOf(TAB_DASHBOARD, tab ? { tab } : undefined),
                         // BI-3：入口条返回/清除（取消/重开不丢——仅显式清除才删记录）
                         returnToEntry: (returnPoint: string) => plugin.returnToEntryPoint(returnPoint),
