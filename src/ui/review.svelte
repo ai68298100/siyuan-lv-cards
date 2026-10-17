@@ -562,6 +562,8 @@
     let showMemoEditor = $state(false);
     let memoDraft = $state("");
     let memoSaving = $state(false);
+    // 卡面大图全屏原图聚焦预览（Lightroom Zoom）
+    let zoomedImage = $state<{ src: string; alt?: string } | null>(null);
 
     // 汲取自番茄插件：复习端就地移出卡组
     let showRetireModal = $state(false);
@@ -1032,6 +1034,7 @@
         memoSaving = false;
         showRetireModal = false;
         retireBusy = false;
+        zoomedImage = null;
         ctxOpen = false;
         ctxBlocks = [];
         ctxLoading = false;
@@ -1080,6 +1083,16 @@
             showMessage(friendlyError(e, t), 4000, "error");
         } finally {
             retireBusy = false;
+        }
+    }
+
+    function onCardContentClick(e: MouseEvent) {
+        const target = e.target as HTMLElement | null;
+        if (!target) return;
+        if (target.tagName.toLowerCase() === "img") {
+            e.stopPropagation();
+            const img = target as HTMLImageElement;
+            zoomedImage = { src: img.src, alt: img.alt };
         }
     }
 
@@ -1535,6 +1548,14 @@
 
     function onKeydown(e: KeyboardEvent) {
         if (sessionPaused) return;
+        if (zoomedImage) {
+            if (e.key === "Escape") {
+                zoomedImage = null;
+                e.preventDefault();
+                returnFocus();
+            }
+            return;
+        }
         if (showPauseModal || showSessionOptionsModal || showMemoEditor || showRetireModal) {
             if (e.key === "Escape") {
                 showPauseModal = false;
@@ -2172,7 +2193,7 @@
             {:else}
                 {#key current?.cardID}
                     <!-- 灵动感（R53 纪律内）：切卡 140ms 单次淡入，只动 opacity；翻面淡入由 lv-anim-glow 承担 -->
-                    <div class="lv-card-content" class:lv-masked={!showAnswer} style={`font-size: ${eff().cardFontScale || 1}em`} in:fade={{ duration: getMotionDuration("standard") }}>{@html showAnswer ? cardHtml : maskedCardHtml}</div>
+                    <div class="lv-card-content" class:lv-masked={!showAnswer} onclick={onCardContentClick} style={`font-size: ${eff().cardFontScale || 1}em`} in:fade={{ duration: getMotionDuration("standard") }}>{@html showAnswer ? cardHtml : maskedCardHtml}</div>
                 {/key}
             {/if}
             {#if showAnswer}
@@ -2632,6 +2653,28 @@
                         {retireBusy ? t.dashboard.loading : (t.review.retireCardConfirm ?? "确认移出")}
                     </button>
                 </div>
+            </div>
+        </div>
+    {/if}
+
+    {#if zoomedImage}
+        <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+        <div
+            class="lv-img-lightbox lv-glass"
+            role="dialog"
+            aria-label="图片全屏聚焦预览"
+            tabindex="-1"
+            onclick={() => (zoomedImage = null)}
+        >
+            <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+            <div class="lv-img-lightbox-content" onclick={(e) => e.stopPropagation()}>
+                <img src={zoomedImage.src} alt={zoomedImage.alt ?? "Flashcard image preview"} />
+                <button
+                    type="button"
+                    class="b3-button b3-button--small lv-img-lightbox-close"
+                    aria-label={window.siyuan.languages.cancel ?? "关闭"}
+                    onclick={() => (zoomedImage = null)}
+                >✕</button>
             </div>
         </div>
     {/if}
@@ -3176,6 +3219,60 @@
             &:hover:not(:disabled) {
                 background: var(--lv-danger-soft) !important;
                 color: var(--lv-color-danger) !important;
+            }
+        }
+
+        .lv-img-lightbox {
+            position: fixed;
+            inset: 0;
+            z-index: var(--lv-z-dialog, 9999);
+            background: rgba(0, 0, 0, 0.82);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: var(--lv-sp-4);
+            cursor: zoom-out;
+            animation: lv-modal-pop var(--lv-dur-2) var(--lv-ease);
+
+            .lv-img-lightbox-content {
+                position: relative;
+                max-width: 95vw;
+                max-height: 92vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: default;
+
+                img {
+                    max-width: 100%;
+                    max-height: 90vh;
+                    object-fit: contain;
+                    border-radius: var(--lv-r-m);
+                    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
+                    user-select: none;
+                }
+
+                .lv-img-lightbox-close {
+                    position: absolute;
+                    top: -14px;
+                    right: -14px;
+                    width: 32px;
+                    height: 32px;
+                    border-radius: var(--lv-r-circle);
+                    background: var(--lv-color-surface);
+                    color: var(--lv-color-text);
+                    display: grid;
+                    place-items: center;
+                    cursor: pointer;
+                    box-shadow: var(--lv-shadow-card);
+                    border: 1px solid var(--lv-border);
+                    &:hover {
+                        background: var(--lv-surface-hover);
+                        color: var(--lv-color-brand);
+                    }
+                }
             }
         }
 

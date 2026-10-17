@@ -10,6 +10,13 @@
         const alpha = n >= 30 ? 100 : n >= 15 ? 65 : n >= 5 ? 40 : 20;
         return `color-mix(in srgb, var(--lv-color-brand) ${alpha}%, transparent)`;
     }
+
+    function cellTitle(d: { date: string; stat: { new: number; review: number; forget: number } }): string {
+        const parts = [`${d.date}: ${d.stat.review}`];
+        if (d.stat.new > 0) parts.push(`+${d.stat.new}`);
+        if (d.stat.forget > 0) parts.push(`-${d.stat.forget}`);
+        return parts.join(" · ");
+    }
 </script>
 
 <div class="lv-heatmap-wrap">
@@ -21,7 +28,7 @@
                     class="lv-cell"
                     class:lv-cell-today={i === days.length - 1}
                     style={`background: ${heatColor(d.stat.review)}`}
-                    title={`${d.date}: ${d.stat.review}`}
+                    title={cellTitle(d)}
                 ></div>
             {/each}
         </div>
@@ -58,10 +65,16 @@
         border-radius: var(--lv-r-optical);
         /* 空格可见度：6% 在白卡上近乎隐形，整图只剩一簇数据——提到 10% 让网格形态完整可读 */
         background-color: color-mix(in srgb, var(--lv-color-text) 10%, transparent);
-        transition: transform var(--lv-dur-1) var(--lv-ease), outline var(--lv-dur-1) var(--lv-ease);
+        transition: transform var(--lv-dur-1) var(--lv-ease), outline var(--lv-dur-1) var(--lv-ease), box-shadow var(--lv-dur-1) var(--lv-ease);
         outline: 1px solid transparent;
+        position: relative;
     }
-    .lv-cell:hover { transform: scale(1.15); outline-color: var(--lv-primary-border); }
+    .lv-cell:hover {
+        transform: scale(1.3);
+        z-index: 2;
+        outline-color: var(--lv-primary-border);
+        box-shadow: 0 2px 6px color-mix(in srgb, var(--lv-color-brand) 30%, transparent);
+    }
     .lv-cell-today { outline: 2px solid var(--lv-primary-border); outline-offset: 1px; }
     .lv-heat-legend {
         display: flex;

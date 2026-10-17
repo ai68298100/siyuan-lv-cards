@@ -534,4 +534,23 @@ describe("review async action guards", () => {
         expect(setBlockAttrs).toHaveBeenCalledWith("block-a", { memo: "注意区分TCP与UDP报文格式" });
         view.unmount();
     });
+
+    it("zooms card images in a lightbox on click and closes on Escape", async () => {
+        const testCtx = ctx();
+        getBlockDOM.mockResolvedValueOnce('<p>Here is an image: <img src="test-diagram.png" alt="System Architecture" /></p>');
+        const view = render(Review, { ctx: testCtx });
+        await screen.findByAltText("System Architecture");
+
+        // 点击图片触发大图预览
+        const img = screen.getByAltText("System Architecture");
+        await fireEvent.click(img);
+
+        const lightbox = screen.getByRole("dialog", { name: "图片全屏聚焦预览" });
+        expect(lightbox).toBeTruthy();
+
+        // 按 Escape 键优雅退出全屏预览
+        await fireEvent.keyDown(window, { key: "Escape" });
+        expect(screen.queryByRole("dialog", { name: "图片全屏聚焦预览" })).toBeNull();
+        view.unmount();
+    });
 });
