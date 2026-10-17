@@ -217,6 +217,7 @@
         "ddSub": "近 30 天本地复习日志按卡组聚合 · 到期来自内核实时",
         "ddTitle": "卡组仪表盘",
         "calCoverage": "参与统计 ${c}/${t} 张",
+        "calSelected": "${date} · 复习 ${review} 次 · 新卡 ${new} 张 · 预测到期 ${due} 张",
         "calEmpty": "预测窗口内没有到期卡片",
         "calForecastTitle": "未来 14 天到期预测",
         "calNote": "复习量驱动着色 · 未来为预测",

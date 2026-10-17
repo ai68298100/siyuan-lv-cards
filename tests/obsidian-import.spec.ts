@@ -92,6 +92,24 @@ describe("obsidian-import W2（分组与台账）", () => {
         expect(groups.map(g => g.hint)).toEqual(["物理", ""]);
         expect(groups[0].cards).toHaveLength(2);
         expect(groups[1].cards).toHaveLength(1);
+        expect(groups[0].indices).toEqual([0, 2]);
+        expect(groups[1].indices).toEqual([1]);
+    });
+
+    it("groupByDeckHint：交错牌组保留原始卡片索引，落块不会错位", () => {
+        const plan = planObsidianImport([
+            "A1 :: 1 #flashcards/A",
+            "",
+            "B1 :: 2 #flashcards/B",
+            "",
+            "A2 :: 3 #flashcards/A",
+        ].join("\n"));
+        const groups = groupByDeckHint(plan.cards);
+        const blockIDs = ["block-A1", "block-B1", "block-A2"];
+        const byHint = new Map(groups.map(group => [group.hint, group.indices.map(index => blockIDs[index])]));
+
+        expect(byHint.get("A")).toEqual(["block-A1", "block-A2"]);
+        expect(byHint.get("B")).toEqual(["block-B1"]);
     });
 
     it("台账清洗：坏条目剔除、同指纹保留最新、限量", () => {
@@ -107,6 +125,12 @@ describe("obsidian-import W2（分组与台账）", () => {
         expect(ledger.find(e => e.fingerprint === "f1")?.deckID).toBe("d2");
         const many = Array.from({ length: 60000 }, (_, i) => ({ fingerprint: `f${i}`, blockID: `b${i}`, importedAt: i }));
         expect(normalizeObLedger(many)).toHaveLength(50000);
+        const unsorted = normalizeObLedger([
+            { fingerprint: "old", blockID: "bo", importedAt: 10 },
+            { fingerprint: "new", blockID: "bn", importedAt: 90 },
+            { fingerprint: "mid", blockID: "bm", importedAt: 50 },
+        ], 2);
+        expect(unsorted.map(entry => entry.fingerprint)).toEqual(["mid", "new"]);
     });
 
     it("merge 覆盖同指纹；partition：台账已有指纹进 already、其余 fresh", () => {

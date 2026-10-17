@@ -2217,7 +2217,7 @@ export default class LvCardsPlugin extends Plugin {
         }
     }
 
-    private async createQuickCard(markdown: string, deckID: string, _deckName: string, q?: string, a?: string) {
+    private async createQuickCard(markdown: string, deckID: string, _deckName: string, q?: string, a?: string, docID?: string) {
         const nb = await this.targetNotebook();
         if (!nb) {
             throw new Error(this.i18n.onboardingNoNotebook);
@@ -2229,6 +2229,7 @@ export default class LvCardsPlugin extends Plugin {
             qualityErrorMessage: this.i18n.flashcardNeedsAnswer,
             q,
             a,
+            docID,
             mutateKnowledgeObjects: (mutator) => this.knowledgeObjectsMutations(mutator),
         });
         await this.rememberSourceFingerprint(created.blockID, created.docID, markdown);
@@ -2244,8 +2245,8 @@ export default class LvCardsPlugin extends Plugin {
             ...(view.mount ? { mount: view.mount } : {}),
             props: {
                 i18n: this.i18n,
-                onCreate: (markdown: string, deckID: string, deckName: string, q?: string, a?: string) =>
-                    this.createQuickCard(markdown, deckID, deckName, q, a),
+                onCreate: (markdown: string, deckID: string, deckName: string, q?: string, a?: string, docID?: string) =>
+                    this.createQuickCard(markdown, deckID, deckName, q, a, docID),
                 onClose: () => { /* 宿主或 Hub 管理视图生命周期 */ },
             },
         };

@@ -3,6 +3,8 @@ import { render, screen, fireEvent } from "@testing-library/svelte";
 import LvStat from "../src/ui/kit/LvStat.svelte";
 import LvSteps from "../src/ui/kit/LvSteps.svelte";
 import LvCalendar from "../src/ui/kit/LvCalendar.svelte";
+import LvPalette from "../src/ui/kit/LvPalette.svelte";
+import type { PaletteCommand } from "../src/core/palette";
 import LvChipHost from "./helpers/LvChipHost.svelte";
 
 // Kit 组件 smoke 测试（组件测试基建首批，v0.86.0）：渲染契约 + 关键交互/语义
@@ -61,6 +63,48 @@ describe("LvCalendar", () => {
         const grid = container.querySelector(".lv-cal-grid");
         expect(grid?.getAttribute("aria-label")).toBe("2026 年 10 月");
         expect(grid?.getAttribute("role")).toBeNull();
+    });
+
+    it("提供 onselect 时把日期渲染为可键盘聚焦的按钮，并回调选中日期", async () => {
+        const selected: string[] = [];
+        const { container } = render(LvCalendar, {
+            monthLabel: "2026 年 10 月",
+            cells: [
+                { date: null, day: 0, tone: "empty" },
+                { date: "2026-10-01", day: 1, tone: "past1" },
+                { date: "2026-10-02", day: 2, tone: "today" },
+            ],
+            forecast: [],
+            selectedDate: "2026-10-02",
+            onselect: (date: string) => selected.push(date),
+        });
+        const days = [...container.querySelectorAll<HTMLButtonElement>("button.lv-cal-day")];
+        expect(days).toHaveLength(2);
+        expect(days[0].type).toBe("button");
+        expect(days[0].getAttribute("aria-label")).toBe("2026-10-01");
+        expect(days[0].getAttribute("aria-pressed")).toBe("false");
+        expect(days[1].getAttribute("aria-pressed")).toBe("true");
+        days[0].focus();
+        expect(document.activeElement).toBe(days[0]);
+        await fireEvent.click(days[0]);
+        expect(selected).toEqual(["2026-10-01"]);
+    });
+});
+
+describe("LvPalette", () => {
+    it("命令项保持原生按钮语义并满足 44px 最小高度", () => {
+        const commands: PaletteCommand[] = [{ id: "review", group: "actions", label: "开始复习" }];
+        const { container } = render(LvPalette, {
+            commands,
+            placeholder: "搜索动作",
+            onrun: () => undefined,
+            onClose: () => undefined,
+        });
+        const item = container.querySelector<HTMLButtonElement>(".lv-palette-item");
+        expect(item?.type).toBe("button");
+        expect(item?.getAttribute("role")).toBe("option");
+        item?.focus();
+        expect(document.activeElement).toBe(item);
     });
 });
 

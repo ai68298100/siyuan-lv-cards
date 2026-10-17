@@ -135,18 +135,27 @@ export function deckNameFor(base: string, hint: string): string {
 }
 
 /** 按 deckHint 分组（保持计划内首次出现顺序） */
-export function groupByDeckHint(cards: ObsidianImportCard[]): { hint: string; cards: ObsidianImportCard[] }[] {
+export interface ObsidianImportGroup {
+    hint: string;
+    cards: ObsidianImportCard[];
+    /** cards 中每张卡在输入 cards 数组中的原始索引，用于落块后稳定对位。 */
+    indices: number[];
+}
+
+export function groupByDeckHint(cards: ObsidianImportCard[]): ObsidianImportGroup[] {
     const order: string[] = [];
-    const map = new Map<string, ObsidianImportCard[]>();
-    for (const c of cards) {
+    const map = new Map<string, ObsidianImportGroup>();
+    for (const [index, c] of cards.entries()) {
         const hint = c.deckHint;
         if (!map.has(hint)) {
-            map.set(hint, []);
+            map.set(hint, { hint, cards: [], indices: [] });
             order.push(hint);
         }
-        map.get(hint)!.push(c);
+        const group = map.get(hint)!;
+        group.cards.push(c);
+        group.indices.push(index);
     }
-    return order.map(hint => ({ hint, cards: map.get(hint)! }));
+    return order.map(hint => map.get(hint)!);
 }
 
 /** 弱台账条目：指纹 → 落点（无 Obsidian 稳定 ID，指纹即幂等键；不含卡片原文） */
@@ -179,7 +188,13 @@ export function normalizeObLedger(raw: unknown, cap = OB_LEDGER_CAP): ObLedgerEn
             });
         }
     }
-    return [...byFp.values()].slice(-cap);
+    // Map insertion order is not an import-time ordering guarantee: a restored
+    // or hand-edited ledger can arrive out of order. Retain the newest entries
+    // by timestamp, then restore chronological order for stable persistence.
+    return [...byFp.values()]
+        .sort((a, b) => b.importedAt - a.importedAt)
+        .slice(0, Math.max(0, cap))
+        .sort((a, b) => a.importedAt - b.importedAt);
 }
 
 /** 台账合并：新条目覆盖同指纹旧条目（幂等重导更新落点） */

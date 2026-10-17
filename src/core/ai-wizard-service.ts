@@ -77,7 +77,7 @@ export async function queryNotebookMaterialText(
 ): Promise<string> {
     const safe = nbId.replace(/'/g, "''");
     const rows = await sqlExecutor(
-        `SELECT markdown FROM blocks WHERE root_id IN (SELECT id FROM blocks WHERE box='${safe}' AND type IN ('p','h','c','t')) AND markdown != '' ORDER BY created DESC LIMIT 200`,
+        `SELECT markdown FROM blocks WHERE root_id IN (SELECT id FROM blocks WHERE box='${safe}' AND type IN ('d','p','h','c','t')) AND markdown != '' ORDER BY created DESC LIMIT 200`,
     );
     return rows.map(r => String(r.markdown ?? "")).filter(Boolean).join("\n\n");
 }

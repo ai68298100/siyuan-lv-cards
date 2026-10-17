@@ -102,12 +102,27 @@ jobs:
           fi
           sha256sum package.zip > package.zip.sha256
 
+      - name: Prepare release notes
+        shell: bash
+        run: |
+          checksum="$(cut -d' ' -f1 package.zip.sha256)"
+          cat > release-notes.md <<EOF
+          ## v${GITHUB_REF_NAME#v}
+
+          Source commit: ${GITHUB_SHA}
+          Package SHA-256: ${checksum}
+
+          This release passed the repository CI, documentation, governance, test, and production-package checks.
+
+          Host acceptance remains separate from CI: real SiYuan desktop walkthroughs, Android, real AI provider error matrices, multi-window synchronization, and third-party-theme/accessibility checks require the environments listed in docs/34.
+          EOF
+
       - name: Release
         # v1.21.0; keep the SHA pin and let Dependabot update it.
         uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd
         with:
-          allowUpdates: true
           artifactErrorsFailBuild: true
           artifacts: "package.zip,package.zip.sha256"
+          bodyFile: release-notes.md
           token: ${{ secrets.GITHUB_TOKEN }}
           prerelease: false

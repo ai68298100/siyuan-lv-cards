@@ -36,7 +36,10 @@ const ctx = (restoreSuspendedToday: () => Promise<number>, getRevlog = emptyRevl
 
 describe("dashboard restore suspended action", () => {
     beforeEach(() => vi.resetAllMocks());
-    afterEach(cleanup);
+    afterEach(() => {
+        vi.useRealTimers();
+        cleanup();
+    });
 
     it("preserves the count on write failure and retries with a locked pending state", async () => {
         let finishRetry!: (count: number) => void;
@@ -65,6 +68,10 @@ describe("dashboard restore suspended action", () => {
     });
 
     it("renders a real seven-day week from local review records without treating future days as empty history", async () => {
+        // Keep the assertion stable when the suite runs on a weekend: the
+        // contract is about future-day semantics, not the wall-clock day.
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date(2026, 9, 7, 12, 0, 0));
         const revlog = emptyRevlog();
         revlog.days[localDate(Date.now() - 24 * 60 * 60 * 1000)] = { new: 0, review: 3, forget: 0 };
         mocks.getRiffDecks.mockResolvedValue([{ id: "deck-a", name: "卡组", size: 2 }]);

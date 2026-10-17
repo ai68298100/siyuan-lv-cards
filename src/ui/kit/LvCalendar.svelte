@@ -1,5 +1,5 @@
 <script lang="ts">
-    // T14 学习日历（docs/42 §3.11/§4）：过去=复习热力，未来=到期负载；纯展示，数据由宿主注入。
+    // T14 学习日历（docs/42 §3.11/§4）：过去=复习热力，未来=到期负载；数据由宿主注入。
     import type { CalendarCell, ForecastDay } from "@/core/forecast";
     import LvSkeleton from "./LvSkeleton.svelte";
 
@@ -10,6 +10,8 @@
         labels = {},
         caption = "",
         loading = false,
+        selectedDate = null,
+        onselect,
     }: {
         /** 标题「2026 年 10 月」 */
         monthLabel: string;
@@ -18,11 +20,19 @@
         labels?: { few?: string; many?: string; note?: string; forecastTitle?: string; empty?: string };
         caption?: string;
         loading?: boolean;
+        /** 可选的受控选中日期（YYYY-MM-DD）；未提供时不显示选中态。 */
+        selectedDate?: string | null;
+        /** 提供后，日期格变为可键盘操作的按钮并在选中时回调日期。 */
+        onselect?: (date: string) => void;
     } = $props();
 
     const weekDays = ["一", "二", "三", "四", "五", "六", "日"];
     const maxLoad = $derived(Math.max(1, ...forecast.map(d => d.reviews + d.news)));
     const isEmpty = $derived(forecast.every(d => d.reviews + d.news === 0));
+
+    function selectDate(date: string | null) {
+        if (date) onselect?.(date);
+    }
 </script>
 
 <div class="lv-cal">
@@ -36,6 +46,17 @@
             {#each cells as c, i (i)}
                 {#if c.date === null}
                     <span class="lv-cal-day lv-cal-off"></span>
+                {:else if onselect}
+                    <button
+                        type="button"
+                        class={`lv-cal-day ${c.tone}`}
+                        title={c.date}
+                        aria-label={c.date}
+                        aria-pressed={selectedDate === c.date}
+                        onclick={() => selectDate(c.date)}
+                    >
+                        <b>{c.day}</b>
+                    </button>
                 {:else}
                     <span class={`lv-cal-day ${c.tone}`} title={c.date}>
                         <b>{c.day}</b>
@@ -106,6 +127,8 @@
         justify-content: space-between;
         font-variant-numeric: tabular-nums;
         background: var(--lv-color-surface);
+        font: inherit;
+        text-align: left;
         min-height: 34px;
         box-sizing: border-box;
         transition: transform var(--lv-dur-1) var(--lv-ease),
@@ -118,6 +141,18 @@
             box-shadow: var(--lv-shadow-card-hover), var(--lv-inset-shine);
             z-index: 1;
         }
+    }
+    button.lv-cal-day {
+        cursor: pointer;
+        appearance: none;
+    }
+    button.lv-cal-day:focus-visible {
+        outline: 2px solid var(--lv-color-brand);
+        outline-offset: 2px;
+        z-index: 2;
+    }
+    button.lv-cal-day[aria-pressed="true"] {
+        box-shadow: inset 0 0 0 2px var(--lv-color-brand), var(--lv-inset-shine);
     }
     .lv-cal-day b { font-size: var(--lv-type-control-size); color: var(--lv-color-text); font-weight: var(--lv-fw-semibold); }
     .lv-cal-off { border-color: transparent; background: transparent; }

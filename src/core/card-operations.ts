@@ -65,6 +65,8 @@ export interface QuickCardFlowInput {
     qualityErrorMessage?: string;
     q?: string;
     a?: string;
+    /** 已创建的快速制卡文档；双向卡第二面复用，避免重复创建同一路径文档。 */
+    docID?: string;
     mutateKnowledgeObjects?: (mutator: (next: KnowledgeObjectsData) => void) => Promise<unknown>;
 }
 
@@ -76,7 +78,7 @@ export async function executeQuickCardCreation(
 ): Promise<{ docID: string; blockID: string }> {
     const draftDecision = validateCardEntry({ blockID: "quick-card-draft", markdown: input.markdown });
     if (!draftDecision.ok || validateFlashcardMarkdown(input.markdown)) throw new Error(input.qualityErrorMessage || "quickCardInvalid");
-    const docID = await createDocWithMd(input.nbId, "小驴闪卡/快速制卡", "");
+    const docID = input.docID ?? await createDocWithMd(input.nbId, "小驴闪卡/快速制卡", "");
     if (!docID) {
         throw new Error("quickCardFail");
     }

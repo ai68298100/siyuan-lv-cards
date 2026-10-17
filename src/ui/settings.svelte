@@ -178,8 +178,7 @@
                 deckIdByName.set(d.name, d.id);
             }
             const now = Date.now();
-            const ledgerAdditions: ObLedgerEntry[] = [];
-            let cursor = 0;
+            let ledgerState = normalizeObLedger(rawLedger);
             let added = 0;
             for (const group of groupByDeckHint(fresh)) {
                 const name = deckNameFor(base, group.hint);
@@ -189,15 +188,27 @@
                     deckID = deck?.id ?? deck?.deck?.id ?? "";
                     deckIdByName.set(name, deckID);
                 }
-                const groupBlocks = blockIDs.slice(cursor, cursor + group.cards.length);
-                cursor += group.cards.length;
+                // blockIDs follow fresh's document order. Use each card's original
+                // index so interleaved hints (A, B, A) keep their correct blocks.
+                const groupBlocks = group.indices.map(index => blockIDs[index] ?? "");
+                if (groupBlocks.length !== group.cards.length || groupBlocks.some(id => !id)) {
+                    throw new Error(t.settings.obImportMismatch ?? "落块数与卡数不一致，已中止");
+                }
                 await addRiffCards(deckID, groupBlocks);
                 await Promise.all(groupBlocks.map(id => ctx.rememberSourceFingerprint?.(id, docID)));
                 added += groupBlocks.length;
-                group.cards.forEach((c, i) => ledgerAdditions.push({ fingerprint: c.fingerprint, deckID, blockID: groupBlocks[i] ?? "", importedAt: now }));
-            }
-            if (ctx.obLedger) {
-                await ctx.obLedger.save(mergeObLedger(normalizeObLedger(rawLedger), ledgerAdditions));
+                const groupLedgerAdditions: ObLedgerEntry[] = group.cards.map((c, i) => ({
+                    fingerprint: c.fingerprint,
+                    deckID,
+                    blockID: groupBlocks[i]!,
+                    importedAt: now,
+                }));
+                // Persist after every successful group. If a later group fails,
+                // completed groups remain in the ledger and reruns stay idempotent.
+                if (ctx.obLedger) {
+                    ledgerState = mergeObLedger(ledgerState, groupLedgerAdditions);
+                    await ctx.obLedger.save(ledgerState);
+                }
             }
             obStatus = { kind: "info", text: (t.settings.obImportDone || "已导入 ${ok} 张（文件内去重 ${dup}）").replace("${ok}", String(added)).replace("${dup}", String(plan.duplicates)).replace("${skip}", String(already.length)) };
         } catch (e: any) {

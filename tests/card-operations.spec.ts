@@ -136,6 +136,20 @@ describe("card-operations 卡片操作与制卡核心引擎", () => {
             expect(koData.objects[0].instances[0].capability).toBe("fact");
         });
 
+        it("双向卡第二面复用已创建文档，不重复创建固定路径", async () => {
+            createDocWithMd.mockResolvedValueOnce("doc-quick-1");
+            appendBlock.mockResolvedValueOnce(["block-created-1"]);
+            addRiffCards.mockResolvedValueOnce(undefined);
+            appendBlock.mockResolvedValueOnce(["block-created-2"]);
+            addRiffCards.mockResolvedValueOnce(undefined);
+
+            await executeQuickCardCreation({ nbId: "nb-1", markdown: "A ==B==", deckID: "d1" });
+            await executeQuickCardCreation({ nbId: "nb-1", markdown: "B ==A==", deckID: "d1", docID: "doc-quick-1" });
+
+            expect(createDocWithMd).toHaveBeenCalledOnce();
+            expect(appendBlock).toHaveBeenNthCalledWith(2, "markdown", "B ==A==", "doc-quick-1");
+        });
+
         it("文档创建或块写入失败时抛出异常", async () => {
             createDocWithMd.mockResolvedValueOnce(null);
 

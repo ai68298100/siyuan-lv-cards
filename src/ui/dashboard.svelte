@@ -346,7 +346,23 @@
     let calLoadedOnce = $state(false);
     let calAttempted = $state(false);
     let calError = $state("");
+    let calSelectedDate = $state<string | null>(null);
     let calSeq = 0;
+
+    function selectCalendarDate(date: string) {
+        calSelectedDate = date;
+    }
+
+    const calSelectedSummary = $derived.by(() => {
+        if (!calSelectedDate) return "";
+        const local = heat.find(item => item.date === calSelectedDate)?.stat;
+        const forecast = calForecast?.days.find(item => item.date === calSelectedDate);
+        return t.dashboard.calSelected
+            .replace("${date}", calSelectedDate)
+            .replace("${review}", String(local?.review ?? 0))
+            .replace("${new}", String(local?.new ?? 0))
+            .replace("${due}", String((forecast?.reviews ?? 0) + (forecast?.news ?? 0)));
+    });
 
     // 首次展开深度统计时拉取一次；此后随 refresh() 的 heat 更新不再自动重拉（预测是旁路增强）
     $effect(() => {
@@ -973,6 +989,8 @@
                 cells={calCells}
                 forecast={calForecast?.days ?? []}
                 loading={calLoading && !calLoadedOnce}
+                selectedDate={calSelectedDate}
+                onselect={selectCalendarDate}
                 labels={{
                     few: t.dashboard.calFew,
                     many: t.dashboard.calMany,
@@ -983,6 +1001,7 @@
                 caption={calForecast
                     ? t.dashboard.calCoverage.replace("${c}", String(calForecast.coveredTotal)).replace("${t}", String(calForecast.coveredTotal + calForecast.skippedTotal))
                         + (calForecast.skippedTotal > 0 ? " · " + t.dashboard.calSkipped.replace("${n}", String(calForecast.skippedTotal)) : "")
+                        + (calSelectedSummary ? " · " + calSelectedSummary : "")
                     : ""}
             />
         </LvSection>

@@ -113,8 +113,9 @@
         background: transparent;
     }
     .lv-palette input:focus-visible {
-        outline: none;
-        box-shadow: none;
+        outline: 2px solid var(--lv-color-brand);
+        outline-offset: -2px;
+        box-shadow: inset 0 0 0 1px var(--lv-color-brand);
     }
     .lv-palette-body {
         max-height: 320px;
@@ -134,7 +135,7 @@
         align-items: center;
         gap: calc(var(--lv-space-unit) * 5);
         width: 100%;
-        min-height: 40px;
+        min-height: 44px;
         padding: calc(var(--lv-space-unit) * 4 + var(--lv-space-hairline)) calc(var(--lv-space-unit) * 7);
         border: 0;
         border-radius: 0;
@@ -144,6 +145,10 @@
         transition: background var(--lv-dur-1) var(--lv-ease);
     }
     .lv-palette-item:hover { background: transparent; color: inherit; }
+    .lv-palette-item:focus-visible {
+        outline: 2px solid var(--lv-color-brand);
+        outline-offset: -2px;
+    }
     .lv-palette-sel,
     .lv-palette-sel:hover {
         background: var(--lv-primary-soft);

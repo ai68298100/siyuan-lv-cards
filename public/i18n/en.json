@@ -217,6 +217,7 @@
         "ddSub": "Last 30 days of the local review log by deck · dues are live from the kernel",
         "ddTitle": "Deck dashboard",
         "calCoverage": "${c}/${t} cards counted",
+        "calSelected": "${date} · ${review} reviews · ${new} new · ${due} forecast due",
         "calEmpty": "No cards due in the forecast window",
         "calForecastTitle": "Due forecast · next 14 days",
         "calNote": "colored by reviews · future is forecast",

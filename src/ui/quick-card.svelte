@@ -7,7 +7,7 @@
     let { i18n, onCreate, onClose, embedded = false }: {
         i18n: any;
         /** markdown（问题 + ==答案== 挖空式单块）与目标卡组 */
-        onCreate: (markdown: string, deckID: string, deckName: string, q?: string, a?: string) => Promise<void>;
+        onCreate: (markdown: string, deckID: string, deckName: string, q?: string, a?: string, docID?: string) => Promise<{ docID: string; blockID: string } | void>;
         onClose: () => void;
         embedded?: boolean;
     } = $props();
@@ -90,8 +90,14 @@
             const answer = a.trim();
             if (template === "qa" && isBidirectional) {
                 // 双向卡片：互为问答生成两张卡片（A -> B 与 B -> A）
-                await onCreate(serializeQaCard(question, answer), deckID, deckName, question, answer);
-                await onCreate(serializeQaCard(answer, question), deckID, deckName, answer, question);
+                // 生产回调返回首面落点后，第二面复用同一文档；旧宿主/组件测试
+                // 返回 void 时仍保持兼容，但生产路径不会再次 createDocWithMd。
+                const first = await onCreate(serializeQaCard(question, answer), deckID, deckName, question, answer);
+                if (first && first.docID) {
+                    await onCreate(serializeQaCard(answer, question), deckID, deckName, answer, question, first.docID);
+                } else {
+                    await onCreate(serializeQaCard(answer, question), deckID, deckName, answer, question);
+                }
                 if (disposed) return;
                 if (embedded) {
                     q = "";

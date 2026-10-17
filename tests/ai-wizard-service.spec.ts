@@ -65,6 +65,26 @@ describe("ai-wizard-service 向导装配与材料提取引擎", () => {
             expect(sqlExecutor).toHaveBeenCalledWith(expect.stringContaining("box='nb-math'"));
             expect(text).toBe("# 第一章 基础知识\n\n段落正文内容详解");
         });
+
+        it("包含文档根块 d，能聚合文档根与其子块材料", async () => {
+            const blocks = [
+                { id: "doc-1", box: "nb-math", type: "d", root_id: "doc-1", markdown: "# 文档根" },
+                { id: "p-1", box: "nb-math", type: "p", root_id: "doc-1", markdown: "子块正文" },
+                { id: "doc-2", box: "nb-other", type: "d", root_id: "doc-2", markdown: "其他笔记本" },
+            ];
+            const sqlExecutor = vi.fn(async (sql: string) => {
+                // Simulate the two-level SQL against a document-rooted blocks table.
+                // Omitting d would select p-1 as a root ID and return no rows.
+                const types = new Set((sql.match(/type IN \(([^)]*)\)/)?.[1] ?? "")
+                    .split(",").map(value => value.trim().replace(/^'|'$/g, "")));
+                const rootIDs = new Set(blocks.filter(block => block.box === "nb-math" && types.has(block.type)).map(block => block.id));
+                return blocks.filter(block => rootIDs.has(block.root_id) && block.markdown !== "");
+            });
+
+            const text = await queryNotebookMaterialText("nb-math", sqlExecutor);
+
+            expect(text).toBe("# 文档根\n\n子块正文");
+        });
     });
 
     describe("buildAiCardMarker 断点防重复标记", () => {
