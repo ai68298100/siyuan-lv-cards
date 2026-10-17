@@ -153,4 +153,37 @@ describe("AI wizard advanced interactions (R54 Parity)", () => {
         expect(screen.getByText(/assertionTitle/)).toBeTruthy();
         expect(screen.getByText(/sourceTrustScore/)).toBeTruthy();
     });
+
+    it("supports keyboard shortcuts: Ctrl+Enter to open preflight/confirm and Escape to close", async () => {
+        const onClose = vi.fn();
+        const generate = vi.fn().mockResolvedValue({
+            cards: [{ q: "Q1", a: "A1" }],
+            jobId: "job-1",
+            gen: { model: "m", provider: "p" },
+        });
+
+        render(AIWizard, {
+            i18n: mockI18n,
+            generate,
+            onCreate: vi.fn(),
+            onClose,
+            closeLabel: "Close",
+            initialSource: "Some valid lecture material to generate flashcards.",
+        });
+
+        const textarea = await screen.findByPlaceholderText(/sourceEditHint/);
+        expect(textarea).toBeTruthy();
+
+        // 按 Ctrl+Enter 快捷打开 Preflight 预览
+        await fireEvent.keyDown(window, { key: "Enter", ctrlKey: true });
+        expect(screen.getByText(/preflightTitle/)).toBeTruthy();
+
+        // Preflight 展开状态下按 Escape 取消预览
+        await fireEvent.keyDown(window, { key: "Escape" });
+        expect(screen.queryByText(/preflightTitle/)).toBeNull();
+
+        // 再次按 Escape 关闭整个向导
+        await fireEvent.keyDown(window, { key: "Escape" });
+        expect(onClose).toHaveBeenCalledOnce();
+    });
 });

@@ -704,7 +704,47 @@
             }
         }
     }
+
+    function onKeydown(e: KeyboardEvent) {
+        if (creating) return;
+        if (e.key === "Escape") {
+            if (previewOpen) {
+                e.preventDefault();
+                previewOpen = false;
+                sensOverride = false;
+                preflightConsent = false;
+            } else if (step === 2) {
+                e.preventDefault();
+                step = 1;
+            } else {
+                e.preventDefault();
+                closeWizard();
+            }
+            return;
+        }
+        if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+            if (step === 1) {
+                if (previewOpen && preflightConsent && !busy && (sensHits.length === 0 || sensOverride)) {
+                    e.preventDefault();
+                    previewOpen = false;
+                    sensOverride = false;
+                    preflightConsent = false;
+                    void run();
+                } else if (!previewOpen && source.trim() && !busy && !loadDocBusy) {
+                    e.preventDefault();
+                    openPreview();
+                }
+            } else if (step === 2) {
+                if (canImport && !creating && !busy && regenBusy === null) {
+                    e.preventDefault();
+                    void importCards();
+                }
+            }
+        }
+    }
 </script>
+
+<svelte:window on:keydown={onKeydown} />
 
 <div class:lv-aiwiz-embedded={embedded} class="lv-aiwiz b3-typography">
     {#if resume}
@@ -1066,7 +1106,7 @@
                 {#if decks.length === 0}
                     <span class="ft__smaller ft__on-surface">{t.quickCardNeedDeck}</span>
                 {/if}
-                <button class="b3-button b3-button--text lv-btn-primary" disabled={creating || regenBusy !== null || !canImport} onclick={importCards} title={t.aiWizard.importReviewed}>
+                <button class="b3-button lv-btn-primary" disabled={creating || regenBusy !== null || !canImport} onclick={importCards} title={t.aiWizard.importReviewed}>
                     {creating ? "…" : t.aiWizard.createAcceptedN.replace("${n}", String(acceptedCount))}
                 </button>
             </div>
@@ -1122,6 +1162,15 @@
         display: flex;
         flex-direction: column;
         gap: var(--lv-sp-2);
+        transition: transform var(--lv-dur-2) var(--lv-ease),
+            border-color var(--lv-dur-1) var(--lv-ease),
+            box-shadow var(--lv-dur-2) var(--lv-ease);
+
+        &:hover {
+            transform: translateY(-1px);
+            border-color: var(--lv-border-strong);
+            box-shadow: var(--lv-shadow-card-hover), var(--lv-inset-shine);
+        }
     }
 
     /* T02 完整工作面（docs/13 §4）：左=来源清单与载入，右=材料编辑与参数 */
