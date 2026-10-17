@@ -340,8 +340,34 @@
 
 <!-- 编辑器：轻量内联表单（单计划），走 LvSection -->
 {#if editing}
-<div class="lv-editmask" role="presentation">
-        <div class="lv-card2 lv-editcard">
+<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+<div
+    class="lv-editmask"
+    role="presentation"
+    onclick={() => { if (!savingPlan) editing = null; }}
+    onkeydown={(e) => {
+        if (e.key === "Escape" && !savingPlan) {
+            e.preventDefault();
+            editing = null;
+        }
+    }}
+>
+        <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+        <div
+            class="lv-card2 lv-editcard"
+            role="dialog"
+            aria-modal="true"
+            aria-label={editing.id && plans.plans.some(p => p.id === editing.id) ? t.exam.editPlan : t.exam.newPlan}
+            tabindex="-1"
+            onclick={(e) => e.stopPropagation()}
+            onkeydown={(e) => {
+                if (e.key === "Escape" && !savingPlan) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    editing = null;
+                }
+            }}
+        >
             <div class="lv-secthead">{editing.id && plans.plans.some(p => p.id === editing.id) ? t.exam.editPlan : t.exam.newPlan}</div>
             {#if formError}
                 <div class="lv-form-error" role="alert">{formError}</div>
@@ -401,6 +427,17 @@
 
 <style>
     .lv-exam { display: flex; flex-direction: column; gap: var(--lv-sp-3); }
+    .lv-plan {
+        transition: transform var(--lv-dur-2) var(--lv-ease),
+            border-color var(--lv-dur-1) var(--lv-ease),
+            box-shadow var(--lv-dur-2) var(--lv-ease);
+
+        &:hover {
+            transform: translateY(-1px);
+            border-color: var(--lv-border-strong);
+            box-shadow: var(--lv-shadow-card-hover), var(--lv-inset-shine);
+        }
+    }
     .lv-plan-cram {
         border-color: var(--lv-danger-border);
         background: color-mix(in srgb, var(--lv-color-danger) 4%, var(--lv-color-surface));
@@ -421,8 +458,9 @@
     .lv-plan-advice-warn { color: var(--lv-color-warning); }
     .lv-editmask {
         position: fixed; inset: 0; z-index: var(--lv-z-host-overlay);
-        background: color-mix(in srgb, black 32%, transparent);
-        backdrop-filter: blur(2px);
+        background: color-mix(in srgb, black 38%, transparent);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
         display: flex; align-items: flex-start; justify-content: center;
         padding: var(--lv-sp-5);
     }
@@ -432,6 +470,7 @@
         margin-top: 6vh;
         border-radius: var(--lv-r-dialog);
         box-shadow: var(--lv-shadow-float), var(--lv-inset-shine);
+        animation: lv-modal-pop var(--lv-dur-2) var(--lv-ease);
     }
     .lv-form-error {
         color: var(--lv-color-danger);

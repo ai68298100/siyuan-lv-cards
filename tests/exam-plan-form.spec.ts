@@ -74,4 +74,14 @@ describe("exam plan form interactions", () => {
         await fireEvent.click(screen.getByRole("button", { name: "重试" }));
         await waitFor(() => expect(onDeletePlan).toHaveBeenCalledTimes(2)); expect(confirm).toHaveBeenCalledOnce();
     });
+
+    it("cancels plan editing when Escape key is pressed", async () => {
+        render(ExamPage, base());
+        await fireEvent.click(screen.getByRole("button", { name: "+ 新建考试计划" }));
+        expect(screen.getByLabelText("计划名称")).toBeTruthy();
+
+        const input = screen.getByLabelText("计划名称");
+        await fireEvent.keyDown(input, { key: "Escape" });
+        await waitFor(() => expect(screen.queryByLabelText("计划名称")).toBeNull());
+    });
 });
