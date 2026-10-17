@@ -178,6 +178,15 @@
     .lv-recovery-section {
         margin-bottom: var(--lv-sp-4);
         padding: calc(var(--lv-space-unit) * 9) calc(var(--lv-space-unit) * 10);
+        transition: transform var(--lv-dur-2) var(--lv-ease),
+            border-color var(--lv-dur-1) var(--lv-ease),
+            box-shadow var(--lv-dur-2) var(--lv-ease);
+
+        &:hover {
+            transform: translateY(-1px);
+            border-color: var(--lv-border-strong);
+            box-shadow: var(--lv-shadow-card-hover), var(--lv-inset-shine);
+        }
     }
     .lv-recovery-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--lv-sp-3); }
     .lv-recovery-head h3 {

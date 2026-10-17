@@ -230,8 +230,8 @@
             <div class="lv-form-hint">💡 {t.suggested.replace("${n}", String(suggestedMinutes(form.purpose, form.level)))}</div>
             <div class="lv-form-actions">
                 {#if formError}<div class="lv-form-error" role="alert">{formError}</div>{/if}
-                <button class="b3-button b3-button--text" disabled={saving || actionBusy} onclick={() => void save()}>{saving ? "保存中…" : t.save}</button>
-                <button class="b3-button" disabled={saving || actionBusy} onclick={cancelEdit}>{t.cancel}</button>
+                <button class="b3-button lv-btn-primary b3-button--small" disabled={saving || actionBusy} onclick={() => void save()}>{saving ? "保存中…" : t.save}</button>
+                <button class="b3-button b3-button--small" disabled={saving || actionBusy} onclick={cancelEdit}>{t.cancel}</button>
             </div>
         </div>
     {:else if sorted.length === 0}
@@ -368,6 +368,15 @@
         display: flex;
         align-items: center;
         gap: var(--lv-sp-3);
+        transition: transform var(--lv-dur-2) var(--lv-ease),
+            border-color var(--lv-dur-1) var(--lv-ease),
+            box-shadow var(--lv-dur-2) var(--lv-ease);
+
+        &:hover {
+            transform: translateY(-1px);
+            border-color: var(--lv-border-strong);
+            box-shadow: var(--lv-shadow-card-hover), var(--lv-inset-shine);
+        }
     }
     /* 窄屏：侧栏动作（优先级/删除）落到卡底横排，不再挤压主内容 */
     @media (max-width: 740px) {
