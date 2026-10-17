@@ -96,4 +96,18 @@ describe("pairing game async lifecycle", () => {
         await screen.findByText("Pairs: 0 / 4");
         expect(getBlockDOM).toHaveBeenCalledTimes(4);
     });
+
+    it("exits the pairing game when Escape key is pressed", async () => {
+        const onExit = vi.fn();
+        Object.defineProperty(window, "siyuan", { configurable: true, value: { languages: { cancel: "Cancel" } } });
+        Object.defineProperty(window, "confirm", { configurable: true, value: vi.fn(() => true) });
+        dueGet.mockResolvedValueOnce({ cards });
+        getBlockDOM.mockResolvedValue("<p>Question <mark>answer</mark> details</p>");
+
+        render(PairingGame, { i18n, onExit });
+        await screen.findByText("Pairs: 0 / 4");
+
+        await fireEvent.keyDown(window, { key: "Escape" });
+        expect(onExit).toHaveBeenCalledOnce();
+    });
 });

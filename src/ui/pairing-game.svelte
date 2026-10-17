@@ -163,6 +163,8 @@
     }
 </script>
 
+<svelte:window on:keydown={(e) => { if (e.key === "Escape") { e.preventDefault(); exit(); } }} />
+
 <div class="lv-pair b3-typography">
     {#if phase === "loading"}
         <div class="lv-pair-center">{t.dashboard.loading}</div>
@@ -209,8 +211,8 @@
                 {t.pairing.doneTime.replace("${s}", String(seconds))} · {t.pairing.mistakes}: {mistakes}
             </div>
             <div class="fn__flex" style="gap: calc(var(--lv-space-unit) * 4); margin-top: 12px; justify-content: center">
-                <button class="b3-button b3-button--text" disabled={loadBusy} aria-busy={loadBusy} onclick={load}>{loadBusy ? (t.pairing.loading ?? t.dashboard.loading) : t.pairing.again}</button>
-                <button class="b3-button b3-button--cancel" onclick={exit}>{t.pairing.exit}</button>
+                <button class="b3-button lv-btn-primary" disabled={loadBusy} aria-busy={loadBusy} onclick={load}>{loadBusy ? (t.pairing.loading ?? t.dashboard.loading) : t.pairing.again}</button>
+                <button class="b3-button b3-button--outline" onclick={exit}>{t.pairing.exit}</button>
             </div>
         </div>
     {/if}
@@ -238,13 +240,30 @@
         border: 1px solid var(--lv-border);
         border-radius: var(--lv-r-m);
         background: var(--lv-color-surface);
+        box-shadow: var(--lv-shadow-card), var(--lv-inset-shine);
         cursor: pointer;
         font-size: var(--lv-type-body-size);
         line-height: var(--lv-lh-meta);
-        transition: border-color var(--lv-dur-1) var(--lv-ease), background var(--lv-dur-1) var(--lv-ease);
+        transition: border-color var(--lv-dur-1) var(--lv-ease),
+            background var(--lv-dur-1) var(--lv-ease),
+            transform var(--lv-dur-1) var(--lv-ease),
+            box-shadow var(--lv-dur-1) var(--lv-ease);
+
+        &:hover {
+            border-color: var(--lv-border-strong);
+            transform: translateY(-1px);
+            box-shadow: var(--lv-shadow-card-hover), var(--lv-inset-shine);
+        }
+        &:active {
+            transform: translateY(1px) scale(0.985);
+        }
     }
-    .lv-pair-cell:hover { border-color: var(--lv-border-strong); }
-    .lv-pair-on { border-color: var(--lv-color-brand); background: var(--lv-primary-soft); }
+    .lv-pair-on {
+        border-color: var(--lv-color-brand) !important;
+        background: var(--lv-primary-soft) !important;
+        color: var(--lv-color-brand);
+        box-shadow: 0 0 0 1px var(--lv-color-brand), var(--lv-shadow-card) !important;
+    }
     .lv-pair-ans { color: var(--lv-color-text-muted); }
     .lv-pair-result { font-size: var(--lv-type-section-size); font-weight: 700; }
 </style>
