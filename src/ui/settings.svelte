@@ -663,10 +663,20 @@
             <div class="lv-eyebrow">{t.settings.previewTitle}</div>
             <div class="ft__smaller ft__on-surface" style="margin-top: calc(var(--lv-space-unit) * 2)">{t.settings.previewSub}</div>
         </div>
-        <div class="lv-card2" style="max-width: 320px; font-size: ${draft.cardFontScale || 1}em; flex: 1">
-            <div style="padding: calc(var(--lv-space-unit) * 6) calc(var(--lv-space-unit) * 8)">
-                <strong>{t.settings.previewQ}</strong>
-                <div class="ft__smaller ft__on-surface" style="margin-top: calc(var(--lv-space-unit) * 2)">{t.settings.previewA}</div>
+        <div class="lv-card2" style={`max-width: 340px; font-size: ${draft.cardFontScale || 1}em; flex: 1; padding: calc(var(--lv-space-unit) * 6) calc(var(--lv-space-unit) * 8);`}>
+            <strong>{t.settings.previewQ}</strong>
+            <div class="ft__smaller ft__on-surface" style="margin-top: calc(var(--lv-space-unit) * 2)">{t.settings.previewA}</div>
+            <div class="lv-settings-preview-rating" style="margin-top: var(--lv-sp-3); display: flex; gap: var(--lv-sp-1); flex-wrap: wrap;">
+                {#if draft.ratingStyle === "three"}
+                    <span class="lv-chip2 lv-chip2--warn">{t.review?.unknown ?? "不认识"}</span>
+                    <span class="lv-chip2 lv-chip2--default">{t.review?.vague ?? "模糊"}</span>
+                    <span class="lv-chip2 lv-chip2--primary">{t.review?.know ?? "认识"}</span>
+                {:else}
+                    <span class="lv-chip2 lv-chip2--warn">{t.review?.againBtn ?? "遗忘"}</span>
+                    <span class="lv-chip2 lv-chip2--default">{t.review?.hard ?? "困难"}</span>
+                    <span class="lv-chip2 lv-chip2--primary">{t.review?.good ?? "良好"}</span>
+                    <span class="lv-chip2 lv-chip2--primary">{t.review?.easy ?? "简单"}</span>
+                {/if}
             </div>
         </div>
     </div>

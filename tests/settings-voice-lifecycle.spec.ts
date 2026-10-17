@@ -71,4 +71,36 @@ describe("settings speech voice lifecycle", () => {
 
         expect(removeEventListener).toHaveBeenCalledWith("voiceschanged", listener);
     });
+
+    it("renders appearance live preview card reflecting font scale and rating style", () => {
+        const customSettings = {
+            ...defaultSettings(),
+            cardFontScale: 1.15,
+            ratingStyle: "four" as const,
+        };
+        const ctx = {
+            i18n: translated("t"),
+            settings: customSettings,
+            save: vi.fn(),
+            close: vi.fn(),
+            exportRevlog: vi.fn(),
+            clearRevlog: vi.fn(),
+            redetectV2: vi.fn(async () => ""),
+            getV2Status: vi.fn(() => ""),
+            getSuspendedCount: vi.fn(() => 0),
+            restoreAllSuspended: vi.fn(),
+            testAnkiClient: vi.fn(async () => ""),
+            storageStats: vi.fn(() => []),
+            exportSettings: vi.fn(),
+            getNotebooks: vi.fn(async () => []),
+            exportRevlogCsv: vi.fn(),
+            importRevlogCsv: vi.fn(async () => ({ added: 0, skipped: 0 })),
+            importRevlogMerge: vi.fn(async () => ({ added: 0, skipped: 0, forks: 0 })),
+        };
+        const view = render(Settings, { ctx });
+        const previewCard = view.container.querySelector(".lv-settings-preview-rating");
+        expect(previewCard).toBeTruthy();
+        expect(view.container.querySelector(".lv-card2[style*='font-size: 1.15em']")).toBeTruthy();
+        view.unmount();
+    });
 });
