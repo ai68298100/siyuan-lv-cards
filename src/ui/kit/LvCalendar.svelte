@@ -3,11 +3,16 @@
     import type { CalendarCell, ForecastDay } from "@/core/forecast";
     import LvSkeleton from "./LvSkeleton.svelte";
 
+    const DEFAULT_WEEK_DAYS = ["一", "二", "三", "四", "五", "六", "日"];
+
     let {
         monthLabel,
         cells,
         forecast,
         labels = {},
+        weekDays = DEFAULT_WEEK_DAYS,
+        dateLabel,
+        forecastDayLabel,
         caption = "",
         loading = false,
         selectedDate = null,
@@ -18,6 +23,12 @@
         cells: CalendarCell[];
         forecast: ForecastDay[];
         labels?: { few?: string; many?: string; note?: string; forecastTitle?: string; empty?: string };
+        /** Optional localized weekday labels, in Monday-first order. */
+        weekDays?: string[];
+        /** Optional complete accessible name for each date cell. */
+        dateLabel?: (date: string, cell: CalendarCell) => string;
+        /** Optional localized accessible name for each forecast bar. */
+        forecastDayLabel?: (day: ForecastDay) => string;
         caption?: string;
         loading?: boolean;
         /** 可选的受控选中日期（YYYY-MM-DD）；未提供时不显示选中态。 */
@@ -26,12 +37,21 @@
         onselect?: (date: string) => void;
     } = $props();
 
-    const weekDays = ["一", "二", "三", "四", "五", "六", "日"];
+    const displayedWeekDays = $derived(weekDays.length === 7 ? weekDays : DEFAULT_WEEK_DAYS);
     const maxLoad = $derived(Math.max(1, ...forecast.map(d => d.reviews + d.news)));
     const isEmpty = $derived(forecast.every(d => d.reviews + d.news === 0));
 
     function selectDate(date: string | null) {
         if (date) onselect?.(date);
+    }
+
+    function accessibleDateLabel(cell: CalendarCell): string {
+        if (!cell.date) return "";
+        return dateLabel?.(cell.date, cell) ?? cell.date;
+    }
+
+    function accessibleForecastLabel(day: ForecastDay): string {
+        return forecastDayLabel?.(day) ?? `${day.date} · ${day.reviews + day.news}`;
     }
 </script>
 
@@ -40,7 +60,7 @@
         <LvSkeleton count={1} height={180} />
     {:else}
         <div class="lv-cal-grid" aria-label={monthLabel}>
-            {#each weekDays as d (d)}
+            {#each displayedWeekDays as d, i (i)}
                 <span class="lv-cal-wd">{d}</span>
             {/each}
             {#each cells as c, i (i)}
@@ -51,14 +71,14 @@
                         type="button"
                         class={`lv-cal-day ${c.tone}`}
                         title={c.date}
-                        aria-label={c.date}
+                        aria-label={accessibleDateLabel(c)}
                         aria-pressed={selectedDate === c.date}
                         onclick={() => selectDate(c.date)}
                     >
                         <b>{c.day}</b>
                     </button>
                 {:else}
-                    <span class={`lv-cal-day ${c.tone}`} title={c.date}>
+                    <span class={`lv-cal-day ${c.tone}`} title={c.date} aria-label={accessibleDateLabel(c)}>
                         <b>{c.day}</b>
                     </span>
                 {/if}
@@ -84,13 +104,22 @@
                 {:else}
                     <div class="lv-forecast">
                         {#each forecast as d (d.date)}
+                            {@const forecastLabel = accessibleForecastLabel(d)}
                             <i
+                                aria-hidden="true"
                                 class:lv-forecast-hi={d.reviews + d.news >= 18}
                                 style={`height:${Math.max(6, Math.round((d.reviews + d.news) / maxLoad * 100))}%`}
-                                title={`${d.date} · ${d.reviews + d.news}`}
-                            ></i>
+                                title={forecastLabel}
+                                aria-label={forecastLabel}
+                                role="img"
+                            ><span class="lv-visually-hidden">{forecastLabel}</span></i>
                         {/each}
                     </div>
+                    <ul class="lv-cal-forecast-text lv-visually-hidden" aria-label={labels.forecastTitle ?? "Forecast"}>
+                        {#each forecast as d (d.date)}
+                            <li>{d.date}: {d.reviews + d.news}</li>
+                        {/each}
+                    </ul>
                 {/if}
             </div>
         {/if}
@@ -99,13 +128,16 @@
 </div>
 
 <style>
+    .lv-cal { container-type: inline-size; min-width: 0; }
     .lv-cal-grid {
         display: grid;
-        grid-template-columns: repeat(7, 1fr);
+        grid-template-columns: repeat(7, minmax(0, 1fr));
         gap: calc(var(--lv-space-unit) * 2 + var(--lv-space-hairline));
         margin-top: calc(var(--lv-space-unit) * 4);
         /* 密度护栏：撑满 1200px 卡时格子会变成 158×117 的巨块——限宽保持原型 .cal 的紧凑比例 */
         max-width: 640px;
+        width: 100%;
+        min-width: 0;
     }
     .lv-cal-wd {
         font-size: var(--lv-type-caption-size);
@@ -129,7 +161,7 @@
         background: var(--lv-color-surface);
         font: inherit;
         text-align: left;
-        min-height: 34px;
+        min-height: 44px;
         box-sizing: border-box;
         transition: transform var(--lv-dur-1) var(--lv-ease),
             border-color var(--lv-dur-1) var(--lv-ease),
@@ -206,8 +238,24 @@
     .lv-forecast i.lv-forecast-hi {
         background: color-mix(in srgb, var(--lv-color-warning) 40%, var(--lv-color-surface));
     }
-    @media (max-width: 740px) {
-        .lv-cal-day { padding: calc(var(--lv-space-unit) * 1 + var(--lv-space-hairline)) calc(var(--lv-space-unit) * 2); min-height: 26px; }
+    .lv-visually-hidden {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+        border: 0;
+    }
+
+    /* The Hub owns the responsive container; keep this component usable in a
+       narrow embedded panel even when the viewport itself is wide. */
+    .lv-cal { min-width: 0; container-type: inline-size; }
+    @container (max-width: 480px) {
+        .lv-cal-grid { gap: calc(var(--lv-space-unit) * 1 + var(--lv-space-hairline)); }
+        .lv-cal-day { padding: calc(var(--lv-space-unit) * 1 + var(--lv-space-hairline)) calc(var(--lv-space-unit) * 1); }
         .lv-cal-day b { font-size: var(--lv-type-caption-size); }
     }
 </style>

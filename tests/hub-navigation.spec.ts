@@ -76,6 +76,14 @@ describe("hub navigation boundaries", () => {
         expect(screen.getByRole("dialog")).toBeTruthy();
     });
 
+    it("maps the learning entry to the R54 recap/plans/calendar facets", async () => {
+        const host = context();
+        render(Hub, { ...host.props, initialTab: "learning" });
+        expect(await screen.findByRole("tab", { name: "学习回顾" }, { timeout: 12000 })).toBeTruthy();
+        expect(await screen.findByRole("tab", { name: "目标与计划" }, { timeout: 12000 })).toBeTruthy();
+        expect(await screen.findByRole("tab", { name: "学习日历" }, { timeout: 12000 })).toBeTruthy();
+    }, 15000);
+
     it("clears a target deck when the library navigation is selected again", async () => {
         const host = context();
         host.props.recovery.load = async () => ({

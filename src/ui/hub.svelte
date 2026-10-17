@@ -152,21 +152,27 @@
     const knownIds = new Set(["today", "library", "studio", "learning", "settings", "maintenance", ...legacyTabs.map(t => t.id)]);
     function initialRoute(id: string): string {
         if (id === "settings") return "settings";
+        // 旧入口「goals」仍保留兼容，但落到完整学习页的目标与计划分面。
+        if (id === "goals") return "learning";
         if (knownIds.has(id) && (id === "overview" || id === "manage" || id === "authoring" || id === "goals" || id === "inbox" || id === "exam" || id === "maintenance" || id === "recovery")) return id;
         if (id === "library") return "manage";
         if (id === "studio") return "authoring";
-        if (id === "learning") return "goals";
+        if (id === "learning") return "learning";
         return "overview";
     }
     // svelte-ignore state_referenced_locally
     let active = $state(initialRoute(initialTab));
+    // 旧的 goals 深链默认打开「目标与计划」；点击新的学习入口则回到回顾分面。
+    // svelte-ignore state_referenced_locally -- deep-link value is copied once for this Hub mount.
+    let learningTabRequest = $state(initialTab === "goals" ? "plans" : "recap");
+    let learningViewKey = $state(0);
     // svelte-ignore state_referenced_locally -- the initial focus is copied once; later requests arrive through the switch event.
     let managerInitialBlockID = $state(initialBlockID);
 
     function primaryFor(route: string): string {
         if (route === "manage") return "library";
         if (route === "authoring") return "studio";
-        if (route === "goals" || route === "exam" || route === "maintenance" || route === "inbox" || route === "recovery") return "learning";
+        if (route === "learning" || route === "goals" || route === "exam" || route === "maintenance" || route === "inbox" || route === "recovery") return "learning";
         return route === "settings" ? "settings" : "today";
     }
 
@@ -272,23 +278,23 @@
     // svelte-ignore state_referenced_locally
     if (active === "inbox") { ensureInbox(); }
 
-    // BI-1 目标页懒加载（同考试页模式：首次切到才拉 chunk）
-    let GoalsComp = $state<any>(null);
-    let goalsError = $state("");
-    async function ensureGoals() {
-        if (GoalsComp) { return; }
-        goalsError = "";
+    // R54 学习页懒加载：回顾 / 目标与计划 / 学习日历共用一个稳定入口。
+    let LearningComp = $state<any>(null);
+    let learningError = $state("");
+    async function ensureLearning() {
+        if (LearningComp) return;
+        learningError = "";
         try {
-            GoalsComp = (await import("./goals-page.svelte")).default;
+            LearningComp = (await import("./learning-page.svelte")).default;
         } catch (e: any) {
-            goalsError = e?.message ?? String(e);
+            learningError = e?.message ?? String(e);
         }
     }
     $effect(() => {
-        if (active === "goals") { ensureGoals(); }
+        if (active === "learning") void ensureLearning();
     });
     // svelte-ignore state_referenced_locally
-    if (active === "goals") { ensureGoals(); }
+    if (active === "learning") void ensureLearning();
 
     // BI-25 维护子页懒加载（同考试页模式：首次切到才拉 chunk）
     let MaintComp = $state<any>(null);
@@ -311,7 +317,14 @@
     let RecoveryComp = $state<any>(RecoveryPage);
 
     function switchTab(id: string, preserveDeckScope = false) {
-        const route = id === "today" ? "overview" : id === "library" ? "manage" : id === "studio" ? "authoring" : id === "learning" ? "goals" : id;
+        if (id === "goals") {
+            learningTabRequest = "plans";
+            learningViewKey += 1;
+        } else if (id === "learning") {
+            learningTabRequest = "recap";
+            learningViewKey += 1;
+        }
+        const route = id === "today" ? "overview" : id === "library" ? "manage" : id === "studio" ? "authoring" : id === "goals" ? "learning" : id;
         if (!knownIds.has(route) && route !== "settings") return;
         // 离开管理器即放弃未完成的维护页返回点，避免随后从普通卡库编辑时误跳回维护页。
         if (route !== "manage") managerReturnToMaintenance = "";
@@ -449,7 +462,7 @@
             <div class="lv-hub-bar">
                 {#if isLearningRoute()}
                     <nav class="lv-hub-subnav" aria-label={i18n.hubSecondaryLabel ?? "学习工具"}>
-                        <button class:lv-hub-subnav-active={active === "goals"} class="lv-hub-subnav-btn" aria-current={active === "goals" ? "page" : undefined} onclick={() => switchTab("goals")}>{i18n.hubSecondaryRecap ?? "学习回顾"}</button>
+                        <button class:lv-hub-subnav-active={active === "learning"} class="lv-hub-subnav-btn" aria-current={active === "learning" ? "page" : undefined} onclick={() => switchTab("learning")}>{i18n.hubPrimaryLearning ?? "学习"}</button>
                         {#if inbox}
                             <button class:lv-hub-subnav-active={active === "inbox"} class="lv-hub-subnav-btn" aria-current={active === "inbox" ? "page" : undefined} onclick={() => switchTab("inbox")}>{i18n.hubTabInbox}</button>
                         {/if}
@@ -513,13 +526,26 @@
                             <button class="b3-button lv-btn-primary" disabled={!openSettings} onclick={openFullSettings}>{i18n.hubSettingsOpen ?? "打开完整设置"}</button>
                         </section>
                     </div>
-                {:else if active === "goals"}
-                    {#if GoalsComp}
-                        <GoalsComp i18n={i18n} {goals} />
-                    {:else if goalsError}
+                {:else if active === "learning"}
+                    {#if LearningComp}
+                        {#key learningViewKey}
+                            <LearningComp
+                                {i18n}
+                                {goals}
+                                getRevlog={dashboardBase.getRevlog}
+                                getDailyTargets={dashboardBase.getDailyTargets}
+                                onReviewed={dashboardBase.onReviewed}
+                                onGoToday={() => switchTab("today")}
+                                onOpenExam={exam ? () => switchTab("exam") : undefined}
+                                onOpenBlock={(blockID: string) => { managerInitialBlockID = blockID; switchTab("manage"); }}
+                                onTabChange={(tab: string) => onTabChange?.(tab === "plans" ? "goals" : "learning")}
+                                initialTab={learningTabRequest}
+                            />
+                        {/key}
+                    {:else if learningError}
                         <div style="padding: var(--lv-sp-5); color: var(--lv-color-danger); font-size: var(--lv-type-body-size)">
-                            <div style="margin-bottom: calc(var(--lv-space-unit) * 4)">{goalsError}</div>
-                            <button class="b3-button b3-button--outline" onclick={ensureGoals}>{i18n.dashboard.refresh}</button>
+                            <div style="margin-bottom: calc(var(--lv-space-unit) * 4)">{learningError}</div>
+                            <button class="b3-button b3-button--outline" onclick={ensureLearning}>{i18n.dashboard.refresh}</button>
                         </div>
                     {:else}
                         <div role="status" aria-busy="true" style="padding: var(--lv-sp-5); color: var(--lv-color-text-muted); font-size: var(--lv-type-body-size)">{i18n.dashboard.loading}</div>

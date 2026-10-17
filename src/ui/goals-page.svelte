@@ -12,8 +12,10 @@
     let {
         i18n,
         goals,
+        embedded = false,
     }: {
         i18n: any;
+        embedded?: boolean;
         goals: {
             get: () => LearningGoalsData;
             save: (goal: LearningGoal) => LearningGoalsData | Promise<LearningGoalsData>;
@@ -186,9 +188,9 @@
     }
 </script>
 
-<LvPage eyebrow="GOAL / PLAN" title={t.title} subtitle={t.subtitle}>
+<LvPage eyebrow={embedded ? "" : "GOAL / PLAN"} title={embedded ? "" : t.title} subtitle={embedded ? "" : t.subtitle}>
     {#snippet actions()}
-        {#if !editing}
+        {#if !embedded && !editing}
             <!-- 主动作：每屏唯一 primary（底部重复入口已收敛） -->
             <button class="b3-button b3-button--small lv-btn-primary" onclick={startAdd}>{t.add}</button>
         {/if}
