@@ -74,14 +74,14 @@
         <!-- R53 §3.9：未开档说明进软面板（soft 底 + outline 动作），不再是裸文字行 -->
         <div class="lv-lc-soft">
             <p class="lv-lc-hint ft__smaller ft__on-surface">{t.lc.hint}</p>
-            <button class="b3-button b3-button--outline b3-button--small" disabled={busy} aria-busy={busy} onclick={openLifecycle}>{busy ? (t.lc.saving ?? "保存中…") : t.lc.open}</button>
+            <button class="b3-button lv-btn-primary b3-button--small" disabled={busy} aria-busy={busy} onclick={openLifecycle}>{busy ? (t.lc.saving ?? "保存中…") : t.lc.open}</button>
         </div>
     {:else}
         <div class="lv-lc-now">
             <LvChip tone="primary">{t.lc.state[currentState!]}</LvChip>
             {#if explain}
                 <span class="lv-lc-why ft__smaller ft__on-surface">{tv(explain.whyKey)}</span>
-                <button class="b3-button b3-button--text b3-button--small" disabled={busy} onclick={onRepair}>{tv(explain.repairLabelKey!)}</button>
+                <button class="b3-button b3-button--outline b3-button--small" disabled={busy} onclick={onRepair}>{tv(explain.repairLabelKey!)}</button>
             {/if}
         </div>
         <div class="lv-lc-next">
@@ -138,13 +138,31 @@
         flex-direction: column;
         align-items: flex-start;
         gap: var(--lv-sp-2);
+        box-shadow: var(--lv-shadow-card), var(--lv-inset-shine);
+        transition: transform var(--lv-dur-1) var(--lv-ease), border-color var(--lv-dur-1) var(--lv-ease), box-shadow var(--lv-dur-1) var(--lv-ease);
+
+        &:hover {
+            transform: translateY(-1px);
+            border-color: var(--lv-border-strong);
+            box-shadow: var(--lv-shadow-card-hover), var(--lv-inset-shine);
+        }
     }
     .lv-lc-hint { margin: 0; line-height: 1.7; }
     .lv-lc-now { display: flex; align-items: center; gap: var(--lv-sp-2); flex-wrap: wrap; margin-bottom: var(--lv-sp-2); }
     .lv-lc-why { flex: 1 1 auto; min-width: 0; }
     .lv-lc-next, .lv-lc-flow, .lv-lc-history { margin-bottom: var(--lv-sp-2); }
     .lv-lc-actions { display: flex; flex-wrap: wrap; gap: var(--lv-sp-1); margin-top: var(--lv-sp-1); }
-    .lv-lc-history ul { margin: var(--lv-sp-1) 0 0; padding-left: 18px; }
+    .lv-lc-history ul {
+        margin: var(--lv-sp-1) 0 0;
+        padding-left: 18px;
+        li {
+            margin: 3px 0;
+            line-height: 1.5;
+            &::marker {
+                color: var(--lv-color-brand);
+            }
+        }
+    }
     .lv-lc-error { color: var(--lv-color-danger); overflow-wrap: anywhere; margin-bottom: var(--lv-sp-2); }
     @media (max-width: 320px) {
         .lv-lc-now { flex-direction: column; align-items: flex-start; }
