@@ -2,6 +2,7 @@
     import { onDestroy, onMount } from "svelte";
     import { getBlockDOM, setBlockAttrs } from "@/api/siyuan";
     import { emptyOcclusion, serializeOcclusion, type OcclusionRect } from "@/core/occlusion";
+    import LvKbd from "./kit/LvKbd.svelte";
 
     let { blockID, i18n, onSave, onClose }: {
         blockID: string;
@@ -189,7 +190,29 @@
         if (rects.length > 0 && !window.confirm(t.occlusion.discardConfirm ?? "已绘制的遮挡区域尚未保存，确定退出吗？")) return;
         onClose();
     }
+
+    const isMac = typeof navigator !== "undefined" && /(Mac|iPhone|iPod|iPad)/i.test(navigator.userAgent || navigator.platform || "");
+
+    function onKeydown(e: KeyboardEvent) {
+        if (busy) return;
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !e.shiftKey) {
+            if (rects.length > 0) {
+                e.preventDefault();
+                rects = rects.slice(0, -1);
+            }
+        } else if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+            if (rects.length > 0 && !loading && !errorMsg) {
+                e.preventDefault();
+                void save();
+            }
+        } else if (e.key === "Escape") {
+            e.preventDefault();
+            close();
+        }
+    }
 </script>
+
+<svelte:window on:keydown={onKeydown} />
 
 <div class="lv-occed b3-typography">
     <div class="lv-ob-head">
@@ -243,8 +266,8 @@
     <div class="fn__flex" style="justify-content: flex-end; gap: var(--lv-sp-2); margin-top: var(--lv-sp-3)">
         <button class="b3-button b3-button--cancel" disabled={busy} onclick={close}>{window.siyuan.languages.cancel}</button>
         <div class="fn__space"></div>
-        <button class="b3-button b3-button--text lv-btn-primary" disabled={busy || loading || !!errorMsg || rects.length === 0} aria-busy={busy} onclick={save}>
-            {t.occlusion.save} ({rects.length})
+        <button class="b3-button lv-btn-primary" disabled={busy || loading || !!errorMsg || rects.length === 0} aria-busy={busy} onclick={save}>
+            {t.occlusion.save} ({rects.length}) <LvKbd k={isMac ? "⌘ ↵" : "Ctrl ↵"} />
         </button>
     </div>
 </div>
