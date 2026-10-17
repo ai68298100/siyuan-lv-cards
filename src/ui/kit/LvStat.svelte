@@ -1,7 +1,8 @@
 <script lang="ts">
     import LvProgress from "./LvProgress.svelte";
+    import LvIcon, { type LvIconName } from "./LvIcon.svelte";
 
-    let { label, value, detail = "", denom = "", tone = "primary", progress = -1, animate = false, spark = null, badge = "" }: {
+    let { label, value, detail = "", denom = "", tone = "primary", progress = -1, animate = false, spark = null, badge = "", badgeIcon = undefined }: {
         label: string;
         value: number | string;
         detail?: string;
@@ -15,8 +16,10 @@
         animate?: boolean;
         /** R53 迷你走势（真实近期数据才传；null 不渲染） */
         spark?: number[] | null;
-        /** 激励角标（如连击火焰 🔥） */
+        /** 兼容旧调用的文本角标 */
         badge?: string;
+        /** 统一 SVG 激励角标 */
+        badgeIcon?: LvIconName;
     } = $props();
 
     const toneColor = {
@@ -76,7 +79,7 @@
     </div>
     {#if detail}<div class="lv-stat-detail">{detail}</div>{/if}
     <div class="lv-hero-num" class:lv-num-zero={isZero}>
-        {display}{#if denom && denom !== "0"}<span class="lv-stat-denom">/ {denom}</span>{/if}{#if badge}<span class="lv-stat-badge" aria-label={badge}>{badge}</span>{/if}
+        {display}{#if denom && denom !== "0"}<span class="lv-stat-denom">/ {denom}</span>{/if}{#if badgeIcon}<span class="lv-stat-badge" aria-hidden="true"><LvIcon name={badgeIcon} size={16} /></span>{:else if badge}<span class="lv-stat-badge" aria-label={badge}>{badge}</span>{/if}
     </div>
     {#if progress >= 0}
         <div class="lv-stat-progress"><LvProgress value={progress} /></div>

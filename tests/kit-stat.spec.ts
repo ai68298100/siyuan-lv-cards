@@ -39,4 +39,12 @@ describe("stat animation lifecycle", () => {
         expect(badgeEl?.getAttribute("aria-label")).toBe("🔥");
         view.unmount();
     });
+
+    it("renders semantic SVG badges without relying on emoji text", () => {
+        const view = render(LvStat, { label: "连续天数", value: 7, badgeIcon: "flame" });
+        const badgeEl = view.container.querySelector(".lv-stat-badge");
+        expect(badgeEl?.querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");
+        expect(badgeEl?.textContent).toBe("");
+        view.unmount();
+    });
 });

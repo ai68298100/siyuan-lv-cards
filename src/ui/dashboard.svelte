@@ -22,6 +22,7 @@
     import LvChip from "./kit/LvChip.svelte";
     import LvError from "./kit/LvError.svelte";
     import LvCalendar from "./kit/LvCalendar.svelte";
+    import LvIcon from "./kit/LvIcon.svelte";
 
     export interface DashboardCtx {
         i18n: any;
@@ -663,7 +664,7 @@
     {/if}
     {#if examChip}
         <div class="lv-glass lv-v2banner">
-            <LvChip tone={examChip.days <= 7 ? "error" : "warn"}>🎓 {examChip.name} · {t.exam.daysLeft.replace("${n}", String(examChip.days))}</LvChip>
+            <LvChip tone={examChip.days <= 7 ? "error" : "warn"}><LvIcon name="graduation" size={14} /> {examChip.name} · {t.exam.daysLeft.replace("${n}", String(examChip.days))}</LvChip>
             <span class="ft__smaller ft__on-surface">{t.exam.examChipHint}</span>
         </div>
     {/if}
@@ -688,7 +689,7 @@
             <h2 id="lv-first-use-title">{t.dashboard.emptyStateTitle ?? "让第一张卡，简单一点"}</h2>
             <p>{t.dashboard.emptyStateDesc ?? t.dashboard.onboardingHint}</p>
             <div class="lv-empty-note-card">
-                <div class="lv-empty-note-icon" aria-hidden="true">💡</div>
+                <div class="lv-empty-note-icon"><LvIcon name="lightbulb" size={20} /></div>
                 <div class="lv-empty-note-content">
                     <strong>{t.dashboard.emptyGuideTitle ?? "思源笔记即是闪卡"}</strong>
                     <p>{t.dashboard.emptyGuideDesc ?? "无需单独录入卡片。在文档中选中文本打上 ==挖空==，或点击段落块图标「制作闪卡」，即可自动生成复习卡片。"}</p>
@@ -726,7 +727,7 @@
                 class="lv-card2 lv-unfinished-ai"
                 onclick={() => ctx.openHubTab ? ctx.openHubTab("recovery") : ctx.openAIWizard?.()}
             >
-                <span>⏳ {t.dashboard.unfinishedAI
+                <span><LvIcon name="timer" size={15} /> {t.dashboard.unfinishedAI
                     .replace("${done}", String(unfinishedAI.done))
                     .replace("${total}", String(unfinishedAI.total))}</span>
             </button>
@@ -933,7 +934,7 @@
         <!-- 深度统计首行：连续/用时/总量瓦片（R53 T01 上限 4——次级指标折叠在此） -->
         <div class="fn__flex fn__flex-wrap lv-cards">
             <div class="lv-stat-cell">
-                <LvStat label={t.dashboard.streak} value={streak} tone="warn" animate badge={streak >= 3 ? "🔥" : undefined} />
+                <LvStat label={t.dashboard.streak} value={streak} tone="warn" animate badgeIcon={streak >= 3 ? "flame" : undefined} />
             </div>
             {#if todayStudyMinutes > 0}
                 <div class="lv-stat-cell">
@@ -969,7 +970,7 @@
                 {#if docCov && docCov.docs.length > 0}
                     <div class="lv-cov-docs ft__smaller ft__on-surface">
                         {#each docCov.docs.slice(0, 3) as dc (dc.docID)}
-                            <div>📄 {dc.title || dc.docID.slice(0, 8)} · {t.dashboard.docCards.replace("${n}", String(dc.seen))}</div>
+                            <div><LvIcon name="book" size={15} /> {dc.title || dc.docID.slice(0, 8)} · {t.dashboard.docCards.replace("${n}", String(dc.seen))}</div>
                         {/each}
                         {#if docCov.unattributed > 0}
                             <div>{t.dashboard.docUnattributedNote.replace("${n}", String(docCov.unattributed))}</div>
@@ -1044,7 +1045,7 @@
                                 <td style="text-align:right;font-variant-numeric:tabular-nums">{row.newCount}</td>
                                 <td style="text-align:right;font-variant-numeric:tabular-nums" title={row.passRate7 !== null ? `7 天复习 ${row.reviews7} 次 · 通过率 ${row.passRate7}%` : `7 天复习 ${row.reviews7} 次`}>{row.reviews7}</td>
                                 <td style="text-align:right;font-variant-numeric:tabular-nums" class:lv-dd-retention-good={row.retention !== null && row.retention >= 85} class:lv-dd-retention-low={row.retention !== null && row.retention < 70}>{row.retention === null ? t.dashboard.unknown : row.retention + "%"}</td>
-                                <td style="text-align:right;font-variant-numeric:tabular-nums" class:lv-dd-leech-warn={row.leeches > 0}>{row.leeches > 0 ? `⚠️ ${row.leeches}` : 0}</td>
+                                <td style="text-align:right;font-variant-numeric:tabular-nums" class:lv-dd-leech-warn={row.leeches > 0}>{#if row.leeches > 0}<LvIcon name="warning" size={14} /> {row.leeches}{:else}0{/if}</td>
                                 <td style="text-align:right"><button class="b3-button b3-button--small lv-btn-ghost" disabled={ddExportBusy} onclick={() => exportDeckShare(row.deckID, deckName)}>{t.dashboard.ddShareBtn}</button></td>
                             </tr>
                         {/each}

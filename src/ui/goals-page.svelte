@@ -5,6 +5,7 @@
     import LvPage from "./kit/LvPage.svelte";
     import LvEmpty from "./kit/LvEmpty.svelte";
     import LvChip from "./kit/LvChip.svelte";
+    import LvIcon from "./kit/LvIcon.svelte";
     import { GOAL_PRIORITIES, LEVELS, currentCriteria, daysUntilDeadline, isGoalActive, setCriteria, sortGoalsByPriority, suggestedMinutes, type GoalPriority, type LearningGoal, type LearningGoalsData, type LearnerLevel } from "@/core/learning-goal";
     import { SESSION_PURPOSES } from "@/core/session-purpose";
     import { narrateGoalProgress, stageLabelKey } from "@/core/goal-narrative";
@@ -229,7 +230,7 @@
                     {/each}
                 </select>
             </label>
-            <div class="lv-form-hint">💡 {t.suggested.replace("${n}", String(suggestedMinutes(form.purpose, form.level)))}</div>
+            <div class="lv-form-hint"><LvIcon name="lightbulb" size={15} /> {t.suggested.replace("${n}", String(suggestedMinutes(form.purpose, form.level)))}</div>
             <div class="lv-form-actions">
                 {#if formError}<div class="lv-form-error" role="alert">{formError}</div>{/if}
                 <button class="b3-button lv-btn-primary b3-button--small" disabled={saving || actionBusy} onclick={() => void save()}>{saving ? "保存中…" : t.save}</button>
@@ -257,13 +258,13 @@
                         {#if showNarrative}
                             <!-- BI-15：阶段计数叙事（描述进展，非掌握百分比） -->
                             <div class="lv-goal-meta ft__smaller ft__on-surface" style="opacity:.8">
-                                🧭 {narrativeText(g)}
+                                <LvIcon name="learn" size={14} /> {narrativeText(g)}
                             </div>
                         {/if}
                         {#if currentCriteria(g)}
                             <!-- BI-16：现行完成定义（修改即追加历史，旧定义保留） -->
                             <div class="lv-goal-meta ft__smaller ft__on-surface" style="opacity:.8">
-                                🎯 {currentCriteria(g)}
+                                <LvIcon name="target" size={14} /> {currentCriteria(g)}
                             </div>
                         {/if}
                         <!-- T06 步骤链（docs/13 §8）：了解 → 回忆 → 应用；应用证据未追踪，如实标注 -->

@@ -297,7 +297,7 @@ describe("review async action guards", () => {
         await fireEvent.click(markBtn);
 
         expect(testCtx.tagErrorReason).toHaveBeenCalledWith("card-a", "question-unclear");
-        expect(screen.getAllByText("🚩 t.review.issueChip")).toHaveLength(2);
+        expect(screen.getAllByText("t.review.issueChip")).toHaveLength(2);
         expect(markBtn.hasAttribute("disabled")).toBe(true);
         await fireEvent.click(markBtn);
         expect(testCtx.tagErrorReason).toHaveBeenCalledOnce();
@@ -576,7 +576,7 @@ describe("review async action guards", () => {
         await fireEvent.click(authoringBtn);
         expect(testCtx.openDashboard).toHaveBeenCalledWith("authoring");
 
-        const homeBtns = screen.getAllByRole("button", { name: /🏠 (t\.review\.returnHome|返回闪卡主页|返回主页)/ });
+        const homeBtns = screen.getAllByRole("button", { name: /t\.review\.returnHome|返回闪卡主页|返回主页/ });
         expect(homeBtns.length).toBeGreaterThan(0);
         await fireEvent.click(homeBtns[0]);
         expect(testCtx.openDashboard).toHaveBeenCalledWith();

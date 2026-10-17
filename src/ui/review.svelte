@@ -41,6 +41,7 @@
     import LvChip from "./kit/LvChip.svelte";
     import LvError from "./kit/LvError.svelte";
     import LvSkeleton from "./kit/LvSkeleton.svelte";
+    import LvIcon from "./kit/LvIcon.svelte";
     import { friendlyError } from "@/api/errors";
     import { triggerHaptic } from "@/core/haptic";
     import { lvLog } from "@/libs/log";
@@ -1936,7 +1937,7 @@
                         title={t.review.returnHome ?? "返回闪卡主页"}
                         onclick={() => ctx.openDashboard()}
                     >
-                        🏠 {t.review.returnHome ?? "返回主页"}
+                        <LvIcon name="home" size={15} /> {t.review.returnHome ?? "返回主页"}
                     </button>
                 </div>
                 <div class="lv-empty-queue-title">{t.review.emptyQueueTitle}</div>
@@ -1965,7 +1966,7 @@
                     </select>
                 </label>
                 <div class="fn__flex lv-done-actions" style="justify-content: center; margin-top: var(--lv-sp-4); gap: var(--lv-sp-2); flex-wrap: wrap;">
-                    <button class="b3-button lv-btn-primary" onclick={() => ctx.openDashboard()}>🏠 {t.review.returnHome ?? "返回闪卡主页"}</button>
+                    <button class="b3-button lv-btn-primary" onclick={() => ctx.openDashboard()}><LvIcon name="home" size={16} /> {t.review.returnHome ?? "返回闪卡主页"}</button>
                     <button class="b3-button b3-button--outline" onclick={() => ctx.openDashboard("authoring")}>+ {t.review.createCards ?? "去制作新卡"}</button>
                     <button class="b3-button b3-button--outline" onclick={() => ctx.openDashboard("manage")}>{t.menuManager}</button>
                     <button class="b3-button b3-button--outline" onclick={loadQueue}>{t.dashboard.refresh}</button>
@@ -2041,7 +2042,7 @@
                     </div>
                 {/if}
                 <div class="fn__flex lv-done-actions" style="justify-content: center; gap: var(--lv-sp-2)">
-                    <button class="b3-button lv-btn-primary" onclick={() => ctx.openDashboard()}>🏠 {t.review.returnHome ?? "返回闪卡主页"}</button>
+                    <button class="b3-button lv-btn-primary" onclick={() => ctx.openDashboard()}><LvIcon name="home" size={16} /> {t.review.returnHome ?? "返回闪卡主页"}</button>
                     <button class="b3-button b3-button--outline" onclick={() => ctx.openDashboard("manage")}>{t.menuManager}</button>
                     <button class="b3-button b3-button--text" onclick={loadQueue}>{t.review.again}</button>
                 </div>
@@ -2059,7 +2060,7 @@
                         title={t.review.returnHome ?? "返回闪卡主页"}
                         onclick={() => ctx.openDashboard()}
                     >
-                        🏠 {t.review.returnHome ?? "返回主页"}
+                        <LvIcon name="home" size={15} /> {t.review.returnHome ?? "返回主页"}
                     </button>
                 </div>
                 {#if entryCtx}
@@ -2081,12 +2082,12 @@
                     {#if budgetExpired}
                         <span class="lv-chip2 lv-chip2--default" title={t.review.budgetDoneTip}>{t.review.budgetDone}</span>
                     {:else}
-                        <span class="lv-timeout" title={t.review.budgetLabel}>⏳ {budgetClockText()}</span>
+                        <span class="lv-timeout" title={t.review.budgetLabel}><LvIcon name="timer" size={14} /> {budgetClockText()}</span>
                     {/if}
                 {/if}
                 {#if current.lvRequeue}<span class="lv-chip2 lv-chip2--warn" title={t.review.requeueTip}>{t.review.requeueChip}</span>{/if}
                 {#if eff().timeoutMode !== "off" && !showAnswer}
-                    <span class="lv-timeout" class:lv-timeout-low={timeoutLeft <= 10}>⏱ {timeoutText()}</span>
+                    <span class="lv-timeout" class:lv-timeout-low={timeoutLeft <= 10}><LvIcon name="timer" size={14} /> {timeoutText()}</span>
                 {/if}
                 <span class="lv-tags">
                     {#if !(eff().hideMetaUntilAnswer && !showAnswer)}
@@ -2094,17 +2095,17 @@
                         <span class="lv-chip2 lv-chip2--default">{t.review.reps} {current.reps} · {t.review.lapses} {current.lapses}</span>
                     {/if}
                     <span class="lv-chip2 lv-chip2--default">
-                        {#if occl}🖼️ {t.cardTypeBadgeOcclusion ?? "遮挡"}
-                        {:else if cardHtml?.includes("language-")}💻 {t.cardTypeBadgeCode ?? "代码"}
-                        {:else if cardHtml?.includes("lv-masked")}✏️ {t.cardTypeBadgeCloze ?? "挖空"}
-                        {:else}💬 {t.cardTypeBadgeQA ?? "问答"}
+                        {#if occl}<LvIcon name="image" size={14} /> {t.cardTypeBadgeOcclusion ?? "遮挡"}
+                        {:else if cardHtml?.includes("language-")}<LvIcon name="code" size={14} /> {t.cardTypeBadgeCode ?? "代码"}
+                        {:else if cardHtml?.includes("lv-masked")}<LvIcon name="edit" size={14} /> {t.cardTypeBadgeCloze ?? "挖空"}
+                        {:else}<LvIcon name="message" size={14} /> {t.cardTypeBadgeQA ?? "问答"}
                         {/if}
                     </span>
                     {#if current.lapses >= (eff().leechThreshold ?? 4)}
-                        <span class="lv-chip2 lv-chip2--warn" title={t.review.leechTip?.replace("${n}", String(current.lapses)) ?? `已遗忘 ${current.lapses} 次，建议拆解知识点`}>⚠️ {t.review.leechChip ?? "易混淆"}</span>
+                        <span class="lv-chip2 lv-chip2--warn" title={t.review.leechTip?.replace("${n}", String(current.lapses)) ?? `已遗忘 ${current.lapses} 次，建议拆解知识点`}><LvIcon name="warning" size={14} /> {t.review.leechChip ?? "易混淆"}</span>
                     {/if}
                     {#if markedIssueCardIDs.has(current.cardID)}
-                        <span class="lv-chip2 lv-chip2--warn" title={t.review.issueMarked}>🚩 {t.review.issueChip}</span>
+                        <span class="lv-chip2 lv-chip2--warn" title={t.review.issueMarked}><LvIcon name="flag" size={14} /> {t.review.issueChip}</span>
                     {/if}
                 </span>
                 <span class="lv-progress">{reviewedIDs.length + 1} / {reviewedIDs.length + queue.length}</span>
@@ -2147,9 +2148,9 @@
                 </span>
                 <div class="fn__flex-1"></div>
                 <!-- docs/13 §4：图标可读、操作不依赖 hover；常驻核心高频操作，二级动作折叠进更多气泡 -->
-                <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.sessionOptionsTitle} aria-label={t.review.sessionOptionsTitle} onclick={openSessionOptions}>⚡ {t.review.sessionOptionsTitle.slice(0, 4)}</button>
-                <button class="b3-button b3-button--small lv-btn-ghost" class:lv-btn-primary={markedIssueCardIDs.has(current?.cardID ?? '')} title={markedIssueCardIDs.has(current?.cardID ?? '') ? t.review.issueMarked : t.review.tbMarkIssue} aria-label={t.review.tbMarkIssue} aria-pressed={markedIssueCardIDs.has(current?.cardID ?? '')} disabled={!current || actionBusy || markedIssueCardIDs.has(current?.cardID ?? '')} onclick={toggleMarkIssue}>🚩 {markedIssueCardIDs.has(current?.cardID ?? '') ? t.review.issueChip : t.review.tbMarkIssue}</button>
-                <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.pauseTitle} aria-label={t.review.pauseTitle} disabled={actionBusy} onclick={() => (showPauseModal = true)}>⏸ {t.review.tbPause}</button>
+                <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.sessionOptionsTitle} aria-label={t.review.sessionOptionsTitle} onclick={openSessionOptions}><LvIcon name="zap" size={15} /> {t.review.sessionOptionsTitle.slice(0, 4)}</button>
+                <button class="b3-button b3-button--small lv-btn-ghost" class:lv-btn-primary={markedIssueCardIDs.has(current?.cardID ?? '')} title={markedIssueCardIDs.has(current?.cardID ?? '') ? t.review.issueMarked : t.review.tbMarkIssue} aria-label={t.review.tbMarkIssue} aria-pressed={markedIssueCardIDs.has(current?.cardID ?? '')} disabled={!current || actionBusy || markedIssueCardIDs.has(current?.cardID ?? '')} onclick={toggleMarkIssue}><LvIcon name="flag" size={15} /> {markedIssueCardIDs.has(current?.cardID ?? '') ? t.review.issueChip : t.review.tbMarkIssue}</button>
+                <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.pauseTitle} aria-label={t.review.pauseTitle} disabled={actionBusy} onclick={() => (showPauseModal = true)}><LvIcon name="moon" size={15} /> {t.review.tbPause}</button>
                 <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.undoTitle} aria-label={t.review.undoTitle} disabled={actionBusy || history.length === 0} onclick={undoHistory}>{t.review.tbUndo}</button>
                 <button class="b3-button b3-button--small lv-btn-ghost" disabled={actionBusy} onclick={skip}>{t.review.skip}</button>
                 <div class="lv-toolbar-more-wrap">
@@ -2168,32 +2169,32 @@
                         <div class="lv-toolbar-more-scrim" onclick={() => (showMoreToolbar = false)}></div>
                         <div class="lv-toolbar-more-menu" role="menu">
                             <button type="button" class="lv-toolbar-menu-item" class:lv-active={ctxOpen} title={t.review.ctxToggle} onclick={() => { toggleContext(); showMoreToolbar = false; }}>
-                                <span class="lv-menu-icon" aria-hidden="true">📖</span><span>{t.review.tbCtx}</span>
+                                <span class="lv-menu-icon"><LvIcon name="book" size={16} /></span><span>{t.review.tbCtx}</span>
                             </button>
                             <button type="button" class="lv-toolbar-menu-item" class:lv-active={prefsOpen || hasOverrides} title={t.review.prefsTitle} onclick={() => { prefsOpen = !prefsOpen; showMoreToolbar = false; }}>
-                                <span class="lv-menu-icon" aria-hidden="true">⚙️</span><span>{t.review.tbPrefs}{hasOverrides ? " ●" : ""}</span>
+                                <span class="lv-menu-icon"><LvIcon name="settings" size={16} /></span><span>{t.review.tbPrefs}{hasOverrides ? " ●" : ""}</span>
                             </button>
                             <button type="button" class="lv-toolbar-menu-item" disabled={!lastAnswered} title={t.review.peekPrev} onclick={() => { togglePeek(); showMoreToolbar = false; }}>
-                                <span class="lv-menu-icon" aria-hidden="true">👁️</span><span>{t.review.peekPrev}</span>
+                                <span class="lv-menu-icon"><LvIcon name="eye" size={16} /></span><span>{t.review.peekPrev}</span>
                             </button>
                             <button type="button" class="lv-toolbar-menu-item" title={t.review.openInEditor} onclick={() => { openInEditor(); showMoreToolbar = false; }}>
-                                <span class="lv-menu-icon" aria-hidden="true">📝</span><span>{t.review.openInEditor ?? t.review.open}</span>
+                                <span class="lv-menu-icon"><LvIcon name="edit" size={16} /></span><span>{t.review.openInEditor ?? t.review.open}</span>
                             </button>
                             <button type="button" class="lv-toolbar-menu-item" title={t.review.refreshCard} onclick={() => { refreshCard(); showMoreToolbar = false; }}>
-                                <span class="lv-menu-icon" aria-hidden="true">🔄</span><span>{t.review.tbRefresh}</span>
+                                <span class="lv-menu-icon"><LvIcon name="refresh" size={16} /></span><span>{t.review.tbRefresh}</span>
                             </button>
                             <button type="button" class="lv-toolbar-menu-item" disabled={actionBusy} title={t.review.suspendToday} onclick={() => { suspendToday(); showMoreToolbar = false; }}>
-                                <span class="lv-menu-icon" aria-hidden="true">🌙</span><span>{t.review.suspendToday ?? t.review.tbSuspend}</span>
+                                <span class="lv-menu-icon"><LvIcon name="moon" size={16} /></span><span>{t.review.suspendToday ?? t.review.tbSuspend}</span>
                             </button>
                             <button type="button" class="lv-toolbar-menu-item" disabled={!current || actionBusy} title={t.review.tbMemo} onclick={() => { showMemoEditor = true; showMoreToolbar = false; }}>
-                                <span class="lv-menu-icon" aria-hidden="true">💡</span><span>{t.review.tbMemo ?? "助记便签"}</span>
+                                <span class="lv-menu-icon"><LvIcon name="lightbulb" size={16} /></span><span>{t.review.tbMemo ?? "助记便签"}</span>
                             </button>
                             <button type="button" class="lv-toolbar-menu-item lv-menu-danger" disabled={!current || actionBusy} title={t.review.retireCard} onclick={() => { showRetireModal = true; showMoreToolbar = false; }}>
-                                <span class="lv-menu-icon" aria-hidden="true">🚫</span><span>{t.review.retireCard ?? "移出卡组"}</span>
+                                <span class="lv-menu-icon"><LvIcon name="ban" size={16} /></span><span>{t.review.retireCard ?? "移出卡组"}</span>
                             </button>
                             <div class="lv-toolbar-menu-divider"></div>
                             <button type="button" class="lv-toolbar-menu-item" title={t.review.helpTitle} onclick={() => { helpOpen = true; showMoreToolbar = false; }}>
-                                <span class="lv-menu-icon" aria-hidden="true">❓</span><span>{t.review.tbHelp}</span>
+                                <span class="lv-menu-icon"><LvIcon name="question" size={16} /></span><span>{t.review.tbHelp}</span>
                             </button>
                         </div>
                     {/if}
@@ -2209,14 +2210,14 @@
                     title={t.review.breadcrumbHint ?? "点击查阅来源文档上下文"}
                     onclick={toggleContext}
                 >
-                    <span class="lv-breadcrumb-icon" aria-hidden="true">📚</span>
+                    <span class="lv-breadcrumb-icon"><LvIcon name="book" size={16} /></span>
                     <span class="lv-breadcrumb-text">{currentHPath}</span>
                 </button>
             {/if}
             {#if !cardHtml && faceError}
                 <!-- AS-3：卡面加载失败占位（不白屏；重试不丢队列位置） -->
                 <div class="lv-center" style="display: flex; flex-direction: column; gap: calc(var(--lv-space-unit) * 5); align-items: center; justify-content: center; min-height: 220px" role="status">
-                    <span style="font-size: var(--lv-type-hero-size)" aria-hidden="true">⚠️</span>
+                    <span style="font-size: var(--lv-type-hero-size)"><LvIcon name="warning" size={30} /></span>
                     <span class="ft__smaller ft__on-surface" style="text-align: center">{faceError}</span>
                     <button class="b3-button b3-button--outline b3-button--small" onclick={retryFace}>{t.dashboard.refresh}</button>
                 </div>
@@ -2239,7 +2240,7 @@
                 {#if cardMemo}
                     <!-- 汲取自渐进学习插件：给未来的自己留助记线索 -->
                     <div class="lv-card-memo-callout">
-                        <span class="lv-memo-icon" aria-hidden="true">💡</span>
+                        <span class="lv-memo-icon"><LvIcon name="lightbulb" size={18} /></span>
                         <div class="lv-memo-body">
                             <strong>{t.review.memoTitle ?? "助记线索"}</strong>
                             <p>{cardMemo}</p>
@@ -2260,7 +2261,7 @@
                             title={t.review.memoModalTitle ?? "给未来的自己留助记线索"}
                             onclick={() => (showMemoEditor = true)}
                         >
-                            <span>💡 {t.review.tbMemo ?? "助记便签"}</span>
+                            <span><LvIcon name="lightbulb" size={15} /> {t.review.tbMemo ?? "助记便签"}</span>
                         </button>
                     </div>
                 {/if}
@@ -2373,7 +2374,7 @@
                     {:else if choiceLoading}
                         <div class="ft__smaller ft__on-surface" role="status" aria-busy="true">{t.review.choiceLoading}</div>
                     {:else}
-                        <button class="b3-button b3-button--small lv-choice-btn" onclick={startChoice}>🎲 {t.review.choiceMake}</button>
+                        <button class="b3-button b3-button--small lv-choice-btn" onclick={startChoice}><LvIcon name="dice" size={15} /> {t.review.choiceMake}</button>
                     {/if}
                 {/if}
                 <!-- BJ-2：分级提示显示区（不自动提交评分；含级别指示器） -->
@@ -2495,7 +2496,7 @@
             {#if budgetMin === 25 && budgetExpired && showAnswer}
                 <!-- 汲取自番茄闪卡 sy-tomato：25 分钟番茄专注周期达成，温和建议休息保护精力 -->
                 <div class="lv-notice lv-notice--warn lv-pomodoro-alert" role="status">
-                    <span class="lv-pomodoro-icon" aria-hidden="true">🍅</span>
+                    <span class="lv-pomodoro-icon"><LvIcon name="timer" size={18} /></span>
                     <div class="lv-pomodoro-text">
                         <strong>{t.review.pomodoroDoneTitle ?? "25 分钟番茄专注达成！"}</strong>
                         <p>{(t.review.pomodoroDoneDesc ?? "已完成本轮专注复习（已评 ${n} 张），建议休息 5 分钟，让大脑巩固记忆再继续。").replace("${n}", String(reviewedIDs.length))}</p>
@@ -2648,7 +2649,7 @@
             <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
             <div class="lv-pause-dialog lv-card2" role="dialog" aria-modal="true" aria-label={t.review.memoModalTitle} tabindex="-1" bind:this={sessionModalEl} onclick={(e: Event) => e.stopPropagation()}>
                 <div class="lv-help-head">
-                    <span style="font-weight:600;font-size:16px">💡 {t.review.memoModalTitle ?? "给未来的自己留助记线索"}</span>
+                    <span style="font-weight:600;font-size:16px"><LvIcon name="lightbulb" size={17} /> {t.review.memoModalTitle ?? "给未来的自己留助记线索"}</span>
                     <div class="fn__flex-1"></div>
                     <button class="b3-button b3-button--small" aria-label={window.siyuan.languages.cancel} onclick={() => (showMemoEditor = false)}>✕</button>
                 </div>
@@ -2679,7 +2680,7 @@
             <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
             <div class="lv-pause-dialog lv-card2" role="dialog" aria-modal="true" aria-label={t.review.retireCardTitle} tabindex="-1" bind:this={sessionModalEl} onclick={(e: Event) => e.stopPropagation()}>
                 <div class="lv-help-head">
-                    <span style="font-weight:600;font-size:16px">🚫 {t.review.retireCardTitle ?? "移出复习卡组"}</span>
+                    <span style="font-weight:600;font-size:16px"><LvIcon name="ban" size={17} /> {t.review.retireCardTitle ?? "移出复习卡组"}</span>
                     <div class="fn__flex-1"></div>
                     <button class="b3-button b3-button--small" aria-label={window.siyuan.languages.cancel} onclick={() => (showRetireModal = false)}>✕</button>
                 </div>
