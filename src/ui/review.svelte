@@ -76,6 +76,8 @@
         reverseOrder: boolean;
         /** 单卡作答耗时封顶秒（AQ-13） */
         answerTimeCapSec: number;
+        /** 易混淆卡片遗忘次数门限 */
+        leechThreshold?: number;
         /** 每日一语（375） */
         dailyTipEnabled: boolean;
     }
@@ -1952,6 +1954,9 @@
                         {#if current.state === 0}<span class="lv-chip2 lv-chip2--primary">{t.review.tagNew}</span>{/if}
                         <span class="lv-chip2 lv-chip2--default">{t.review.reps} {current.reps} · {t.review.lapses} {current.lapses}</span>
                     {/if}
+                    {#if current.lapses >= (eff().leechThreshold ?? 4)}
+                        <span class="lv-chip2 lv-chip2--warn" title={t.review.leechTip?.replace("${n}", String(current.lapses)) ?? `已遗忘 ${current.lapses} 次，建议拆解知识点`}>⚠️ {t.review.leechChip ?? "易混淆"}</span>
+                    {/if}
                     {#if markedIssueCardIDs.has(current.cardID)}
                         <span class="lv-chip2 lv-chip2--warn" title={t.review.issueMarked}>🚩 {t.review.issueChip}</span>
                     {/if}
@@ -2674,10 +2679,36 @@
                 z-index: var(--lv-z-card-control);
             }
 
-            // AS-3：富内容窄屏横向滚动（表格/长链不撑破卡面）
+            // AS-3：富内容窄屏横向滚动（表格/长链不撑破卡面）与大图/公式防溢出
             .lv-card-content {
                 overflow-x: auto;
                 max-width: 100%;
+
+                :global(img) {
+                    max-width: 100%;
+                    max-height: 52vh;
+                    height: auto;
+                    object-fit: contain;
+                    border-radius: var(--lv-r-m);
+                    box-shadow: var(--lv-shadow-card);
+                    margin: var(--lv-sp-2) 0;
+                    display: inline-block;
+                    vertical-align: middle;
+                    cursor: zoom-in;
+                    transition: transform var(--lv-dur-1) var(--lv-ease);
+                    &:hover { transform: scale(1.01); }
+                }
+
+                :global(.language-math),
+                :global(.katex-display) {
+                    overflow-x: auto;
+                    overflow-y: hidden;
+                    scrollbar-width: thin;
+                    padding: var(--lv-sp-2) var(--lv-sp-3);
+                    border-radius: var(--lv-r-m);
+                    background: color-mix(in srgb, var(--lv-color-canvas) 85%, transparent);
+                    margin: var(--lv-sp-2) 0;
+                }
             }
 
             .lv-tts-row { display: flex; justify-content: flex-end; margin-top: var(--lv-sp-2); }
@@ -2829,9 +2860,20 @@
                     font-weight: var(--lv-fw-normal);
                 }
             }
+            @keyframes lv-rating-reveal {
+                from {
+                    opacity: 0;
+                    transform: translate3d(0, 5px, 0);
+                }
+                to {
+                    opacity: 1;
+                    transform: translate3d(0, 0, 0);
+                }
+            }
             .lv-btn-rate {
                 flex: 1;
                 max-width: 180px;
+                animation: lv-rating-reveal var(--lv-dur-2) var(--lv-ease);
                 /* R54 rating：高卡、左对齐、kbd 右置、间隔提示下沉、物理微阴影与按压弹性 */
                 display: flex; flex-direction: column; align-items: stretch; gap: 5px;
                 text-align: left;
