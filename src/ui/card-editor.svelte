@@ -57,6 +57,15 @@
         aria-label={t.editor.inputLabel}
         rows={4}
         disabled={saving}
+        onkeydown={(e: KeyboardEvent) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && changed && !saving) {
+                e.preventDefault();
+                save();
+            } else if (e.key === "Escape" && !saving) {
+                e.preventDefault();
+                oncancel();
+            }
+        }}
     ></textarea>
     <div class="lv-editor-diff" aria-label={t.editor.diffLabel}>
         {#if !changed}
@@ -72,10 +81,10 @@
     </div>
     {#if errMsg}<div class="lv-editor-err ft__smaller">{errMsg}</div>{/if}
     <div class="lv-editor-actions">
-        <button class="b3-button b3-button--text b3-button--small" disabled={!changed || saving} onclick={save}>
+        <button class="b3-button lv-btn-primary b3-button--small" disabled={!changed || saving} onclick={save}>
             {saving ? t.editor.saving : t.editor.save}
         </button>
-        <button class="b3-button b3-button--small" onclick={oncancel}>{t.editor.cancel}</button>
+        <button class="b3-button b3-button--small" disabled={saving} onclick={oncancel}>{t.editor.cancel}</button>
         <span class="ft__smaller ft__on-surface lv-editor-hint">{t.editor.hint}</span>
     </div>
 </section>

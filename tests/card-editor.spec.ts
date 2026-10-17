@@ -90,4 +90,27 @@ describe("card-editor（BX-2 W2）", () => {
         await fireEvent.click(getByText("取消"));
         expect(oncancel).toHaveBeenCalledOnce();
     });
+
+    it("支持 Ctrl+Enter 快捷提交与 Escape 退出", async () => {
+        const onsave = vi.fn(async () => true);
+        const oncancel = vi.fn();
+        const { getByLabelText } = render(CardEditor, {
+            t, original: "A", onsave, oncancel,
+        });
+        const box = getByLabelText("卡片内容（markdown）") as HTMLTextAreaElement;
+
+        // 无改动时 Ctrl+Enter 不触发保存
+        await fireEvent.keyDown(box, { key: "Enter", ctrlKey: true });
+        expect(onsave).not.toHaveBeenCalled();
+
+        // 改动后 Ctrl+Enter 触发保存
+        await fireEvent.input(box, { target: { value: "A with modification" } });
+        await flushDebounce();
+        await fireEvent.keyDown(box, { key: "Enter", ctrlKey: true });
+        expect(onsave).toHaveBeenCalledWith("A with modification");
+
+        // Escape 键触发 oncancel
+        await fireEvent.keyDown(box, { key: "Escape" });
+        expect(oncancel).toHaveBeenCalledOnce();
+    });
 });
