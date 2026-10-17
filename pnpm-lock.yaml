@@ -218,8 +218,8 @@ importers:
         specifier: ^1.105.1
         version: 1.105.1
       siyuan:
-        specifier: 1.2.5
-        version: 1.2.5
+        specifier: 1.2.9
+        version: 1.2.9
       svelte:
         specifier: ^5.57.2
         version: 5.57.2
@@ -1093,8 +1093,8 @@ packages:
     resolution: {integrity: sha512-PcByqNyT/38F2kDNi006HAMRJaULuBzq/FOsw3qdZvX/GA9W/jamDaRskgHjubHiftXK5sIFxLNkvrXUwcof6Q==}
     engines: {node: '>= 0.4'}
 
-  siyuan@1.2.5:
-    resolution: {integrity: sha512-DnBp58EaehG1LAqGXgti3ZaWqmtrl5HTO30f8tU8aOkzz0+RP3UDAyOaoicTvFK+MwWZh3FwQcbeS2PCDtjLNQ==}
+  siyuan@1.2.9:
+    resolution: {integrity: sha512-2bZTzTZocnOxPqY4liGtY2ZDhnhkYgySrlVLCCKWHjmGZ4kJYru0T1hFz5Hro0bz7cvecIEAx7XRV4plIvW1jQ==}
 
   source-map-js@1.2.2:
     resolution: {integrity: sha512-KGj/8Y43x35aZVDtt+J4mK1hoLGHULMYfSkODJNQjNDC3oW1PqPoxMwo0pLUsWM/UEGzON/NxeHywEfNXNP3Vw==}
@@ -1303,8 +1303,8 @@ packages:
   zimmerframe@1.1.4:
     resolution: {integrity: sha512-B58NGBEoc8Y9MWWCQGl/gq9xBCe4IiKM0a2x7GZdQKOW5Exr8S1W24J6OgM1njK8xCRGvAJIL/MxXHf6SkmQKQ==}
 
-  zod@4.6.5:
-    resolution: {integrity: sha512-v5l/aFXZQeai4awLbOpSoHecE9UiMrnfx75tEXLjNonXVARxQ5mOeipTjROUchszUNCqnE+hqAMujRsRHsut2Q==}
+  zod@4.6.7:
+    resolution: {integrity: sha512-g8W2D2kU6a8untc053fX1uVBKzM7yqAxW/3zwk83+6RyF2+SKOuV+c0wBDhUwzV1PaGapmZH+rmcUzPf+3CGwg==}
 
 snapshots:
 
@@ -2004,12 +2004,12 @@ snapshots:
 
   shell-quote@1.12.0: {}
 
-  siyuan@1.2.5:
+  siyuan@1.2.9:
     dependencies:
       '@dop251/types-goja_nodejs-buffer': 0.0.0-20260918183711-b481721df8a2
       '@dop251/types-goja_nodejs-global': 0.0.0-20260918183711-b481721df8a2
       '@dop251/types-goja_nodejs-url': 0.0.0-20260918183711-b481721df8a2
-      zod: 4.6.5
+      zod: 4.6.7
 
   source-map-js@1.2.2: {}
 
@@ -2160,4 +2160,4 @@ snapshots:
 
   zimmerframe@1.1.4: {}
 
-  zod@4.6.5: {}
+  zod@4.6.7: {}
