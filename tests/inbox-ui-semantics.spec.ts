@@ -5,8 +5,9 @@ import { describe, expect, it } from "vitest";
 const inbox = readFileSync(resolve(import.meta.dirname, "../src/ui/inbox-page.svelte"), "utf8");
 
 describe("材料收件箱行语义", () => {
-    it("把材料标题区域暴露为可键盘触发的按钮，避免依赖行点击", () => {
-        expect(inbox).toContain('<div class="lv-row">');
+    it("把材料标题区域暴露为可键盘触发的按钮，避免依赖行点击，且支持选中态高亮", () => {
+        expect(inbox).toContain('<div class="lv-row" class:lv-row--selected={checkedSet.has(item.blockID)}>');
+        expect(inbox).toContain('.lv-row--selected');
         expect(inbox).toContain('<button type="button" class="lv-content" onclick={() => toggle(item.blockID)}>');
         expect(inbox).not.toContain('role="presentation" onclick={() => toggle(item.blockID)}');
     });

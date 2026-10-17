@@ -265,7 +265,7 @@
         {/if}
         <div class="lv-list">
             {#each visible as item (item.blockID)}
-                <div class="lv-row">
+                <div class="lv-row" class:lv-row--selected={checkedSet.has(item.blockID)}>
                     <input
                         type="checkbox"
                         class="lv-check"
@@ -307,14 +307,22 @@
         font-size: var(--lv-type-body-size);
     }
     .lv-batchbar {
+        position: sticky;
+        top: var(--lv-sp-2);
+        z-index: 10;
         display: flex;
         align-items: center;
         gap: var(--lv-sp-2);
         flex-wrap: wrap;
-        padding: var(--lv-sp-2) var(--lv-sp-3);
-        border: 1px solid var(--lv-border);
+        padding: calc(var(--lv-space-unit) * 3) var(--lv-sp-3);
+        border: 1px solid var(--lv-primary-border);
         border-radius: var(--lv-r-m);
+        background: color-mix(in srgb, var(--lv-primary-soft) 85%, var(--lv-color-surface));
+        backdrop-filter: blur(10px) saturate(1.15);
+        -webkit-backdrop-filter: blur(10px) saturate(1.15);
+        box-shadow: var(--lv-shadow-card-hover), var(--lv-inset-shine);
         margin-bottom: var(--lv-sp-3);
+        animation: lv-modal-pop var(--lv-dur-1) var(--lv-ease);
     }
     .lv-list {
         display: flex;
@@ -338,6 +346,20 @@
     .lv-row:hover {
         border-color: var(--lv-border-strong);
         box-shadow: var(--lv-shadow-1);
+    }
+    .lv-row--selected {
+        background: color-mix(in srgb, var(--lv-primary-soft) 40%, var(--lv-color-surface));
+        border-color: var(--lv-primary-border);
+    }
+    .lv-row--selected::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 3px;
+        border-radius: var(--lv-r-m) 0 0 var(--lv-r-m);
+        background: var(--lv-color-brand);
     }
     .lv-check { cursor: pointer; }
     .lv-content {
