@@ -174,7 +174,19 @@
         facet = facetTabs[next].id;
         document.getElementById(`lv-facet-tab-${facetTabs[next].id}`)?.focus();
     }
-    const ratingLabel = (r: number) => (r === 1 ? t.review.unknown : r === 2 ? t.review.vague : r === 3 ? t.review.know : r === 4 ? t.review.easy : "—");
+    const ratingTone = (r: number): "error" | "warn" | "primary" | "default" => {
+        if (r === 1) return "error";
+        if (r === 2) return "warn";
+        if (r >= 3) return "primary";
+        return "default";
+    };
+    const ratingLabel = (r: number) => {
+        if (r === 1) return t.review?.againBtn ?? t.review?.unknown ?? "遗忘";
+        if (r === 2) return t.review?.hard ?? t.review?.vague ?? "困难";
+        if (r === 3) return t.review?.good ?? t.review?.know ?? "良好";
+        if (r === 4) return t.review?.easy ?? "简单";
+        return "—";
+    };
     const histSummary = $derived.by(() => {
         const reviews = historyEntries.filter((e) => e.rating > 0);
         const forgets = historyEntries.filter((e) => e.rating === 1).length;
@@ -344,9 +356,12 @@
             </div>
             <div class="lv-hist-list">
                 {#each [...historyEntries].reverse() as e (e.ts)}
-                    <div class="lv-todo-row">
-                        <span>{new Date(e.ts).toLocaleString()}</span>
-                        <span class="ft__smaller ft__on-surface">{ratingLabel(e.rating)}{e.dur ? ` · ${Math.round(e.dur / 1000)}s` : ""}</span>
+                    <div class="lv-todo-row lv-hist-row">
+                        <span class="lv-hist-ts">{new Date(e.ts).toLocaleString()}</span>
+                        <div class="lv-hist-meta">
+                            <LvChip tone={ratingTone(e.rating)}>{ratingLabel(e.rating)}</LvChip>
+                            {#if e.dur}<span class="ft__smaller ft__on-surface">{Math.round(e.dur / 1000)}s</span>{/if}
+                        </div>
                     </div>
                 {/each}
             </div>
@@ -396,6 +411,16 @@
 </LvDrawer>
 
 <style>
+    .lv-hist-row {
+        padding: var(--lv-sp-2) 0;
+        border-bottom: 1px solid var(--lv-border);
+        &:last-child { border-bottom: none; }
+    }
+    .lv-hist-meta {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--lv-sp-2);
+    }
     .lv-detail-preview {
         margin-bottom: var(--lv-sp-4);
         overflow-wrap: anywhere;
@@ -405,6 +430,22 @@
         background: var(--lv-color-surface);
         box-shadow: var(--lv-shadow-card), var(--lv-inset-shine);
         line-height: var(--lv-lh-reading);
+
+        :global(img) {
+            max-width: 100%;
+            max-height: 48vh;
+            height: auto;
+            object-fit: contain;
+            display: block;
+            margin: var(--lv-sp-2) auto;
+            border-radius: var(--lv-r-m);
+        }
+        :global(pre),
+        :global(.language-math),
+        :global(.katex-display) {
+            overflow-x: auto;
+            scrollbar-width: thin;
+        }
     }
     .lv-detail-preview-state,
     .lv-detail-preview-error {

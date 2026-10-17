@@ -164,4 +164,30 @@ describe("card detail preview loading", () => {
         expect(await screen.findByText("Could not load current content. Please retry.")).toBeTruthy();
         expect(document.querySelector(".lv-diff" )).toBeNull();
     });
+
+    it("renders semantic rating chips and durations in the history facet", async () => {
+        getBlockDOM.mockResolvedValue("<p>Preview</p>");
+        const historyEntries = [
+            { rating: 1, ts: 1700000000000, dur: 4200 },
+            { rating: 3, ts: 1700086400000, dur: 8500 },
+        ];
+        render(CardDetail, {
+            ...props("card-a", "A"),
+            t: {
+                ...t,
+                review: { againBtn: "Again", good: "Good" },
+                detail: { ...t.detail, histSummary: "Reviews: ${r}, Forgets: ${f}" },
+            },
+            historyEntries,
+        });
+
+        await screen.findByText("Preview");
+        await fireEvent.click(screen.getByRole("tab", { name: "History" }));
+
+        expect(screen.getByText("Reviews: 2, Forgets: 1")).toBeTruthy();
+        expect(screen.getByText("Again")).toBeTruthy();
+        expect(screen.getByText("Good")).toBeTruthy();
+        expect(screen.getByText("4s")).toBeTruthy();
+        expect(screen.getByText("9s")).toBeTruthy();
+    });
 });
