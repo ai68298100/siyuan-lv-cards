@@ -553,4 +553,17 @@ describe("review async action guards", () => {
         expect(screen.queryByRole("dialog", { name: "图片全屏聚焦预览" })).toBeNull();
         view.unmount();
     });
+
+    it("allows returning to dashboard from review header at any time", async () => {
+        const testCtx = ctx();
+        const view = render(Review, { ctx: testCtx });
+        await screen.findByText("block-a body");
+
+        // 顶栏常驻返回主页按钮
+        const homeBtn = screen.getByRole("button", { name: /(t\.review\.returnHome|返回主页|闪卡主页)/ });
+        expect(homeBtn).toBeTruthy();
+        await fireEvent.click(homeBtn);
+        expect(testCtx.openDashboard).toHaveBeenCalledOnce();
+        view.unmount();
+    });
 });

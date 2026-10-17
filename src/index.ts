@@ -1650,13 +1650,13 @@ export default class LvCardsPlugin extends Plugin {
             createSampleWorkspace: () => this.createSampleWorkspace(),
         });
 
-        // 入口矩阵（docs/12 §1.1）：左键 = 有到期开复习、无到期开中心；右键 = 菜单
+        // 入口矩阵：左键点击顶栏图标，默认打开闪卡主页面（TAB_DASHBOARD）；若开启直接复习且有到期卡，才直接开复习
         this.topBarElement = this.addTopBar({
             icon: "iconLvCards",
             title: this.i18n.topbarTitle,
             position: "right",
             callback: () => {
-                if (this.settings.modules.review && this.lastDue > 0) {
+                if (this.settings.topbarDirectReview && this.settings.modules.review && this.lastDue > 0) {
                     this.openTabOf(TAB_REVIEW);
                 } else {
                     this.openTabOf(TAB_DASHBOARD);

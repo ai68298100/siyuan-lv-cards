@@ -379,6 +379,8 @@
         unsubscribeInbox?.();
         unsubscribeExamPlans?.();
     });
+
+    const isMac = typeof navigator !== "undefined" && /(Mac|iPhone|iPod|iPad)/i.test(navigator.userAgent || navigator.platform || "");
 </script>
 
 <div class="lv-hub" bind:this={hubRoot}>
@@ -423,7 +425,7 @@
                     <button class="lv-r54-search" disabled={!openPalette} aria-describedby={!openPalette ? "lv-r54-search-hint" : undefined} onclick={() => openPalette?.()} aria-label={i18n.cmdPalette ?? "命令面板"}>
                         <LvIcon name="search" size={17} />
                         <span class="lv-r54-search-text">{i18n.palettePlaceholder ?? "搜索动作、页面…"}</span>
-                        <kbd>Ctrl K</kbd>
+                        <kbd>{isMac ? "⌘ K" : "Ctrl K"}</kbd>
                     </button>
                     <span class="lv-r54-local-status"><i aria-hidden="true"></i>{i18n.hubLocalStatus ?? "本地优先"}</span>
                     {#if inbox}

@@ -301,6 +301,7 @@
         "doneSkip": "Skipped",
         "doneProgress": "Keep it up!",
         "again": "Fetch next batch",
+        "returnHome": "Return to Home",
         "viewStats": "View statistics",
         "emptyQueueTitle": "Nothing due in this scope",
         "emptyQueueSub": "Switch scopes or create cards first — existing progress and statistics stay untouched.",
@@ -685,6 +686,7 @@
         "emptyContentFallback": "(empty card — block has no content; open the doc to fill it)"
     },
     "settings": {
+        "topbarDirectReview": "Top bar icon starts review directly when cards are due (default: open dashboard)",
         "answerTimeCap": "Per-card time cap",
         "answerTimeCapHint": "Answers longer than this count as the cap in local time stats; rating and scheduling unchanged",
         "personaSection": "Persona Presets",

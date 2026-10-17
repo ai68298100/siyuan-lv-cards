@@ -92,6 +92,8 @@ export interface LvCardsSettings {
     savedFilters: { name: string; filter: string }[];
     /** BI-14：界面模式（简单=隐藏高级入口；切换不删除配置，高级功能仍可经命令面板/设置访问） */
     uiMode: "simple" | "advanced";
+    /** 顶栏图标点击直接进入复习（若有到期卡；默认 false，打开闪卡主页面） */
+    topbarDirectReview: boolean;
     /** AI 配置（M2·FR7）：siyuan=思源内置 AI；custom=OpenAI 兼容端点 */
     aiMode: "siyuan" | "custom";
     aiEndpoint: string;
@@ -230,6 +232,7 @@ export function defaultSettings(): LvCardsSettings {
         lastReviewScope: "all",
         lastManagerView: "",
         onboarded: false,
+        topbarDirectReview: false,
     };
 }
 

@@ -747,6 +747,9 @@
         <LvRow label={t.settings.dailyReviewTarget}>
             <input class="b3-text-field fn__size-60" type="number" min="0" bind:value={draft.dailyReviewTarget} />
         </LvRow>
+        <LvRow label={t.settings.topbarDirectReview}>
+            <LvSwitch bind:checked={draft.topbarDirectReview} />
+        </LvRow>
         <LvRow label={t.settings.batchLimit} hint={t.settings.batchLimitHint}>
             <input class="b3-text-field fn__size-60" type="number" min="0" bind:value={draft.batchLimit} />
         </LvRow>

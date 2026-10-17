@@ -1915,7 +1915,17 @@
         <!-- R53 §3.9：空队列≠完成——范围名 + 如实说明 + 下一步，不渲染 0 值庆祝面板 -->
         <div class="lv-center lv-done">
             <div class="lv-done-panel lv-empty-queue">
-                <div class="lv-eyebrow">REVIEW / {headScopeLabel}</div>
+                <div class="lv-eyebrow" style="display: flex; align-items: center; justify-content: space-between; gap: var(--lv-sp-2)">
+                    <span>REVIEW / {headScopeLabel}</span>
+                    <button
+                        type="button"
+                        class="b3-button b3-button--small lv-btn-ghost lv-review-return-home"
+                        title={t.review.returnHome ?? "返回闪卡主页"}
+                        onclick={() => ctx.openDashboard()}
+                    >
+                        🏠 {t.review.returnHome ?? "返回主页"}
+                    </button>
+                </div>
                 <div class="lv-empty-queue-title">{t.review.emptyQueueTitle}</div>
                 <p class="ft__smaller ft__on-surface" style="margin: calc(var(--lv-space-unit) * 3) 0 0">{t.review.emptyQueueSub}</p>
                 <label class="fn__flex" style="justify-content: center; gap: 8px; align-items: center; margin-top: var(--lv-sp-3)">
@@ -1941,10 +1951,10 @@
                         {/if}
                     </select>
                 </label>
-                <div class="fn__flex lv-done-actions" style="justify-content: center; margin-top: var(--lv-sp-4)">
-                    <button class="b3-button b3-button--outline" onclick={loadQueue}>{t.dashboard.refresh}</button>
+                <div class="fn__flex lv-done-actions" style="justify-content: center; margin-top: var(--lv-sp-4); gap: var(--lv-sp-2)">
+                    <button class="b3-button lv-btn-primary" onclick={() => ctx.openDashboard()}>🏠 {t.review.returnHome ?? "返回闪卡主页"}</button>
                     <button class="b3-button b3-button--outline" onclick={() => ctx.openDashboard("manage")}>{t.menuManager}</button>
-                    <button class="b3-button lv-btn-primary" onclick={() => ctx.openDashboard()}>{t.review.viewStats}</button>
+                    <button class="b3-button b3-button--outline" onclick={loadQueue}>{t.dashboard.refresh}</button>
                 </div>
             </div>
         </div>
@@ -2016,10 +2026,10 @@
                         {/if}
                     </div>
                 {/if}
-                <div class="fn__flex lv-done-actions">
+                <div class="fn__flex lv-done-actions" style="justify-content: center; gap: var(--lv-sp-2)">
+                    <button class="b3-button lv-btn-primary" onclick={() => ctx.openDashboard()}>🏠 {t.review.returnHome ?? "返回闪卡主页"}</button>
+                    <button class="b3-button b3-button--outline" onclick={() => ctx.openDashboard("manage")}>{t.menuManager}</button>
                     <button class="b3-button b3-button--text" onclick={loadQueue}>{t.review.again}</button>
-                    <button class="b3-button b3-button--outline" disabled={history.length === 0 || actionBusy} onclick={undoHistory}>{t.review.undoLast}</button>
-                    <button class="b3-button lv-btn-primary" onclick={() => ctx.openDashboard()}>{t.review.viewStats}</button>
                 </div>
             </div>
         </div>
@@ -2027,7 +2037,17 @@
         <div class="lv-head">
             <!-- R52 review 面三行结构：①身份+状态 ②进度条 ③范围/目的控制 + 工具 -->
             <div class="lv-head-row">
-                <span class="lv-eyebrow">REVIEW / {headScopeLabel}</span>
+                <div class="fn__flex" style="align-items: center; gap: var(--lv-sp-2)">
+                    <span class="lv-eyebrow">REVIEW / {headScopeLabel}</span>
+                    <button
+                        type="button"
+                        class="b3-button b3-button--small lv-btn-ghost lv-review-return-home"
+                        title={t.review.returnHome ?? "返回闪卡主页"}
+                        onclick={() => ctx.openDashboard()}
+                    >
+                        🏠 {t.review.returnHome ?? "返回主页"}
+                    </button>
+                </div>
                 {#if entryCtx}
                     <!-- BI-3：入口上下文条（来源保留；取消/重开不丢，仅 × 显式清除） -->
                     <span class="lv-entry" title={t.entry.title}>

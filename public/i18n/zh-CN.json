@@ -301,6 +301,7 @@
         "doneSkip": "跳过",
         "doneProgress": "继续加油！",
         "again": "再来一批",
+        "returnHome": "返回闪卡主页",
         "viewStats": "查看统计",
         "emptyQueueTitle": "该范围没有到期的卡",
         "emptyQueueSub": "换个范围，或先去制卡；已有的进度与统计不受影响。",
@@ -685,6 +686,7 @@
         "emptyContentFallback": "（空卡面——块内容为空，可打开文档补充）"
     },
     "settings": {
+        "topbarDirectReview": "顶栏图标点击直接进入复习（若有到期卡；默认打开主页面）",
         "answerTimeCap": "单卡作答计时上限",
         "answerTimeCapHint": "超过此时长的作答按上限计入本地耗时统计，不影响评分与到期",
         "personaSection": "画像预设",
