@@ -4,6 +4,7 @@
     import LvSection from "./kit/LvSection.svelte";
     import LvRow from "./kit/LvRow.svelte";
     import LvKbd from "./kit/LvKbd.svelte";
+    import LvIcon from "./kit/LvIcon.svelte";
 
     let { i18n, applyPersona, createSampleCards, openReview, openHelp, openSampleDoc, onClose }: {
         i18n: any;
@@ -119,11 +120,11 @@
             <div class="lv-ob-types">
                 <strong>{t.onboardingTypesTitle}</strong>
                 <div class="lv-ob-type-grid">
-                    <span><b>💬 {t.onboardingTypeQa}</b>{t.onboardingTypeQaDesc}</span>
-                    <span><b>✏️ {t.onboardingTypeCloze}</b>{t.onboardingTypeClozeDesc}</span>
-                    <span><b>📐 {t.onboardingTypeFormula}</b>{t.onboardingTypeFormulaDesc}</span>
-                    <span><b>📋 {t.onboardingTypeList}</b>{t.onboardingTypeListDesc}</span>
-                    <span><b>🧩 {t.onboardingTypeConcept}</b>{t.onboardingTypeConceptDesc}</span>
+                    <span><b><LvIcon name="message" size={14} /> {t.onboardingTypeQa}</b>{t.onboardingTypeQaDesc}</span>
+                    <span><b><LvIcon name="edit" size={14} /> {t.onboardingTypeCloze}</b>{t.onboardingTypeClozeDesc}</span>
+                    <span><b><LvIcon name="code" size={14} /> {t.onboardingTypeFormula}</b>{t.onboardingTypeFormulaDesc}</span>
+                    <span><b><LvIcon name="book" size={14} /> {t.onboardingTypeList}</b>{t.onboardingTypeListDesc}</span>
+                    <span><b><LvIcon name="target" size={14} /> {t.onboardingTypeConcept}</b>{t.onboardingTypeConceptDesc}</span>
                 </div>
             </div>
         </LvSection>

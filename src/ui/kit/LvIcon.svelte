@@ -2,7 +2,7 @@
     export type LvIconName =
         | "home" | "cards" | "plus" | "learn" | "settings" | "inbox" | "search" | "question" | "bell"
         | "book" | "target" | "lightbulb" | "calendar" | "graduation" | "flag" | "zap" | "eye" | "edit" | "refresh"
-        | "moon" | "ban" | "timer" | "image" | "code" | "message" | "warning" | "dice" | "flame";
+        | "moon" | "ban" | "timer" | "image" | "code" | "message" | "warning" | "dice" | "flame" | "star";
 
     let { name, size = 18 }: { name: LvIconName; size?: number } = $props();
 
@@ -35,6 +35,7 @@
         warning: "M12 3 2.5 20h19zM12 9v5M12 17h.01",
         dice: "M4 4h16v16H4zM8 8h.01M16 8h.01M12 12h.01M8 16h.01M16 16h.01",
         flame: "M12 22c4 0 7-2.8 7-7 0-3-1.8-5.4-4.8-7.8.2 2-1 3.3-2.2 4.1.1-3.8-1.8-6-4.5-8.3.2 4-3.5 6-3.5 10 0 5.1 3.3 9 8 9z",
+        star: "m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9z",
     };
 </script>
 

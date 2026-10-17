@@ -5,6 +5,7 @@
     import { extractMarkTexts, MARK_SELECTOR } from "@/core/card-face";
     import LvEmpty from "./kit/LvEmpty.svelte";
     import LvError from "./kit/LvError.svelte";
+    import LvIcon from "./kit/LvIcon.svelte";
 
     /** 配对挑战（M4·FR4）：到期挖空卡限时配对——左列题面（挖空）× 右列答案（mark 文本），
      * 只入激励不计调度。无挖空的卡自动跳过。 */
@@ -181,7 +182,7 @@
         </div>
     {:else if phase === "running"}
         <div class="lv-pair-head">
-            <span class="b3-chip b3-chip--primary">⏱ {seconds}s</span>
+            <span class="b3-chip b3-chip--primary"><LvIcon name="timer" size={14} /> {seconds}s</span>
             <span class="b3-chip">{t.pairing.pairs}: {matched.size} / {pairs.length}</span>
             <span class="b3-chip b3-chip--error">{t.pairing.mistakes}: {mistakes}</span>
             <div class="fn__flex-1"></div>

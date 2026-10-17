@@ -3,6 +3,7 @@
     import { getBlockDOM, setBlockAttrs } from "@/api/siyuan";
     import { emptyOcclusion, serializeOcclusion, type OcclusionRect } from "@/core/occlusion";
     import LvKbd from "./kit/LvKbd.svelte";
+    import LvIcon from "./kit/LvIcon.svelte";
 
     let { blockID, i18n, onSave, onClose }: {
         blockID: string;
@@ -224,12 +225,12 @@
     </div>
     {#if loading}
         <div class="lv-occed-state" aria-busy="true" role="status">
-            <div class="lv-occed-state-icon">⏳</div>
+            <div class="lv-occed-state-icon"><LvIcon name="timer" size={28} /></div>
             <div>{t.occlusion.loading ?? "正在读取图片…"}</div>
         </div>
     {:else if errorMsg}
         <div class="lv-occed-state" role="alert">
-            <div class="lv-occed-state-icon">⚠</div>
+            <div class="lv-occed-state-icon"><LvIcon name="warning" size={28} /></div>
             <div>{errorMsg}</div>
             <button class="b3-button b3-button--outline" disabled={loading} onclick={loadPreview}>{t.occlusion.retry ?? "重试"}</button>
         </div>

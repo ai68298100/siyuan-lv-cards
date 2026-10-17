@@ -3,6 +3,7 @@
     import { getRiffDecks, createRiffDeck, type RiffDeck } from "@/api/riff";
     import { serializeQaCard, validateQaDraft } from "@/core/flashcard-quality";
     import LvKbd from "./kit/LvKbd.svelte";
+    import LvIcon from "./kit/LvIcon.svelte";
 
     let { i18n, onCreate, onClose, embedded = false }: {
         i18n: any;
@@ -146,10 +147,10 @@
     <div class="lv-qc-toolbar">
         <div class="lv-qc-template" role="group" aria-label={t.quickCardTemplateLabel}>
             <button type="button" class:lv-qc-template-active={template === "qa"} aria-pressed={template === "qa"} disabled={busy} onclick={() => setTemplate("qa")}>
-                <strong>💬 {t.quickCardTemplateQA}</strong><span>{t.quickCardTemplateQADesc}</span>
+                <strong><LvIcon name="message" size={15} /> {t.quickCardTemplateQA}</strong><span>{t.quickCardTemplateQADesc}</span>
             </button>
             <button type="button" class:lv-qc-template-active={template === "cloze"} aria-pressed={template === "cloze"} disabled={busy} onclick={() => setTemplate("cloze")}>
-                <strong>✏️ {t.quickCardTemplateCloze}</strong><span>{t.quickCardTemplateClozeDesc}</span>
+                <strong><LvIcon name="edit" size={15} /> {t.quickCardTemplateCloze}</strong><span>{t.quickCardTemplateClozeDesc}</span>
             </button>
         </div>
         <div class="lv-qc-field lv-qc-deck">
@@ -198,8 +199,8 @@
                     <span>{t.quickCardPreviewTitle}</span>
                     <span class="lv-chip2 lv-chip2--default">
                         {#if template === "qa" && isBidirectional}⇄ {t.cardTypeBadgeBidi ?? "双向"}
-                        {:else if template === "cloze"}✏️ {t.cardTypeBadgeCloze ?? "挖空"}
-                        {:else}💬 {t.cardTypeBadgeQA ?? "问答"}
+                        {:else if template === "cloze"}<LvIcon name="edit" size={14} /> {t.cardTypeBadgeCloze ?? "挖空"}
+                        {:else}<LvIcon name="message" size={14} /> {t.cardTypeBadgeQA ?? "问答"}
                         {/if}
                     </span>
                 </div>

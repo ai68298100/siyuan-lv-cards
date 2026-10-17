@@ -13,6 +13,7 @@ import { confirmDialog } from "@/libs/dialog";
     import LvError from "./kit/LvError.svelte";
     import LvSkeleton from "./kit/LvSkeleton.svelte";
     import LvChip from "./kit/LvChip.svelte";
+    import LvIcon from "./kit/LvIcon.svelte";
 
     export interface ManagerCtx {
         i18n: any;
@@ -657,15 +658,15 @@ import { confirmDialog } from "@/libs/dialog";
     <!-- T-管理器 R53 工具行：排序/筛选/保存独立于页头搜索 -->
     <div class="lv-mgr-toolbar">
         {#if filterText}
-            <button class="b3-button b3-button--small lv-btn-ghost" title={t.manager.saveFilter} disabled={!filterText.trim()} onclick={saveCurrent}>★ {t.manager.saveFilter}</button>
+            <button class="b3-button b3-button--small lv-btn-ghost" title={t.manager.saveFilter} disabled={!filterText.trim()} onclick={saveCurrent}><LvIcon name="star" size={15} /> {t.manager.saveFilter}</button>
         {/if}
         {#if savedList.length > 0 || filterText}
             <select class="b3-select lv-sort" bind:value={pickedSaved} onchange={applySaved}>
-                <option value="" disabled>★ {t.manager.savedFilters}</option>
+                <option value="" disabled>{t.manager.savedFilters}</option>
                 {#each savedList as f (f.name)}<option value={f.name}>{f.name}</option>{/each}
             </select>
             {#if pickedSaved}
-                <button class="b3-button b3-button--small lv-btn-ghost" title={t.manager.deleteSaved} aria-label={t.manager.deleteSaved} onclick={deleteSaved}>🗑</button>
+                <button class="b3-button b3-button--small lv-btn-ghost" title={t.manager.deleteSaved} aria-label={t.manager.deleteSaved} onclick={deleteSaved}><LvIcon name="ban" size={15} /></button>
             {/if}
         {/if}
         <select class="b3-select lv-sort" bind:value={sortMode} onchange={() => (selected = [])} title={t.manager.sortLabel}>
@@ -770,7 +771,7 @@ import { confirmDialog } from "@/libs/dialog";
                                     <span class="lv-chip2 lv-chip2--default">{t.manager.statusDue ?? "到期"}</span>
                                 {/if}
                                 {#if (ctx.getLapsesMap()[b.id] ?? 0) >= 4}
-                                    <span class="lv-chip2 lv-chip2--warn" title={`已遗忘 ${ctx.getLapsesMap()[b.id]} 次`}>⚠️ {ctx.getLapsesMap()[b.id]}</span>
+                                    <span class="lv-chip2 lv-chip2--warn" title={`已遗忘 ${ctx.getLapsesMap()[b.id]} 次`}><LvIcon name="warning" size={14} /> {ctx.getLapsesMap()[b.id]}</span>
                                 {/if}
                                 <span>{b.hPath ?? ""} {b.name ? "· " + b.name : ""}</span>
                             </span>

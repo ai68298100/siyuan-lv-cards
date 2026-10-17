@@ -4,6 +4,7 @@
     import { dueCache } from "@/api/due-shared";
     import { getBlockDOM } from "@/api/siyuan";
     import LvKbd from "./kit/LvKbd.svelte";
+    import LvIcon from "./kit/LvIcon.svelte";
 
     let { i18n, onExit }: { i18n: any; onExit: () => void } = $props();
     const t = $derived(i18n);
@@ -163,7 +164,7 @@
 <div class="lv-chal b3-typography">
     {#if phase === "idle"}
         <div class="lv-chal-center">
-            <div class="lv-chal-icon">⏱</div>
+            <div class="lv-chal-icon"><LvIcon name="timer" size={34} /></div>
             <div class="lv-chal-title">{t.challenge.title}</div>
             <div class="lv-chal-desc">{t.challenge.desc.replace("${n}", "3")}</div>
             <button class="b3-button lv-btn-primary" onclick={start}>{t.challenge.start} <LvKbd k="Space" /></button>
@@ -173,7 +174,7 @@
         </div>
     {:else if phase === "loading"}
         <div class="lv-chal-center" aria-busy="true">
-            <div class="lv-chal-icon">⏳</div>
+            <div class="lv-chal-icon"><LvIcon name="timer" size={34} /></div>
             <div class="lv-chal-title">{t.challenge.loading}</div>
             <button class="b3-button b3-button--cancel" onclick={exit}>{window.siyuan.languages.cancel}</button>
         </div>
@@ -188,7 +189,7 @@
         </div>
     {:else if phase === "error"}
         <div class="lv-chal-center">
-            <div class="lv-chal-icon">⚠</div>
+            <div class="lv-chal-icon"><LvIcon name="warning" size={34} /></div>
             <div class="lv-chal-title">{t.challenge.loadError}</div>
             <div class="lv-chal-desc" role="alert">{errorMsg}</div>
             <div class="fn__flex" style="gap: var(--lv-sp-2)">
@@ -199,7 +200,7 @@
     {:else if phase === "running"}
         <div class="lv-chal-head">
             <span class="lv-chal-timer" class:lv-chal-low={remaining <= 30}>
-                ⏱ {Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, "0")}
+                <LvIcon name="timer" size={16} /> {Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, "0")}
             </span>
             <span class="lv-chal-score">✓ {known} · ✗ {unknown}</span>
             <button class="b3-button b3-button--small" onclick={requestFinish}>{t.challenge.stop}</button>
@@ -222,7 +223,7 @@
         {/if}
     {:else}
         <div class="lv-chal-center">
-            <div class="lv-chal-icon">🏁</div>
+            <div class="lv-chal-icon"><LvIcon name="flag" size={34} /></div>
             <div class="lv-chal-title">{t.challenge.doneTitle}</div>
             <div class="lv-chal-desc">
                 ✓ {known} · ✗ {unknown} · {t.review?.doneSkip ?? "跳过"} {t.challenge.skipped}
