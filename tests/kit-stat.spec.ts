@@ -23,4 +23,20 @@ describe("stat animation lifecycle", () => {
         view.unmount();
         expect(frames.size).toBe(0);
     });
+
+    it("renders denominator and streak badge when provided", () => {
+        const view = render(LvStat, {
+            label: "连续天数",
+            value: 7,
+            denom: "30",
+            badge: "🔥",
+            tone: "warn",
+        });
+
+        expect(view.container.querySelector(".lv-stat-denom")?.textContent).toBe("/ 30");
+        const badgeEl = view.container.querySelector(".lv-stat-badge");
+        expect(badgeEl?.textContent).toBe("🔥");
+        expect(badgeEl?.getAttribute("aria-label")).toBe("🔥");
+        view.unmount();
+    });
 });

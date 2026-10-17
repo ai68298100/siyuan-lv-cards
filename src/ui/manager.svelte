@@ -127,7 +127,7 @@ import { confirmDialog } from "@/libs/dialog";
     let sortMode = $state<"default" | "path" | "content" | "lapses">("default");
     let leechOnly = $state(false);
     let statusFilter = $state<"all" | "new" | "review" | "due">("all");
-    let dueSet = new Set<string>();
+    let dueSet = $state(new Set<string>());
     let loadSeq = 0;  // AR-6：分页/刷新请求序号
     let dueSeq = 0;   // AR-6：到期清单请求序号
     let dueLoading = $state(false);
@@ -763,7 +763,17 @@ import { confirmDialog } from "@/libs/dialog";
                     >
                         <span class="lv-content">
                             <span class="lv-text">{stripHtml(b.content) || t.manager.emptyContentFallback}</span>
-                            <span class="lv-meta ft__smaller ft__on-surface">{b.hPath ?? ""} {b.name ? "· " + b.name : ""}</span>
+                            <span class="lv-meta ft__smaller ft__on-surface">
+                                {#if ctx.isNewBlock(b.id)}
+                                    <span class="lv-chip2 lv-chip2--primary">{t.manager.statusNew ?? "新"}</span>
+                                {:else if dueSet.has(b.id)}
+                                    <span class="lv-chip2 lv-chip2--default">{t.manager.statusDue ?? "到期"}</span>
+                                {/if}
+                                {#if (ctx.getLapsesMap()[b.id] ?? 0) >= 4}
+                                    <span class="lv-chip2 lv-chip2--warn" title={`已遗忘 ${ctx.getLapsesMap()[b.id]} 次`}>⚠️ {ctx.getLapsesMap()[b.id]}</span>
+                                {/if}
+                                <span>{b.hPath ?? ""} {b.name ? "· " + b.name : ""}</span>
+                            </span>
                         </span>
                         <span class="lv-arrow" aria-hidden="true">›</span>
                     </button>
