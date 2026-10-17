@@ -6,7 +6,8 @@
     import { isSessionLive, type EndReason } from "@/core/session-state";
     import { decideTodayAction } from "@/core/today-decision";
     import { buildDeckDashboard, type DeckDashboardRow } from "@/core/deck-dashboard";
-    import { srExportLine, composeSrExport } from "@/core/obsidian-import";
+    import { serializeLvCardsPackage, type LvPackageCard } from "@/core/lvcards-package";
+    import { downloadFile } from "@/core/data-transfer";
     import { getFlashcardStatistics, summarizeStatistics, type MigrationStatus } from "@/api/flashcardV2";
     import { calcStreak, lastNDays, localDate, studySecondsOn, coverageStats, deckCoverage, computeRetention, computeRetentionCurve, reviewStatsFor, weekCompare, calcMilestones, calcXp, type RevlogData, type RetentionResult, type CurvePoint, type WeekDelta, type Milestones, type XpResult, type CoverageStats, type DeckCoverage } from "@/core/revlog";
     import { buildForecast, buildMonthGrid, dueMapFromForecast, type ForecastResult, type CalendarCell } from "@/core/forecast";
@@ -372,30 +373,31 @@
         if (ddExportBusy) return;
         ddExportBusy = true;
         try {
-            const lines: ReturnType<typeof srExportLine>[] = [];
+            const packageCards: LvPackageCard[] = [];
             let page = 1;
             let pageCount = 1;
             do {
                 const r = await getRiffCards(deckID, page, 100);
                 pageCount = Number(r.pageCount ?? 1);
-                for (const b of r.blocks ?? []) lines.push(srExportLine(ddStripHtml(b.content), { deckHint: deckName }));
+                for (const b of r.blocks ?? []) {
+                    const content = ddStripHtml(b.content);
+                    packageCards.push({
+                        id: b.id,
+                        markdown: content,
+                        kind: content.includes("==") ? "cloze" : "qa",
+                    });
+                }
                 page += 1;
             } while (page <= pageCount && page <= 20);
-            if (lines.length === 0) {
+            if (packageCards.length === 0) {
                 showMessage(t.dashboard.ddShareEmpty, 2000, "info");
                 return;
             }
-            const md = composeSrExport(lines);
-            const blob = new Blob([md], { type: "text/markdown" });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = `分享包-${deckName}-${new Date().toISOString().slice(0, 10)}.md`;
-            a.click();
-            setTimeout(() => URL.revokeObjectURL(url), 1000);
+            const pkgJson = serializeLvCardsPackage({ id: deckID, name: deckName }, packageCards);
+            downloadFile(`${deckName}-${new Date().toISOString().slice(0, 10)}.lvcards`, pkgJson, "application/json");
             showMessage(t.dashboard.ddShareDone
-                .replace("${qa}", String(lines.filter(l => l.kind === "qa").length))
-                .replace("${c}", String(lines.filter(l => l.kind === "cloze").length)), 2500, "info");
+                .replace("${qa}", String(packageCards.filter(l => l.kind === "qa").length))
+                .replace("${c}", String(packageCards.filter(l => l.kind === "cloze").length)), 2500, "info");
         } catch (e) {
             showMessage(friendlyError(e, t), 3500, "error");
         } finally {

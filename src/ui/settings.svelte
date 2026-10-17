@@ -19,12 +19,13 @@
     // Anki M3：本地 .apkg 导入（docs/39 §3）——宿主适配 + 解析/预览/编排
     import { detectSqlite, openSqliteFile } from "@/api/anki-host";
     import { getNotebooks, createNotebook, createDocWithMd, sqlQuery } from "@/api/siyuan";
-    import { createRiffDeck, getRiffDecks } from "@/api/riff";
+    import { createRiffDeck, getRiffDecks, getRiffCards } from "@/api/riff";
     import { addRiffCards, formatRiffCardEntryError } from "@/api/due-shared";
     import { parseAnkiPackage } from "@/core/anki-package";
     import { buildImportPreview } from "@/core/anki-preview";
     import { composeImportMarkdown, pairImportedBlocks, partitionNew, normalizeLedger, mergeLedger } from "@/core/anki-import";
     import { validateFlashcardMarkdown } from "@/core/flashcard-quality";
+    import { parseLvCardsPackage, previewLvCardsImport } from "@/core/lvcards-package";
     // Obsidian SR 导入（v0.202.0）：块级解析 → 计划（去重/剥 tag）→ 一卡一段落落库 → 按序对位
     import { planObsidianImport, composeObsidianImportMarkdown, deckNameFor, groupByDeckHint, partitionByLedger, normalizeObLedger, mergeObLedger, type ObLedgerEntry } from "@/core/obsidian-import";
 
@@ -204,6 +205,87 @@
             obStatus = { kind: "warn", text: (t.settings.obImportFail || "导入失败：${m}").replace("${m}", detail) };
         } finally {
             obBusy = false;
+        }
+    }
+
+    let lvcardsBusy = $state(false);
+    let lvcardsStatus = $state<{ kind: "info" | "warn"; text: string } | null>(null);
+    async function importLvCards(e: Event) {
+        const input = e.target as HTMLInputElement;
+        const file = input.files?.[0];
+        input.value = "";
+        if (!file || lvcardsBusy) return;
+        lvcardsBusy = true;
+        lvcardsStatus = null;
+        try {
+            const rawText = await file.text();
+            const parsedRes = parseLvCardsPackage(rawText);
+            if (!parsedRes.ok) {
+                lvcardsStatus = { kind: "warn", text: `解析失败：${(parsedRes as { ok: false; error: string }).error}` };
+                return;
+            }
+            const pkg = parsedRes.package;
+            if (pkg.cards.length === 0) {
+                lvcardsStatus = { kind: "info", text: "分享包内没有卡片" };
+                return;
+            }
+            // 查询已有卡组与卡片以进行自动去重
+            const decks = await getRiffDecks();
+            let deckID = decks.find(d => d.name === pkg.deck.name)?.id ?? "";
+            let existingCards: { id: string; markdown: string }[] = [];
+            if (deckID) {
+                const res = await getRiffCards(deckID, 1, 500);
+                existingCards = (res.blocks ?? []).map(b => ({ id: b.id, markdown: b.content ?? "" }));
+            }
+            const preview = previewLvCardsImport(pkg, existingCards);
+            if (preview.newCards.length === 0) {
+                lvcardsStatus = {
+                    kind: "info",
+                    text: `分享包全部 ${preview.total} 张卡片在「${pkg.deck.name}」中均已存在，已自动去重跳过。`,
+                };
+                return;
+            }
+            const confirmed = await confirmDialogBool({
+                title: t.settings.lvcardsImportLabel ?? "导入小驴闪卡分享包",
+                content: `<div class="b3-typography">
+                    <p>分享包卡组：<strong>${pkg.deck.name}</strong></p>
+                    <p>总卡片：${preview.total} 张 · <strong>待新增：${preview.newCards.length} 张</strong> · 自动去重跳过：${preview.duplicateCards.length} 张</p>
+                    <p class="ft__smaller ft__on-surface">卡片将落入指定笔记本，并自动加入思源复习卡组。</p>
+                </div>`,
+            });
+            if (!confirmed) return;
+
+            // 目标笔记本
+            const nbName = "小驴闪卡/分享导入";
+            const boxes = await getNotebooks();
+            let nbId = boxes.find(b => b.name === nbName)?.id;
+            if (!nbId) nbId = (await createNotebook(nbName)) ?? "";
+
+            // 生成 Markdown 文档
+            const docMarkdown = preview.newCards.map(c => c.markdown).join("\n\n");
+            const docID = await createDocWithMd(nbId, `${pkg.deck.name} ${new Date().toISOString().slice(0, 10)}`, docMarkdown);
+            if (!docID) throw new Error("创建导入文档失败");
+
+            const blockRows = await sqlQuery(`SELECT id FROM blocks WHERE root_id='${docID}' AND type IN ('p','h','u','o') ORDER BY sort`);
+            const blockIDs = blockRows.map(r => String(r.id));
+
+            if (!deckID) {
+                const newDeck = await createRiffDeck(pkg.deck.name) as any;
+                deckID = newDeck?.id ?? newDeck?.deck?.id ?? "";
+            }
+            if (deckID && blockIDs.length > 0) {
+                await addRiffCards(deckID, blockIDs);
+            }
+            lvcardsStatus = {
+                kind: "info",
+                text: (t.settings.lvcardsImportDone ?? "已成功导入 ${n} 张新卡片（自动跳过 ${dup} 张重复项）")
+                    .replace("${n}", String(blockIDs.length))
+                    .replace("${dup}", String(preview.duplicateCards.length)),
+            };
+        } catch (err: any) {
+            lvcardsStatus = { kind: "warn", text: `导入出错：${err?.message ?? String(err)}` };
+        } finally {
+            lvcardsBusy = false;
         }
     }
 
@@ -1123,6 +1205,21 @@
                         >{t.settings.ankiLossCopy}</button>
                     {/if}
                 </div>
+            </div>
+        {/if}
+        <!-- 原生小驴闪卡分享包导入（.lvcards，P1 生态互通）：格式校验 + 自动去重 + 对齐卡组 -->
+        <LvRow label={t.settings.lvcardsImportLabel ?? "小驴闪卡分享包导入（.lvcards）"} hint={t.settings.lvcardsImportHint ?? "支持小驴闪卡原生 .lvcards 单文件分享包，自动校验格式，按卡组归组并去重入库"}>
+            {#snippet children()}
+                {#if lvcardsBusy}<span class="ft__smaller ft__on-surface">{t.settings.ankiImportParsing}</span>{/if}
+                <label class="b3-button b3-button--outline" style="cursor: pointer;{lvcardsBusy ? ' pointer-events: none; opacity: .6;' : ''}">
+                    <input type="file" accept=".lvcards,.json,application/json" style="display: none" disabled={lvcardsBusy} onchange={importLvCards} />
+                    {t.settings.lvcardsImportPick ?? "选择 .lvcards 文件"}
+                </label>
+            {/snippet}
+        </LvRow>
+        {#if lvcardsStatus}
+            <div class="lv-notice {lvcardsStatus.kind === 'info' ? '' : 'lv-notice--warn'}">
+                <span>{lvcardsStatus.text}</span>
             </div>
         {/if}
         <!-- Obsidian SR 导入（v0.202.0）：#flashcards/::/:::/==挖空== md → 一卡一段落落库 → 按序对位入新卡组 -->
