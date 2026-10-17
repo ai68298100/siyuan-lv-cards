@@ -119,11 +119,11 @@
             <div class="lv-ob-types">
                 <strong>{t.onboardingTypesTitle}</strong>
                 <div class="lv-ob-type-grid">
-                    <span><b>{t.onboardingTypeQa}</b>{t.onboardingTypeQaDesc}</span>
-                    <span><b>{t.onboardingTypeCloze}</b>{t.onboardingTypeClozeDesc}</span>
-                    <span><b>{t.onboardingTypeFormula}</b>{t.onboardingTypeFormulaDesc}</span>
-                    <span><b>{t.onboardingTypeList}</b>{t.onboardingTypeListDesc}</span>
-                    <span><b>{t.onboardingTypeConcept}</b>{t.onboardingTypeConceptDesc}</span>
+                    <span><b>💬 {t.onboardingTypeQa}</b>{t.onboardingTypeQaDesc}</span>
+                    <span><b>✏️ {t.onboardingTypeCloze}</b>{t.onboardingTypeClozeDesc}</span>
+                    <span><b>📐 {t.onboardingTypeFormula}</b>{t.onboardingTypeFormulaDesc}</span>
+                    <span><b>📋 {t.onboardingTypeList}</b>{t.onboardingTypeListDesc}</span>
+                    <span><b>🧩 {t.onboardingTypeConcept}</b>{t.onboardingTypeConceptDesc}</span>
                 </div>
             </div>
         </LvSection>
@@ -152,7 +152,7 @@
             {/if}
             <div class="fn__flex" style="justify-content: flex-end; gap: var(--lv-sp-2); margin-top: var(--lv-sp-2)">
                 <button class="b3-button b3-button--outline" onclick={() => (step = 1)}>{t.onboardingBack}</button>
-                <button class="b3-button b3-button--text lv-btn-primary" disabled={busy || notebookLoading || !nbId} onclick={createSamples}>
+                <button class="b3-button lv-btn-primary" disabled={busy || notebookLoading || !nbId} onclick={createSamples}>
                     {busy ? "…" : t.onboardingCreate}
                 </button>
             </div>
@@ -165,7 +165,7 @@
                 {#if sampleDocId}
                     <button class="b3-button b3-button--outline" onclick={openSamples}>{t.onboardingOpenSamples}</button>
                 {/if}
-                <button class="b3-button b3-button--text lv-btn-primary" onclick={finish}>
+                <button class="b3-button lv-btn-primary" onclick={finish}>
                     {t.onboardingFinish} <LvKbd k="→" />
                 </button>
             </div>
@@ -202,7 +202,8 @@
         background: var(--lv-primary-softer);
         border: 1px solid var(--lv-border);
         border-radius: var(--lv-r-m);
-        box-shadow: var(--lv-shadow-card);
+        box-shadow: var(--lv-shadow-card), var(--lv-inset-shine);
+        transition: transform var(--lv-dur-1) var(--lv-ease), border-color var(--lv-dur-1) var(--lv-ease);
     }
     .lv-ob-intro strong, .lv-ob-types strong { display: block; margin-bottom: var(--lv-sp-1); }
     .lv-ob-type-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--lv-sp-2); }
