@@ -2559,8 +2559,10 @@ export default class LvCardsPlugin extends Plugin {
             });
             const runners: Record<string, () => void> = {
             review: () => this.openTabOf(TAB_REVIEW),
+            cram: () => this.openTabOf(TAB_REVIEW, { cram: true }),
             wizard: () => this.openAIWizard(),
             quick: () => this.openQuickCard(),
+            pairing: () => this.openPairing(),
             drill: () => this.openRepairDrill(),
             settings: () => this.openSettingsDialog(),
             overview: () => this.openTabOf(TAB_DASHBOARD),

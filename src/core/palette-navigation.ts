@@ -26,6 +26,7 @@ export function computePaletteCommands(config: PaletteCommandConfig): PaletteCom
         { id: "review", group: "actions", label: (i18n as any).dashboard?.openReview ?? i18n.menuReview ?? "开始复习" },
         { id: "wizard", group: "actions", label: i18n.aiWizardTitle ?? "AI 制卡向导" },
         { id: "quick", group: "actions", label: i18n.cmdQuickCard ?? "快速制卡" },
+        { id: "pairing", group: "actions", label: i18n.cmdPairing ?? "配对挑战" },
         { id: "drill", group: "actions", label: i18n.drillTitle ?? "修卡演练" },
         { id: "settings", group: "actions", label: i18n.settingsTitle ?? "设置" },
         { id: "overview", group: "nav", label: i18n.hubTabOverview ?? "总览" },
@@ -39,6 +40,7 @@ export function computePaletteCommands(config: PaletteCommandConfig): PaletteCom
     }
 
     if (modules.exam && isAdvanced) {
+        commands.push({ id: "cram", group: "actions", label: (i18n as any).exam?.cramOn ?? i18n.cmdCramNew ?? "考前冲刺" });
         commands.push({ id: "exam", group: "nav", label: i18n.hubTabExam ?? "考试" });
     }
 

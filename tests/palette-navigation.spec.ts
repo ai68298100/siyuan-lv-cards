@@ -20,6 +20,8 @@ describe("palette-navigation 命令面板与回源路由引擎", () => {
             hubTabInbox: "材料",
             hubTabExam: "考试",
             hubTabMaintenance: "维护",
+            cmdPairing: "配对挑战",
+            cmdCramNew: "考前冲刺",
         };
 
         it("高级模式且各模块开启时输出全量指令", () => {
@@ -33,6 +35,7 @@ describe("palette-navigation 命令面板与回源路由引擎", () => {
             expect(ids).toContain("review");
             expect(ids).toContain("wizard");
             expect(ids).toContain("quick");
+            expect(ids).toContain("pairing");
             expect(ids).toContain("drill");
             expect(ids).toContain("settings");
             expect(ids).toContain("overview");
@@ -40,6 +43,7 @@ describe("palette-navigation 命令面板与回源路由引擎", () => {
             expect(ids).toContain("authoring");
             expect(ids).toContain("goals");
             expect(ids).toContain("inbox");
+            expect(ids).toContain("cram");
             expect(ids).toContain("exam");
             expect(ids).toContain("maintenance");
         });
@@ -53,7 +57,9 @@ describe("palette-navigation 命令面板与回源路由引擎", () => {
 
             const ids = commands.map(c => c.id);
             expect(ids).toContain("inbox");
+            expect(ids).toContain("pairing");
             expect(ids).not.toContain("exam");
+            expect(ids).not.toContain("cram");
             expect(ids).not.toContain("maintenance");
         });
 
