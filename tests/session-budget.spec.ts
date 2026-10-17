@@ -7,8 +7,8 @@ import {
 const MIN = 60000;
 
 describe("session-budget（BI-12）", () => {
-    it("预设为 5/15/30/60 分钟", () => {
-        expect([...BUDGET_PRESETS]).toEqual([5, 15, 30, 60]);
+    it("预设为 5/15/25/30/60 分钟（含番茄专注周期）", () => {
+        expect([...BUDGET_PRESETS]).toEqual([5, 15, 25, 30, 60]);
     });
 
     it("clampBudgetMinutes：自定义输入夹取（非法回 0=关闭，整数 5-480）", () => {

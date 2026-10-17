@@ -553,6 +553,8 @@
     let markedIssueCardIDs = $state<Set<string>>(new Set());
     // 专注复习顶栏：折叠收纳二级操作气泡
     let showMoreToolbar = $state(false);
+    // 汲取自闪卡小助手 ZY 与 RemNote：卡片所属文档上下文路径
+    let currentHPath = $state("");
     function toggleMarkIssue() {
         if (!current || actionBusy || markedIssueCardIDs.has(current.cardID)) return;
         const cardID = current.cardID;
@@ -657,6 +659,19 @@
             } catch {
                 if (seq === loadSeq) {
                     occl = null;
+                }
+            }
+            // 汲取自闪卡小助手 ZY：查询卡片所属文档路径与知识语境
+            try {
+                if (siyuanApi.sqlQuery) {
+                    const rows = await siyuanApi.sqlQuery(`SELECT hpath FROM blocks WHERE id = '${blockID.replace(/'/g, "''")}' LIMIT 1`);
+                    if (seq === loadSeq && rows?.[0]?.hpath) {
+                        currentHPath = String(rows[0].hpath).replace(/^\//, "").replace(/\//g, " › ");
+                    }
+                }
+            } catch {
+                if (seq === loadSeq) {
+                    currentHPath = "";
                 }
             }
         } catch (e) {
@@ -997,6 +1012,7 @@
         rescheduleError = "";
         retryReschedule = null;
         showMoreToolbar = false;
+        currentHPath = "";
         ctxOpen = false;
         ctxBlocks = [];
         ctxLoading = false;
@@ -2056,6 +2072,18 @@
             </div>
         </div>
         <div class="lv-card b3-typography" class:lv-anim-glow={showAnswer} bind:this={cardEl} style={`max-width:${eff().cardMaxWidth}px; width:100%; margin:0 auto;`}>
+            {#if currentHPath}
+                <!-- 汲取自闪卡小助手 ZY 与 RemNote：卡面来源文档知识语境面包屑 -->
+                <button
+                    type="button"
+                    class="lv-card-source-breadcrumb"
+                    title={t.review.breadcrumbHint ?? "点击查阅来源文档上下文"}
+                    onclick={toggleContext}
+                >
+                    <span class="lv-breadcrumb-icon" aria-hidden="true">📚</span>
+                    <span class="lv-breadcrumb-text">{currentHPath}</span>
+                </button>
+            {/if}
             {#if !cardHtml && faceError}
                 <!-- AS-3：卡面加载失败占位（不白屏；重试不丢队列位置） -->
                 <div class="lv-center" style="display: flex; flex-direction: column; gap: calc(var(--lv-space-unit) * 5); align-items: center; justify-content: center; min-height: 220px" role="status">
@@ -2300,7 +2328,24 @@
                 </div>
             </div>
         {/if}
-            {#if timeoutExpired && showAnswer}
+            {#if budgetMin === 25 && budgetExpired && showAnswer}
+                <!-- 汲取自番茄闪卡 sy-tomato：25 分钟番茄专注周期达成，温和建议休息保护精力 -->
+                <div class="lv-notice lv-notice--warn lv-pomodoro-alert" role="status">
+                    <span class="lv-pomodoro-icon" aria-hidden="true">🍅</span>
+                    <div class="lv-pomodoro-text">
+                        <strong>{t.review.pomodoroDoneTitle ?? "25 分钟番茄专注达成！"}</strong>
+                        <p>{(t.review.pomodoroDoneDesc ?? "已完成本轮专注复习（已评 ${n} 张），建议休息 5 分钟，让大脑巩固记忆再继续。").replace("${n}", String(reviewedIDs.length))}</p>
+                    </div>
+                    <div class="lv-pomodoro-actions">
+                        <button class="b3-button b3-button--small lv-btn-primary" onclick={pauseSessionAndReturn}>
+                            {t.review.pomodoroRest ?? "休息并返回今日"}
+                        </button>
+                        <button class="b3-button b3-button--small b3-button--outline" onclick={() => (budgetMin = 0)}>
+                            {t.review.pomodoroContinue ?? "继续复习"}
+                        </button>
+                    </div>
+                </div>
+            {:else if timeoutExpired && showAnswer}
                 <!-- docs/13 §6：限时到点不自动记分，评分由用户确认 -->
                 <div class="lv-notice lv-notice--warn" style="margin-bottom: var(--lv-sp-2)">{t.review.timeoutExpiredNote}</div>
             {/if}
@@ -2844,6 +2889,69 @@
 
             &.lv-anim-glow {
                 border-color: var(--lv-primary-border);
+            }
+
+            .lv-card-source-breadcrumb {
+                display: inline-flex;
+                align-items: center;
+                gap: calc(var(--lv-space-unit) * 2);
+                max-width: 100%;
+                padding: 3px 10px;
+                border: 1px solid var(--lv-border);
+                border-radius: var(--lv-r-pill);
+                background: color-mix(in srgb, var(--lv-color-canvas) 85%, transparent);
+                color: var(--lv-color-text-muted);
+                font-size: 11px;
+                margin-bottom: var(--lv-sp-3);
+                cursor: pointer;
+                transition: background var(--lv-dur-1) var(--lv-ease),
+                    color var(--lv-dur-1) var(--lv-ease),
+                    border-color var(--lv-dur-1) var(--lv-ease),
+                    transform var(--lv-dur-1) var(--lv-ease);
+
+                &:hover {
+                    background: var(--lv-surface-hover);
+                    color: var(--lv-color-brand);
+                    border-color: var(--lv-primary-border);
+                    transform: translateY(-1px);
+                }
+                &:active {
+                    transform: translateY(1px);
+                }
+                .lv-breadcrumb-icon {
+                    font-size: 11px;
+                    flex-shrink: 0;
+                }
+                .lv-breadcrumb-text {
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
+                }
+            }
+        }
+
+        .lv-pomodoro-alert {
+            display: flex;
+            align-items: center;
+            gap: var(--lv-sp-3);
+            margin-bottom: var(--lv-sp-2);
+            padding: var(--lv-sp-3) var(--lv-sp-4);
+            border-radius: var(--lv-r-m);
+            border: 1px solid color-mix(in srgb, var(--lv-color-warning) 30%, transparent);
+            background: color-mix(in srgb, var(--lv-warn-soft) 80%, var(--lv-color-surface));
+            box-shadow: var(--lv-shadow-card);
+            animation: lv-modal-pop var(--lv-dur-2) var(--lv-ease);
+
+            .lv-pomodoro-icon { font-size: 22px; flex: none; }
+            .lv-pomodoro-text {
+                flex: 1;
+                strong { font-weight: var(--lv-fw-semibold); display: block; font-size: var(--lv-type-body-size); color: var(--lv-color-text); }
+                p { margin: 2px 0 0; font-size: var(--lv-type-meta-size); color: var(--lv-color-text-muted); }
+            }
+            .lv-pomodoro-actions {
+                display: flex;
+                gap: var(--lv-sp-2);
+                flex-wrap: wrap;
             }
         }
 

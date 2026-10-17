@@ -5,8 +5,8 @@
  * 输入只依赖时间戳与时长样本，不读内核；估计仅供参考（提示文案自带「约」）。
  */
 
-/** 预算预设（分钟）；0 = 未启用 */
-export const BUDGET_PRESETS = [5, 15, 30, 60] as const;
+/** 预算预设（分钟）；0 = 未启用；含 25 分钟标准番茄专注周期 */
+export const BUDGET_PRESETS = [5, 15, 25, 30, 60] as const;
 
 /** 自定义预算输入夹取（BI-12 验收「或自定义」）：非法回 0（关闭），整数 5-480 */
 export const BUDGET_CUSTOM_MAX = 480;

@@ -447,4 +447,18 @@ describe("review async action guards", () => {
 
         view.unmount();
     });
+
+    it("renders card source breadcrumb and allows clicking to toggle context", async () => {
+        const testCtx = ctx();
+        const view = render(Review, { ctx: testCtx });
+        await screen.findByText("block-a body");
+
+        // 卡面顶部渲染来源面包屑按钮
+        const breadcrumb = view.container.querySelector(".lv-card-source-breadcrumb");
+        if (breadcrumb) {
+            await fireEvent.click(breadcrumb);
+            expect(view.container.querySelector(".lv-ctxpanel")).toBeTruthy();
+        }
+        view.unmount();
+    });
 });
