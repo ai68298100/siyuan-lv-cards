@@ -1232,8 +1232,13 @@
         padding-left: calc(var(--lv-space-unit) * 6);
         margin: var(--lv-sp-2) 0;
         li {
-            margin: 3px 0;
+            margin: 4px 0;
             line-height: var(--lv-lh-reading-loose);
+            padding-left: 2px;
+            &::marker {
+                color: var(--lv-color-brand);
+                font-weight: var(--lv-fw-semibold);
+            }
         }
     }
 

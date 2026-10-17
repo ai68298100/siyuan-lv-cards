@@ -17,6 +17,7 @@ export type ReviewKeyAction =
     | "skip"
     | "toggle-reschedule"
     | "suspend"
+    | "toggle-memo"
     | "undo"
     | null;
 
@@ -132,6 +133,13 @@ export function resolveReviewKeyAction(
     }
     if (e.key === "s") {
         return "suspend";
+    }
+    if (e.key === "m") {
+        if (ctx.hasCurrent) {
+            e.preventDefault?.();
+            return "toggle-memo";
+        }
+        return null;
     }
 
     // 9. 后续评分与撤销必须在答案揭晓后生效

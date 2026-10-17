@@ -1272,13 +1272,36 @@
         flex-direction: column;
         padding: 22px;
         box-shadow: var(--lv-shadow-card), var(--lv-inset-shine);
+        transition: transform var(--lv-dur-2) var(--lv-ease),
+            box-shadow var(--lv-dur-2) var(--lv-ease),
+            border-color var(--lv-dur-1) var(--lv-ease);
+
+        &:hover {
+            transform: translateY(-1px);
+            box-shadow: var(--lv-shadow-card-hover), var(--lv-inset-shine);
+            border-color: var(--lv-border-strong);
+        }
     }
     .lv-today-week-head { display: flex; align-items: center; justify-content: space-between; gap: var(--lv-sp-2); }
     .lv-today-week-head h2 { font-size: var(--lv-type-label-size); line-height: 1.5; font-weight: var(--lv-fw-heading); }
     .lv-today-week-head > span { color: var(--lv-color-text-muted); }
     .lv-today-week-range { margin-top: calc(var(--lv-space-unit) * 2 + var(--lv-space-hairline)); color: var(--lv-color-text-muted); font-size: var(--lv-type-meta-size); }
     .lv-today-week-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: calc(var(--lv-space-unit) * 2 + var(--lv-space-hairline)); margin: 19px 0 16px; }
-    .lv-today-week-day { display: flex; min-width: 0; align-items: center; flex-direction: column; gap: calc(var(--lv-space-unit) * 4 + var(--lv-space-hairline)); color: var(--lv-color-text-muted); font-size: var(--lv-type-caption-size); }
+    .lv-today-week-day {
+        display: flex;
+        min-width: 0;
+        align-items: center;
+        flex-direction: column;
+        gap: calc(var(--lv-space-unit) * 4 + var(--lv-space-hairline));
+        color: var(--lv-color-text-muted);
+        font-size: var(--lv-type-caption-size);
+        cursor: default;
+
+        &:hover i {
+            transform: scale(1.12);
+            box-shadow: 0 2px 6px color-mix(in srgb, var(--lv-color-brand) 22%, transparent);
+        }
+    }
     .lv-today-week-day i { display: grid; width: 26px; height: 26px; place-items: center; border-radius: var(--lv-r-circle); background: var(--lv-primary-softer); font-size: var(--lv-type-meta-size); font-style: normal; transition: all var(--lv-dur-1) var(--lv-ease); }
     .lv-today-week-day-active i { background: var(--lv-primary-soft); color: var(--lv-color-brand); font-weight: 600; box-shadow: 0 1px 3px color-mix(in srgb, var(--lv-color-brand) 20%, transparent); }
     .lv-today-week-day-today i { outline: 2px solid var(--lv-color-brand); outline-offset: 1px; }

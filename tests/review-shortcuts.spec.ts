@@ -124,9 +124,11 @@ describe("review-shortcuts 键盘调度解析器", () => {
             expect(resolveReviewKeyAction({ key: "0" }, baseContext({ showAnswer: true }))).toBe("skip");
         });
 
-        it("f 切换改期面板，s 暂停复习", () => {
+        it("f 切换改期面板，s 暂停复习，m 切换助记便签", () => {
             expect(resolveReviewKeyAction({ key: "f" }, baseContext())).toBe("toggle-reschedule");
             expect(resolveReviewKeyAction({ key: "s" }, baseContext())).toBe("suspend");
+            expect(resolveReviewKeyAction({ key: "m" }, baseContext({ hasCurrent: true }))).toBe("toggle-memo");
+            expect(resolveReviewKeyAction({ key: "m" }, baseContext({ hasCurrent: false }))).toBeNull();
         });
 
         it("[ 仅在有上一张卡片（hasLastAnswered）时切换 peek", () => {

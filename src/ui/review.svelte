@@ -1604,6 +1604,9 @@
             case "suspend":
                 suspendToday();
                 break;
+            case "toggle-memo":
+                showMemoEditor = !showMemoEditor;
+                break;
             case "rate-1":
                 rate(1);
                 break;
@@ -2498,6 +2501,7 @@
                     { k: "p / q / u", d: t.review.helpUndo },
                     { k: "x / 0", d: t.review.helpSkip },
                     { k: "s", d: t.review.helpSuspend },
+                    { k: "m", d: t.review.tbMemo ?? "助记便签" },
                     { k: "[", d: t.review.helpPeek },
                     { k: "f", d: t.review.helpReschedule },
                     { k: "e", d: t.review.helpEdit },
@@ -2958,8 +2962,13 @@
                     padding-left: calc(var(--lv-space-unit) * 6);
                     margin: var(--lv-sp-2) 0;
                     :global(li) {
-                        margin: 3px 0;
+                        margin: 4px 0;
                         line-height: var(--lv-lh-reading-loose);
+                        padding-left: 2px;
+                        &::marker {
+                            color: var(--lv-color-brand);
+                            font-weight: var(--lv-fw-semibold);
+                        }
                     }
                 }
 
