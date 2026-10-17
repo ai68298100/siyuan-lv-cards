@@ -19,18 +19,16 @@ The full-lifecycle flashcard learning platform for SiYuan — local-first, nativ
 
 > **Note**: The primary README and all design docs are in Chinese. This page covers the essentials; see [docs/](./docs/README.md) for full design material.
 
-Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.1** (2026-10-16), fixing interaction and asynchronous boundaries in the recent UI work. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.1) for the package and publishing status.
+Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.2** (2026-10-17), upgrading to official SiYuan SDK 1.2.9, merging all latest tooling dependencies, and refining the review toolbar and empty onboarding experience. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.2) for the package and publishing status.
 
-## What's New in v0.210.1
+## What's New in v0.210.2
 
-- Fix review modal shortcuts, pause/resume, undo and stale countdowns, plus image/code/formula card rendering.
-- Fix AI candidate version indices, duplicate material and deck creation, hidden-editor submission, and editing during imports. Source checks describe wording matches and require human verification.
-- Fix stale card-detail responses, changing confirmation targets, dashboard retry loops and maintenance navigation. Failed due refreshes block formal review.
-- Persist the last five batch repairs with safe undo, conflict detection and compensation when journal saving fails.
+- Fully upgrade and adapt to official SiYuan SDK `siyuan@1.2.9`, fixing `i18n` declaration typing conflicts with `JSONValue` assignments and `Custom` tab model contexts.
+- Merge core dependency upgrades: `vite@8.3.4`, `@types/node@26.6.5`, `happy-dom@21.0.3`, `npm-run-all2@9.0.3`, and CI workflow `actions/setup-node@7.1.0`.
+- Safe request contract adaptation: harmonize generated kernel API route signatures in `ai.ts` and `flashcardV2.ts`.
+- Review & onboarding experience: streamlined review topbar with core 5 pinned actions and secondary tools collapsed into a clean `··· More` popover; added "Notes are Flashcards" empty state onboarding card.
 
-See [release checks and host limitations](./test-evidence/release-v0.210.1.md).
-
-## Previous Update: v0.210.0
+## Previous Update: v0.210.1
 
 - **Consistent card checks:** Creation, imports, and edits validate the final card before adding it. Ordinary cards require an answer marker and a visible question; image occlusion requires an image and valid regions. AI candidates gain high-confidence quality checks, and Anki/Obsidian imports gain safer cleaning and error feedback. These checks cannot establish factual accuracy; human review remains necessary.
 - **Old cards and maintenance:** Invalid old cards are isolated for the current review session without changing due dates, ratings, or logs. Maintenance detects answer-only cards, checks media, offers side-by-side approximate-duplicate review with saved decisions, and returns to a fresh scan after editing.

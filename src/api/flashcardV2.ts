@@ -15,8 +15,8 @@ export const V2_TIMEOUT_MS = 3000;
 
 async function v2<T>(endpoint: string, payload: Record<string, unknown> = {}, options: RequestOptions = {}): Promise<T> {
     const isRead = endpoint.startsWith("get") || endpoint.startsWith("query") || endpoint.startsWith("list") || endpoint === "getMigrationStatus";
-    const resp = await requestWithPolicy(
-        () => fetchSyncPost(`/api/flashcard/${endpoint}`, payload),
+    const resp: any = await requestWithPolicy(
+        () => (fetchSyncPost as any)(`/api/flashcard/${endpoint}`, payload),
         {
             ...options,
             timeoutMs: options.timeoutMs ?? V2_TIMEOUT_MS,

@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.210.2 2026-10-17 · 官方 SDK 升级与依赖全量对齐
+
+本版本对齐思源官方 SDK 1.2.9，完成全量工具链与核心依赖升级，并修复新版 SDK 严格类型契约下的类型兼容性。
+
+- 依赖全面升级：升级并对齐思源官方 SDK `siyuan` 1.2.9，合入 `vite` 8.3.4、`@types/node` 26.6.5、`happy-dom` 21.0.3、`npm-run-all2` 9.0.3 以及 CI 流水线 `actions/setup-node` 7.1.0。
+- SDK 类型与架构兼容：在 `src/index.ts` 中适配新版 SDK 的 `i18n` 声明类型，消除 `JSONValue` 与字符串赋值类型冲突；修复 `Custom` 模型上下文下的标签打开逻辑。
+- 请求契约安全适配：在 `src/api/ai.ts` 和 `src/api/flashcardV2.ts` 中适配新版思源 generated API 请求路由签名，确保请求契约与内核一致。
+- 复习与空库体验优化：专注复习顶栏常驻核心 5 键，将二级辅助工具折叠收纳进 `··· 更多` 气泡；首页空库增加“思源笔记即是闪卡”核心心智图文指引。
+
+安装包与发布状态见 [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.2)。
+
+
 ## v0.210.1 2026-10-16 · UI 交互修复与发布前回归
 
 本版本整理近期 UI 优化，并修复复习、制卡、卡片库与维护之间的异步和导航边界。

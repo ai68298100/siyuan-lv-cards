@@ -322,6 +322,7 @@ function cloneStore<T>(value: T): T {
 }
 
 export default class LvCardsPlugin extends Plugin {
+    declare i18n: Record<string, any>;
 
     private settings: LvCardsSettings = defaultSettings();
     private revlog: RevlogData = emptyRevlog();
@@ -1412,7 +1413,7 @@ export default class LvCardsPlugin extends Plugin {
                                     openTab({ app: plugin.app, doc: { id: blockID } });
                                 }
                             },
-                            openCard: (blockID: string) => this.openTabOf(TAB_DASHBOARD, { tab: "manage", focusBlockID: blockID }),
+                            openCard: (blockID: string) => plugin.openTabOf(TAB_DASHBOARD, { tab: "manage", focusBlockID: blockID }),
                         },
                         recovery: {
                             load: async () => ({

@@ -86,8 +86,8 @@ export async function aiChat(cfg: AIConfig, system: string, user: string, opts: 
         throw new AICanceledError();
     }
     const timeoutMs = opts.timeoutMs ?? 15000;
-    const resp = await requestWithPolicy(
-        () => fetchSyncPost("/api/ai/chatGPT", {
+    const resp: any = await requestWithPolicy(
+        () => (fetchSyncPost as any)("/api/ai/chatGPT", {
             messages: [
                 { role: "system", content: system },
                 { role: "user", content: user },
@@ -107,7 +107,7 @@ export async function aiChat(cfg: AIConfig, system: string, user: string, opts: 
         }
         throw new Error(resp?.msg || `kernel error (code=${resp?.code ?? "unknown"})`);
     }
-    const d = resp.data;
+    const d = resp.data as any;
     return typeof d === "string" ? d : String(d?.content ?? d?.text ?? "");
 }
 
