@@ -29,12 +29,15 @@ describe("challenge loading lifecycle", () => {
     afterEach(cleanup);
 
     const renderChallenge = () => render(ChallengeMode, {
-        i18n: { challenge: {
-            title: "Challenge", desc: "For ${n} minutes", start: "Start", loading: "Loading",
-            empty: "No cards", loadError: "Load failed", readFailed: "Read failed",
-            readPartial: "Skipped ${n}", retry: "Retry", stop: "Stop", unknown: "Unknown",
-            known: "Known", doneTitle: "Done", skipped: "skipped", closeBtn: "Close",
-        } },
+        i18n: {
+            challenge: {
+                title: "Challenge", desc: "For ${n} minutes", start: "Start", loading: "Loading",
+                empty: "No cards", loadError: "Load failed", readFailed: "Read failed",
+                readPartial: "Skipped ${n}", retry: "Retry", stop: "Stop", unknown: "Unknown",
+                known: "Known", doneTitle: "Done", skipped: "skipped", closeBtn: "Close",
+            },
+            review: { doneSkip: "跳过" },
+        },
         onExit: vi.fn(),
     });
 
@@ -43,7 +46,7 @@ describe("challenge loading lifecycle", () => {
         dueGet.mockReturnValueOnce(due.promise);
         renderChallenge();
 
-        await fireEvent.click(screen.getByRole("button", { name: "Start" }));
+        await fireEvent.click(screen.getByRole("button", { name: /Start/ }));
         await fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
         cleanup();
         due.resolve({ cards: [{ blockID: "a" }] });
@@ -59,7 +62,7 @@ describe("challenge loading lifecycle", () => {
         getBlockDOM.mockReturnValueOnce(firstFace.promise);
         renderChallenge();
 
-        await fireEvent.click(screen.getByRole("button", { name: "Start" }));
+        await fireEvent.click(screen.getByRole("button", { name: /Start/ }));
         await waitFor(() => expect(getBlockDOM).toHaveBeenCalledOnce());
         const interval = vi.spyOn(globalThis, "setInterval");
         await fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
@@ -71,5 +74,43 @@ describe("challenge loading lifecycle", () => {
         expect(getBlockDOM).toHaveBeenCalledOnce();
         expect(interval).not.toHaveBeenCalled();
         interval.mockRestore();
+    });
+
+    it("supports keyboard controls: 1 for unknown, 2 for known, and Escape to finish", async () => {
+        dueGet.mockResolvedValueOnce({ cards: [{ blockID: "a" }, { blockID: "b" }] });
+        getBlockDOM.mockImplementation(async (id: string) => `<p>Question ${id}</p>`);
+        const onExit = vi.fn();
+        Object.defineProperty(window, "confirm", { configurable: true, value: vi.fn(() => true) });
+
+        render(ChallengeMode, {
+            i18n: {
+                challenge: {
+                    title: "Challenge", desc: "For ${n} minutes", start: "Start", loading: "Loading",
+                    empty: "No cards", loadError: "Load failed", readFailed: "Read failed",
+                    readPartial: "Skipped ${n}", retry: "Retry", stop: "Stop", unknown: "Unknown",
+                    known: "Known", doneTitle: "Done", skipped: "skipped", closeBtn: "Close",
+                },
+                review: { doneSkip: "跳过" },
+            },
+            onExit,
+        });
+
+        // 快捷键空格开始
+        await fireEvent.keyDown(window, { key: " " });
+        await screen.findByText("Question a");
+
+        // 按 1 标记为不认识
+        await fireEvent.keyDown(window, { key: "1" });
+        await screen.findByText("Question b");
+        expect(screen.getByText("✓ 0 · ✗ 1")).toBeTruthy();
+
+        // 按 2 标记为认识
+        await fireEvent.keyDown(window, { key: "2" });
+        await screen.findByText("Done");
+        expect(screen.getByText(/✓ 1 · ✗ 1/)).toBeTruthy();
+
+        // 结果态按 Escape 退出
+        await fireEvent.keyDown(window, { key: "Escape" });
+        expect(onExit).toHaveBeenCalledOnce();
     });
 });

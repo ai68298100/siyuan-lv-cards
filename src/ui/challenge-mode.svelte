@@ -3,6 +3,7 @@
     import { type RiffDueCard } from "@/api/riff";
     import { dueCache } from "@/api/due-shared";
     import { getBlockDOM } from "@/api/siyuan";
+    import LvKbd from "./kit/LvKbd.svelte";
 
     let { i18n, onExit }: { i18n: any; onExit: () => void } = $props();
     const t = $derived(i18n);
@@ -131,7 +132,33 @@
         if (phase === "running" && !window.confirm(t.challenge.stopConfirm ?? "当前挑战进度不会保存，确定结束吗？")) return;
         finish();
     }
+
+    function onKeydown(e: KeyboardEvent) {
+        if (e.key === "Escape") {
+            e.preventDefault();
+            if (phase === "running") requestFinish();
+            else exit();
+            return;
+        }
+        if (phase === "running") {
+            if (e.key === "1" || e.key === "ArrowLeft" || e.key.toLowerCase() === "x") {
+                e.preventDefault();
+                mark(false);
+            } else if (e.key === "2" || e.key === "ArrowRight" || e.key === " " || e.key === "Enter") {
+                e.preventDefault();
+                mark(true);
+            }
+        } else if (phase === "idle" && (e.key === " " || e.key === "Enter")) {
+            e.preventDefault();
+            void start();
+        } else if (phase === "done" && (e.key === " " || e.key === "Enter")) {
+            e.preventDefault();
+            exit();
+        }
+    }
 </script>
+
+<svelte:window on:keydown={onKeydown} />
 
 <div class="lv-chal b3-typography">
     {#if phase === "idle"}
@@ -139,7 +166,7 @@
             <div class="lv-chal-icon">⏱</div>
             <div class="lv-chal-title">{t.challenge.title}</div>
             <div class="lv-chal-desc">{t.challenge.desc.replace("${n}", "3")}</div>
-            <button class="b3-button b3-button--text lv-btn-primary" onclick={start}>{t.challenge.start}</button>
+            <button class="b3-button lv-btn-primary" onclick={start}>{t.challenge.start} <LvKbd k="Space" /></button>
             <div style="margin-top: var(--lv-sp-3)">
                 <button class="b3-button b3-button--cancel" onclick={exit}>{window.siyuan.languages.cancel}</button>
             </div>
@@ -187,8 +214,8 @@
                 {@html cards[idx].dom}
             </div>
             <div class="lv-chal-actions">
-                <button class="b3-button lv-chal-btn lv-chal-unknown" onclick={() => mark(false)}>✗ {t.challenge.unknown}</button>
-                <button class="b3-button lv-chal-btn lv-chal-known" onclick={() => mark(true)}>✓ {t.challenge.known}</button>
+                <button class="b3-button lv-chal-btn lv-chal-unknown" onclick={() => mark(false)}>✗ {t.challenge.unknown} <LvKbd k="1" /></button>
+                <button class="b3-button lv-chal-btn lv-chal-known" onclick={() => mark(true)}>✓ {t.challenge.known} <LvKbd k="2" /></button>
             </div>
         {:else}
             <div class="lv-chal-center">{t.challenge.loading}</div>
@@ -198,9 +225,9 @@
             <div class="lv-chal-icon">🏁</div>
             <div class="lv-chal-title">{t.challenge.doneTitle}</div>
             <div class="lv-chal-desc">
-                ✓ {known} · ✗ {unknown} · {t.review.doneSkip} {t.challenge.skipped}
+                ✓ {known} · ✗ {unknown} · {t.review?.doneSkip ?? "跳过"} {t.challenge.skipped}
             </div>
-            <button class="b3-button b3-button--text lv-btn-primary" onclick={exit}>{t.challenge.closeBtn}</button>
+            <button class="b3-button lv-btn-primary" onclick={exit}>{t.challenge.closeBtn}</button>
         </div>
     {/if}
 </div>
@@ -215,9 +242,44 @@
     .lv-chal-timer { font-size: var(--lv-type-section-size); font-weight: 700; font-variant-numeric: tabular-nums; color: var(--lv-color-brand); }
     .lv-chal-low { color: var(--lv-color-danger) !important; }
     .lv-chal-score { font-variant-numeric: tabular-nums; margin-left: auto; }
-    .lv-chal-card { text-align: left; margin: var(--lv-sp-3) 0; }
+    .lv-chal-card {
+        text-align: left;
+        margin: var(--lv-sp-3) 0;
+        padding: calc(var(--lv-space-unit) * 6) calc(var(--lv-space-unit) * 8);
+        box-shadow: var(--lv-shadow-card), var(--lv-inset-shine);
+
+        :global(img) {
+            max-width: 100%;
+            max-height: 48vh;
+            height: auto;
+            object-fit: contain;
+            display: block;
+            margin: var(--lv-sp-2) auto;
+            border-radius: var(--lv-r-m);
+        }
+        :global(pre),
+        :global(.language-math),
+        :global(.katex-display) {
+            overflow-x: auto;
+            scrollbar-width: thin;
+        }
+    }
     .lv-chal-actions { display: flex; gap: var(--lv-sp-3); justify-content: center; }
-    .lv-chal-btn { flex: 1; max-width: 160px; font-weight: var(--lv-fw-semibold); }
+    .lv-chal-btn {
+        flex: 1;
+        max-width: 160px;
+        font-weight: var(--lv-fw-semibold);
+        box-shadow: var(--lv-shadow-card);
+        transition: transform var(--lv-dur-1) var(--lv-ease), box-shadow var(--lv-dur-1) var(--lv-ease);
+
+        &:hover {
+            transform: translateY(-1px);
+            box-shadow: var(--lv-shadow-card-hover);
+        }
+        &:active {
+            transform: translateY(1px) scale(0.98);
+        }
+    }
     .lv-chal-known { background: var(--lv-primary-soft); color: var(--lv-color-brand); }
     .lv-chal-unknown { background: var(--lv-danger-soft); color: var(--lv-color-danger); }
 </style>
