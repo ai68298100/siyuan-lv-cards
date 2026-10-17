@@ -89,7 +89,20 @@
             busy = false;
         }
     }
+
+    function onKeydown(e: KeyboardEvent) {
+        if (busy) return;
+        if (e.key === "Escape") {
+            e.preventDefault();
+            onClose();
+        } else if (e.key === "Enter" && (selected || newName.trim()) && !loadError) {
+            e.preventDefault();
+            void confirm();
+        }
+    }
 </script>
+
+<svelte:window on:keydown={onKeydown} />
 
 <div class="lv-deckpicker b3-typography">
     {#if loading}
@@ -97,7 +110,7 @@
     {:else}
         <div class="lv-dp-list" role="radiogroup">
             {#each decks as d (d.id)}
-                <label class="fn__flex lv-dp-row">
+                <label class="fn__flex lv-dp-row" class:lv-dp-row--selected={selected === d.id}>
                     <input type="radio" name="lv-deck" value={d.id} bind:group={selected} />
                     <span class="fn__flex-1">{d.name}</span>
                     <span class="ft__smaller ft__on-surface">{d.size}</span>
@@ -119,7 +132,7 @@
         <div class="b3-dialog__action">
             <button class="b3-button b3-button--cancel" aria-label={window.siyuan.languages.cancel} disabled={busy} onclick={onClose}>✕</button>
             <div class="fn__space"></div>
-            <button class="b3-button b3-button--text lv-btn-primary" disabled={busy || !!loadError || (!selected && !newName.trim())} aria-busy={busy} onclick={confirm}>{busy ? busyLabel : `${confirmLabel} ↵`}</button>
+            <button class="b3-button lv-btn-primary" disabled={busy || !!loadError || (!selected && !newName.trim())} aria-busy={busy} onclick={confirm}>{busy ? busyLabel : `${confirmLabel} ↵`}</button>
         </div>
     {/if}
 </div>
@@ -136,8 +149,14 @@
         padding: var(--lv-sp-2);
         border-radius: var(--lv-r-s);
         cursor: pointer;
+        transition: background var(--lv-dur-1) var(--lv-ease), color var(--lv-dur-1) var(--lv-ease);
     }
     .lv-deckpicker .lv-dp-row:hover { background: var(--lv-primary-softer); }
+    .lv-deckpicker .lv-dp-row--selected {
+        background: var(--lv-primary-soft);
+        color: var(--lv-color-brand);
+        font-weight: var(--lv-fw-semibold);
+    }
     .lv-deckpicker .lv-dp-new { margin-bottom: var(--lv-sp-2); }
     .lv-deckpicker .b3-dialog__action { justify-content: flex-end; }
 </style>

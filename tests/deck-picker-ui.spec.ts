@@ -106,4 +106,25 @@ describe("deck picker interaction states", () => {
         expect(createRiffDeck).toHaveBeenCalledOnce();
         expect(onConfirm).toHaveBeenNthCalledWith(2, "new-id", "New deck");
     });
+
+    it("confirms deck creation when Enter key is pressed in the name field, and cancels on Escape", async () => {
+        getRiffDecks.mockResolvedValue([]);
+        createRiffDeck.mockResolvedValue({ id: "fast-deck-id", name: "Fast deck", size: 0 });
+        const p = props();
+        render(DeckPicker, p);
+
+        const input = await screen.findByPlaceholderText("Name the first deck");
+        await fireEvent.input(input, { target: { value: "Fast deck" } });
+
+        // 按 Enter 键确认建组
+        await fireEvent.keyDown(input, { key: "Enter" });
+        await waitFor(() => expect(p.onConfirm).toHaveBeenCalledWith("fast-deck-id", "Fast deck"));
+        expect(p.onClose).toHaveBeenCalledOnce();
+
+        // 重新渲染测试 Escape 退出
+        const p2 = props();
+        render(DeckPicker, p2);
+        await fireEvent.keyDown(window, { key: "Escape" });
+        expect(p2.onClose).toHaveBeenCalledOnce();
+    });
 });
