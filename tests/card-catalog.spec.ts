@@ -31,18 +31,18 @@ describe("card-catalog（BH-4）", () => {
         expect(degradationRoute("qa")).toEqual([]);
     });
 
-    it("已实现集合：七项 shipped（qa/cloze/occlusion/typing/choice/dictation/pairing）", () => {
+    it("已实现集合：十项 shipped（qa/cloze/occlusion/typing/choice/dictation/pairing/code/bidi/list）", () => {
         expect(shippedCardTypes().sort()).toEqual(
-            ["choice", "cloze", "dictation", "occlusion", "pairing", "qa", "typing"].sort(),
+            ["bidi", "choice", "cloze", "code", "dictation", "list", "occlusion", "pairing", "qa", "typing"].sort(),
         );
     });
 
     it("练习类卡型不得声明 native 调度（BH-5 口径：不当正式调度）", () => {
         for (const c of CARD_CATALOG) {
-            if (c.id === "qa" || c.id === "cloze" || c.id === "occlusion") {
+            if (c.id === "qa" || c.id === "cloze" || c.id === "occlusion" || c.id === "bidi") {
                 expect(c.scheduler).toBe("native");
             }
-            if (["typing", "choice", "dictation", "pairing"].includes(c.id)) {
+            if (["typing", "choice", "dictation", "pairing", "code", "list"].includes(c.id)) {
                 expect(c.scheduler, `${c.id} 应为 practice`).toBe("practice");
             }
         }
