@@ -87,7 +87,7 @@ import {
     shouldTriggerDailyReminder,
     computeBadgeDescriptor,
 } from "./core/badge-reminder";
-import { computeBlockMenuItems, extractBlockIDs } from "./bootstrap/block-menu";
+import { addBlockMenuItems, computeBlockMenuItems, extractBlockIDs } from "./bootstrap/block-menu";
 import {
     resolveTargetNotebook,
     queryNotebookBlockIDs,
@@ -1915,13 +1915,7 @@ export default class LvCardsPlugin extends Plugin {
                 },
             });
 
-            for (const item of items) {
-                detail.menu.addItem({
-                    icon: item.icon,
-                    label: item.label,
-                    click: item.click,
-                });
-            }
+            addBlockMenuItems(detail.menu, items);
         } catch {
             // 菜单旁路，绝不影响编辑器
         }

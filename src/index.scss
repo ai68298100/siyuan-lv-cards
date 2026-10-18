@@ -193,6 +193,18 @@
 
 // ---- 共享组件类 ----
 
+// Issue #12/#13：防止宿主/主题的宽泛 SVG 规则放大图标；只约束自己的图标，保留宿主行布局。
+.b3-menu__icon.lv-cards-menu-icon {
+    width: 16px !important;
+    height: 16px !important;
+    min-width: 16px !important;
+    max-width: 16px !important;
+    min-height: 16px !important;
+    max-height: 16px !important;
+    flex: 0 0 16px !important;
+    overflow: hidden;
+}
+
 // 页面容器：居中最大宽（docs/13 §3 宽屏线框 1200px）+ 呼吸留白
 .lv-page {
     max-width: 1240px;

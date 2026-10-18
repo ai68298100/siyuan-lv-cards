@@ -28,6 +28,23 @@ export interface BlockMenuItemDescriptor {
     click: () => void | Promise<void>;
 }
 
+export const BLOCK_MENU_ICON_CLASS = "lv-cards-menu-icon";
+
+/** Keep host menu layout/keyboard behavior while marking only our icons for size containment. */
+export function addBlockMenuItems(
+    menu: { addItem(item: Omit<BlockMenuItemDescriptor, "id"> & { iconClass: string }): void },
+    items: BlockMenuItemDescriptor[],
+): void {
+    for (const item of items) {
+        menu.addItem({
+            icon: item.icon,
+            iconClass: BLOCK_MENU_ICON_CLASS,
+            label: item.label,
+            click: item.click,
+        });
+    }
+}
+
 export interface BlockMenuConfig {
     blockIDs: string[];
     modules: {

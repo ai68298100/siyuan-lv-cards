@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+    addBlockMenuItems,
+    BLOCK_MENU_ICON_CLASS,
     computeBlockMenuItems,
     extractBlockIDs,
     formatClozeText,
@@ -108,6 +110,25 @@ describe("block-menu 块图标与选区制卡菜单", () => {
         it("块列表为空时返回空数组", () => {
             const config = createConfig([]);
             expect(computeBlockMenuItems(config)).toEqual([]);
+        });
+
+        it("将每项以原生图标 ID 与局部尺寸类交给宿主，保留文字与动作", () => {
+            const config = createConfig(["b-1"]);
+            const items = computeBlockMenuItems(config);
+            const addItem = vi.fn();
+
+            addBlockMenuItems({ addItem }, items);
+
+            expect(addItem).toHaveBeenCalledTimes(5);
+            for (const [option] of addItem.mock.calls) {
+                expect(option.icon).toBe("iconLvCards");
+                expect(option.iconClass).toBe(BLOCK_MENU_ICON_CLASS);
+                expect(option.iconHTML).toBeUndefined();
+                expect(option.label).toBeTypeOf("string");
+            }
+            const cloze = addItem.mock.calls[2][0];
+            cloze.click();
+            expect(config.actions.makeCloze).toHaveBeenCalledWith("b-1");
         });
     });
 
