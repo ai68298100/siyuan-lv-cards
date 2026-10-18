@@ -172,6 +172,10 @@ describe("review async action guards", () => {
         expect(dialog.getAttribute("aria-modal")).toBe("true");
         const close = screen.getByRole("button", { name: "Cancel" });
         expect(document.activeElement).toBe(close);
+        await fireEvent.keyDown(close, { key: "Tab" });
+        expect(document.activeElement).toBe(close);
+        await fireEvent.keyDown(close, { key: "Tab", shiftKey: true });
+        expect(document.activeElement).toBe(close);
 
         await fireEvent.click(dialog);
         await waitFor(() => expect(screen.queryByRole("dialog", { name: "图片全屏聚焦预览" })).toBeNull());
@@ -550,6 +554,56 @@ describe("review async action guards", () => {
         await fireEvent.click(saveBtn);
 
         expect(setBlockAttrs).toHaveBeenCalledWith("block-a", { memo: "注意区分TCP与UDP报文格式" });
+        view.unmount();
+    });
+
+    it("keeps the memo dialog open through every close path while its write is pending", async () => {
+        const pending = deferred<void>();
+        setBlockAttrs.mockImplementationOnce(() => pending.promise);
+        const view = mountReview();
+        await screen.findByText("block-a body");
+        await fireEvent.keyDown(window, { key: "m" });
+        const dialog = await screen.findByRole("dialog", { name: "t.review.memoModalTitle" });
+        await fireEvent.input(screen.getByRole("textbox"), { target: { value: "Pending memo" } });
+        await fireEvent.click(screen.getByRole("button", { name: "t.review.memoSave" }));
+        await waitFor(() => expect(setBlockAttrs).toHaveBeenCalledWith("block-a", { memo: "Pending memo" }));
+
+        const close = dialog.querySelector<HTMLButtonElement>("button[aria-label=Cancel]")!;
+        expect(close.disabled).toBe(true);
+        await fireEvent.click(close);
+        await fireEvent.click(dialog.parentElement!);
+        await fireEvent.keyDown(window, { key: "Escape" });
+        expect(screen.getByRole("dialog", { name: "t.review.memoModalTitle" })).toBe(dialog);
+
+        pending.resolve();
+        await waitFor(() => expect(screen.queryByRole("dialog", { name: "t.review.memoModalTitle" })).toBeNull());
+        await fireEvent.click(screen.getByRole("button", { name: "t.review.showAnswer" }));
+        expect(screen.getByText("Pending memo")).toBeTruthy();
+        view.unmount();
+    });
+
+    it("keeps the retire dialog open while removal is pending and advances only after success", async () => {
+        const pending = deferred<void>();
+        const testCtx = { ...ctx(), removeFromDeck: vi.fn(() => pending.promise) };
+        const view = render(Review, { ctx: testCtx });
+        await screen.findByText("block-a body");
+        await fireEvent.click(screen.getByRole("button", { name: /(t\.review\.tbMore|t\.review\.tbMoreDesc)/ }));
+        await fireEvent.click(screen.getByRole("button", { name: /t\.review\.retireCard/ }));
+        const dialog = await screen.findByRole("dialog", { name: "t.review.retireCardTitle" });
+        await fireEvent.click(screen.getByRole("button", { name: "t.review.retireCardConfirm" }));
+        expect(testCtx.removeFromDeck).toHaveBeenCalledWith("block-a");
+
+        const close = dialog.querySelector<HTMLButtonElement>("button[aria-label=Cancel]")!;
+        expect(close.disabled).toBe(true);
+        await fireEvent.click(close);
+        await fireEvent.click(dialog.parentElement!);
+        await fireEvent.keyDown(window, { key: "Escape" });
+        expect(screen.getByRole("dialog", { name: "t.review.retireCardTitle" })).toBe(dialog);
+        expect(screen.getByText("block-a body")).toBeTruthy();
+
+        pending.resolve();
+        await screen.findByText("block-b body");
+        expect(screen.queryByRole("dialog", { name: "t.review.retireCardTitle" })).toBeNull();
         view.unmount();
     });
 

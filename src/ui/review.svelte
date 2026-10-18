@@ -45,6 +45,7 @@
     import { friendlyError } from "@/api/errors";
     import { triggerHaptic } from "@/core/haptic";
     import { lvLog } from "@/libs/log";
+    import { trapFocus } from "@/libs/focus-trap";
 
     export interface ReviewSettings {
         ratingStyle: "four" | "three";
@@ -1051,14 +1052,17 @@
     /** 汲取自渐进学习插件：保存助记便签（给未来的自己留线索） */
     async function saveCardMemo() {
         if (!current || memoSaving) return;
+        const card = current;
+        const trimmed = memoDraft.trim();
         memoSaving = true;
         try {
-            const trimmed = memoDraft.trim();
             if (siyuanApi.setBlockAttrs) {
-                await siyuanApi.setBlockAttrs(current.blockID, { memo: trimmed });
+                await siyuanApi.setBlockAttrs(card.blockID, { memo: trimmed });
             }
-            cardMemo = trimmed;
-            showMemoEditor = false;
+            if (current?.cardID === card.cardID) {
+                cardMemo = trimmed;
+                showMemoEditor = false;
+            }
             showMessage(t.review.memoSavedToast ?? "助记便签已保存，下次复习时将提醒你", 2500, "info");
         } catch (e: any) {
             showMessage(friendlyError(e, t), 4000, "error");
@@ -1070,15 +1074,16 @@
     /** 汲取自番茄插件：复习端就地移出卡组（安全不修改正文） */
     async function retireCurrentCard() {
         if (!current || retireBusy) return;
+        const card = current;
         retireBusy = true;
         try {
             if (ctx.removeFromDeck) {
-                await ctx.removeFromDeck(current.blockID);
+                await ctx.removeFromDeck(card.blockID);
             }
             showMessage(t.review.retireCardDone ?? "已将卡片移出卡组", 2500, "info");
+            queue = queue.filter(c => c.cardID !== card.cardID);
+            if (current?.cardID !== card.cardID) return;
             showRetireModal = false;
-            const retiredID = current.cardID;
-            queue = queue.filter(c => c.cardID !== retiredID);
             if (queue.length > 0) {
                 await setCurrent(queue[0]);
             } else {
@@ -1089,6 +1094,14 @@
         } finally {
             retireBusy = false;
         }
+    }
+
+    function closeMemoEditor() {
+        if (!memoSaving) showMemoEditor = false;
+    }
+
+    function closeRetireModal() {
+        if (!retireBusy) showRetireModal = false;
     }
 
     function onCardContentClick(e: MouseEvent) {
@@ -1106,11 +1119,11 @@
         returnFocus();
     }
 
-    // 图片灯箱也是模态对话框：把焦点移入关闭按钮，Esc/关闭后归还卡面焦点。
+    // 图片灯箱也是模态对话框：焦点移入并在关闭按钮中循环，Esc/关闭后归还卡面焦点。
     $effect(() => {
         if (!zoomedImage || !lightboxEl) return;
-        const closeButton = lightboxEl.querySelector<HTMLElement>("button");
-        (closeButton ?? lightboxEl).focus({ preventScroll: true });
+        const trap = trapFocus(lightboxEl, { onEscape: closeZoomedImage, restoreOnRelease: false });
+        return () => trap.release();
     });
 
     /** TTS 朗读（Web Speech，防御式） */
@@ -1575,6 +1588,10 @@
         }
         if (showPauseModal || showSessionOptionsModal || showMemoEditor || showRetireModal) {
             if (e.key === "Escape") {
+                if (memoSaving || retireBusy) {
+                    e.preventDefault();
+                    return;
+                }
                 showPauseModal = false;
                 showSessionOptionsModal = false;
                 showMemoEditor = false;
@@ -1584,7 +1601,8 @@
             } else if (e.key === "Tab" && sessionModalEl) {
                 const controls = Array.from(sessionModalEl.querySelectorAll<HTMLElement>("button:not(:disabled), select:not(:disabled), textarea:not(:disabled)"));
                 const first = controls[0], last = controls[controls.length - 1];
-                if (e.shiftKey && document.activeElement === first) { last?.focus(); e.preventDefault(); }
+                if (controls.length === 0) { sessionModalEl.focus(); e.preventDefault(); }
+                else if (e.shiftKey && document.activeElement === first) { last?.focus(); e.preventDefault(); }
                 else if (!e.shiftKey && document.activeElement === last) { first?.focus(); e.preventDefault(); }
             }
             return;
@@ -2657,13 +2675,13 @@
 
     {#if showMemoEditor && current}
         <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-        <div class="lv-modal-backdrop lv-glass" tabindex="-1" onclick={() => (showMemoEditor = false)}>
+        <div class="lv-modal-backdrop lv-glass" tabindex="-1" onclick={closeMemoEditor}>
             <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
             <div class="lv-pause-dialog lv-card2" role="dialog" aria-modal="true" aria-label={t.review.memoModalTitle} tabindex="-1" bind:this={sessionModalEl} onclick={(e: Event) => e.stopPropagation()}>
                 <div class="lv-help-head">
                     <span style="font-weight:600;font-size:16px"><LvIcon name="lightbulb" size={17} /> {t.review.memoModalTitle ?? "给未来的自己留助记线索"}</span>
                     <div class="fn__flex-1"></div>
-                    <button class="b3-button b3-button--small" aria-label={window.siyuan.languages.cancel} onclick={() => (showMemoEditor = false)}>✕</button>
+                    <button class="b3-button b3-button--small" disabled={memoSaving} aria-label={window.siyuan.languages.cancel} onclick={closeMemoEditor}>✕</button>
                 </div>
                 <div style="padding:var(--lv-sp-3) 0">
                     <p class="ft__smaller ft__on-surface" style="line-height:1.6">{t.review.memoModalDesc ?? "写下一句巧记口诀、易错陷阱或关键关联。下次复习此卡时将直接呈现。"}</p>
@@ -2678,7 +2696,7 @@
                     ></textarea>
                 </div>
                 <div style="display:flex;justify-content:flex-end;gap:var(--lv-sp-2);margin-top:var(--lv-sp-3)">
-                    <button class="b3-button b3-button--text" disabled={memoSaving} onclick={() => (showMemoEditor = false)}>{window.siyuan.languages.cancel ?? "取消"}</button>
+                    <button class="b3-button b3-button--text" disabled={memoSaving} onclick={closeMemoEditor}>{window.siyuan.languages.cancel ?? "取消"}</button>
                     <button class="b3-button lv-btn-primary" disabled={memoSaving} onclick={saveCardMemo}>
                         {memoSaving ? t.dashboard.loading : (t.review.memoSave ?? "保存便签")}
                     </button>
@@ -2689,19 +2707,19 @@
 
     {#if showRetireModal && current}
         <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-        <div class="lv-modal-backdrop lv-glass" tabindex="-1" onclick={() => (showRetireModal = false)}>
+        <div class="lv-modal-backdrop lv-glass" tabindex="-1" onclick={closeRetireModal}>
             <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
             <div class="lv-pause-dialog lv-card2" role="dialog" aria-modal="true" aria-label={t.review.retireCardTitle} tabindex="-1" bind:this={sessionModalEl} onclick={(e: Event) => e.stopPropagation()}>
                 <div class="lv-help-head">
                     <span style="font-weight:600;font-size:16px"><LvIcon name="ban" size={17} /> {t.review.retireCardTitle ?? "移出复习卡组"}</span>
                     <div class="fn__flex-1"></div>
-                    <button class="b3-button b3-button--small" aria-label={window.siyuan.languages.cancel} onclick={() => (showRetireModal = false)}>✕</button>
+                    <button class="b3-button b3-button--small" disabled={retireBusy} aria-label={window.siyuan.languages.cancel} onclick={closeRetireModal}>✕</button>
                 </div>
                 <div style="padding:var(--lv-sp-3) 0">
                     <p class="ft__smaller ft__on-surface" style="line-height:1.6">{t.review.retireCardDesc ?? "将此卡移出当前复习卡组，不再参与复习调度。思源笔记正文内容不会受到任何修改。确认移出？"}</p>
                 </div>
                 <div style="display:flex;justify-content:flex-end;gap:var(--lv-sp-2);margin-top:var(--lv-sp-3)">
-                    <button class="b3-button b3-button--text" disabled={retireBusy} onclick={() => (showRetireModal = false)}>{window.siyuan.languages.cancel ?? "取消"}</button>
+                    <button class="b3-button b3-button--text" disabled={retireBusy} onclick={closeRetireModal}>{window.siyuan.languages.cancel ?? "取消"}</button>
                     <button class="b3-button lv-btn-danger" disabled={retireBusy} onclick={retireCurrentCard}>
                         {retireBusy ? t.dashboard.loading : (t.review.retireCardConfirm ?? "确认移出")}
                     </button>
