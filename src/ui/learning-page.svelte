@@ -20,6 +20,7 @@
         getRevlog,
         getDailyTargets = () => ({ new: 0, review: 0 }),
         onReviewed,
+        onStoresChanged,
         onGoToday,
         onOpenExam,
         onOpenBlock,
@@ -31,6 +32,7 @@
         getRevlog: () => RevlogData;
         getDailyTargets?: () => { new: number; review: number };
         onReviewed?: (cb: () => void) => (() => void) | void;
+        onStoresChanged?: (cb: () => void) => (() => void) | void;
         onGoToday?: () => void;
         onOpenExam?: () => void;
         onOpenBlock?: (blockID: string) => void;
@@ -61,8 +63,8 @@
     let calPartialReason = $state("");
     let calSeq = 0;
     let disposed = false;
-    let calRefreshPending = false;
     let unsubscribeReviewed: (() => void) | null = null;
+    let unsubscribeStoresChanged: (() => void) | null = null;
 
     const recent = $derived(lastNDays(revlog, 7));
     const recentReviews = $derived(recent.reduce((sum, d) => sum + d.stat.review, 0));
@@ -157,20 +159,10 @@
             rebuildCalendar();
         } finally {
             if (disposed) return;
-            // A review event invalidates the in-flight snapshot. Stop its loading
-            // state and start one fresh request after the old promise settles.
-            if (seq !== calSeq) {
-                if (calRefreshPending) {
-                    calRefreshPending = false;
-                    calLoading = false;
-                    calAttempted = false;
-                    void loadCalendar();
-                }
-                return;
-            }
             calLoading = false;
-            if (calRefreshPending) {
-                calRefreshPending = false;
+            // A review can invalidate a request while another facet is visible.
+            // Always release its loading state, but fetch again only when visible.
+            if (seq !== calSeq && selectedTab === "calendar") {
                 calAttempted = false;
                 void loadCalendar();
             }
@@ -184,17 +176,14 @@
     function refreshFromStore() {
         if (disposed) return;
         revlog = getRevlog();
-        rebuildCalendar();
-        if (selectedTab === "calendar") {
-            calRefreshPending = calLoading;
-            calSeq += 1;
-            calAttempted = false;
-            if (!calLoading) void loadCalendar();
-        }
+        invalidateCalendar();
+        if (selectedTab === "calendar" && !calLoading) void loadCalendar();
     }
     onMount(() => {
         const unsubscribe = onReviewed?.(refreshFromStore);
         unsubscribeReviewed = typeof unsubscribe === "function" ? unsubscribe : null;
+        const unsubscribeStores = onStoresChanged?.(refreshFromStore);
+        unsubscribeStoresChanged = typeof unsubscribeStores === "function" ? unsubscribeStores : null;
         rebuildCalendar();
         if (selectedTab === "calendar") void loadCalendar();
     });
@@ -202,6 +191,7 @@
         disposed = true;
         calSeq += 1;
         unsubscribeReviewed?.();
+        unsubscribeStoresChanged?.();
     });
 </script>
 
@@ -217,7 +207,7 @@
                 <section class="lv-card2 lv-learning-trend" aria-label={copy.trendTitle ?? "近 7 天正式评分趋势"}>
                     <div class="lv-section-heading"><h2>{copy.trendTitle ?? "近 7 天正式评分趋势"}</h2><span>{copy.formalOnly ?? "正式复习记录"}</span></div>
                     <div class="lv-learning-metrics">
-                        <LvStat label={copy.weekReviews ?? "正式评分"} value={recentReviews} detail={copy.reviewCount ?? "近 7 天"} spark={recentSpark} />
+                        <LvStat label={copy.formalReviews ?? "正式评分"} value={recentReviews} detail={copy.reviewCount ?? "近 7 天"} spark={recentSpark} />
                         <LvStat label={copy.newCount ?? "新卡"} value={recentNew} detail={copy.newCountDetail ?? "近 7 天首次记录"} />
                         <LvStat label={copy.activeDays ?? "有学习记录的天数"} value={recentActiveDays} detail={copy.activeDaysDetail ?? "近 7 天"} />
                         <LvStat label={copy.streak ?? "连续天数"} value={calcStreak(revlog)} detail={copy.streakDetail ?? "当前连续记录"} />
@@ -247,13 +237,13 @@
                     dateLabel={(date) => {
                         const stat = revlog.days[date];
                         const dayForecast = calForecast?.days.find(item => item.date === date);
-                        const score = stat ? `${copy.reviewCount ?? "正式评分"} ${stat.review}` : (copy.noRecords ?? "暂无记录");
+                        const score = stat ? `${copy.formalReviews ?? "正式评分"} ${stat.review}` : (copy.noRecords ?? "暂无记录");
                         const due = dayForecast ? `${copy.forecastDue ?? "预测到期"} ${dayForecast.reviews + dayForecast.news}` : (copy.forecastUnknown ?? "预测未知");
                         return `${date} · ${score} · ${due}`;
                     }}
                     forecastDayLabel={(day) => `${day.date} · ${copy.forecastDue ?? "预测到期"} ${day.reviews + day.news}`}
                     labels={{ few: t.calFew, many: t.calMany, note: t.calNote, forecastTitle: t.calForecastTitle, empty: t.calEmpty }}
-                    caption={calForecast ? `${dateLabel(selectedDate ?? localDate(Date.now()))} · ${copy.reviewCount ?? "正式评分"} ${selectedDay?.review ?? 0} · ${copy.forecastDue ?? "预测到期"} ${selectedForecast ? selectedForecast.reviews + selectedForecast.news : "—"}` : `${dateLabel(selectedDate ?? localDate(Date.now()))} · ${copy.forecastUnknown ?? "预测未知"} —`}
+                    caption={calForecast ? `${dateLabel(selectedDate ?? localDate(Date.now()))} · ${copy.formalReviews ?? "正式评分"} ${selectedDay?.review ?? 0} · ${copy.forecastDue ?? "预测到期"} ${selectedForecast ? selectedForecast.reviews + selectedForecast.news : "—"}` : `${dateLabel(selectedDate ?? localDate(Date.now()))} · ${copy.forecastUnknown ?? "预测未知"} —`}
                 />
                 {#if calPartial}<p class="lv-learning-warning" role="status">{calPartialReason}</p>{/if}
                 <div class="lv-learning-calendar-foot"><span>{copy.calendarSub ?? t.calSub ?? "过去为复习热力，未来为到期预测——只读，不改变内核调度"}</span>{#if calError || (!calLoading && !calForecast)}<button type="button" class="b3-button b3-button--small" onclick={() => { invalidateCalendar(); void loadCalendar(); }}>{copy.retry ?? t.refresh ?? "刷新"}</button>{/if}</div>

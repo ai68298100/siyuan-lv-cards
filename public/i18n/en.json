@@ -952,6 +952,7 @@
         "retry": "Retry",
         "trendTitle": "Formal reviews in the last 7 days",
         "formalOnly": "Formal review records",
+        "formalReviews": "Formal reviews",
         "reviewCount": "Last 7 days",
         "newCount": "New cards",
         "newCountDetail": "First records in the last 7 days",

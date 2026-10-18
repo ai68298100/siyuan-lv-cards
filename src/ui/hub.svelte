@@ -535,6 +535,7 @@
                                 getRevlog={dashboardBase.getRevlog}
                                 getDailyTargets={dashboardBase.getDailyTargets}
                                 onReviewed={dashboardBase.onReviewed}
+                                onStoresChanged={dashboardBase.onStoresChanged}
                                 onGoToday={() => switchTab("today")}
                                 onOpenExam={exam ? () => switchTab("exam") : undefined}
                                 onOpenBlock={(blockID: string) => { managerInitialBlockID = blockID; switchTab("manage"); }}
