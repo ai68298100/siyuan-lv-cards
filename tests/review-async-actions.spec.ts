@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/svelte";
 import Review from "../src/ui/review.svelte";
+import { showMessage } from "siyuan";
 
 vi.mock("svelte/transition", () => ({ fade: () => ({ duration: 0, css: () => "" }) }));
 
@@ -604,6 +605,59 @@ describe("review async action guards", () => {
         pending.resolve();
         await screen.findByText("block-b body");
         expect(screen.queryByRole("dialog", { name: "t.review.retireCardTitle" })).toBeNull();
+        view.unmount();
+    });
+
+    it.each(["memo", "retire"] as const)("ignores a late %s write after the review is unmounted", async (operation) => {
+        const pending = deferred<void>();
+        const testCtx = { ...ctx(), removeFromDeck: vi.fn(() => pending.promise) };
+        if (operation === "memo") setBlockAttrs.mockImplementationOnce(() => pending.promise);
+        const view = render(Review, { ctx: testCtx });
+        await screen.findByText("block-a body");
+        if (operation === "memo") {
+            await fireEvent.keyDown(window, { key: "m" });
+            await fireEvent.input(screen.getByRole("textbox"), { target: { value: "Memo saved after close" } });
+            await fireEvent.click(screen.getByRole("button", { name: "t.review.memoSave" }));
+        } else {
+            await fireEvent.click(screen.getByRole("button", { name: /(t\.review\.tbMore|t\.review\.tbMoreDesc)/ }));
+            await fireEvent.click(screen.getByRole("button", { name: /t\.review\.retireCard/ }));
+            await fireEvent.click(screen.getByRole("button", { name: "t.review.retireCardConfirm" }));
+        }
+        view.unmount();
+        getBlockDOM.mockClear();
+        vi.mocked(showMessage).mockClear();
+
+        pending.resolve();
+        await pending.promise;
+        await Promise.resolve();
+
+        expect(getBlockDOM).not.toHaveBeenCalled();
+        expect(showMessage).not.toHaveBeenCalled();
+    });
+
+    it.each(["memo", "retire"] as const)("preserves the original card and dialog after a failed %s write", async (operation) => {
+        const pending = deferred<void>();
+        const testCtx = { ...ctx(), removeFromDeck: vi.fn(() => pending.promise) };
+        if (operation === "memo") setBlockAttrs.mockImplementationOnce(() => pending.promise);
+        const view = render(Review, { ctx: testCtx });
+        await screen.findByText("block-a body");
+        if (operation === "memo") {
+            await fireEvent.keyDown(window, { key: "m" });
+            await fireEvent.input(screen.getByRole("textbox"), { target: { value: "Keep this memo draft" } });
+            await fireEvent.click(screen.getByRole("button", { name: "t.review.memoSave" }));
+        } else {
+            await fireEvent.click(screen.getByRole("button", { name: /(t\.review\.tbMore|t\.review\.tbMoreDesc)/ }));
+            await fireEvent.click(screen.getByRole("button", { name: /t\.review\.retireCard/ }));
+            await fireEvent.click(screen.getByRole("button", { name: "t.review.retireCardConfirm" }));
+        }
+
+        pending.reject(new Error("Write failed"));
+        const confirmName = operation === "memo" ? "t.review.memoSave" : "t.review.retireCardConfirm";
+        await waitFor(() => expect((screen.getByRole("button", { name: confirmName }) as HTMLButtonElement).disabled).toBe(false));
+        expect(screen.getByRole("dialog")).toBeTruthy();
+        expect(screen.getByText("block-a body")).toBeTruthy();
+        expect(screen.queryByText("block-b body")).toBeNull();
+        if (operation === "memo") expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toBe("Keep this memo draft");
         view.unmount();
     });
 

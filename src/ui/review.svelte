@@ -215,6 +215,7 @@
     let submitting = $state(false); // 评分/跳过提交锁（AJ8：重复点击只产生一次写入）
     let loadSeq = 0;                // 卡面异步加载序号（AJ10：旧 DOM 不覆盖新卡）
     let queueSeq = 0;               // 队列请求序号（AQ-19：旧范围/旧重试响应不覆盖新队列）
+    let isDisposed = false;
     // AQ-13：题面呈现时刻（monotonic 按壁钟差），评分时按设置封顶后记入 revlog.dur
     let cardShownAt = 0;
     let sessionSkipped = $state<string[]>([]); // 本场跳过排除集（AJ9：跳过的卡不再被下一批拉回）
@@ -1059,15 +1060,17 @@
             if (siyuanApi.setBlockAttrs) {
                 await siyuanApi.setBlockAttrs(card.blockID, { memo: trimmed });
             }
+            if (isDisposed) return;
             if (current?.cardID === card.cardID) {
                 cardMemo = trimmed;
                 showMemoEditor = false;
             }
             showMessage(t.review.memoSavedToast ?? "助记便签已保存，下次复习时将提醒你", 2500, "info");
         } catch (e: any) {
+            if (isDisposed) return;
             showMessage(friendlyError(e, t), 4000, "error");
         } finally {
-            memoSaving = false;
+            if (!isDisposed) memoSaving = false;
         }
     }
 
@@ -1080,6 +1083,7 @@
             if (ctx.removeFromDeck) {
                 await ctx.removeFromDeck(card.blockID);
             }
+            if (isDisposed) return;
             showMessage(t.review.retireCardDone ?? "已将卡片移出卡组", 2500, "info");
             queue = queue.filter(c => c.cardID !== card.cardID);
             if (current?.cardID !== card.cardID) return;
@@ -1090,9 +1094,10 @@
                 current = null;
             }
         } catch (e: any) {
+            if (isDisposed) return;
             showMessage(friendlyError(e, t), 4000, "error");
         } finally {
-            retireBusy = false;
+            if (!isDisposed) retireBusy = false;
         }
     }
 
@@ -1831,6 +1836,7 @@
     });
 
     onDestroy(() => {
+        isDisposed = true;
         stopTimeout(); // AJ7：销毁时清理倒计时，防止泄漏
         stopRequeueTimers();
         if (typeof window !== "undefined" && window.visualViewport) {
