@@ -29,6 +29,7 @@ import { detectFlashcardV2, type MigrationStatus } from "./api/flashcardV2";
 import { getRiffCards, getRiffCardsByBlockIDs } from "./api/riff";
 // AT-4：addRiffCards 取经 due-shared 的包装版（建卡成功即失效共享 due 缓存），badge/提醒走共享缓存
 import { addRiffCards, cachedDueBlockIDs, cachedDueCount, dueCache, formatRiffCardEntryError, invalidateDueCache } from "./api/due-shared";
+import { mountCardsBridge, dispatchCardReviewedEvent } from "./api/external-bridge";
 import { createPerf } from "./libs/perf";
 import { cardsCreatedEvent, gatewayChangedEvent, LV_EVENTS, reviewedEvent, sessionFinishedEvent, settingsChangedEvent, storesChangedEvent, streakChangedEvent } from "./libs/events";
 import { deriveInstance, emptyKnowledgeObjects, findBySource, normalizeKnowledgeObjects, registerObject, removeInstance, toggleInstance, type KnowledgeObjectsData } from "./core/knowledge-objects";
@@ -374,6 +375,7 @@ export default class LvCardsPlugin extends Plugin {
     private readonly examPlansSourceID = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     private examPlansSequence = 0;
     private examKernelWasRunning = false;
+    private disposeCardsBridge?: () => void;
     private aiBatches: AIBatchesData = { version: 1, batches: [] };
     private aiBatchesMutationVersion = 0;
     private costLedgerMutationVersion = 0;
@@ -941,6 +943,38 @@ export default class LvCardsPlugin extends Plugin {
         this.eventBus.on("click-flashcard-action", this.onNativeCardAction);
         // 块图标菜单 → 制卡入口（M2·FR1）
         this.eventBus.on("click-blockicon", this.onBlockIcon);
+
+        // 对外窗口桥 window.xiaolvCards / window.lvCards（小驴生态协商协议 v1）
+        this.disposeCardsBridge = mountCardsBridge({
+            getStats: async () => {
+                const today = localDate(Date.now());
+                const dayStat = this.revlog.days[today] ?? { new: 0, review: 0, forget: 0 };
+                const dueCount = await cachedDueCount().catch(() => 0);
+                return {
+                    todayReviews: dayStat.review,
+                    todayNew: dayStat.new,
+                    todayForget: dayStat.forget,
+                    streak: calcStreak(this.revlog),
+                    dueCount,
+                    historyDays: Object.keys(this.revlog.days).length,
+                };
+            },
+            getDueSummary: async () => {
+                const data = await dueCache.get("");
+                return {
+                    unreviewedCount: data?.unreviewedCount ?? 0,
+                    unreviewedNewCardCount: data?.unreviewedNewCardCount ?? 0,
+                    unreviewedOldCardCount: data?.unreviewedOldCardCount ?? 0,
+                    updatedAt: new Date().toISOString(),
+                };
+            },
+            openHub: (tab?: string) => {
+                this.openTabOf(TAB_DASHBOARD, tab ? { tab } : undefined);
+            },
+            openReview: (options?: { scope?: string; cram?: boolean; entry?: string }) => {
+                this.openTabOf(TAB_REVIEW, options);
+            },
+        });
 
         const plugin = this;
         this.addTab({
@@ -1802,6 +1836,10 @@ export default class LvCardsPlugin extends Plugin {
 
     onunload() {
         const unloadStart = Date.now();
+        if (this.disposeCardsBridge) {
+            this.disposeCardsBridge();
+            this.disposeCardsBridge = undefined;
+        }
         const palette = this.paletteState;
         this.paletteState = undefined;
         palette?.close?.();
@@ -3154,6 +3192,14 @@ export default class LvCardsPlugin extends Plugin {
             if (streakAfter !== streakBefore) {
                 (this.eventBus as any).emit(LV_EVENTS.streakChanged, streakChangedEvent(streakAfter));
             }
+            dispatchCardReviewedEvent({
+                cardID: entry.cardID,
+                deckID: entry.deckID,
+                blockID: entry.blockID,
+                rating: entry.rating,
+                source: entry.source,
+                ts: entry.ts,
+            });
         } catch { /* 事件旁路 */ }
     }
 
