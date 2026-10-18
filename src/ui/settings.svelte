@@ -748,7 +748,7 @@
 
     <!-- T09 三件套（docs/40）：搜索定位 + 本地样例预览（虚构内容，不触真实卡片） -->
     <div class="lv-searchbar">
-        <input class="b3-text-field" style="width: 100%" placeholder={t.settings.searchPlaceholder} bind:value={searchQuery} />
+        <input class="b3-text-field" style="width: 100%" placeholder={t.settings.searchPlaceholder} aria-label={t.settings.searchPlaceholder} bind:value={searchQuery} />
     </div>
     {#if sectionMatches("appearance")}
     <div class="lv-notice" style="display: flex; gap: var(--lv-sp-4); align-items: center; flex-wrap: wrap">

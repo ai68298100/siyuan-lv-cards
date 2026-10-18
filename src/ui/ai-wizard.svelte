@@ -826,6 +826,7 @@
                         bind:value={source}
                         disabled={busy}
                         placeholder={t.aiWizard.sourceEditHint}
+                        aria-label={t.aiWizard.sourceEditHint}
                         style="font-size: var(--lv-type-control-size); line-height: 1.6"
                     ></textarea>
                     {#if source}
@@ -844,16 +845,16 @@
                     {/if}
                     <div class="fn__flex fn__flex-wrap" style="gap: var(--lv-sp-3); margin-top: var(--lv-sp-3); align-items: center">
                         <span class="ft__smaller ft__on-surface">{t.aiWizard.count}</span>
-                        <select class="b3-select" style="max-width: 90px" bind:value={count} disabled={busy}>
+                        <select class="b3-select" style="max-width: 90px" bind:value={count} disabled={busy} aria-label={t.aiWizard.count}>
                             {#each [5, 10, 15, 20] as n (n)}<option value={n}>{n}</option>{/each}
                         </select>
                         <span class="ft__smaller ft__on-surface">{t.aiWizard.language}</span>
-                        <select class="b3-select" style="max-width: 140px" bind:value={language} disabled={busy}>
+                        <select class="b3-select" style="max-width: 140px" bind:value={language} disabled={busy} aria-label={t.aiWizard.language}>
                             <option value="中文">中文</option>
                             <option value="English">English</option>
                         </select>
                         <span class="ft__smaller ft__on-surface">{t.aiWizard.cardType}</span>
-                        <select class="b3-select" style="max-width: 140px" bind:value={cardType} disabled={busy}>
+                        <select class="b3-select" style="max-width: 140px" bind:value={cardType} disabled={busy} aria-label={t.aiWizard.cardType}>
                             <option value="qa">{t.aiWizard.typeQa}</option>
                             <option value="cloze">{t.aiWizard.typeCloze}</option>
                         </select>
@@ -1001,8 +1002,8 @@
                             <button class="b3-button b3-button--small" title={restoredCandidates ? t.aiWizard.recoveredRegenHint : t.aiWizard.regenerate} aria-label={restoredCandidates ? t.aiWizard.recoveredRegenHint : t.aiWizard.regenerate} disabled={creating || regenBusy !== null || restoredCandidates} onclick={() => regenerateCard(i)}>↻</button>
                             <button class="b3-button b3-button--small" title={t.aiWizard.removeCandidate} aria-label={t.aiWizard.removeCandidate} disabled={creating || regenBusy !== null} onclick={() => removeCandidate(i)}>✕</button>
                         </label>
-                        <textarea class="b3-text-field fn__block" rows="2" bind:value={c.q} oninput={() => touchCandidate(i)} disabled={creating || regenBusy !== null} placeholder={t.quickCardQ}></textarea>
-                        <textarea class="b3-text-field fn__block" rows="2" bind:value={c.a} oninput={() => touchCandidate(i)} disabled={creating || regenBusy !== null} placeholder={t.quickCardA}></textarea>
+                        <textarea class="b3-text-field fn__block" rows="2" bind:value={c.q} oninput={() => touchCandidate(i)} disabled={creating || regenBusy !== null} placeholder={t.quickCardQ} aria-label={t.quickCardQ}></textarea>
+                        <textarea class="b3-text-field fn__block" rows="2" bind:value={c.a} oninput={() => touchCandidate(i)} disabled={creating || regenBusy !== null} placeholder={t.quickCardA} aria-label={t.quickCardA}></textarea>
                         <div class="fn__flex" style="gap: calc(var(--lv-space-unit) * 3); margin-top: 6px">
                             <button class="b3-button b3-button--small {c.review === 'accepted' ? 'lv-btn-primary' : ''}" disabled={creating || regenBusy !== null || draftIssues[i].length > 0 || gateIssues[i].length > 0} onclick={() => setReview(i, "accepted")}>{c.review === "accepted" ? t.aiWizard.reviewAccepted : t.aiWizard.acceptVer}</button>
                             <button class="b3-button b3-button--small {c.review === 'verified' ? 'lv-btn-primary' : ''}" disabled={creating || regenBusy !== null} onclick={() => setReview(i, "verified")}>{t.aiWizard.markVerified}</button>
@@ -1099,8 +1100,8 @@
             {/if}
             <div class="fn__flex" style="justify-content: flex-end; gap: var(--lv-sp-2); margin-top: var(--lv-sp-2)">
                 <button class="b3-button b3-button--outline" disabled={creating} onclick={() => { cancelGeneration(); step = 1; }}>{t.aiWizard.back}</button>
-                <input class="b3-text-field" style="width: 180px" placeholder={t.deckNewName} bind:value={newName} disabled={creating} />
-                <select class="b3-select" style="max-width: 180px" bind:value={selected} disabled={creating || decks.length === 0}>
+                <input class="b3-text-field" style="width: 180px" placeholder={t.deckNewName} aria-label={t.deckNewName} bind:value={newName} disabled={creating} />
+                <select class="b3-select" style="max-width: 180px" bind:value={selected} disabled={creating || decks.length === 0} aria-label={t.deckPickerTitle}>
                     {#each decks as d (d.id)}<option value={d.id}>{d.name}</option>{/each}
                 </select>
                 {#if decks.length === 0}

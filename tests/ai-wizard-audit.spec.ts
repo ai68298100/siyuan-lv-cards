@@ -36,6 +36,10 @@ describe("AI wizard release audit regressions", () => {
     it("keeps the material editor available from the empty state and after clearing", async () => {
         render(AIWizard, { i18n, generate: vi.fn(), onCreate: vi.fn(), onClose: vi.fn() });
         const editor = screen.getByPlaceholderText(i18n.aiWizard.sourceEditHint);
+        expect(editor.getAttribute("aria-label")).toBe(i18n.aiWizard.sourceEditHint);
+        expect(screen.getByRole("combobox", { name: i18n.aiWizard.count })).toBeTruthy();
+        expect(screen.getByRole("combobox", { name: i18n.aiWizard.language })).toBeTruthy();
+        expect(screen.getByRole("combobox", { name: i18n.aiWizard.cardType })).toBeTruthy();
         await fireEvent.input(editor, { target: { value: "New material" } });
         expect(screen.getByPlaceholderText(i18n.aiWizard.sourceEditHint)).toBe(editor);
         await fireEvent.click(screen.getByRole("button", { name: i18n.aiWizard.sourceClear }));
@@ -46,6 +50,8 @@ describe("AI wizard release audit regressions", () => {
         const generate = vi.fn().mockResolvedValue({ cards, jobId: "job", gen });
         await generateCards(generate);
         expect(generate.mock.calls[0][0]).toBe("Lecture notes");
+        expect(screen.getByDisplayValue("First question").getAttribute("aria-label")).toBe(i18n.quickCardQ);
+        expect(screen.getByDisplayValue("Alpha").getAttribute("aria-label")).toBe(i18n.quickCardA);
     });
 
     it("requires renewed consent when material changes inside preflight", async () => {

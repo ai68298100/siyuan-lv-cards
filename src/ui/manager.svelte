@@ -661,7 +661,7 @@ import { confirmDialog } from "@/libs/dialog";
             <button class="b3-button b3-button--small lv-btn-ghost" title={t.manager.saveFilter} disabled={!filterText.trim()} onclick={saveCurrent}><LvIcon name="star" size={15} /> {t.manager.saveFilter}</button>
         {/if}
         {#if savedList.length > 0 || filterText}
-            <select class="b3-select lv-sort" bind:value={pickedSaved} onchange={applySaved}>
+            <select class="b3-select lv-sort" bind:value={pickedSaved} onchange={applySaved} aria-label={t.manager.savedFilters}>
                 <option value="" disabled>{t.manager.savedFilters}</option>
                 {#each savedList as f (f.name)}<option value={f.name}>{f.name}</option>{/each}
             </select>
@@ -669,13 +669,13 @@ import { confirmDialog } from "@/libs/dialog";
                 <button class="b3-button b3-button--small lv-btn-ghost" title={t.manager.deleteSaved} aria-label={t.manager.deleteSaved} onclick={deleteSaved}><LvIcon name="ban" size={15} /></button>
             {/if}
         {/if}
-        <select class="b3-select lv-sort" bind:value={sortMode} onchange={() => (selected = [])} title={t.manager.sortLabel}>
+        <select class="b3-select lv-sort" bind:value={sortMode} onchange={() => (selected = [])} title={t.manager.sortLabel} aria-label={t.manager.sortLabel}>
             <option value="default">{t.manager.sortDefault}</option>
             <option value="path">{t.manager.sortPath}</option>
             <option value="content">{t.manager.sortContent}</option>
             <option value="lapses">{t.manager.sortLapses}</option>
         </select>
-        <select class="b3-select lv-sort" bind:value={statusFilter} disabled={loading || dueLoading} onchange={applyStatusFilter} title={t.manager.statusLabel}>
+        <select class="b3-select lv-sort" bind:value={statusFilter} disabled={loading || dueLoading} onchange={applyStatusFilter} title={t.manager.statusLabel} aria-label={t.manager.statusLabel}>
             <option value="all">{t.manager.statusAll}</option>
             <option value="new">{t.manager.statusNew}</option>
             <option value="review">{t.manager.statusReview}</option>

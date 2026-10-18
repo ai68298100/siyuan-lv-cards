@@ -2129,7 +2129,7 @@
                 <div class="lv-progress-seg" style={`width:${(Math.max(0, reviewedIDs.length - sessionForget) / Math.max(1, reviewedIDs.length + queue.length)) * 100}%`}></div>
             </div>
             <div class="lv-head-row lv-head-tools">
-                <select class="b3-select lv-scope" bind:this={scopeEl} bind:value={scopeKey} onchange={() => { ctx.onScopePersist(scopeKey); changeScope(); }} title={t.review.scopeTitle}>
+                <select class="b3-select lv-scope" bind:this={scopeEl} bind:value={scopeKey} onchange={() => { ctx.onScopePersist(scopeKey); changeScope(); }} title={t.review.scopeTitle} aria-label={t.review.scopeTitle}>
                     <option value="all">{t.review.scopeAll}</option>
                     <option value="new">{t.review.scopeNew}</option>
                     <option value="old">{t.review.scopeOld}</option>
@@ -2149,7 +2149,7 @@
                     {/if}
                 </select>
                 <!-- BI-2：本次会话目的（结束条件随目的显示；informal 不计入每日目标） -->
-                <select class="b3-select lv-scope" bind:value={purpose} title={t.review.purposeTitle}>
+                <select class="b3-select lv-scope" bind:value={purpose} title={t.review.purposeTitle} aria-label={t.review.purposeTitle}>
                     {#each SESSION_PURPOSES as p (p)}
                         <option value={p}>{t.purpose[p].name}</option>
                     {/each}
@@ -2672,6 +2672,7 @@
                         rows="3"
                         style="margin-top:var(--lv-sp-2)"
                         placeholder={t.review.memoPlaceholder ?? "例如：谐音记忆口诀、与某定理的对比..."}
+                        aria-label={t.review.memoPlaceholder ?? "助记便签"}
                         bind:value={memoDraft}
                         disabled={memoSaving}
                     ></textarea>
