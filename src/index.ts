@@ -2582,6 +2582,7 @@ export default class LvCardsPlugin extends Plugin {
                 pairing: () => this.openPairing(),
                 drill: () => this.openRepairDrill(),
                 settings: () => this.openSettingsDialog(),
+                imports: () => this.openSettingsDialog(undefined, "imports"),
                 overview: () => this.openTabOf(TAB_DASHBOARD),
                 manage: () => this.openTabOf(TAB_DASHBOARD, { tab: "manage" }),
                 authoring: () => this.openTabOf(TAB_DASHBOARD, { tab: "authoring" }),
@@ -3468,7 +3469,7 @@ export default class LvCardsPlugin extends Plugin {
         }
     }
 
-    private async openSettingsDialog(onSaved?: () => void) {
+    private async openSettingsDialog(onSaved?: () => void, initialSection?: "imports") {
         try {
             const SettingsPanel = await loadSettingsPanel();
             const { close, dialog } = svelteDialog({
@@ -3478,6 +3479,7 @@ export default class LvCardsPlugin extends Plugin {
                 // 完整设置内容远超一屏；明确限制弹窗高度后，设置面板才能建立可滚动边界。
                 height: "min(860px, calc(100vh - 48px))",
                 props: {
+                    initialSection,
                     ctx: {
                     i18n: this.i18n,
                     settings: this.settings,

@@ -6,19 +6,27 @@
  * AR-2 关闭一次性与焦点归还；svelteDialog 接线时 restoreOnRelease=false 防双重归还）。
  */
 
-const FOCUSABLE_SELECTOR = [
-    "a[href]",
-    "button:not([disabled])",
-    "input:not([disabled]):not([type='hidden'])",
-    "select:not([disabled])",
-    "textarea:not([disabled])",
-    "[tabindex]:not([tabindex='-1'])",
-].join(",");
+const FOCUSABLE_SELECTOR = "a[href],button,input,select,textarea,[tabindex]";
 
-/** 容器内可聚焦元素（文档序）；排除 disabled/负 tabindex（属性排除在代码层做——happy-dom 属性选择器口径不一） */
+/** 文档序中的键盘焦点目标；不依赖布局尺寸，保留 display:contents 内的可见控件。 */
 export function getFocusable(container: HTMLElement): HTMLElement[] {
     return [...container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)]
-        .filter(el => el.getAttribute("tabindex") !== "-1");
+        .filter(el => {
+            if (el.tabIndex < 0 || el.matches(":disabled,input[type='hidden']")) return false;
+            // visibility 可由后代恢复为 visible；display:none、hidden 与 inert 则隐藏整个子树。
+            const visibility = getComputedStyle(el).visibility;
+            if (visibility === "hidden" || visibility === "collapse") return false;
+            const formControl = el.matches("button,input,select,textarea");
+            for (let ancestor: HTMLElement | null = el; ancestor; ancestor = ancestor.parentElement) {
+                if (ancestor.hidden || ancestor.hasAttribute("inert") || getComputedStyle(ancestor).display === "none") return false;
+                // 禁用 fieldset 的首个 legend 例外；仍须继续检查外层 fieldset。
+                if (formControl && ancestor.matches("fieldset[disabled]")) {
+                    const legend = [...ancestor.children].find(child => child.tagName === "LEGEND");
+                    if (!legend?.contains(el)) return false;
+                }
+            }
+            return true;
+        });
 }
 
 export interface TrapOptions {
@@ -73,7 +81,7 @@ export function trapFocus(container: HTMLElement, opts: TrapOptions = {}): Focus
         const current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
         const idx = current ? items.indexOf(current) : -1;
         const delta = ke.shiftKey ? -1 : 1;
-        const next = items[(idx + delta + items.length) % items.length];
+        const next = items[idx < 0 ? (ke.shiftKey ? items.length - 1 : 0) : (idx + delta + items.length) % items.length];
         ke.preventDefault();
         try {
             next.focus({ preventScroll: true });

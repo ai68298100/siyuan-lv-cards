@@ -111,6 +111,18 @@ afterEach(() => {
 });
 
 describe("plugin command palette lifecycle", () => {
+    it("routes imports to its task view after closing, while general settings keeps its default call", async () => {
+        const { plugin, open } = createHost();
+        await open();
+        const active = dialogs[0];
+        active.props.onrun(active.props.commands.find(command => command.id === "imports")!);
+        expect(active.close).toHaveBeenCalledOnce();
+        expect(plugin.openSettingsDialog).toHaveBeenCalledWith(undefined, "imports");
+        expect(active.close.mock.invocationCallOrder[0]).toBeLessThan(plugin.openSettingsDialog.mock.invocationCallOrder[0]);
+        await open();
+        dialogs[1].props.onrun(dialogs[1].props.commands.find(command => command.id === "settings")!);
+        expect(plugin.openSettingsDialog).toHaveBeenLastCalledWith();
+    });
     it("coalesces repeated entrances while the dialogs chunk is still loading", async () => {
         const pending = deferred<typeof chunk>();
         loadChunk.mockReturnValue(pending.promise);

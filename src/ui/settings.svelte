@@ -81,8 +81,13 @@
         importRevlogMerge: (fileText: string, onFork?: "skip" | "preferImport") => Promise<{ added: number; skipped: number; forks: number }>;
     }
 
-    let { ctx }: { ctx: SettingsCtx } = $props();
+    let { ctx, initialSection }: { ctx: SettingsCtx; initialSection?: "imports" } = $props();
     const t = $derived(ctx.i18n);
+    let searchInput: HTMLInputElement;
+    let personaFile = $state<HTMLInputElement>();
+    let ankiFile = $state<HTMLInputElement>();
+    let lvcardsFile = $state<HTMLInputElement>();
+    let obFile = $state<HTMLInputElement>();
 
     // BU-31：紧急停用/撤销同意（设置页本地镜像，操作后回读快照）
     // svelte-ignore state_referenced_locally -- 初值快照刻意的：操作经 applyKill 回读替换
@@ -386,8 +391,16 @@
 
     // T09 三件套（docs/40）：搜索定位——按分组标题+代表字段标签匹配（i18n 值，中英皆可搜）
     let searchQuery = $state("");
+    // 任务入口只控制本次视图；切回全部不改设置草稿或持久化配置。
+    // svelte-ignore state_referenced_locally
+    let sectionScope = $state(initialSection);
+    function showAllSettings() {
+        sectionScope = undefined;
+        searchQuery = "";
+        searchInput?.focus();
+    }
     const SECTION_KEYWORDS: Record<string, string[]> = {
-        persona: ["personaSection", "personaManage", "personaActive"],
+        persona: ["personaSection", "personaManage", "personaActive", "personaImport"],
         modules: ["modules", "gateway", "review", "stats"],
         studyRhythm: ["studyRhythm", "dailyNewTarget", "dailyReviewTarget"],
         studyAnswer: ["studyAnswer", "ratingStyle", "timeoutMode", "timeoutForget", "typingEnabled", "dictationEnabled", "choiceEnabled"],
@@ -395,11 +408,12 @@
         studyNotify: ["studyNotify", "notifyDue", "dailyTipEnabled"],
         aiSection: ["aiSection", "aiEndpoint", "aiModel", "aiPromptTemplate", "aiKillTitle"],
         exam: ["exam"],
-        ankiSection: ["ankiSection", "ankiSectionHint"],
+        ankiSection: ["ankiSection", "ankiSectionHint", "ankiImport", "ankiImportHint", "ankiImportPick", "lvcardsImportLabel", "lvcardsImportHint", "obImportLabel", "obImportHint", "obImportPick"],
         appearance: ["appearance", "cardFontScale", "uiMode"],
-        dataSection: ["dataSection"],
+        dataSection: ["dataSection", "importMerge", "importMergeHint", "importCsv", "backupExport", "backupHint", "exportRevlog", "exportSettings"],
     };
     function sectionMatches(id: string): boolean {
+        if (sectionScope === "imports" && id !== "ankiSection" && id !== "dataSection") return false;
         const q = searchQuery.trim().toLowerCase();
         if (!q) return true;
         const dict = t.settings as Record<string, unknown>;
@@ -748,8 +762,18 @@
 
     <!-- T09 三件套（docs/40）：搜索定位 + 本地样例预览（虚构内容，不触真实卡片） -->
     <div class="lv-searchbar">
-        <input class="b3-text-field" style="width: 100%" placeholder={t.settings.searchPlaceholder} aria-label={t.settings.searchPlaceholder} bind:value={searchQuery} />
+        <input bind:this={searchInput} class="b3-text-field" style="width: 100%" placeholder={t.settings.searchPlaceholder} aria-label={t.settings.searchPlaceholder} bind:value={searchQuery} />
     </div>
+    {#if sectionScope === "imports"}
+        <div class="lv-notice lv-import-scope">
+            <strong>{t.settings.importsTitle}</strong>
+            <span>{t.settings.importsHint}</span>
+            <button type="button" class="b3-button b3-button--outline" onclick={showAllSettings}>{t.settings.showAllSettings}</button>
+        </div>
+    {/if}
+    {#if searchQuery.trim() && !Object.keys(SECTION_KEYWORDS).some(sectionMatches)}
+        <div class="lv-notice" role="status">{t.settings.searchEmpty}</div>
+    {/if}
     {#if sectionMatches("appearance")}
     <div class="lv-notice" style="display: flex; gap: var(--lv-sp-4); align-items: center; flex-wrap: wrap">
         <div style="flex: 1; min-width: 240px">
@@ -797,10 +821,8 @@
         </div>
         <div class="fn__flex" style="gap: var(--lv-sp-2); margin-top: var(--lv-sp-2)">
             <button class="b3-button b3-button--outline b3-button--small" onclick={exportPersona}>{t.settings.personaExport}</button>
-            <label class="b3-button b3-button--outline b3-button--small" style="cursor:pointer">
-                {t.settings.personaImport}
-                <input type="file" accept="application/json,.json" style="display:none" onchange={importPersona} />
-            </label>
+            <button type="button" class="b3-button b3-button--outline b3-button--small" aria-label={t.settings.personaImport} onclick={() => personaFile?.click()}>{t.settings.personaImport}</button>
+            <input bind:this={personaFile} type="file" accept="application/json,.json" hidden onchange={importPersona} />
         </div>
     </LvSection>
     {/if}
@@ -1175,15 +1197,15 @@
     {#if sectionMatches("ankiSection")}
     <LvSection title={t.settings.ankiSection} sub={t.settings.ankiSectionHint}>
         <LvRow label={t.settings.ankiUrl}>
-            <input class="b3-text-field fn__size-200" bind:value={draft.ankiClientUrl} />
+            <input class="b3-text-field fn__size-200" aria-label={t.settings.ankiUrl} bind:value={draft.ankiClientUrl} />
         </LvRow>
         <LvRow label={t.settings.ankiKey}>
-            <input class="b3-text-field fn__size-200" type="password" bind:value={draft.ankiClientKey} />
+            <input class="b3-text-field fn__size-200" type="password" aria-label={t.settings.ankiKey} bind:value={draft.ankiClientKey} />
         </LvRow>
         <LvRow label={t.settings.ankiTest}>
             {#snippet children()}
                 {#if ankiLabel}<span class="ft__smaller ft__on-surface">{ankiLabel}</span>{/if}
-                <button class="b3-button b3-button--outline" disabled={ankiTestBusy} onclick={testAnki}>{ankiTestBusy ? "…" : t.settings.ankiTest}</button>
+                <button class="b3-button b3-button--outline" aria-label={t.settings.ankiTest} disabled={ankiTestBusy} onclick={testAnki}>{ankiTestBusy ? "…" : t.settings.ankiTest}</button>
             {/snippet}
         </LvRow>
         <!-- Anki M3：本地 .apkg 导入（docs/39 §3）——解析/预览/建文档/制卡/台账，幂等重导 -->
@@ -1191,10 +1213,8 @@
             {#snippet children()}
                 {#if ankiBusy}<span class="ft__smaller ft__on-surface">{t.settings.ankiImportParsing}</span>{/if}
                 {#if ankiHost.available}
-                    <label class="b3-button b3-button--outline" style="cursor: pointer;{ankiBusy ? ' pointer-events: none; opacity: .6;' : ''}">
-                        <input type="file" accept=".apkg,.colpkg" style="display: none" disabled={ankiBusy} onchange={importAnki} />
-                        {t.settings.ankiImportPick}
-                    </label>
+                    <button type="button" class="b3-button b3-button--outline" aria-label={t.settings.ankiImportPick} disabled={ankiBusy} aria-busy={ankiBusy} onclick={() => ankiFile?.click()}>{t.settings.ankiImportPick}</button>
+                    <input bind:this={ankiFile} type="file" accept=".apkg,.colpkg" hidden disabled={ankiBusy} onchange={importAnki} />
                 {:else}
                     <span class="lv-notice lv-notice--warn" role="status">
                         {(t.settings.ankiImportNoSqlite ?? "当前宿主不支持本地解析：${r}").replace("${r}", ankiHost.reason ?? "")}
@@ -1225,10 +1245,8 @@
         <LvRow label={t.settings.lvcardsImportLabel ?? "小驴闪卡分享包导入（.lvcards）"} hint={t.settings.lvcardsImportHint ?? "支持小驴闪卡原生 .lvcards 单文件分享包，自动校验格式，按卡组归组并去重入库"}>
             {#snippet children()}
                 {#if lvcardsBusy}<span class="ft__smaller ft__on-surface">{t.settings.ankiImportParsing}</span>{/if}
-                <label class="b3-button b3-button--outline" style="cursor: pointer;{lvcardsBusy ? ' pointer-events: none; opacity: .6;' : ''}">
-                    <input type="file" accept=".lvcards,.json,application/json" style="display: none" disabled={lvcardsBusy} onchange={importLvCards} />
-                    {t.settings.lvcardsImportPick ?? "选择 .lvcards 文件"}
-                </label>
+                <button type="button" class="b3-button b3-button--outline" aria-label={t.settings.lvcardsImportPick ?? "选择 .lvcards 文件"} disabled={lvcardsBusy} aria-busy={lvcardsBusy} onclick={() => lvcardsFile?.click()}>{t.settings.lvcardsImportPick ?? "选择 .lvcards 文件"}</button>
+                <input bind:this={lvcardsFile} type="file" accept=".lvcards,.json,application/json" hidden disabled={lvcardsBusy} onchange={importLvCards} />
             {/snippet}
         </LvRow>
         {#if lvcardsStatus}
@@ -1240,10 +1258,8 @@
         <LvRow label={t.settings.obImportLabel} hint={t.settings.obImportHint}>
             {#snippet children()}
                 {#if obBusy}<span class="ft__smaller ft__on-surface">{t.settings.ankiImportParsing}</span>{/if}
-                <label class="b3-button b3-button--outline" style="cursor: pointer;{obBusy ? ' pointer-events: none; opacity: .6;' : ''}">
-                    <input type="file" accept=".md,.markdown,text/markdown" style="display: none" disabled={obBusy} onchange={importObsidian} />
-                    {t.settings.obImportPick}
-                </label>
+                <button type="button" class="b3-button b3-button--outline" aria-label={t.settings.obImportPick} disabled={obBusy} aria-busy={obBusy} onclick={() => obFile?.click()}>{t.settings.obImportPick}</button>
+                <input bind:this={obFile} type="file" accept=".md,.markdown,text/markdown" hidden disabled={obBusy} onchange={importObsidian} />
             {/snippet}
         </LvRow>
         {#if obStatus}
@@ -1301,13 +1317,13 @@
         <LvRow label="Flashcard V2" hint={t.dashboard.v2Active}>
             {#snippet children()}
                 <LvChip tone={v2Label.startsWith("Active") ? "primary" : v2Label === "N/A (<3.9.0)" ? "default" : "warn"}>{v2Label}</LvChip>
-                <button class="b3-button b3-button--outline" disabled={v2Busy} aria-busy={v2Busy} onclick={redetectV2}>{v2Busy ? "…" : t.settings.redetectV2}</button>
+                <button class="b3-button b3-button--outline" aria-label={t.settings.redetectV2} disabled={v2Busy} aria-busy={v2Busy} onclick={redetectV2}>{v2Busy ? "…" : t.settings.redetectV2}</button>
             {/snippet}
         </LvRow>
         {#if v2Error}<div class="lv-notice lv-notice--warn" role="alert">{v2Error}</div>{/if}
         <LvRow label={t.settings.suspendedManage} hint={t.settings.suspendedHint.replace("${n}", String(ctx.getSuspendedCount()))}>
             {#snippet children()}
-                <button class="b3-button b3-button--outline" disabled={restoreSuspendedBusy || ctx.getSuspendedCount() === 0} aria-busy={restoreSuspendedBusy} onclick={restoreAllSuspended}>
+                <button class="b3-button b3-button--outline" aria-label={t.settings.suspendedRestore} disabled={restoreSuspendedBusy || ctx.getSuspendedCount() === 0} aria-busy={restoreSuspendedBusy} onclick={restoreAllSuspended}>
                     {restoreSuspendedBusy ? (t.settings.suspendedRestoring ?? "恢复中…") : t.settings.suspendedRestore}
                 </button>
             {/snippet}
@@ -1315,19 +1331,19 @@
         {#if restoreSuspendedError}<div class="lv-notice lv-notice--warn" role="alert">{restoreSuspendedError} <button class="b3-button b3-button--text" disabled={restoreSuspendedBusy} onclick={restoreAllSuspended}>{t.settings.retry ?? "重试"}</button></div>{/if}
         <LvRow label={t.settings.exportRevlog} hint={t.settings.storageNote}>
             {#snippet children()}
-                <button class="b3-button b3-button--outline" onclick={ctx.exportRevlog}>JSON</button>
-                <button class="b3-button b3-button--outline" onclick={ctx.exportRevlogCsv}>CSV</button>
+                <button class="b3-button b3-button--outline" aria-label={`${t.settings.exportRevlog} · JSON`} onclick={ctx.exportRevlog}>JSON</button>
+                <button class="b3-button b3-button--outline" aria-label={`${t.settings.exportRevlog} · CSV`} onclick={ctx.exportRevlogCsv}>CSV</button>
             {/snippet}
         </LvRow>
         <LvRow label={t.settings.exportSettings}>
             {#snippet children()}
-                <button class="b3-button b3-button--outline" onclick={ctx.exportSettings}>{t.settings.exportSettings}</button>
+                <button class="b3-button b3-button--outline" aria-label={t.settings.exportSettings} onclick={ctx.exportSettings}>{t.settings.exportSettings}</button>
             {/snippet}
         </LvRow>
         <LvRow label={t.settings.importMerge} hint={t.settings.importMergeHint}>
             {#snippet children()}
-                <input class="b3-button b3-button--outline" type="file" accept=".json,application/json" disabled={revlogImportBusy} onchange={importMerge} />
-                <input class="b3-button b3-button--outline" type="file" accept=".csv,text/csv" disabled={revlogImportBusy} onchange={importCsv} />
+                <input class="b3-button b3-button--outline" type="file" accept=".json,application/json" aria-label={t.settings.importMerge} disabled={revlogImportBusy} onchange={importMerge} />
+                <input class="b3-button b3-button--outline" type="file" accept=".csv,text/csv" aria-label={t.settings.importCsv} disabled={revlogImportBusy} onchange={importCsv} />
                 {#if revlogImportStatus}<span class="ft__smaller ft__on-surface" role={revlogImportBusy ? "status" : "alert"} aria-busy={revlogImportBusy}>{revlogImportStatus}</span>{/if}
             {/snippet}
         </LvRow>
@@ -1335,8 +1351,8 @@
             <!-- 备份与恢复中心（docs/38 P2）：导出 bundle 快照 / 从文件恢复（预览→确认→应用） -->
             <LvRow label={t.settings.backupExport} hint={t.settings.backupHint}>
                 {#snippet children()}
-                    <button class="b3-button b3-button--outline" onclick={ctx.backup.export}>JSON</button>
-                    <input class="b3-button b3-button--outline" type="file" accept=".json,application/json" disabled={backupBusy} onchange={restoreBackup} />
+                    <button class="b3-button b3-button--outline" aria-label={`${t.settings.backupExport} · JSON`} onclick={ctx.backup.export}>JSON</button>
+                    <input class="b3-button b3-button--outline" type="file" accept=".json,application/json" aria-label={t.settings.backupRestore} disabled={backupBusy} onchange={restoreBackup} />
                     <span class="ft__smaller ft__on-surface">{backupBusy ? "…" : ""}</span>
                 {/snippet}
             </LvRow>
@@ -1358,6 +1374,7 @@
             {#snippet children()}
                 <button
                     class="b3-button b3-button--outline"
+                    aria-label={t.settings.clearRevlog}
                     onclick={() => confirmDialog({
                         title: t.settings.clearRevlog,
                         content: `<div class="b3-typography">${t.settings.clearRevlogConfirm}</div>`,
@@ -1402,7 +1419,9 @@
     .lv-settings {
         padding: var(--lv-sp-4);
         flex: 1 1 auto;
+        min-width: 0;
         min-height: 0;
+        width: 100%;
         height: auto;
         overflow-y: auto;
         overscroll-behavior: contain;
@@ -1411,6 +1430,10 @@
         margin: 0 auto;
 
         .b3-dialog__action { justify-content: flex-end; }
+        .lv-import-scope { display: flex; flex-wrap: wrap; align-items: center; gap: var(--lv-sp-2); }
+        .lv-import-scope > span { flex: 1 1 220px; }
+        :global(.lv-row2-control) { min-width: 0; flex-wrap: wrap; }
+        :global(input) { max-width: 100%; min-width: 0; box-sizing: border-box; }
 
         .lv-storage {
             border: 1px solid var(--lv-border);

@@ -4,6 +4,7 @@ import {
     computePaletteCommands,
     parseReturnPoint,
 } from "../src/core/palette-navigation";
+import { filterPaletteCommands, flattenPaletteGroups } from "../src/core/palette";
 
 describe("palette-navigation 命令面板与回源路由引擎", () => {
     describe("computePaletteCommands 命令列表计算", () => {
@@ -38,6 +39,7 @@ describe("palette-navigation 命令面板与回源路由引擎", () => {
             expect(ids).toContain("pairing");
             expect(ids).toContain("drill");
             expect(ids).toContain("settings");
+            expect(ids).toContain("imports");
             expect(ids).toContain("overview");
             expect(ids).toContain("manage");
             expect(ids).toContain("authoring");
@@ -59,6 +61,7 @@ describe("palette-navigation 命令面板与回源路由引擎", () => {
             expect(ids).toContain("inbox");
             expect(ids).toContain("pairing");
             expect(ids).not.toContain("exam");
+            expect(ids).toContain("imports");
             expect(ids).not.toContain("cram");
             expect(ids).not.toContain("maintenance");
         });
@@ -74,6 +77,13 @@ describe("palette-navigation 命令面板与回源路由引擎", () => {
             expect(ids).not.toContain("inbox");
             expect(ids).not.toContain("exam");
             expect(ids).toContain("maintenance");
+        });
+
+        it.each(["Anki", "Obsidian", ".lvcards", ".apkg", ".colpkg", "Markdown", "备份", "migrate", "CSV", "日志"])("按 %s 找到导入任务而无需知道设置标题", query => {
+            const commands = computePaletteCommands({ modules: {}, uiMode: "simple", i18n: { settings: { importsTitle: "Import and migrate" } } });
+            const matches = flattenPaletteGroups(filterPaletteCommands(commands, query));
+            expect(matches.map(command => command.id)).toContain("imports");
+            expect(commands.find(command => command.id === "imports")?.label).toBe("Import and migrate");
         });
     });
 

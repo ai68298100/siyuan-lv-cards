@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>导入与迁移 · 生产设置组件隔离走查</title>
+<link rel="stylesheet" href="/dist/index.css"><link rel="stylesheet" href="/dist/chunks/dialogs.css">
+<style>
+:root { --b3-theme-primary:#4774c4;--b3-theme-on-primary:#fff;--b3-theme-on-background:#20242c;--b3-theme-on-surface:#606b7c;--b3-theme-background:#f4f6f9;--b3-theme-background-light:#f9fafc;--b3-theme-surface:#fff;--b3-theme-error:#c44747;--b3-theme-warning:#a7731d;--b3-border-color:#dde2eb; }
+:root[data-fixture-theme="dark"] { color-scheme:dark;--b3-theme-primary:#93b4ff;--b3-theme-on-primary:#101c32;--b3-theme-on-background:#e2e6ec;--b3-theme-on-surface:#a5afbd;--b3-theme-background:#151a22;--b3-theme-background-light:#1b222d;--b3-theme-surface:#242c38;--b3-border-color:#3c4657; }
+html,body { margin:0;min-width:0;min-height:100%;font:14px/1.5 "Segoe UI","Microsoft YaHei",sans-serif;background:var(--b3-theme-background);color:var(--b3-theme-on-background); }
+body { padding:12px;box-sizing:border-box; }
+button,input,select,textarea { font:inherit;color:inherit; }
+button { cursor:pointer; } button:disabled { cursor:default; }
+.b3-button { border:1px solid var(--b3-border-color);border-radius:6px;padding:6px 10px;background:var(--b3-theme-surface); }
+.b3-text-field,.b3-select { border:1px solid var(--b3-border-color);border-radius:5px;background:var(--b3-theme-surface);padding:6px 8px; }
+.b3-text-field:focus-visible,.b3-select:focus-visible,button:focus-visible { outline:2px solid var(--b3-theme-primary);outline-offset:2px; }
+.fn__flex { display:flex;align-items:center; }.fn__flex-1 { flex:1; }.fn__space { width:8px; }.fn__size-200 { width:200px;max-width:100%; }.ft__smaller { font-size:12px; }.ft__on-surface { color:var(--b3-theme-on-surface); }
+.b3-dialog__action { display:flex;align-items:center;gap:8px;padding:12px 0; }.b3-typography { line-height:1.6; }
+#fixturebar { display:flex;flex-wrap:wrap;align-items:center;gap:8px;max-width:900px;margin:0 auto 8px;font-size:12px; }
+#fixturebar strong { margin-right:auto; }#fixturebar label { display:inline-flex;align-items:center;gap:4px; }
+#ready,#feedback { max-width:900px;margin:4px auto 8px;font-size:12px;overflow-wrap:anywhere; }#ready[data-state="ready"] { color:var(--b3-theme-primary); }#feedback[data-error="true"],#ready[data-state="error"] { color:var(--b3-theme-error); }
+#fixture-note { max-width:900px;margin:4px auto 8px;color:var(--b3-theme-on-surface);font-size:11px; }
+#mount { display:flex;flex-direction:column;width:min(620px,100%);height:calc(100dvh - 170px);min-height:220px;max-height:860px;margin:0 auto;background:var(--b3-theme-surface);border:1px solid var(--b3-border-color);border-radius:12px;box-sizing:border-box; }
+#preview { display:block;margin:auto;border:1px solid var(--b3-border-color);background:var(--b3-theme-surface); }body[data-embedded] { padding:6px; }body[data-embedded] #fixturebar { gap:4px; }body[data-embedded] #mount { height:calc(100dvh - 150px); }
+</style></head><body>
+<header id="fixturebar"><strong>仅夹具 / Fixture controls</strong><label>Language <select id="locale"><option value="zh-CN">中文</option><option value="en">English</option></select></label><label>Theme <select id="theme"><option value="light">Light</option><option value="dark">Dark</option></select></label><button id="remount" type="button" disabled>重挂 / Remount</button></header>
+<div id="ready" role="status" data-state="loading">正在载入生产设置组件 / Loading production settings…</div>
+<div id="fixture-note">正式 dialogs.js 与 CSS；模拟 ctx，无真实思源/API/存储写入。Anki 按浏览器能力降级。</div>
+<div id="feedback" role="status">尚无模拟操作 / No simulated operation.</div>
+<main id="mount" class="lv-dialog lv-dialog--settings" aria-label="Production settings fixture"></main>
+<script>
+(() => {
+  const params=new URLSearchParams(location.search),theme=params.get('theme')==='dark'?'dark':'light',locale=params.get('locale')==='en'?'en':'zh-CN';
+  document.documentElement.dataset.fixtureTheme=theme;document.documentElement.lang=locale;
+  document.getElementById('theme').value=theme;document.getElementById('locale').value=locale;
+  function navigate(){const next=new URL(location.href);next.searchParams.set('theme',document.getElementById('theme').value);next.searchParams.set('locale',document.getElementById('locale').value);location.href=next;}
+  document.getElementById('theme').onchange=navigate;document.getElementById('locale').onchange=navigate;
+  const width=Number(params.get('width')),height=Number(params.get('height'));
+  if(!params.has('embedded')&&width>=280&&width<=1600){
+    const frame=document.createElement('iframe'),url=new URL(location.href);url.searchParams.set('embedded','1');url.searchParams.delete('width');url.searchParams.delete('height');frame.id='preview';frame.title='Production settings at '+width+' CSS px';frame.src=url;frame.width=String(width);frame.height=String(height>=320&&height<=1200?height:700);document.getElementById('mount').replaceWith(frame);document.getElementById('ready').textContent='真实 iframe 视口 / True iframe viewport: '+frame.width+' × '+frame.height;document.getElementById('ready').dataset.state='ready';document.getElementById('remount').disabled=false;document.getElementById('remount').onclick=()=>{frame.src=url;};return;
+  }
+  if(params.has('embedded'))document.body.dataset.embedded='true';
+  const feedback=document.getElementById('feedback'),ready=document.getElementById('ready'),mount=document.getElementById('mount');
+  function report(text,error=false){feedback.textContent=text;feedback.dataset.error=String(error);}
+  function blocked(action){const text='夹具已阻止真实调用 / Fixture blocked real call: '+action;report(text,true);throw new Error(text);}
+  window.__fixture={events:[],settings:null,current:null,report};
+  const realFetch=window.fetch.bind(window);
+  window.fetch=async(input,init)=>{const url=new URL(typeof input==='string'?input:input.url,location.href);if(url.origin!==location.origin||url.pathname.startsWith('/api/')){report('夹具阻止网络 / Fixture blocked network: '+url.pathname,true);return new Response(JSON.stringify({code:-1,msg:'Fixture: real API access is disabled',data:null}),{status:200,headers:{'Content-Type':'application/json'}});}return realFetch(input,init);};
+  window.__lvSiyuan={showMessage:(text,_timeout,type)=>{window.__fixture.events.push({type:type??'info',text:String(text)});report(String(text),type==='error');},fetchSyncPost:async(endpoint)=>{report('夹具阻止内核 / Fixture blocked kernel: '+endpoint,true);return{code:-1,msg:'Fixture: real kernel access is disabled',data:null};},Dialog:class{constructor(){blocked('SiYuan Dialog / import confirmation');}}};
+  window.siyuan={languages:{cancel:locale==='en'?'Cancel':'取消',confirm:locale==='en'?'Confirm':'确定'}};
+  window.addEventListener('error',event=>{ready.dataset.state='error';ready.textContent='Fixture error: '+event.message;report(event.message,true);});
+  window.addEventListener('unhandledrejection',event=>{ready.dataset.state='error';ready.textContent='Fixture rejection: '+String(event.reason);report(String(event.reason),true);});
+  function script(){return new Promise((resolve,reject)=>{const tag=document.createElement('script');tag.src='/dist/chunks/dialogs.js';tag.onload=resolve;tag.onerror=()=>reject(new Error('Production dialogs.js failed to load'));document.head.append(tag);});}
+  let current,originalSettings,i18n;
+  function simulate(action){window.__fixture.events.push({type:'simulation',text:action});report('仅内存模拟 / In-memory simulation: '+action);}
+  function open(){
+    current?.destroy();mount.replaceChildren();const settings=structuredClone(originalSettings);window.__fixture.settings=settings;
+    const ctx={i18n,settings,save:async next=>{window.__fixture.settings=structuredClone(next);simulate('save settings');},close:()=>{current?.destroy();current=null;window.__fixture.current=null;ready.textContent='组件已关闭 / Component closed';document.getElementById('remount').focus();},exportRevlog:()=>simulate('export review JSON'),clearRevlog:()=>blocked('clear review logs'),backup:{export:()=>simulate('export backup'),restore:async()=>blocked('restore backup')},redetectV2:async()=>blocked('detect Flashcard V2'),getV2Status:()=> 'N/A (browser fixture)',getSuspendedCount:()=>0,restoreAllSuspended:async()=>blocked('restore suspended cards'),testAnkiClient:async()=>blocked('AnkiConnect network'),storageStats:()=>[{file:'fixture-only.json',size:'0 B',lastWrite:0}],exportSettings:()=>simulate('export settings'),getNotebooks:async()=>[],exportRevlogCsv:()=>simulate('export review CSV'),importRevlogCsv:async()=>blocked('review CSV import'),importRevlogMerge:async()=>blocked('review JSON import'),ankiLedger:{load:async()=>[],save:async()=>blocked('persist Anki ledger')},obLedger:{load:async()=>[],save:async()=>blocked('persist Obsidian ledger')}};
+    current=window.__lvChunks.dialogs.mountDialogComponent(window.__lvChunks.dialogs.components.SettingsPanel,mount,{ctx,initialSection:'imports'});window.__fixture.current=current;
+    requestAnimationFrame(()=>{ready.dataset.state='ready';ready.textContent='READY · production SettingsPanel · imports · '+locale+' · '+innerWidth+'×'+innerHeight;mount.querySelector('input:not([hidden])')?.focus();});
+  }
+  document.getElementById('remount').onclick=open;
+  Promise.all([realFetch('/i18n/'+locale+'.json').then(response=>{if(!response.ok)throw new Error('i18n load failed');return response.json();}),realFetch('/fixture/default-settings.json').then(response=>{if(!response.ok)throw new Error('defaultSettings load failed');return response.json();}),script()]).then(([text,defaults])=>{i18n=text;originalSettings=defaults;document.getElementById('remount').disabled=false;open();}).catch(error=>{ready.dataset.state='error';ready.textContent='Fixture startup failed: '+error.message;report(error.message,true);});
+})();
+</script></body></html>

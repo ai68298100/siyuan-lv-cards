@@ -29,6 +29,7 @@ export function computePaletteCommands(config: PaletteCommandConfig): PaletteCom
         { id: "pairing", group: "actions", label: i18n.cmdPairing ?? "配对挑战" },
         { id: "drill", group: "actions", label: i18n.drillTitle ?? "修卡演练" },
         { id: "settings", group: "actions", label: i18n.settingsTitle ?? "设置" },
+        { id: "imports", group: "actions", label: i18n.settings?.importsTitle ?? "导入与迁移", keywords: "Anki Obsidian .apkg .colpkg .lvcards Markdown JSON CSV log import migrate backup 导入 迁移 日志 备份 恢复" },
         { id: "overview", group: "nav", label: i18n.hubTabOverview ?? "总览" },
         { id: "manage", group: "nav", label: i18n.hubTabManage ?? "管理" },
         { id: "authoring", group: "nav", label: i18n.hubTabAuthoring ?? "制卡" },
