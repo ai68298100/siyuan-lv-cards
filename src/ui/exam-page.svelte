@@ -9,6 +9,7 @@
     } from "@/core/exam";
     import { validateExamPlanInput } from "@/core/exam-plan-validation";
     import type { RevlogData } from "@/core/revlog";
+    import { trapFocus } from "@/libs/focus-trap";
     import LvChip from "./kit/LvChip.svelte";
     import LvEmpty from "./kit/LvEmpty.svelte";
     import LvError from "./kit/LvError.svelte";
@@ -37,6 +38,7 @@
     let decks: RiffDeck[] = $state([]);
     let notebooks: Notebook[] = $state([]);
     let editing = $state<ExamPlan | null>(null);
+    let editorEl = $state<HTMLDivElement | null>(null);
     let savingPlan = $state(false);
     let actionBusy = $state(false);
     let actionError = $state("");
@@ -45,6 +47,16 @@
     let loadError = $state(false);
     let loadBusy = $state(false);
     let loadSeq = 0;
+
+    function closeEditor() {
+        if (!savingPlan) editing = null;
+    }
+
+    $effect(() => {
+        if (!editing || !editorEl) return;
+        const trap = trapFocus(editorEl, { onEscape: closeEditor });
+        return () => trap.release();
+    });
 
     async function load() {
         if (loadBusy) return;
@@ -344,13 +356,7 @@
 <div
     class="lv-editmask"
     role="presentation"
-    onclick={() => { if (!savingPlan) editing = null; }}
-    onkeydown={(e) => {
-        if (e.key === "Escape" && !savingPlan) {
-            e.preventDefault();
-            editing = null;
-        }
-    }}
+    onclick={closeEditor}
 >
         <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
         <div
@@ -359,12 +365,12 @@
             aria-modal="true"
             aria-label={editing.id && plans.plans.some(p => p.id === editing.id) ? t.exam.editPlan : t.exam.newPlan}
             tabindex="-1"
+            bind:this={editorEl}
             onclick={(e) => e.stopPropagation()}
             onkeydown={(e) => {
-                if (e.key === "Escape" && !savingPlan) {
+                if (e.key === "Escape") {
                     e.preventDefault();
                     e.stopPropagation();
-                    editing = null;
                 }
             }}
         >

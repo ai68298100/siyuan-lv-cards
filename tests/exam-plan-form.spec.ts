@@ -75,13 +75,51 @@ describe("exam plan form interactions", () => {
         await waitFor(() => expect(onDeletePlan).toHaveBeenCalledTimes(2)); expect(confirm).toHaveBeenCalledOnce();
     });
 
-    it("cancels plan editing when Escape key is pressed", async () => {
+    it("focuses the plan editor, loops Tab in both directions, and restores its opener on Escape", async () => {
         render(ExamPage, base());
-        await fireEvent.click(screen.getByRole("button", { name: "+ 新建考试计划" }));
-        expect(screen.getByLabelText("计划名称")).toBeTruthy();
+        const opener = screen.getByRole("button", { name: "+ 新建考试计划" });
+        opener.focus();
+        await fireEvent.click(opener);
 
         const input = screen.getByLabelText("计划名称");
+        const confirm = screen.getByRole("button", { name: "确定" });
+        expect(document.activeElement).toBe(input);
+        await fireEvent.keyDown(input, { key: "Tab", shiftKey: true });
+        expect(document.activeElement).toBe(confirm);
+        await fireEvent.keyDown(confirm, { key: "Tab" });
+        expect(document.activeElement).toBe(input);
+        await fireEvent.keyDown(input, { key: "Tab" });
+        expect(document.activeElement).toBe(screen.getByLabelText("考试日期"));
+
         await fireEvent.keyDown(input, { key: "Escape" });
         await waitFor(() => expect(screen.queryByLabelText("计划名称")).toBeNull());
+        expect(document.activeElement).toBe(opener);
+    });
+
+    it("keeps the editor open while saving and restores its opener after the save completes", async () => {
+        let resolve!: (value: { version: 1; plans: never[] }) => void;
+        const pending = new Promise<{ version: 1; plans: never[] }>(done => { resolve = done; });
+        const onSavePlan = vi.fn(() => pending);
+        render(ExamPage, base({ onSavePlan }));
+        const opener = screen.getByRole("button", { name: "+ 新建考试计划" });
+        opener.focus();
+        await fireEvent.click(opener);
+        const input = screen.getByLabelText("计划名称");
+        await fireEvent.input(input, { target: { value: "期末" } });
+        await fireEvent.input(screen.getByLabelText("考试日期"), { target: { value: "2030-05-01" } });
+        await fireEvent.click(screen.getByRole("button", { name: "确定" }));
+        await waitFor(() => expect(onSavePlan).toHaveBeenCalledOnce());
+
+        const dialog = screen.getByRole("dialog", { name: "新建考试计划" });
+        expect((screen.getByRole("button", { name: "取消" }) as HTMLButtonElement).disabled).toBe(true);
+        await fireEvent.keyDown(input, { key: "Escape" });
+        expect(screen.getByRole("dialog", { name: "新建考试计划" })).toBe(dialog);
+        await fireEvent.click(dialog.closest(".lv-editmask")!);
+        expect(screen.getByRole("dialog", { name: "新建考试计划" })).toBe(dialog);
+        expect(document.activeElement).toBe(input);
+
+        resolve({ version: 1, plans: [] });
+        await waitFor(() => expect(screen.queryByRole("dialog", { name: "新建考试计划" })).toBeNull());
+        expect(document.activeElement).toBe(opener);
     });
 });
