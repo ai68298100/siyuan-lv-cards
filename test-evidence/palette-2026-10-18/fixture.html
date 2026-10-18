@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>命令面板 · 生产组件隔离走查</title>
+<link rel="stylesheet" href="/dist/index.css"><link rel="stylesheet" href="/dist/chunks/dialogs.css">
+<style>
+:root { --b3-theme-primary:#4774c4;--b3-theme-on-primary:#fff;--b3-theme-on-background:#20242c;--b3-theme-on-surface:#606b7c;--b3-theme-background:#f4f6f9;--b3-theme-background-light:#f9fafc;--b3-theme-surface:#fff;--b3-theme-error:#c44747;--b3-theme-warning:#a7731d; }
+* { box-sizing:border-box; } html,body { margin:0; min-width:0; font:14px/1.5 "Segoe UI","Microsoft YaHei",sans-serif; background:var(--b3-theme-background);color:var(--b3-theme-on-background); }
+body { padding:24px; } button,input {font:inherit;color:inherit; } button { cursor:pointer; }
+.fixture-note { position:fixed;bottom:40px;left:3vw;right:3vw;color:var(--b3-theme-on-surface);font-size:11px; } #open {position:fixed;bottom:8px;left:3vw;} #mount {position:fixed;top:28px;left:50%;transform:translateX(-50%);width:min(560px,94vw);background:var(--b3-theme-surface);border-radius:20px;overflow:hidden;box-shadow:0 16px 48px #17233820;}
+</style>
+</head><body>
+<div class="fixture-note">生产 dialogs.js + 正式样式；合成命令、无网络写入。关闭后回到“打开命令面板”。</div>
+<button id="open">打开命令面板</button><output id="result"></output><div id="mount"></div>
+<script>window.__lvSiyuan={};</script><script src="/dist/chunks/dialogs.js"></script>
+<script>
+const params=new URLSearchParams(location.search);
+if(params.get('dark')){document.documentElement.style.cssText+='--b3-theme-primary:#93b4ff;--b3-theme-on-primary:#101c32;--b3-theme-on-background:#e2e6ec;--b3-theme-on-surface:#a5afbd;--b3-theme-background:#151a22;--b3-theme-background-light:#1b222d;--b3-theme-surface:#242c38;';}
+let current;
+const items=['开始复习','AI 制卡向导','快速制卡','配对挑战','修卡演练','设置','总览','卡片管理','制卡工作台','学习目标','材料收件箱','考前冲刺','考试计划','维护中心'];
+function openPalette(){
+  document.getElementById('open').focus();
+  current=window.__lvChunks.dialogs.mountDialogComponent(window.__lvChunks.dialogs.components.LvPalette,document.getElementById('mount'),{
+    commands:items.map((label,i)=>({id:'fixture-'+i,group:i<6?'actions':'nav',label:params.get('long')&&i===13?'维护中心 '+('LongUnbrokenContent'.repeat(8)):label,hint:i===13?'检查媒体与来源，保留用户修改并安全恢复':undefined})),
+    placeholder:'搜索动作、页面…',groupNames:{actions:'动作',nav:'导航'},labels:{empty:'没有匹配的命令',foot:'选择 · Enter 执行 · Esc 关闭'},
+    onrun:cmd=>document.getElementById('result').textContent='已执行 '+cmd.label,
+    onClose:()=>{current.destroy();current=null;document.getElementById('open').focus();}
+  });
+}
+document.getElementById('open').onclick=openPalette;
+openPalette();
+</script></body></html>
