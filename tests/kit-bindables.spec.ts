@@ -10,12 +10,17 @@ import LvBindableHost from "./helpers/LvBindableHost.svelte";
 describe("LvSlider", () => {
     it("input 区间与初值反映 props；oninput 触发 onchange 携带数值", async () => {
         const onchange = vi.fn();
-        const { container } = render(LvSlider, { value: 30, min: 5, max: 100, step: 5, suffix: "s", onchange });
+        const { container } = render(LvSlider, { value: 30, min: 5, max: 100, step: 5, suffix: "s", ariaLabel: "间隔时间", onchange });
         const input = container.querySelector("input")!;
         expect(input.type).toBe("range");
         expect(input.min).toBe("5");
         expect(input.max).toBe("100");
         expect(input.step).toBe("5");
+        expect(input.getAttribute("aria-label")).toBe("间隔时间");
+        expect(input.getAttribute("aria-valuenow")).toBe("30");
+        expect(input.getAttribute("aria-valuemin")).toBe("5");
+        expect(input.getAttribute("aria-valuemax")).toBe("100");
+        expect(input.getAttribute("aria-valuetext")).toBe("30s");
         expect(container.textContent).toContain("30s");
         input.value = "60";
         await fireEvent.input(input);

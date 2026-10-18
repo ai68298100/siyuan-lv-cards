@@ -8,16 +8,26 @@ import LvError from "../src/ui/kit/LvError.svelte";
 // Kit 组件 smoke 测试（组件测试基建第二批，v0.87.0）：container 作用域查询，不用 screen
 
 describe("LvProgress", () => {
-    it("宽度按 value 渲染", () => {
-        const { container } = render(LvProgress, { value: 42 });
+    it("宽度按 value 渲染且具备完整 progressbar 读屏无障碍属性", () => {
+        const { container } = render(LvProgress, { value: 42, ariaLabel: "复习进度" });
+        const track = container.querySelector(".lv-mini-track") as HTMLElement;
+        expect(track.getAttribute("role")).toBe("progressbar");
+        expect(track.getAttribute("aria-valuenow")).toBe("42");
+        expect(track.getAttribute("aria-valuemin")).toBe("0");
+        expect(track.getAttribute("aria-valuemax")).toBe("100");
+        expect(track.getAttribute("aria-label")).toBe("复习进度");
         const fill = container.querySelector(".lv-mini-fill") as HTMLElement;
         expect(fill.style.width).toBe("42%");
     });
 
-    it("越界值钳制 0-100", () => {
+    it("越界值钳制 0-100 且同步钳制 aria-valuenow", () => {
         const over = render(LvProgress, { value: 150 });
+        const overTrack = over.container.querySelector(".lv-mini-track") as HTMLElement;
+        expect(overTrack.getAttribute("aria-valuenow")).toBe("100");
         expect((over.container.querySelector(".lv-mini-fill") as HTMLElement).style.width).toBe("100%");
         const under = render(LvProgress, { value: -20 });
+        const underTrack = under.container.querySelector(".lv-mini-track") as HTMLElement;
+        expect(underTrack.getAttribute("aria-valuenow")).toBe("0");
         expect((under.container.querySelector(".lv-mini-fill") as HTMLElement).style.width).toBe("0%");
     });
 });

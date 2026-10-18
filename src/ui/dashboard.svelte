@@ -767,8 +767,8 @@
                     <g transform="rotate(12 145 115)">
                         <rect x="93" y="47" width="93" height="129" rx="14" fill="var(--lv-color-surface)" stroke="currentColor" stroke-opacity=".14"/>
                         <path d="M110 69h39M110 79h24" stroke="currentColor" opacity=".2" stroke-width="5" stroke-linecap="round"/>
-                        <circle cx="139" cy="125" r="25" fill="#f6c779"/>
-                        <path d="M130 124l6 6 12-14" stroke="#8c5818" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+                        <circle cx="139" cy="125" r="25" fill="var(--lv-color-warning, #f6c779)"/>
+                        <path d="M130 124l6 6 12-14" stroke="var(--b3-theme-on-warning, #8c5818)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
                     </g>
                     <g transform="rotate(-12 86 128)">
                         <rect x="40" y="73" width="91" height="125" rx="14" fill="var(--lv-color-surface)" stroke="currentColor" stroke-opacity=".18"/>
@@ -777,7 +777,7 @@
                         <path d="M57 151h41M57 163h27" stroke="currentColor" opacity=".2" stroke-width="5" stroke-linecap="round"/>
                     </g>
                     <path d="M180 33v14M173 40h14M30 62v10M25 67h10" stroke="currentColor" opacity=".55" stroke-width="3" stroke-linecap="round"/>
-                    <circle cx="172" cy="190" r="5" fill="#f6c779"/>
+                    <circle cx="172" cy="190" r="5" fill="var(--lv-color-warning, #f6c779)"/>
                     <path d="M28 165c-11-16-6-25 4-30 9 15 5 23-4 30z" fill="currentColor" opacity=".22"/>
                 </svg>
             </div>
