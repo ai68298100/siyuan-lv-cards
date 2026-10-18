@@ -6,6 +6,7 @@
 import { fetchSyncPost } from "siyuan";
 import { normalizeMigrationStatus, summarizeStatistics, type FlashcardV2State, type MigrationStatus } from "./v2-contract";
 import { requestWithPolicy, type RequestOptions } from "../libs/request";
+import { unwrapKernelData } from "../libs/kernel-response";
 
 export { normalizeMigrationStatus, summarizeStatistics };
 export type { FlashcardV2State, MigrationStatus };
@@ -26,11 +27,7 @@ async function v2<T>(endpoint: string, payload: Record<string, unknown> = {}, op
             latestKey: options.latestKey ?? (isRead ? `v2:${endpoint}` : undefined),
         },
     );
-    // AJ5：与 riff 同口径的响应校验
-    if (!resp || resp.code !== 0) {
-        throw new Error(resp?.msg || `kernel error (code=${resp?.code ?? "unknown"})`);
-    }
-    return resp.data as T;
+    return unwrapKernelData<T>(resp);
 }
 
 /**

@@ -1,5 +1,32 @@
 import { describe, expect, it, vi } from "vitest";
-import { computeTopbarMenuItems, type TopbarMenuConfig } from "../src/bootstrap/topbar-menu";
+import {
+    computeTopbarMenuItems,
+    showPluginTopbarMenu,
+    type TopbarMenuConfig,
+} from "../src/bootstrap/topbar-menu";
+import { PLUGIN_MENU_ICON_CLASS } from "../src/bootstrap/block-menu";
+
+vi.mock("siyuan", () => {
+    class MockMenu {
+        id: string;
+        items: any[] = [];
+        separators = 0;
+        openCoord: any = null;
+        constructor(id: string) {
+            this.id = id;
+        }
+        addSeparator() {
+            this.separators++;
+        }
+        addItem(item: any) {
+            this.items.push(item);
+        }
+        open(coord: any) {
+            this.openCoord = coord;
+        }
+    }
+    return { Menu: MockMenu };
+});
 
 describe("computeTopbarMenuItems 顶栏菜单计算", () => {
     const baseConfig: TopbarMenuConfig = {
@@ -82,5 +109,22 @@ describe("computeTopbarMenuItems 顶栏菜单计算", () => {
         const settingsItem = items.find(i => i.id === "settings");
         settingsItem?.click?.();
         expect(baseConfig.actions.openSettingsDialog).toHaveBeenCalledTimes(1);
+    });
+
+    it("showPluginTopbarMenu ensures all menu items pass iconClass containment (#12/#13)", () => {
+        const menu = showPluginTopbarMenu(baseConfig, { clientX: 200, clientY: 80 }) as any;
+
+        expect(menu.id).toBe("lvCardsMenu");
+        expect(menu.openCoord).toEqual({ x: 200, y: 80 });
+        expect(menu.items.length).toBeGreaterThan(0);
+
+        for (const item of menu.items) {
+            expect(item.iconClass).toBe(PLUGIN_MENU_ICON_CLASS);
+            expect(item.iconClass).toBe("lv-cards-menu-icon");
+        }
+
+        const v2Item = menu.items.find((i: any) => i.type === "readonly");
+        expect(v2Item).toBeTruthy();
+        expect(v2Item.iconClass).toBe(PLUGIN_MENU_ICON_CLASS);
     });
 });

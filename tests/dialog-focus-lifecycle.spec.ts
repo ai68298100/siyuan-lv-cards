@@ -207,4 +207,147 @@ describe("svelteDialog 延迟销毁与焦点归还", () => {
         expect(callback).toHaveBeenCalledTimes(1);
         expect(document.activeElement).toBe(opener);
     });
+
+    it("wraps and injects closeOnce into onClose, forwarding arguments and triggering dialog teardown (AR-2)", () => {
+        let capturedProps: any = null;
+        setDialogMounter((_comp, target, props) => {
+            capturedProps = props;
+            const btn = document.createElement("button");
+            btn.textContent = "完成制卡";
+            target.appendChild(btn);
+            return {
+                destroy: () => {
+                    unmounts += 1;
+                    target.replaceChildren();
+                },
+            };
+        });
+
+        const userOnClose = vi.fn();
+        const handle = svelteDialog({
+            title: "制卡弹窗",
+            component: {} as never,
+            props: {
+                onClose: userOnClose,
+            },
+        });
+
+        expect(capturedProps).toBeTruthy();
+        expect(capturedProps.onClose).not.toBe(userOnClose); // 验证已被包装
+
+        // 模拟内嵌组件内部调用 props.onClose 并传递新卡片数据
+        capturedProps.onClose({ count: 2, ids: ["card-1", "card-2"] });
+
+        // 验证用户回调先执行，且入参完全透传
+        expect(userOnClose).toHaveBeenCalledOnce();
+        expect(userOnClose).toHaveBeenCalledWith({ count: 2, ids: ["card-1", "card-2"] });
+
+        // 验证对话框自动关闭，焦点归还
+        expect(hostState.instances[0].destroyCalls).toBe(1);
+        expect(document.activeElement).toBe(opener);
+
+        vi.advanceTimersByTime(160);
+        expect(unmounts).toBe(1);
+    });
+
+    it("wraps onExit for game/challenge components and teardown dialog automatically (AR-2)", () => {
+        let capturedProps: any = null;
+        setDialogMounter((_comp, target, props) => {
+            capturedProps = props;
+            return {
+                destroy: () => {
+                    unmounts += 1;
+                    target.replaceChildren();
+                },
+            };
+        });
+
+        const userOnExit = vi.fn();
+        svelteDialog({
+            title: "挑战弹窗",
+            component: {} as never,
+            props: {
+                onExit: userOnExit,
+            },
+        });
+
+        // 模拟挑战模式组件调用 onExit
+        capturedProps.onExit("session-completed");
+
+        expect(userOnExit).toHaveBeenCalledOnce();
+        expect(userOnExit).toHaveBeenCalledWith("session-completed");
+        expect(hostState.instances[0].destroyCalls).toBe(1);
+        expect(document.activeElement).toBe(opener);
+
+        vi.advanceTimersByTime(160);
+        expect(unmounts).toBe(1);
+    });
+
+    it("ensures dialog closes via finally even if user onClose callback throws (AR-2)", () => {
+        let capturedProps: any = null;
+        setDialogMounter((_comp, target, props) => {
+            capturedProps = props;
+            return {
+                destroy: () => {
+                    unmounts += 1;
+                    target.replaceChildren();
+                },
+            };
+        });
+
+        const failingOnClose = vi.fn(() => {
+            throw new Error("error in caller callback");
+        });
+
+        svelteDialog({
+            title: "异常测试弹窗",
+            component: {} as never,
+            props: {
+                onClose: failingOnClose,
+            },
+        });
+
+        // 触发抛错的回调
+        expect(() => capturedProps.onClose()).toThrow("error in caller callback");
+
+        // 关键断言：finally 保证 closeOnce 仍然执行，对话框不被卡死
+        expect(hostState.instances[0].destroyCalls).toBe(1);
+        expect(document.activeElement).toBe(opener);
+
+        vi.advanceTimersByTime(160);
+        expect(unmounts).toBe(1);
+    });
+
+    it("keeps closeOnce idempotent when component onClose races with host destroy / escape (AR-2)", () => {
+        let capturedProps: any = null;
+        setDialogMounter((_comp, target, props) => {
+            capturedProps = props;
+            return {
+                destroy: () => {
+                    unmounts += 1;
+                    target.replaceChildren();
+                },
+            };
+        });
+
+        const userOnClose = vi.fn();
+        const handle = svelteDialog({
+            title: "并发关闭测试",
+            component: {} as never,
+            props: {
+                onClose: userOnClose,
+            },
+        });
+
+        // 模拟组件内触发关闭
+        capturedProps.onClose();
+        // 同时触发外部 handle.close()
+        handle.close();
+
+        expect(hostState.instances[0].destroyCalls).toBe(1);
+        expect(userOnClose).toHaveBeenCalledTimes(1);
+
+        vi.advanceTimersByTime(160);
+        expect(unmounts).toBe(1);
+    });
 });

@@ -18,14 +18,16 @@
     import { lookupModel, selectableModelOptions, formatModelContext, ENDPOINT_PRESETS } from "@/core/ai-model-registry";
     // Anki M3：本地 .apkg 导入（docs/39 §3）——宿主适配 + 解析/预览/编排
     import { detectSqlite, openSqliteFile } from "@/api/anki-host";
-    import { getNotebooks, createNotebook, createDocWithMd, sqlQuery } from "@/api/siyuan";
+    import { getNotebooks, createNotebook, createDocWithMd, sqlQuery, setBlockAttrs } from "@/api/siyuan";
     import { createRiffDeck, getRiffDecks, getRiffCards } from "@/api/riff";
     import { addRiffCards, formatRiffCardEntryError } from "@/api/due-shared";
     import { parseAnkiPackage } from "@/core/anki-package";
     import { buildImportPreview } from "@/core/anki-preview";
     import { composeImportMarkdown, pairImportedBlocks, partitionNew, normalizeLedger, mergeLedger } from "@/core/anki-import";
     import { validateFlashcardMarkdown } from "@/core/flashcard-quality";
+    import { validateCardEntry } from "@/core/card-entry-gate";
     import { parseLvCardsPackage, previewLvCardsImport } from "@/core/lvcards-package";
+    import { LvCardsImportError, pairLvCardsBlocks, readLvCardsDeckIDs, readLvCardsExisting, sqlString, applyPackageCardMetadata } from "@/core/lvcards-import";
     // Obsidian SR 导入（v0.202.0）：块级解析 → 计划（去重/剥 tag）→ 一卡一段落落库 → 按序对位
     import { planObsidianImport, composeObsidianImportMarkdown, deckNameFor, groupByDeckHint, partitionByLedger, normalizeObLedger, mergeObLedger, type ObLedgerEntry } from "@/core/obsidian-import";
 
@@ -157,7 +159,7 @@
                 .replace("${deck}", deckNameFor(base, ""));
             const okGo = await confirmDialogBool({
                 title: t.settings.obImportLabel,
-                content: `<div class="b3-typography">${summary}</div>`,
+                content: `<div class="b3-typography">${escapeDialogHtml(summary)}</div>`,
             });
             if (!okGo) { return; }
             // 落点笔记本：存在同名即用，缺失创建（与 Anki 导入同模式）
@@ -233,16 +235,19 @@
         if (!file || lvcardsBusy) return;
         lvcardsBusy = true;
         lvcardsStatus = null;
+        let retainedDocID = "";
+        let docRequested = false;
+        let addRequested = false;
         try {
             const rawText = await file.text();
             const parsedRes = parseLvCardsPackage(rawText);
             if (!parsedRes.ok) {
-                lvcardsStatus = { kind: "warn", text: `解析失败：${(parsedRes as { ok: false; error: string }).error}` };
+                lvcardsStatus = { kind: "warn", text: t.settings.lvcardsImportFail.replace("${m}", (parsedRes as { ok: false; error: string }).error) };
                 return;
             }
             const pkg = parsedRes.package;
             if (pkg.cards.length === 0) {
-                lvcardsStatus = { kind: "info", text: "分享包内没有卡片" };
+                lvcardsStatus = { kind: "info", text: t.settings.lvcardsImportEmpty };
                 return;
             }
             // 查询已有卡组与卡片以进行自动去重
@@ -250,24 +255,31 @@
             let deckID = decks.find(d => d.name === pkg.deck.name)?.id ?? "";
             let existingCards: { id: string; markdown: string }[] = [];
             if (deckID) {
-                const res = await getRiffCards(deckID, 1, 500);
-                existingCards = (res.blocks ?? []).map(b => ({ id: b.id, markdown: b.content ?? "" }));
+                try { existingCards = await readLvCardsExisting(deckID, getRiffCards, sqlQuery); }
+                catch { throw new LvCardsImportError("incomplete-deck"); }
             }
             const preview = previewLvCardsImport(pkg, existingCards);
+            // Identity conflicts never overwrite existing cards or masquerade as duplicate-only imports.
+            if (preview.updatedCards.length) {
+                lvcardsStatus = { kind: "warn", text: t.settings.lvcardsImportConflict.replace("${n}", String(preview.updatedCards.length)) };
+                return;
+            }
             if (preview.newCards.length === 0) {
                 lvcardsStatus = {
                     kind: "info",
-                    text: `分享包全部 ${preview.total} 张卡片在「${pkg.deck.name}」中均已存在，已自动去重跳过。`,
+                    text: t.settings.lvcardsImportDuplicate.replace("${n}", String(preview.total)).replace("${deck}", pkg.deck.name),
                 };
                 return;
             }
+            if (preview.newCards.some(card => !validateCardEntry({ blockID: card.id, markdown: card.markdown }).ok)) {
+                lvcardsStatus = { kind: "warn", text: t.settings.lvcardsImportInvalid };
+                return;
+            }
+            const values = { deck: pkg.deck.name, total: preview.total, n: preview.newCards.length, dup: preview.duplicateCards.length };
+            const summary = t.settings.lvcardsImportConfirm.replace(/\$\{(deck|total|n|dup)\}/g, (_match: string, key: keyof typeof values) => String(values[key]));
             const confirmed = await confirmDialogBool({
                 title: t.settings.lvcardsImportLabel ?? "导入小驴闪卡分享包",
-                content: `<div class="b3-typography">
-                    <p>分享包卡组：<strong>${pkg.deck.name}</strong></p>
-                    <p>总卡片：${preview.total} 张 · <strong>待新增：${preview.newCards.length} 张</strong> · 自动去重跳过：${preview.duplicateCards.length} 张</p>
-                    <p class="ft__smaller ft__on-surface">卡片将落入指定笔记本，并自动加入思源复习卡组。</p>
-                </div>`,
+                content: `<div class="b3-typography">${escapeDialogHtml(summary).replace(/\n/g, "<br>")}</div>`,
             });
             if (!confirmed) return;
 
@@ -276,22 +288,30 @@
             const boxes = await getNotebooks();
             let nbId = boxes.find(b => b.name === nbName)?.id;
             if (!nbId) nbId = (await createNotebook(nbName)) ?? "";
+            if (!nbId?.trim()) throw new Error(t.settings.lvcardsImportNoTarget);
 
             // 生成 Markdown 文档
             const docMarkdown = preview.newCards.map(c => c.markdown).join("\n\n");
+            docRequested = true;
             const docID = await createDocWithMd(nbId, `${pkg.deck.name} ${new Date().toISOString().slice(0, 10)}`, docMarkdown);
-            if (!docID) throw new Error("创建导入文档失败");
+            if (!docID?.trim()) throw new Error(t.settings.lvcardsImportNoTarget);
+            retainedDocID = docID;
 
-            const blockRows = await sqlQuery(`SELECT id FROM blocks WHERE root_id='${docID}' AND type IN ('p','h','u','o') ORDER BY sort`);
-            const blockIDs = blockRows.map(r => String(r.id));
+            // One extra row detects a multi-block card instead of silently admitting only a prefix.
+            const blockRows = await sqlQuery(`SELECT id, markdown, root_id, parent_id, type FROM blocks WHERE root_id=${sqlString(docID)} AND parent_id=${sqlString(docID)} AND type != 'd' ORDER BY sort LIMIT ${preview.newCards.length + 1}`);
+            const blockIDs = pairLvCardsBlocks(preview.newCards, blockRows, docID);
 
             if (!deckID) {
                 const newDeck = await createRiffDeck(pkg.deck.name) as any;
                 deckID = newDeck?.id ?? newDeck?.deck?.id ?? "";
             }
-            if (deckID && blockIDs.length > 0) {
-                await addRiffCards(deckID, blockIDs);
-            }
+            if (!deckID?.trim()) throw new Error(t.settings.lvcardsImportNoTarget);
+            addRequested = true;
+            await addRiffCards(deckID, blockIDs);
+            const enrolledIDs = new Set(await readLvCardsDeckIDs(deckID, getRiffCards));
+            if (blockIDs.some(id => !enrolledIDs.has(id))) throw new LvCardsImportError("enrollment-mismatch");
+            // 恢复可选元数据（助记便签 memo、标签 tags）至新块属性，旁路增强不阻断主流程
+            await applyPackageCardMetadata(preview.newCards, blockIDs, setBlockAttrs);
             lvcardsStatus = {
                 kind: "info",
                 text: (t.settings.lvcardsImportDone ?? "已成功导入 ${n} 张新卡片（自动跳过 ${dup} 张重复项）")
@@ -299,7 +319,14 @@
                     .replace("${dup}", String(preview.duplicateCards.length)),
             };
         } catch (err: any) {
-            lvcardsStatus = { kind: "warn", text: `导入出错：${err?.message ?? String(err)}` };
+            const message = err instanceof LvCardsImportError
+                ? (err.code === "incomplete-deck" ? t.settings.lvcardsImportIncomplete
+                    : err.code === "enrollment-mismatch" ? t.settings.lvcardsImportEnrollmentMismatch : t.settings.lvcardsImportMismatch)
+                : formatRiffCardEntryError(err, t, err?.message ?? String(err));
+            lvcardsStatus = { kind: "warn", text: t.settings.lvcardsImportFail.replace("${m}", message)
+                + (retainedDocID ? ` ${t.settings.lvcardsImportRetained.replace("${id}", retainedDocID)}`
+                    : docRequested ? ` ${t.settings.lvcardsImportDocUncertain}` : "")
+                + (addRequested ? ` ${t.settings.lvcardsImportUncertain}` : "") };
         } finally {
             lvcardsBusy = false;
         }

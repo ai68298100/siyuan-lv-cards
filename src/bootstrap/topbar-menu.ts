@@ -5,6 +5,7 @@
  */
 
 import { Menu } from "siyuan";
+import { PLUGIN_MENU_ICON_CLASS } from "./block-menu";
 
 export interface TopbarMenuItemDescriptor {
     id: string;
@@ -127,12 +128,14 @@ export function showPluginTopbarMenu(
         } else if (item.type === "readonly") {
             menu.addItem({
                 icon: item.icon ?? "iconLvCards",
+                iconClass: PLUGIN_MENU_ICON_CLASS,
                 label: item.label ?? "",
                 type: "readonly",
             });
         } else {
             menu.addItem({
                 icon: item.icon ?? "iconLvCards",
+                iconClass: PLUGIN_MENU_ICON_CLASS,
                 label: item.label ?? "",
                 click: item.click,
             });

@@ -67,12 +67,11 @@ export interface LvCardsImportPreview {
     }[];
 }
 
-/** 规范化卡片文本指纹，用于去重对比 */
+/** 仅归一化换行和首尾空白；保留代码缩进、内联空白及 Markdown 硬换行语义。 */
 export function normalizeCardFingerprint(md: string): string {
-    return (md ?? "")
-        .replace(/\r\n/g, "\n")
-        .trim()
-        .replace(/\s+/g, " ");
+    return (typeof md === "string" ? md : "")
+        .replace(/\r\n?/g, "\n")
+        .trim();
 }
 
 /**
@@ -130,7 +129,9 @@ export function parseLvCardsPackage(raw: string): { ok: true; package: LvCardsPa
     }
 
     if (parsed.format !== "lvcards.v1") {
-        return { ok: false, error: `不支持的分享包格式：${String(parsed.format ?? "unknown")}` };
+        // JSON 对象可以包含不可调用的 toString/valueOf，不能直接对未知结构做字符串强制转换。
+        const format = typeof parsed.format === "object" ? "unknown" : String(parsed.format ?? "unknown");
+        return { ok: false, error: `不支持的分享包格式：${format}` };
     }
 
     if (!parsed.deck || typeof parsed.deck !== "object" || typeof parsed.deck.name !== "string" || !parsed.deck.name.trim()) {
@@ -141,13 +142,27 @@ export function parseLvCardsPackage(raw: string): { ok: true; package: LvCardsPa
         return { ok: false, error: "分享包缺少卡片清单数据" };
     }
 
+    const reservedIds = new Set<string>(parsed.cards.flatMap(item =>
+        item && typeof item.id === "string" && item.id.trim() ? [item.id.trim()] : []
+    ));
     const cards: LvPackageCard[] = [];
-    for (const item of parsed.cards) {
-        if (!item || typeof item !== "object") continue;
+    for (const [index, item] of parsed.cards.entries()) {
+        if (!item || typeof item !== "object" || Array.isArray(item)) {
+            return { ok: false, error: `分享包第 ${index + 1} 张卡片缺少有效正文` };
+        }
         const md = typeof item.markdown === "string" ? item.markdown.trim() : "";
-        if (!md) continue;
+        if (!md) return { ok: false, error: `分享包第 ${index + 1} 张卡片缺少有效正文` };
+        let id = typeof item.id === "string" ? item.id.trim() : "";
+        if (!id) {
+            // 同一文件重试时身份保持稳定，同时避免占用分享包内已有的显式 ID。
+            const generatedId = `gen-${index + 1}`;
+            id = generatedId;
+            let suffix = 1;
+            while (reservedIds.has(id)) id = `${generatedId}-${suffix++}`;
+            reservedIds.add(id);
+        }
         cards.push({
-            id: typeof item.id === "string" ? item.id : `gen-${Math.random().toString(36).slice(2, 10)}`,
+            id,
             markdown: md,
             kind: ["qa", "cloze", "code", "list"].includes(item.kind) ? item.kind : "qa",
             question: typeof item.question === "string" ? item.question : undefined,
@@ -190,10 +205,12 @@ export function previewLvCardsImport(
     existingCards: { id: string; markdown: string }[]
 ): LvCardsImportPreview {
     const existingById = new Map<string, { id: string; markdown: string }>();
+    const packageById = new Map<string, { id: string; markdown: string }>();
     const existingByFp = new Set<string>();
 
     for (const ec of existingCards) {
-        existingById.set(ec.id, ec);
+        const id = typeof ec.id === "string" ? ec.id.trim() : "";
+        if (id) existingById.set(id, ec);
         existingByFp.add(normalizeCardFingerprint(ec.markdown));
     }
 
@@ -203,7 +220,8 @@ export function previewLvCardsImport(
 
     for (const card of pkg.cards) {
         const fp = normalizeCardFingerprint(card.markdown);
-        const existing = existingById.get(card.id);
+        const id = typeof card.id === "string" ? card.id.trim() : "";
+        const existing = id ? existingById.get(id) ?? packageById.get(id) : undefined;
 
         if (existing) {
             if (normalizeCardFingerprint(existing.markdown) === fp) {
@@ -215,7 +233,11 @@ export function previewLvCardsImport(
             duplicateCards.push(card);
         } else {
             newCards.push(card);
+            existingByFp.add(fp);
         }
+
+        // 即使首个条目已按正文去重，也保留身份以便后续同 ID 的不同正文显示为冲突。
+        if (id && !packageById.has(id)) packageById.set(id, card);
     }
 
     return {

@@ -72,6 +72,8 @@ describe("dashboard restore suspended action", () => {
         // contract is about future-day semantics, not the wall-clock day.
         vi.useFakeTimers();
         vi.setSystemTime(new Date(2026, 9, 7, 12, 0, 0));
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date("2026-10-14T12:00:00Z")); // 固定为周三
         const revlog = emptyRevlog();
         revlog.days[localDate(Date.now() - 24 * 60 * 60 * 1000)] = { new: 0, review: 3, forget: 0 };
         mocks.getRiffDecks.mockResolvedValue([{ id: "deck-a", name: "卡组", size: 2 }]);
@@ -87,6 +89,8 @@ describe("dashboard restore suspended action", () => {
     });
 
     it("announces new-card-only activity in the weekly view", async () => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date("2026-10-14T12:00:00Z")); // 固定为周三
         const revlog = emptyRevlog();
         revlog.days[localDate(Date.now() - 24 * 60 * 60 * 1000)] = { new: 2, review: 0, forget: 0 };
         mocks.getRiffDecks.mockResolvedValue([{ id: "deck-a", name: "卡组", size: 2 }]);

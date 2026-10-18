@@ -90,8 +90,8 @@
       "conditionalPrerequisites": [],
       "summary": {
         "total": 11,
-        "done": 5,
-        "pending": 6
+        "done": 6,
+        "pending": 5
       },
       "blocks": [
         "WP-review-study-experience",
@@ -181,8 +181,8 @@
       "conditionalPrerequisites": [],
       "summary": {
         "total": 15,
-        "done": 2,
-        "pending": 13
+        "done": 3,
+        "pending": 12
       },
       "blocks": [
         "WP-study-checkin",
@@ -1113,8 +1113,8 @@
       ],
       "summary": {
         "total": 67,
-        "done": 31,
-        "pending": 36
+        "done": 32,
+        "pending": 35
       },
       "blocks": [
         "WP-language-media-learning",
@@ -1878,8 +1878,8 @@
       "conditionalPrerequisites": [],
       "summary": {
         "total": 35,
-        "done": 11,
-        "pending": 24
+        "done": 12,
+        "pending": 23
       },
       "blocks": [
         "WP-dialog-lifecycle",
@@ -8381,8 +8381,8 @@
     },
     {
       "id": "AR-2",
-      "status": "open",
-      "checkbox": " ",
+      "status": "done",
+      "checkbox": "x",
       "priority": "P0",
       "group": "AR",
       "groupName": "第二轮：流程、模块边界与交互阻断（2026-10-02，仅扩充规划）",
@@ -8531,8 +8531,8 @@
     },
     {
       "id": "AR-10",
-      "status": "open",
-      "checkbox": " ",
+      "status": "done",
+      "checkbox": "x",
       "priority": "P1",
       "group": "AR",
       "groupName": "第二轮：流程、模块边界与交互阻断（2026-10-02，仅扩充规划）",
@@ -8880,8 +8880,8 @@
     },
     {
       "id": "AT-10",
-      "status": "open",
-      "checkbox": " ",
+      "status": "done",
+      "checkbox": "x",
       "priority": "P1",
       "group": "AT",
       "groupName": "第二轮：性能、生命周期与平台可靠性（仅扩充规划）",
@@ -8895,8 +8895,8 @@
     },
     {
       "id": "AT-11",
-      "status": "open",
-      "checkbox": " ",
+      "status": "done",
+      "checkbox": "x",
       "priority": "P1",
       "group": "AT",
       "groupName": "第二轮：性能、生命周期与平台可靠性（仅扩充规划）",
@@ -15224,10 +15224,10 @@
   "summary": {
     "packages": 38,
     "total": 935,
-    "done": 196,
-    "open": 736,
+    "done": 200,
+    "open": 732,
     "special": 3,
-    "pending": 739
+    "pending": 735
   },
   "experienceDocument": "docs/32-产品体验优化与页面蓝图.md",
   "experienceRefinements": [

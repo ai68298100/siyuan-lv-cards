@@ -4,10 +4,20 @@ import {
     parseLvCardsPackage,
     previewLvCardsImport,
     normalizeCardFingerprint,
+    type LvCardsPackage,
     type LvPackageCard,
 } from "../src/core/lvcards-package";
 
 describe("lvcards-package (P1 .lvcards format & deduplication)", () => {
+    const packageWith = (cards: LvPackageCard[]): LvCardsPackage => ({
+        format: "lvcards.v1",
+        version: 1,
+        createdAt: 0,
+        generator: "test",
+        deck: { id: "deck-1", name: "测试卡组" },
+        cards,
+    });
+
     const sampleCards: LvPackageCard[] = [
         {
             id: "card-1",
@@ -78,6 +88,42 @@ describe("lvcards-package (P1 .lvcards format & deduplication)", () => {
         if (!res2.ok) expect(res2.error).toContain("缺少有效的卡组名称");
     });
 
+    it.each([
+        [{ toString: null, valueOf: null }, "unknown"],
+        [{ toString: {}, valueOf: "invalid" }, "unknown"],
+        [[{ toString: null }], "unknown"],
+        [null, "unknown"],
+        [42, "42"],
+        [false, "false"],
+    ])("rejects unknown format structures without coercion errors (%j)", (format, expectedFormat) => {
+        const raw = JSON.stringify({ format, deck: { name: "测试" }, cards: [] });
+        expect(parseLvCardsPackage(raw)).toEqual({ ok: false, error: `不支持的分享包格式：${expectedFormat}` });
+    });
+
+    it("normalizes blank IDs into stable generated identities without replacing explicit IDs", () => {
+        const raw = JSON.stringify({
+            format: "lvcards.v1",
+            deck: { name: "测试" },
+            cards: [
+                { markdown: "missing ID" },
+                { id: " \t", markdown: "blank ID" },
+                { id: " gen-1 ", markdown: "explicit ID" },
+                { id: "gen-1-1", markdown: "explicit suffix" },
+                { id: 12, markdown: "numeric ID" },
+            ],
+        });
+        const first = parseLvCardsPackage(raw);
+        const second = parseLvCardsPackage(raw);
+        expect(first.ok).toBe(true);
+        expect(second.ok).toBe(true);
+        if (!first.ok || !second.ok) return;
+
+        const ids = first.package.cards.map(card => card.id);
+        expect(ids).toEqual(["gen-1-2", "gen-2", "gen-1", "gen-1-1", "gen-5"]);
+        expect(new Set(ids).size).toBe(ids.length);
+        expect(second.package.cards.map(card => card.id)).toEqual(ids);
+    });
+
     it("previews import and categorizes cards into new, duplicates, and updated", () => {
         const pkgResult = parseLvCardsPackage(
             serializeLvCardsPackage({ id: "deck-1", name: "测试卡组" }, [
@@ -119,9 +165,83 @@ describe("lvcards-package (P1 .lvcards format & deduplication)", () => {
         expect(preview.updatedCards[0].existing.markdown).toContain("旧定义");
     });
 
-    it("normalizes fingerprints ignoring CRLF and whitespace variations", () => {
-        const fp1 = normalizeCardFingerprint("Hello   World\r\nTest");
-        const fp2 = normalizeCardFingerprint("Hello World\nTest");
+    it("normalizes line endings and surrounding whitespace without changing source semantics", () => {
+        const fp1 = normalizeCardFingerprint("  Hello World\r\nTest\rLast  ");
+        const fp2 = normalizeCardFingerprint("Hello World\nTest\nLast");
         expect(fp1).toBe(fp2);
+    });
+
+    it.each([
+        ["`a  b` ==answer==", "`a b` ==answer=="],
+        ["line  \nsecond ==answer==", "line\nsecond ==answer=="],
+        ["```\n    x\n```\n==answer==", "```\n  x\n```\n==answer=="],
+    ])("preserves meaningful Markdown whitespace when deduplicating", (existingMarkdown, incomingMarkdown) => {
+        const card: LvPackageCard = { id: "incoming", markdown: incomingMarkdown, kind: "code" };
+        const existing = { id: "existing", markdown: existingMarkdown };
+        expect(previewLvCardsImport(packageWith([card]), [existing]).newCards).toEqual([card]);
+        const changed = { ...card, id: existing.id };
+        expect(previewLvCardsImport(packageWith([changed]), [existing]).updatedCards).toEqual([{ card: changed, existing }]);
+    });
+
+    it.each([null, [], "bad", { markdown: " " }, { markdown: 42 }])("rejects mixed packages rather than silently dropping an invalid card (%j)", invalid => {
+        const raw = JSON.stringify({ format: "lvcards.v1", deck: { name: "Mixed" }, cards: [sampleCards[0], invalid] });
+        expect(parseLvCardsPackage(raw)).toEqual({ ok: false, error: "分享包第 2 张卡片缺少有效正文" });
+    });
+
+    it("deduplicates accepted package content while retaining same-ID conflicts", () => {
+        const cards: LvPackageCard[] = [
+            { id: "first", markdown: "same content", kind: "qa" },
+            { id: "second", markdown: "same content\r\n", kind: "qa" },
+            { id: "first", markdown: "same content", kind: "qa" },
+            { id: "first", markdown: "changed content", kind: "qa" },
+            { id: "third", markdown: "changed content", kind: "qa" },
+        ];
+        const preview = previewLvCardsImport(packageWith(cards), []);
+
+        expect(preview.total).toBe(5);
+        expect(preview.newCards).toEqual([cards[0], cards[4]]);
+        expect(preview.duplicateCards).toEqual([cards[1], cards[2]]);
+        expect(preview.updatedCards).toEqual([{ card: cards[3], existing: cards[0] }]);
+        expect(preview.newCards.length + preview.duplicateCards.length + preview.updatedCards.length).toBe(preview.total);
+    });
+
+    it("keeps an existing-ID change visible when its content matches another existing card", () => {
+        const card: LvPackageCard = { id: "changed", markdown: "shared content", kind: "qa" };
+        const existing = { id: "changed", markdown: "old content" };
+        const preview = previewLvCardsImport(packageWith([card]), [
+            existing,
+            { id: "another", markdown: "shared content" },
+        ]);
+
+        expect(preview.newCards).toEqual([]);
+        expect(preview.duplicateCards).toEqual([]);
+        expect(preview.updatedCards).toEqual([{ card, existing }]);
+    });
+
+    it("retains a package-ID conflict even when its first entry was skipped as duplicate content", () => {
+        const cards: LvPackageCard[] = [
+            { id: "same-id", markdown: "existing content", kind: "qa" },
+            { id: "same-id", markdown: "changed content", kind: "qa" },
+        ];
+        const preview = previewLvCardsImport(packageWith(cards), [
+            { id: "existing-id", markdown: "existing content" },
+        ]);
+
+        expect(preview.newCards).toEqual([]);
+        expect(preview.duplicateCards).toEqual([cards[0]]);
+        expect(preview.updatedCards).toEqual([{ card: cards[1], existing: cards[0] }]);
+    });
+
+    it("does not treat blank identities as a shared ID when previewing packages directly", () => {
+        const cards: LvPackageCard[] = [
+            { id: "", markdown: "first content", kind: "qa" },
+            { id: " ", markdown: "second content", kind: "qa" },
+            { id: "", markdown: "first content\r\n", kind: "qa" },
+        ];
+        const preview = previewLvCardsImport(packageWith(cards), []);
+
+        expect(preview.newCards).toEqual(cards.slice(0, 2));
+        expect(preview.duplicateCards).toEqual([cards[2]]);
+        expect(preview.updatedCards).toEqual([]);
     });
 });

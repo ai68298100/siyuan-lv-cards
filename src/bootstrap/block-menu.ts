@@ -29,6 +29,7 @@ export interface BlockMenuItemDescriptor {
 }
 
 export const BLOCK_MENU_ICON_CLASS = "lv-cards-menu-icon";
+export const PLUGIN_MENU_ICON_CLASS = BLOCK_MENU_ICON_CLASS;
 
 /** Keep host menu layout/keyboard behavior while marking only our icons for size containment. */
 export function addBlockMenuItems(

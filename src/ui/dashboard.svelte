@@ -6,7 +6,8 @@
     import { isSessionLive, type EndReason } from "@/core/session-state";
     import { decideTodayAction } from "@/core/today-decision";
     import { buildDeckDashboard, type DeckDashboardRow } from "@/core/deck-dashboard";
-    import { serializeLvCardsPackage, type LvPackageCard } from "@/core/lvcards-package";
+    import { exportLvCardsDeckPackage, LvCardsExportError } from "@/core/lvcards-export";
+    import { sqlQuery } from "@/api/siyuan";
     import { downloadFile } from "@/core/data-transfer";
     import { getFlashcardStatistics, summarizeStatistics, type MigrationStatus } from "@/api/flashcardV2";
     import { calcStreak, lastNDays, localDate, studySecondsOn, coverageStats, deckCoverage, computeRetention, computeRetentionCurve, reviewStatsFor, weekCompare, calcMilestones, calcXp, type RevlogData, type RetentionResult, type CurvePoint, type WeekDelta, type Milestones, type XpResult, type CoverageStats, type DeckCoverage } from "@/core/revlog";
@@ -378,45 +379,27 @@
     let ddError = $state("");
     let ddSeq = 0;
 
-    function ddStripHtml(html: string): string {
-        const div = document.createElement("div");
-        div.innerHTML = html ?? "";
-        return (div.textContent ?? "").trim();
-    }
-
-    /** T-分享包（docs/41 P1）：整卡组导出为 Obsidian SR markdown——可用本插件导入器回导（卡组同名映射） */
+    /** T-分享包（docs/41 P1）：整卡组导出为原生 .lvcards 分享包，支持完整分页与底层原始 Markdown 回读 */
     let ddExportBusy = $state(false);
     async function exportDeckShare(deckID: string, deckName: string) {
         if (ddExportBusy) return;
         ddExportBusy = true;
         try {
-            const packageCards: LvPackageCard[] = [];
-            let page = 1;
-            let pageCount = 1;
-            do {
-                const r = await getRiffCards(deckID, page, 100);
-                pageCount = Number(r.pageCount ?? 1);
-                for (const b of r.blocks ?? []) {
-                    const content = ddStripHtml(b.content);
-                    packageCards.push({
-                        id: b.id,
-                        markdown: content,
-                        kind: content.includes("==") ? "cloze" : "qa",
-                    });
-                }
-                page += 1;
-            } while (page <= pageCount && page <= 20);
-            if (packageCards.length === 0) {
-                showMessage(t.dashboard.ddShareEmpty, 2000, "info");
-                return;
-            }
-            const pkgJson = serializeLvCardsPackage({ id: deckID, name: deckName }, packageCards);
+            const { pkgJson, cards } = await exportLvCardsDeckPackage(
+                { id: deckID, name: deckName },
+                (id, page, pageSize) => getRiffCards(id, page, pageSize),
+                sqlQuery,
+            );
             downloadFile(`${deckName}-${new Date().toISOString().slice(0, 10)}.lvcards`, pkgJson, "application/json");
             showMessage(t.dashboard.ddShareDone
-                .replace("${qa}", String(packageCards.filter(l => l.kind === "qa").length))
-                .replace("${c}", String(packageCards.filter(l => l.kind === "cloze").length)), 2500, "info");
+                .replace("${qa}", String(cards.filter(l => l.kind === "qa" || l.kind === "code" || l.kind === "list").length))
+                .replace("${c}", String(cards.filter(l => l.kind === "cloze").length)), 2500, "info");
         } catch (e) {
-            showMessage(friendlyError(e, t), 3500, "error");
+            if (e instanceof LvCardsExportError && e.code === "empty-deck") {
+                showMessage(t.dashboard.ddShareEmpty, 2000, "info");
+            } else {
+                showMessage(friendlyError(e, t), 3500, "error");
+            }
         } finally {
             ddExportBusy = false;
         }

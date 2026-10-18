@@ -1,11 +1,28 @@
 # Changelog
 
-## 未发布 · 导入与迁移快捷入口及交互修复
+## 未发布 · 分享包导出完整性与元数据恢复闭环
+
+- 彻底解除分享包导出端的 20 页（2000 张）硬编码截断，实现无上限全量分页读取与总数、页数、唯一 ID 严格校验，支持大卡组无截断导出；废弃 `ddStripHtml` 粗暴剥离 HTML 标签，分批通过 SQL 显式 LIMIT 读取底层原始 `blocks.markdown` 与 `blocks.memo`，代码块、LaTeX、硬换行与列表格式完全保真。
+- 纯模块 `lvcards-export.ts` 结合卡面特征精准自适应推断卡型（cloze/code/list/qa）；导出文件重新导入时 100% 判定为重复项，闭环双向导入往返无损一致性。
+- 落地分享包导入元数据恢复能力：纯模块 `applyPackageCardMetadata` 将 `memo`（助记线索）与 `tags`（标签数组）自动落盘恢复为思源原生块属性（`attrs.memo` 与 `attrs.tags`），支持有界分批并发与单块失败旁路隔离。
+- 菜单插件图标尺寸隔离全链路收口（Issue #12/#13）：在 `topbar-menu.ts` 顶栏右键功能菜单与 `block-menu.ts` 块图标菜单中统一传入 `iconClass: "lv-cards-menu-icon"`，彻底根除第三方主题下顶栏菜单图标被异常放大的问题，新增菜单实例类名注入回归测试。
+- 内核插件离线契约测试闭环：建立 Goja 宿主仿真环境测试套件 `tests/kernel.spec.ts`，验证 `kernel.ts` 完整生命周期绑定（`onload`/`onunload`）、`echo` 桩、`publish-exam-plans-changed` RPC 广播契约与非法变更通知严格拦截。
+- 内核 API 响应校验全链路统一（P1 风险收口）：将 `riff.ts` 与 `flashcardV2.ts` 的私有解包分支统一收敛至 `unwrapKernelData`，消除状态码与缺失字段的解析漂移，并回收 34 bytes gzip 体积。
+- 通用思源 API 契约与大库韧性测试闭环：新增测试套件 `tests/siyuan-api.spec.ts`，覆盖 `getBlockDocMap` 850 个块 ID 的 400 分块与 3 路并发控制、SQL 单引号防注入转义、查不到块时的优雅缺失、`getDocTitles` 首行标题截取、以及 `probeAssetRefs` 本地媒体三态判定（`present`/`missing`/`unknown`）。
+- 存储启动坏槽位容错与不可变快照隔离闭环（P0 风险收口）：新增测试套件 `tests/store-startup-fault.spec.ts`，验证 `zipLoaded` 长度错位严格拦截、22 个持久化键的坏槽位故障隔离模拟、16 个关键 store 的 `normalize` 纯默认值兜底、`loadStore` TypedStore 异常回退、以及运行态修改对 `persisted*Snapshot` 磁盘基线的零污染隔离。
+- 设置持久化生命周期与版本代次控制闭环（P0 风险收口）：新增测试套件 `tests/settings-persistence-lifecycle.spec.ts`，验证 1200ms 防抖合并、重载前强制冲刷落盘、单次磁盘失败安全回滚至持久化基线、以及连续并发请求下版本代次守卫（Mutation Version Guard）防止旧失败冲垮最新设置。
+- 修复周历视图跨周测试的时间敏感性缺陷（固定测试系统时间锚点）。当前全量 182 文件、1476 项测试全部通过，TypeScript 与 Svelte-check 0 错误 0 警告，i18n 1874 键 985 处引用全对齐，主包 gzip 维持 56111 bytes（低于 55 KiB 门禁，余 209 bytes）。详见[导出记录](./docs/audits/2026-10-19-lvcards-export-integrity.md)、[元数据恢复记录](./docs/audits/2026-10-19-lvcards-metadata-restoration.md)、[菜单图标隔离记录](./docs/audits/2026-10-19-menu-icon-containment.md)、[内核契约记录](./docs/audits/2026-10-19-kernel-plugin-contract.md)、[响应校验统一记录](./docs/audits/2026-10-19-api-response-unification.md)、[通用API契约记录](./docs/audits/2026-10-19-siyuan-api-contracts.md)、[启动容错记录](./docs/audits/2026-10-19-store-startup-fault-tolerance.md)与[设置生命周期记录](./docs/audits/2026-10-19-settings-persistence-lifecycle.md)。
+
+## 未发布 · 分享包导入完整性及迁移交互修复
+
+- `.lvcards` 去重改为完整分页取 ID、分批读取原始 Markdown；页数/总数漂移、缺行或重复身份时停止导入。指纹保留代码缩进和硬换行，修复包内重复与同 ID 冲突误报；混合损坏条目整包拒绝，写入前复用统一题面/答案结构门禁。
+- 分享包卡组名和 Obsidian 文件名确认摘要统一 HTML 转义。导入后校验一级块数量、根/父身份和严格正文对应关系；空目标 ID 或块错配不入组，保留文档并说明状态。
+- 入组后完整回读目标卡组、逐个确认新块 ID 才报成功；回读失败/部分成功提示待核对，不自动重放写入。详见[导入记录](./docs/audits/2026-10-18-lvcards-import-integrity.md)。本轮无新增浏览器或真实宿主导入证据。
 
 - 命令面板新增“导入与迁移”，支持按 Anki、Obsidian、`.lvcards`、文件格式、日志和备份检索，直达卡片导入与数据分组。返回全部设置保留草稿并聚焦搜索，普通设置与保存回调兼容。
 - 设置支持按格式、导入和备份标签搜索，增加无结果反馈；四个文件入口改用原生按钮，日志/备份等控件补齐名称；焦点陷阱排除隐藏、inert 和禁用目标，修复活动控件隐藏后的反向 Tab。
 - 修复窄屏原生文件输入撑宽设置面板，控件可收缩换行；Chrome 生产设置组件夹具在 320×568 暗色中文与 1280×800 亮色英文验证任务范围、搜索/恢复、草稿、按钮和布局。夹具无真实宿主写入，真实思源/Android/读屏与成功导入待验。
-- 当前 175 个测试文件、1310 项通过，Svelte 0 错误/0 警告，检查、构建与 smoke 通过；主包 gzip 56136 bytes，55 KiB 门禁余 184 bytes。详见[本轮记录](./docs/audits/2026-10-18-import-workflow.md)。以下命令面板修复统计保留为前轮切片证据；本节全部尚未发布。
+- 前轮快捷入口收口为 175 个测试文件、1310 项通过，Svelte 0 错误/0 警告，检查、构建与 smoke 通过；主包 gzip 56136 bytes，55 KiB 门禁余 184 bytes。详见[前轮记录](./docs/audits/2026-10-18-import-workflow.md)。以下命令面板修复统计保留为前轮切片证据；本节全部尚未发布。
 
 - 修复空查询仅显示前 12 项命令的问题，高级模式末尾入口可直接到达；方向键选中项随列表滚动，空查询支持 Home/End 到首尾。
 - 补齐输入与活动选项的可访问关系，保护文本编辑和组合输入；共享焦点陷阱在输入法候选期间不拦截 Escape/Tab。
@@ -13,7 +30,7 @@
 - 合并命令面板的重复打开请求，活动面板保留查询并重新聚焦；失败可重试，卸载后的迟到结果不再弹窗，旧关闭回调不影响新面板。命令先关闭面板再打开目标，旧弹窗的延迟销毁回调不再抢走新焦点；宿主创建失败时清理已挂载组件。
 - 修复开发模式误将挂载句柄传给 Svelte 卸载函数的问题，关闭时统一通过对应挂载器销毁实际组件。
 - 命令装配移入 dialogs 按需分包，主包 gzip 为 55973 bytes，保持 55 KiB 门禁；新增生产工厂契约 smoke。
-- 当前 173 个测试文件、1264 项通过，检查与生产构建通过；前轮 Chrome 生产组件夹具三视口通过，本轮新增入口与延迟宿主替身回归，真实思源宿主、Android 与读屏仍待验。详见[最新记录](./docs/audits/2026-10-18-palette-lifecycle.md)及[前轮交互记录](./docs/audits/2026-10-18-palette-interactions.md)。版本保持 v0.210.4，本节内容尚未发布。
+- 前轮生命周期收口为 173 个测试文件、1264 项通过，检查与生产构建通过；此前 Chrome 生产组件夹具三视口通过，生命周期轮新增入口与延迟宿主替身回归，真实思源宿主、Android 与读屏仍待验。详见[生命周期记录](./docs/audits/2026-10-18-palette-lifecycle.md)及[前轮交互记录](./docs/audits/2026-10-18-palette-interactions.md)。版本保持 v0.210.4，本节内容尚未发布。
 
 ## v0.210.4 2026-10-17 · 原生分享包（.lvcards）、触觉微震动与自定义卡面 CSS
 

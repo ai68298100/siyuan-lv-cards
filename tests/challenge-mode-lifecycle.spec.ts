@@ -113,4 +113,97 @@ describe("challenge loading lifecycle", () => {
         await fireEvent.keyDown(window, { key: "Escape" });
         expect(onExit).toHaveBeenCalledOnce();
     });
+
+    it("starts timer only after all cards are loaded, preserving user answering time (AR-10)", async () => {
+        vi.useFakeTimers();
+        const firstDom = deferred<string>();
+        dueGet.mockResolvedValueOnce({ cards: [{ blockID: "c1" }] });
+        getBlockDOM.mockReturnValueOnce(firstDom.promise);
+
+        const view = renderChallenge();
+        await fireEvent.click(screen.getByRole("button", { name: /Start/ }));
+        await Promise.resolve();
+
+        // 模拟网络较慢，加载材料耗时 5 秒
+        await vi.advanceTimersByTimeAsync(5000);
+
+        // 此时材料尚未 resolve，仍处于 loading 阶段，界面上尚未呈现卡片，计时器不启动
+        expect(screen.queryByText(/3:00/)).toBeNull();
+
+        // 材料加载完成
+        firstDom.resolve("<p>Question 1</p>");
+        await Promise.resolve();
+        await vi.advanceTimersByTimeAsync(0);
+
+        // 材料加载完毕，进入 running 阶段，初始倒计时严格为 180 秒（3:00）
+        expect(screen.getByText(/3:00/)).toBeTruthy();
+
+        // 推进 5 秒作答时间
+        await vi.advanceTimersByTimeAsync(5000);
+        expect(screen.getByText(/2:55/)).toBeTruthy();
+
+        view.unmount();
+        vi.useRealTimers();
+    });
+
+    it("calibrates remaining time by monotonic deadline across background throttle and settles only once at 0s (AR-10)", async () => {
+        vi.useFakeTimers();
+        dueGet.mockResolvedValueOnce({ cards: [{ blockID: "c1" }] });
+        getBlockDOM.mockResolvedValueOnce("<p>Question 1</p>");
+
+        const view = renderChallenge();
+        await fireEvent.click(screen.getByRole("button", { name: /Start/ }));
+        await Promise.resolve();
+        await vi.advanceTimersByTimeAsync(0);
+
+        expect(screen.getByText(/3:00/)).toBeTruthy();
+
+        // 模拟浏览器切入后台或系统休眠 45 秒后被唤醒（interval 被节流，但壁钟前进 45 秒）
+        await vi.advanceTimersByTimeAsync(45000);
+
+        // 剩余时间根据 monotonic deadline = Date.now() + remaining * 1000 准确校准为 135 秒（2:15）
+        expect(screen.getByText(/2:15/)).toBeTruthy();
+
+        // 推进至 180 秒耗尽（剩余 135 秒）
+        await vi.advanceTimersByTimeAsync(135000);
+
+        // 到达 0 秒，自动进入完成态
+        expect(screen.getByText("Done")).toBeTruthy();
+
+        // 再次推进时间，验证 0 秒单次结算完成，不会发生二次结算或异常
+        await vi.advanceTimersByTimeAsync(10000);
+        expect(screen.getByText("Done")).toBeTruthy();
+
+        view.unmount();
+        vi.useRealTimers();
+    });
+
+    it("clears interval timer immediately when user stops challenge midway (AR-10)", async () => {
+        vi.useFakeTimers();
+        dueGet.mockResolvedValueOnce({ cards: [{ blockID: "c1" }] });
+        getBlockDOM.mockResolvedValueOnce("<p>Question 1</p>");
+        Object.defineProperty(window, "confirm", { configurable: true, value: vi.fn(() => true) });
+
+        const view = renderChallenge();
+        await fireEvent.click(screen.getByRole("button", { name: /Start/ }));
+        await Promise.resolve();
+        await vi.advanceTimersByTimeAsync(0);
+
+        // 作答 10 秒后点击停止
+        await vi.advanceTimersByTimeAsync(10000);
+        expect(screen.getByText(/2:50/)).toBeTruthy();
+
+        const stopBtn = screen.getByRole("button", { name: /Stop/ });
+        await fireEvent.click(stopBtn);
+
+        // 确认停止后进入完成态，计时器立即清除
+        expect(screen.getByText("Done")).toBeTruthy();
+
+        // 推进时间，倒计时不再变化或抛错
+        await vi.advanceTimersByTimeAsync(5000);
+        expect(screen.getByText("Done")).toBeTruthy();
+
+        view.unmount();
+        vi.useRealTimers();
+    });
 });

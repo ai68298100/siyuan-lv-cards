@@ -3,14 +3,11 @@
  * 端点与字段名均按内核源码 kernel/apicontract/riff.go 建模（3.8.x）。
  */
 import { postJSON, type RequestOptions } from "@/libs/request";
+import { unwrapKernelData } from "@/libs/kernel-response";
 
 async function riff<T>(endpoint: string, payload: Record<string, unknown> = {}, options: RequestOptions = {}): Promise<T> {
-    const resp = await postJSON<{ code: number; msg: string; data: T }>(`/api/riff/${endpoint}`, payload, options);
-    // AJ5：统一内核响应校验，非 0 一律抛本地化错误，禁止下游渲染 undefined
-    if (!resp || resp.code !== 0) {
-        throw new Error(resp?.msg || `kernel error (code=${resp?.code ?? "unknown"})`);
-    }
-    return resp.data as T;
+    const resp = await postJSON<unknown>(`/api/riff/${endpoint}`, payload, options);
+    return unwrapKernelData<T>(resp);
 }
 
 /** 同一前端生命周期内的写入单飞：双击/重复事件共享结果，失败后自动移除以便用户重试。 */

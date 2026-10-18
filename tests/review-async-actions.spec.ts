@@ -305,6 +305,50 @@ describe("review async action guards", () => {
         view.unmount();
     });
 
+    it("closes active audio context and releases audioCtx when pausing session", async () => {
+        const close = vi.fn().mockResolvedValue(undefined);
+        class MockAudioContext {
+            currentTime = 0;
+            destination = {};
+            createOscillator = () => ({
+                connect: vi.fn(),
+                type: "",
+                frequency: { setValueAtTime: vi.fn() },
+                start: vi.fn(),
+                stop: vi.fn(),
+            });
+            createGain = () => ({
+                connect: vi.fn(),
+                gain: { setValueAtTime: vi.fn(), exponentialRampToValueAtTime: vi.fn() },
+            });
+            close = close;
+        }
+        vi.stubGlobal("AudioContext", MockAudioContext);
+
+        const testCtx = ctx(false, false, true); // sfxEnabled: true
+        const view = render(Review, { ctx: testCtx });
+        await screen.findByText("block-a body");
+
+        // 揭晓答案并评分，触发 playReviewSfx，创建 audioCtx
+        await fireEvent.click(screen.getByRole("button", { name: "t.review.showAnswer" }));
+        await fireEvent.click(view.container.querySelector(".lv-btn-rate")!);
+        await waitFor(() => expect(reviewRiffCard).toHaveBeenCalledOnce());
+
+        // 等待下一张卡片加载完毕并退出提交忙碌态，此时 audioCtx 处于活跃状态
+        await screen.findByText("block-b body");
+        const pauseBtn = screen.getByRole("button", { name: "t.review.pauseTitle" }) as HTMLButtonElement;
+        await waitFor(() => expect(pauseBtn.disabled).toBe(false));
+
+        // 点击暂停弹窗并确认
+        await fireEvent.click(pauseBtn);
+        const confirmBtn = await screen.findByRole("button", { name: "t.review.pauseConfirm" });
+        await fireEvent.click(confirmBtn);
+
+        // 验证暂停时 closeReviewAudio 被调用，AudioContext 被关闭
+        expect(close).toHaveBeenCalledOnce();
+        view.unmount();
+    });
+
     it("marks issue on current card without interrupting review", async () => {
         const testCtx = ctx();
         testCtx.tagErrorReason = vi.fn();
