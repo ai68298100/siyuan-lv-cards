@@ -75,6 +75,49 @@ describe("focus-trap（AS-1）", () => {
         expect(escapes).toBe(1); // release 后监听移除
     });
 
+    it.each([
+        { key: "Escape", shiftKey: false },
+        { key: "Tab", shiftKey: false },
+        { key: "Tab", shiftKey: true },
+    ])("输入法组合期间不拦截 $key（Shift=$shiftKey），结束后恢复正常键盘流", ({ key, shiftKey }) => {
+        let escapes = 0;
+        const trap = trapFocus(container, { onEscape: () => { escapes += 1; } });
+        const input = container.querySelector<HTMLInputElement>("#b")!;
+        input.focus();
+
+        for (const composition of [{ isComposing: true }, { keyCode: 229 }]) {
+            const event = new KeyboardEvent("keydown", {
+                key,
+                shiftKey,
+                bubbles: true,
+                cancelable: true,
+                ...composition,
+            });
+            // 从真实输入元素发出，先经过祖先的捕获监听，再冒泡；避免只测容器自身事件。
+            input.dispatchEvent(event);
+            expect(escapes).toBe(0);
+            expect(event.defaultPrevented).toBe(false);
+            expect(document.activeElement).toBe(input);
+        }
+
+        const regular = new KeyboardEvent("keydown", { key, shiftKey, bubbles: true, cancelable: true });
+        input.dispatchEvent(regular);
+        if (key === "Escape") {
+            expect(escapes).toBe(1);
+            expect(document.activeElement).toBe(input);
+        } else {
+            expect(document.activeElement?.id).toBe(shiftKey ? "a" : "e");
+            expect(regular.defaultPrevented).toBe(true);
+        }
+        trap.release();
+        expect(document.activeElement).toBe(host);
+        const released = new KeyboardEvent("keydown", { key, shiftKey, bubbles: true, cancelable: true });
+        input.dispatchEvent(released);
+        expect(escapes).toBe(key === "Escape" ? 1 : 0);
+        expect(released.defaultPrevented).toBe(false);
+        expect(document.activeElement).toBe(host);
+    });
+
     it("release 归还焦点到打开前宿主；restoreOnRelease=false 不归还；幂等", () => {
         const trap = trapFocus(container);
         trap.release();

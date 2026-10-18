@@ -20,17 +20,41 @@
         onClose: () => void;
     } = $props();
 
+    const paletteId = $props.id();
+    const inputId = `${paletteId}-input`;
+    const listboxId = `${paletteId}-listbox`;
     let query = $state("");
     let selected = $state(0);
+    let composing = $state(false);
+    let revealSelection = $state(true);
 
-    const groups = $derived(filterPaletteCommands(commands, query));
+    // The command source is already scoped by the host. Do not silently hide
+    // authorized commands behind the pure helper's generic 12-item default.
+    const groups = $derived(filterPaletteCommands(commands, query, commands.length));
     const flat = $derived(flattenPaletteGroups(groups));
 
-    // 查询变化后选中项回到首个可见项
+    const optionId = (index: number) => `${paletteId}-option-${encodeURIComponent(flat[index].id)}`;
+    const activeOptionId = $derived(flat[selected] ? optionId(selected) : undefined);
+
+    // Query or command-source changes reset selection to the first visible
+    // command, including replacement with an equally sized list.
     $effect(() => {
-        query;
+        flat;
         selected = 0;
+        revealSelection = true;
     });
+
+    // Keep the active result visible without moving focus away from the
+    // editable combobox. `nearest` avoids jumping the scroll position.
+    $effect(() => {
+        if (!revealSelection || !flat[selected]) return;
+        document.getElementById(optionId(selected))?.scrollIntoView({ block: "nearest", inline: "nearest" });
+    });
+
+    function selectAt(index: number, reveal = true) {
+        selected = index;
+        revealSelection = reveal;
+    }
 
     function runAt(index: number) {
         const cmd = flat[index];
@@ -40,12 +64,24 @@
     }
 
     function onKeydown(e: KeyboardEvent) {
+        if (composing || e.isComposing || e.keyCode === 229) return;
+        if (e.ctrlKey || e.metaKey || e.altKey) return;
         if (e.key === "ArrowDown") {
             e.preventDefault();
-            if (flat.length > 0) selected = (selected + 1) % flat.length;
+            if (flat.length > 0) selectAt((selected + 1) % flat.length);
         } else if (e.key === "ArrowUp") {
             e.preventDefault();
-            if (flat.length > 0) selected = (selected - 1 + flat.length) % flat.length;
+            if (flat.length > 0) selectAt((selected - 1 + flat.length) % flat.length);
+        } else if (e.key === "Home") {
+            if (query.length === 0) {
+                e.preventDefault();
+                if (flat.length > 0) selectAt(0);
+            }
+        } else if (e.key === "End") {
+            if (query.length === 0) {
+                e.preventDefault();
+                if (flat.length > 0) selectAt(flat.length - 1);
+            }
         } else if (e.key === "Enter") {
             e.preventDefault();
             runAt(selected);
@@ -59,34 +95,46 @@
 <div class="lv-palette" role="dialog" aria-label={placeholder} tabindex="-1" onkeydown={onKeydown}>
     <!-- svelte-ignore a11y_autofocus -->
     <input
+        id={inputId}
         type="text"
         bind:value={query}
         {placeholder}
         autofocus
+        role="combobox"
         aria-label={placeholder}
+        aria-autocomplete="list"
+        aria-controls={listboxId}
+        aria-expanded="true"
+        aria-activedescendant={activeOptionId}
+        oncompositionstart={() => (composing = true)}
+        oncompositionend={() => (composing = false)}
         onkeydown={(e: KeyboardEvent) => { e.stopPropagation(); onKeydown(e); }}
     />
-    <div class="lv-palette-body" role="listbox" aria-label={placeholder}>
+    <div id={listboxId} class="lv-palette-body" role="listbox" aria-label={placeholder}>
         {#if flat.length === 0}
             <div class="lv-palette-empty">{labels.empty ?? ""}</div>
         {:else}
             {#each groups as g (g.group)}
-                <div class="lv-palette-group">{groupNames[g.group] ?? g.group}</div>
-                {#each g.items as cmd (cmd.id)}
-                    {@const index = flat.indexOf(cmd)}
-                    <button
-                        type="button"
-                        class="lv-palette-item"
-                        class:lv-palette-sel={index === selected}
-                        role="option"
-                        aria-selected={index === selected}
-                        onmouseenter={() => (selected = index)}
-                        onclick={() => runAt(index)}
-                    >
-                        <span class="lv-palette-label">{cmd.label}</span>
-                        {#if cmd.hint}<span class="lv-palette-hint">{cmd.hint}</span>{/if}
-                    </button>
-                {/each}
+                <div role="group" aria-label={groupNames[g.group] ?? g.group}>
+                    <div class="lv-palette-group" aria-hidden="true">{groupNames[g.group] ?? g.group}</div>
+                    {#each g.items as cmd (cmd.id)}
+                        {@const index = flat.indexOf(cmd)}
+                        <button
+                            type="button"
+                            class="lv-palette-item"
+                            class:lv-palette-sel={index === selected}
+                            id={optionId(index)}
+                            role="option"
+                            tabindex="-1"
+                            aria-selected={index === selected}
+                            onmouseenter={() => selectAt(index, false)}
+                            onclick={() => runAt(index)}
+                        >
+                            <span class="lv-palette-label">{cmd.label}</span>
+                            {#if cmd.hint}<span class="lv-palette-hint">{cmd.hint}</span>{/if}
+                        </button>
+                    {/each}
+                </div>
             {/each}
         {/if}
     </div>
@@ -102,9 +150,14 @@
         width: 100%;
         min-width: 0;
         min-height: 120px;
+        max-height: calc(100vh - 56px);
+        max-height: calc(100dvh - 56px);
+        box-sizing: border-box;
     }
     .lv-palette input {
         width: 100%;
+        box-sizing: border-box;
+        flex-shrink: 0;
         border: 0;
         border-bottom: 1px solid var(--lv-border);
         border-radius: 0;
@@ -120,6 +173,8 @@
     .lv-palette-body {
         max-height: 320px;
         overflow: auto;
+        min-height: 0;
+        overscroll-behavior: contain;
         padding: calc(var(--lv-space-unit) * 3) 0 calc(var(--lv-space-unit) * 5);
     }
     .lv-palette-group {
@@ -132,9 +187,10 @@
     }
     .lv-palette-item {
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         gap: calc(var(--lv-space-unit) * 5);
         width: 100%;
+        box-sizing: border-box;
         min-height: 44px;
         padding: calc(var(--lv-space-unit) * 4 + var(--lv-space-hairline)) calc(var(--lv-space-unit) * 7);
         border: 0;
@@ -142,6 +198,8 @@
         background: transparent;
         font-size: var(--lv-type-body-size);
         text-align: left;
+        line-height: var(--lv-lh-meta);
+        white-space: normal;
         transition: background var(--lv-dur-1) var(--lv-ease);
     }
     .lv-palette-item:hover { background: transparent; color: inherit; }
@@ -155,8 +213,8 @@
         color: var(--lv-color-brand);
         box-shadow: inset 2px 0 0 var(--lv-color-brand);
     }
-    .lv-palette-label { min-width: 0; flex: 1; }
-    .lv-palette-hint { font-size: var(--lv-type-meta-size); color: var(--lv-color-text-muted); font-variant-numeric: tabular-nums; }
+    .lv-palette-label { min-width: 0; flex: 1; overflow-wrap: anywhere; }
+    .lv-palette-hint { min-width: 0; max-width: 40%; font-size: var(--lv-type-meta-size); color: var(--lv-color-text-muted); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; white-space: normal; text-align: right; }
     .lv-palette-empty {
         padding: calc(var(--lv-space-unit) * 11) calc(var(--lv-space-unit) * 8);
         text-align: center;
@@ -165,6 +223,7 @@
     }
     .lv-palette-foot {
         display: flex;
+        flex-shrink: 0;
         align-items: center;
         gap: calc(var(--lv-space-unit) * 3);
         padding: calc(var(--lv-space-unit) * 4) calc(var(--lv-space-unit) * 7);

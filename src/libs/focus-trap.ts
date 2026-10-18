@@ -52,6 +52,11 @@ export function trapFocus(container: HTMLElement, opts: TrapOptions = {}): Focus
 
     const onKeydown = (e: Event) => {
         const ke = e as KeyboardEvent;
+        // IME composition owns Escape/Tab while the candidate window is active;
+        // do not close the dialog or move focus until composition is complete.
+        if (ke.isComposing || ke.keyCode === 229) {
+            return;
+        }
         if (ke.key === "Escape") {
             opts.onEscape?.();
             return;
