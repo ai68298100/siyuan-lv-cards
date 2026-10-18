@@ -139,6 +139,12 @@ export const svelteDialog = (args: {
     } catch { /* 旁路 */ }
     const restoreFocus = () => {
         try {
+            // Another dialog or command destination may already own focus when
+            // the host's delayed destroyCallback arrives. Do not reclaim it.
+            const active = document.activeElement;
+            if (active && active !== document.body && !dialogHandle?.element.contains(active)) {
+                return;
+            }
             if (prevFocus && document.contains(prevFocus)) {
                 prevFocus.focus();
             }
@@ -148,8 +154,8 @@ export const svelteDialog = (args: {
     // AR-2：关闭一次性——宿主 X / Esc / 内嵌组件回调并发时只销毁一次
     let destroyed = false;
     let unmounted = false;
-    let dialogHandle: { destroy: () => void } | null = null;
-    let componentInstance: unknown = null;
+    let dialogHandle: { destroy: () => void; element: HTMLElement } | null = null;
+    let componentInstance: ReturnType<typeof mountDialog> | null = null;
     /** AS-1：对话框焦点陷阱（Tab 循环/Esc）；释放归 dialog.ts 既有 restoreFocus（防双重归还传 false） */
     let focusTrap: FocusTrap | null = null;
 
@@ -160,13 +166,7 @@ export const svelteDialog = (args: {
         }
         unmounted = true;
         try {
-            if (dialogMounter) {
-                (componentInstance as { destroy: () => void }).destroy();
-            } else {
-                if (process.env.DEV_MODE) {
-                    void svelte.unmount(componentInstance as ReturnType<typeof svelte.mount>);
-                }
-            }
+            componentInstance.destroy();
         } catch { /* 已卸载 */ }
     };
 
@@ -211,19 +211,27 @@ export const svelteDialog = (args: {
     // 内部处理 mount（chunk mounter 已安装时用 chunk 的 svelte 实例挂载）
     componentInstance = mountDialog(args.component, container, props);
 
-    const { dialog } = simpleDialog({
-        title: args.title,
-        ele: container,
-        width: args.width,
-        height: args.height,
-        callback: () => {
-            destroyed = true;
-            focusTrap?.release();
-            destroyComponent();
-            restoreFocus();
-            if (args.callback) args.callback();
-        }
-    });
+    let dialog: Dialog;
+    try {
+        ({ dialog } = simpleDialog({
+            title: args.title,
+            ele: container,
+            width: args.width,
+            height: args.height,
+            callback: () => {
+                destroyed = true;
+                focusTrap?.release();
+                destroyComponent();
+                restoreFocus();
+                if (args.callback) args.callback();
+            }
+        }));
+    } catch (error) {
+        destroyed = true;
+        destroyComponent();
+        restoreFocus();
+        throw error;
+    }
     dialogHandle = dialog;
     // 样式作用域（R52）：插件对话框挂 lv-dialog，供 index.scss 做按钮语义中性化与滚动条
     dialog.element.classList.add("lv-dialog");

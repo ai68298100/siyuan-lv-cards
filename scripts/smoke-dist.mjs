@@ -37,6 +37,7 @@ const checks = {
     review: (reg) => typeof reg?.review?.mount === "function",
     dialogs: (reg) =>
         typeof reg?.dialogs?.mountDialogComponent === "function" &&
+        typeof reg?.dialogs?.createPaletteView === "function" &&
         typeof reg?.dialogs?.components?.AIWizard === "function", // Svelte 5 组件=函数
 };
 for (const name of ["hub", "review", "dialogs"]) {
@@ -62,6 +63,31 @@ if (checks.hub(win.__lvChunks) && checks.review(win.__lvChunks) && checks.dialog
 }
 
 // Exercise the production service boundary, which dev-mode component tests do not load.
+if (checks.dialogs(win.__lvChunks)) {
+    try {
+        const dialogs = win.__lvChunks.dialogs;
+        const run = () => {};
+        const close = () => {};
+        const view = dialogs.createPaletteView({
+            modules: { inbox: true, exam: true }, uiMode: "advanced",
+            i18n: { cmdPalette: "Palette smoke", paletteEmpty: "Empty smoke" },
+        }, run, close);
+        assert.equal(view.component, dialogs.components.LvPalette);
+        assert.equal(view.title, "Palette smoke");
+        assert.equal(view.panel, true);
+        assert.equal(view.props.commands.length, 14);
+        assert.equal(view.props.commands.at(-1).id, "maintenance");
+        assert.equal(view.props.labels.empty, "Empty smoke");
+        assert.equal(view.props.onrun, run);
+        assert.equal(view.props.onClose, close);
+        const simple = dialogs.createPaletteView({ modules: {}, uiMode: "simple", i18n: {} }, run, close);
+        assert.equal(simple.props.commands.length, 10);
+        assert.equal(simple.props.commands.some(command => ["inbox", "exam", "cram", "maintenance"].includes(command.id)), false);
+        ok("dialogs 命令面板按需装配：组件身份、完整命令、模式门禁与回调通过");
+    } catch (e) {
+        fail(`dialogs 命令面板装配失败：${e?.message ?? e}`);
+    }
+}
 if (checks.hub(win.__lvChunks)) {
     try {
         const services = win.__lvChunks.hub.services;

@@ -136,7 +136,6 @@ import {
 } from "./core/ai-wizard-service";
 import { computeStorageStats, probeAnkiConnection } from "./core/storage-diagnostics";
 import {
-    computePaletteCommands,
     buildReviewScopeKey,
     parseReturnPoint,
 } from "./core/palette-navigation";
@@ -252,7 +251,18 @@ const loadSettingsPanel = process.env.DEV_MODE ? lazyComp(() => import("./ui/set
 const loadDeckPicker = process.env.DEV_MODE ? lazyComp(() => import("./ui/deck-picker.svelte")) : loadDialogsComp("DeckPicker");
 const loadQuickCard = process.env.DEV_MODE ? lazyComp(() => import("./ui/quick-card.svelte")) : loadDialogsComp("QuickCard");
 const loadRepairDrill = process.env.DEV_MODE ? lazyComp(() => import("./ui/repair-drill.svelte")) : loadDialogsComp("Drill"); // T10 修卡演练
-const loadPalette = process.env.DEV_MODE ? lazyComp(() => import("./ui/kit/LvPalette.svelte")) : loadDialogsComp("LvPalette"); // T13 ⌘K 命令面板
+// Palette-only assembly stays in the lazy chunk, leaving room for shell lifecycle guards.
+const loadPaletteView: () => Promise<typeof import("./ui/palette-view").createPaletteView> = process.env.DEV_MODE
+    ? () => import("./ui/palette-view").then(m => m.createPaletteView)
+    : async () => {
+        const module = await loadDialogsModule();
+        if (typeof module.createPaletteView !== "function") {
+            dialogsChunkReady = null;
+            invalidateChunk("dialogs");
+            throw new Error("lv dialogs chunk missing palette view");
+        }
+        return module.createPaletteView;
+    };
 const loadAIWizardEmbedded = process.env.DEV_MODE
     ? async () => ({ Component: await loadAIWizard() })
     : loadDialogsEmbeddedView("AIWizard");
@@ -335,6 +345,8 @@ export default class LvCardsPlugin extends Plugin {
     private badgeTimer: ReturnType<typeof setInterval> | null = null;
     /** 首次布局后的引导延迟句柄，卸载时必须取消。 */
     private onboardingTimer: ReturnType<typeof setTimeout> | null = null;
+    /** null=idle, object=pending/active, undefined=unloaded. Identity rejects late completions. */
+    private paletteState: { close?: () => void; element?: HTMLElement } | null | undefined = null;
     private settingsSaveTimer: ReturnType<typeof setTimeout> | null = null;
     private persistedSettingsSnapshot: LvCardsSettings | null = null;
     private settingsMutationVersion = 0;
@@ -886,6 +898,7 @@ export default class LvCardsPlugin extends Plugin {
     async onload() {
         // AT-6：启动性能计时起点（onload 首行）
         this.perf.markStart();
+        this.paletteState = null;
         this.addIcons(`<symbol id="iconLvCards" viewBox="0 0 32 32">
 <path d="M6 10h16v16H6z" fill="none" stroke="currentColor" stroke-width="2"></path>
 <path d="M10 6h16v16" fill="none" stroke="currentColor" stroke-width="2"></path>
@@ -1789,6 +1802,9 @@ export default class LvCardsPlugin extends Plugin {
 
     onunload() {
         const unloadStart = Date.now();
+        const palette = this.paletteState;
+        this.paletteState = undefined;
+        palette?.close?.();
         this.unbindExamPlansSync();
         this.eventBus.off("click-flashcard-action", this.onNativeCardAction);
         this.eventBus.off("click-blockicon", this.onBlockIcon);
@@ -2543,49 +2559,55 @@ export default class LvCardsPlugin extends Plugin {
         }
     }
 
-    /** T13 ⌘K 命令面板（docs/41 P0 · docs/42 §3.10）：动作 + 导航键盘直达；范围随模块开关，不做隐藏入口的命令 */
+    /** T13 ⌘K 命令面板：入口单实例，加载与宿主销毁均按本次身份收口。 */
     private async openPalette() {
+        if (this.paletteState === undefined) return;
+        if (this.paletteState) {
+            this.paletteState.element?.querySelector<HTMLInputElement>("input")?.focus();
+            return;
+        }
+        const state: NonNullable<typeof this.paletteState> = {};
+        this.paletteState = state;
+        const release = () => {
+            if (this.paletteState === state) this.paletteState = null;
+        };
         try {
-            const Palette = await loadPalette();
-            const commands = computePaletteCommands({
-                modules: this.settings.modules,
-                uiMode: this.settings.uiMode,
-                i18n: this.i18n,
-            });
+            const createView = await loadPaletteView();
+            if (this.paletteState !== state) return;
             const runners: Record<string, () => void> = {
-            review: () => this.openTabOf(TAB_REVIEW),
-            cram: () => this.openTabOf(TAB_REVIEW, { cram: true }),
-            wizard: () => this.openAIWizard(),
-            quick: () => this.openQuickCard(),
-            pairing: () => this.openPairing(),
-            drill: () => this.openRepairDrill(),
-            settings: () => this.openSettingsDialog(),
-            overview: () => this.openTabOf(TAB_DASHBOARD),
-            manage: () => this.openTabOf(TAB_DASHBOARD, { tab: "manage" }),
-            authoring: () => this.openTabOf(TAB_DASHBOARD, { tab: "authoring" }),
-            goals: () => this.openTabOf(TAB_DASHBOARD, { tab: "goals" }),
-            inbox: () => this.openTabOf(TAB_DASHBOARD, { tab: "inbox" }),
-            exam: () => this.openTabOf(TAB_DASHBOARD, { tab: "exam" }),
-            maintenance: () => this.openTabOf(TAB_DASHBOARD, { tab: "maintenance" }),
+                review: () => this.openTabOf(TAB_REVIEW),
+                cram: () => this.openTabOf(TAB_REVIEW, { cram: true }),
+                wizard: () => this.openAIWizard(),
+                quick: () => this.openQuickCard(),
+                pairing: () => this.openPairing(),
+                drill: () => this.openRepairDrill(),
+                settings: () => this.openSettingsDialog(),
+                overview: () => this.openTabOf(TAB_DASHBOARD),
+                manage: () => this.openTabOf(TAB_DASHBOARD, { tab: "manage" }),
+                authoring: () => this.openTabOf(TAB_DASHBOARD, { tab: "authoring" }),
+                goals: () => this.openTabOf(TAB_DASHBOARD, { tab: "goals" }),
+                inbox: () => this.openTabOf(TAB_DASHBOARD, { tab: "inbox" }),
+                exam: () => this.openTabOf(TAB_DASHBOARD, { tab: "exam" }),
+                maintenance: () => this.openTabOf(TAB_DASHBOARD, { tab: "maintenance" }),
             };
-            svelteDialog({
-            title: this.i18n.cmdPalette,
-            component: Palette,
-            width: "min(560px, 94vw)",
-            // R53 §3.10：面板为无镶板浮层（去宿主标题栏，容器本身 r20 + shadow-2）
-            panel: true,
-            props: {
-                commands,
-                placeholder: this.i18n.palettePlaceholder,
-                groupNames: { actions: this.i18n.paletteGroupActions, nav: this.i18n.paletteGroupNav },
-                labels: { empty: this.i18n.paletteEmpty, foot: this.i18n.paletteFoot },
-                // svelteDialog 只包装已存在的 onClose（AR-2 关闭一次性）——必须显式占位
-                onClose: () => { /* 关闭销毁由 svelteDialog 自理 */ },
-                onrun: (cmd: PaletteCommand) => runners[cmd.id]?.(),
-            },
+            const handle = svelteDialog({
+                ...createView({ modules: this.settings.modules, uiMode: this.settings.uiMode, i18n: this.i18n },
+                    (cmd: PaletteCommand) => {
+                        if (this.paletteState !== state) return;
+                        // Release the old trap before another action takes focus.
+                        state.close?.();
+                        release();
+                        runners[cmd.id]?.();
+                    }, release),
+                callback: release,
             });
+            state.close = handle.close;
+            state.element = handle.dialog.element;
         } catch (e) {
-            this.reportDialogOpenFailure(this.i18n.cmdPalette, e);
+            if (this.paletteState === state) {
+                release();
+                this.reportDialogOpenFailure(this.i18n.cmdPalette, e);
+            }
         }
     }
 
