@@ -11,7 +11,11 @@
 
     // AS-9 键盘模型（radio 惯例）：左右箭头在选择项间移动并选中
     function onKeydown(e: KeyboardEvent) {
-        const idx = options.findIndex(o => o.value === value);
+        if (options.length === 0) return;
+        const radios = [...(e.currentTarget as HTMLElement).querySelectorAll<HTMLElement>("[role=radio]")];
+        const focused = (e.target as HTMLElement | null)?.closest<HTMLElement>("[role=radio]");
+        const focusedIdx = focused ? radios.indexOf(focused) : -1;
+        const idx = focusedIdx >= 0 ? focusedIdx : options.findIndex(o => o.value === value);
         if (idx < 0) return;
         let next: number | null = null;
         if (e.key === "ArrowRight" || e.key === "ArrowDown") next = (idx + 1) % options.length;
@@ -19,12 +23,18 @@
         if (next === null) return;
         e.preventDefault();
         onchange(options[next].value);
-        (e.currentTarget as HTMLElement).querySelectorAll("[role=radio]")[next]?.scrollIntoView({ block: "nearest" });
+        const nextRadio = (e.currentTarget as HTMLElement).querySelectorAll<HTMLElement>("[role=radio]")[next];
+        // Keep the radio keyboard model usable even while the controlled
+        // `value` prop is waiting for the parent update: move focus to the
+        // newly selected option immediately, then let the next render update
+        // the roving tabindex.
+        nextRadio?.focus({ preventScroll: true });
+        nextRadio?.scrollIntoView({ block: "nearest" });
     }
 </script>
 
 <div class="lv-seg" class:lv-seg--disabled={disabled} role="radiogroup" tabindex="-1" aria-label={ariaLabel || undefined} onkeydown={onKeydown}>
-    {#each options as o (o.value)}
+    {#each options as o, i (o.value)}
         <button
             type="button"
             class="lv-seg-item"
@@ -33,6 +43,7 @@
             disabled={disabled}
             role="radio"
             aria-checked={o.value === value}
+            tabindex={o.value === value || (i === 0 && !options.some(option => option.value === value)) ? 0 : -1}
             onclick={() => { if (o.value !== value) { onchange(o.value); } }}
         >{o.label}</button>
     {/each}

@@ -160,6 +160,24 @@ describe("review async action guards", () => {
         expect(screen.queryByRole("button", { name: /A\. stale answer from A/ })).toBeNull();
     });
 
+    it("moves focus into the image lightbox and restores it after closing", async () => {
+        getBlockDOM.mockImplementation(async (id: string) => `<p>${id} body</p><img src="https://example.test/card.png" alt="卡片示例" />`);
+        const view = mountReview();
+        await screen.findByText("block-a body");
+        const image = view.container.querySelector<HTMLImageElement>(".lv-card-content img");
+        expect(image).toBeTruthy();
+
+        await fireEvent.click(image!);
+        const dialog = await screen.findByRole("dialog", { name: "图片全屏聚焦预览" });
+        expect(dialog.getAttribute("aria-modal")).toBe("true");
+        const close = screen.getByRole("button", { name: "Cancel" });
+        expect(document.activeElement).toBe(close);
+
+        await fireEvent.click(dialog);
+        await waitFor(() => expect(screen.queryByRole("dialog", { name: "图片全屏聚焦预览" })).toBeNull());
+        expect(document.activeElement).toBe(view.container.querySelector<HTMLElement>(".lv-review"));
+    });
+
     it("locks rescheduling while the first request is pending", async () => {
         const pending = deferred<void>();
         batchSetRiffCardsDueTime.mockReturnValueOnce(pending.promise);

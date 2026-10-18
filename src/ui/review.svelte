@@ -568,6 +568,7 @@
     let memoSaving = $state(false);
     // 卡面大图全屏原图聚焦预览（Lightroom Zoom）
     let zoomedImage = $state<{ src: string; alt?: string } | null>(null);
+    let lightboxEl: HTMLDivElement | null = $state(null);
 
     // 汲取自番茄插件：复习端就地移出卡组
     let showRetireModal = $state(false);
@@ -1100,6 +1101,18 @@
         }
     }
 
+    function closeZoomedImage() {
+        zoomedImage = null;
+        returnFocus();
+    }
+
+    // 图片灯箱也是模态对话框：把焦点移入关闭按钮，Esc/关闭后归还卡面焦点。
+    $effect(() => {
+        if (!zoomedImage || !lightboxEl) return;
+        const closeButton = lightboxEl.querySelector<HTMLElement>("button");
+        (closeButton ?? lightboxEl).focus({ preventScroll: true });
+    });
+
     /** TTS 朗读（Web Speech，防御式） */
     function speakText(text: string) {
         activeUtterance = speakReviewText(text, eff());
@@ -1555,9 +1568,8 @@
         if (sessionPaused) return;
         if (zoomedImage) {
             if (e.key === "Escape") {
-                zoomedImage = null;
+                closeZoomedImage();
                 e.preventDefault();
-                returnFocus();
             }
             return;
         }
@@ -2702,9 +2714,11 @@
         <div
             class="lv-img-lightbox lv-glass"
             role="dialog"
+            aria-modal="true"
             aria-label="图片全屏聚焦预览"
             tabindex="-1"
-            onclick={() => (zoomedImage = null)}
+            bind:this={lightboxEl}
+            onclick={closeZoomedImage}
         >
             <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
             <div class="lv-img-lightbox-content" onclick={(e) => e.stopPropagation()}>
@@ -2713,7 +2727,7 @@
                     type="button"
                     class="b3-button b3-button--small lv-img-lightbox-close"
                     aria-label={window.siyuan.languages.cancel ?? "关闭"}
-                    onclick={() => (zoomedImage = null)}
+                    onclick={closeZoomedImage}
                 >✕</button>
             </div>
         </div>

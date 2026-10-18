@@ -20,6 +20,17 @@ describe("LvSegmented", () => {
         expect(radios[1].textContent).toContain("三档");
     });
 
+    it("使用 radio 的 roving tabindex，箭头移动焦点并触发下一项", async () => {
+        const onchange = vi.fn();
+        const { container } = render(LvSegmented, { options, value: "three", onchange });
+        const radios = [...container.querySelectorAll<HTMLButtonElement>("[role=radio]")];
+        expect(radios.map((radio) => radio.tabIndex)).toEqual([-1, 0]);
+        radios[1].focus();
+        await fireEvent.keyDown(radios[1], { key: "ArrowLeft" });
+        expect(onchange).toHaveBeenCalledWith("four");
+        expect(document.activeElement).toBe(radios[0]);
+    });
+
     it("点击不同项触发 onchange 并携带该值；点击当前项不触发", async () => {
         const onchange = vi.fn();
         const { container } = render(LvSegmented, { options, value: "four", onchange });
