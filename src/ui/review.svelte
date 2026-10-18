@@ -801,7 +801,7 @@
                 return;
             }
             const options = shuffle(built);
-            choices = { options, answerIdx: options.indexOf(answer.trim()), picked: null };
+            choices = { options, answerIdx: options.indexOf(built[0]), picked: null };
             choiceFallbackMode = "none";
         } catch {
             if (seq === choiceRequestSeq && current?.cardID === cardID) {

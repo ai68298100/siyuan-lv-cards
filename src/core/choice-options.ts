@@ -1,3 +1,20 @@
+const INVISIBLE_RE = /[\u0000-\u001f\u007f-\u009f\u200b-\u200d\u2060\ufeff]/g;
+
+/**
+ * Clean and normalize a choice option string:
+ * - strips zero-width / control characters
+ * - normalizes non-breaking spaces (\u00a0) and collapses redundant whitespace
+ * - trims leading and trailing whitespace
+ */
+export function cleanChoiceText(raw: string): string {
+    if (!raw) return "";
+    return String(raw)
+        .replace(INVISIBLE_RE, "")
+        .replace(/\u00a0/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+}
+
 /**
  * Build multiple-choice options from one answer and candidate distractors.
  *
@@ -7,14 +24,14 @@
  * fabricated placeholder text.
  */
 export function buildChoiceOptions(answer: string, candidates: readonly string[]): string[] | null {
-    const normalizedAnswer = answer.trim();
+    const normalizedAnswer = cleanChoiceText(answer);
     if (!normalizedAnswer) {
         return null;
     }
     const seen = new Set<string>([normalizedAnswer]);
     const distractors: string[] = [];
     for (const candidate of candidates) {
-        const value = candidate.trim();
+        const value = cleanChoiceText(candidate);
         if (!value || seen.has(value)) {
             continue;
         }
