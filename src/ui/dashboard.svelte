@@ -520,9 +520,9 @@
             // BJ-1：能力分布（可选 ctx；无实例返回空数组→区块隐藏）
             koStats = ctx.getCapabilityShare?.() ?? null;
             errStats = ctx.getErrorReasonStats?.() ?? null;
-            dueCount = due.unreviewedCount;
-            ctx.onDueCount?.(due.unreviewedCount);
-            newCount = due.unreviewedNewCardCount;
+            dueCount = due?.unreviewedCount ?? 0;
+            ctx.onDueCount?.(dueCount);
+            newCount = due?.unreviewedNewCardCount ?? 0;
             const sess = ctx.getSessionState?.();
             const d = new Date();
             const localToday = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -631,7 +631,7 @@
         <!-- AR-5：写入中禁点；失败原因就近展示（报告可重试，草稿不丢） -->
         <button class="b3-button b3-button--small lv-btn-ghost" disabled={writeBusy || (loading && !hasLoadedSnapshot)} title={writeError || undefined} onclick={writeDocReport}>{writeBusy ? "…" : t.dashboard.writeDoc}</button>
         <button class="b3-button b3-button--small lv-btn-ghost" onclick={() => ctx.openManager()}>{t.menuManager}</button>
-        <button class="b3-button b3-button--small lv-btn-ghost" disabled={loading} onclick={refresh}>{loading ? t.dashboard.loading : t.dashboard.refresh}</button>
+        <button class="b3-button b3-button--small lv-btn-ghost" data-testid="dashboard-refresh-btn" disabled={loading} onclick={refresh}>{loading ? t.dashboard.loading : t.dashboard.refresh}</button>
     {/snippet}
 
     {#if writeError}

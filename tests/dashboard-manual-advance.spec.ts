@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/svelte";
+import { cleanup, fireEvent, render, screen } from "@testing-library/svelte";
 import Dashboard from "@/ui/dashboard.svelte";
 import i18n from "../public/i18n/zh-CN.json";
 import { emptyRevlog } from "@/core/revlog";
@@ -10,11 +10,25 @@ const mocks = vi.hoisted(() => ({
     calcDue: vi.fn(),
     getFlashcardStatistics: vi.fn(),
     kernelRead: vi.fn(),
+    dueCacheGet: vi.fn(),
+    dueCacheSet: vi.fn(),
+    dueCacheClear: vi.fn(),
+}));
+
+vi.mock("../src/api/riff", () => ({
+    getRiffDecks: (...args: unknown[]) => mocks.getRiffDecks(...args),
+    getRiffCards: (...args: unknown[]) => mocks.getRiffCards(...args),
+}));
+
+vi.mock("../src/api/due-shared", () => ({
+    dueCache: {
+        get: (...args: unknown[]) => mocks.dueCacheGet(...args),
+        set: (...args: unknown[]) => mocks.dueCacheSet(...args),
+        clear: (...args: unknown[]) => mocks.dueCacheClear(...args),
+    },
 }));
 
 vi.mock("@/api/siyuan", () => ({
-    getRiffDecks: (...args: unknown[]) => mocks.getRiffDecks(...args),
-    getRiffCards: (...args: unknown[]) => mocks.getRiffCards(...args),
     getFlashcardStatistics: (...args: unknown[]) => mocks.getFlashcardStatistics(...args),
     kernelRead: (...args: unknown[]) => mocks.kernelRead(...args),
 }));
@@ -37,6 +51,10 @@ describe("Dashboard manual advance 与中心页并发刷新请求顺序防护（
     let sessionFinishedCallbacks: Array<() => void> = [];
     let reviewedCallbacks: Array<() => void> = [];
 
+    const notifySessionFinished = () => {
+        for (const cb of sessionFinishedCallbacks) cb();
+    };
+
     beforeEach(() => {
         vi.useFakeTimers();
         sessionFinishedCallbacks = [];
@@ -47,15 +65,20 @@ describe("Dashboard manual advance 与中心页并发刷新请求顺序防护（
         mocks.calcDue.mockReset();
         mocks.getFlashcardStatistics.mockReset();
         mocks.kernelRead.mockReset();
+        mocks.dueCacheGet.mockReset();
+        mocks.dueCacheSet.mockReset();
+        mocks.dueCacheClear.mockReset();
 
+        mocks.dueCacheGet.mockResolvedValue({ unreviewedCount: 0, unreviewedNewCardCount: 0 });
         mocks.getRiffDecks.mockResolvedValue([]);
-        mocks.getRiffCards.mockResolvedValue({ total: 0, blocks: [] });
+        mocks.getRiffCards.mockResolvedValue({ total: 0, blocks: [], pageCount: 1 });
         mocks.calcDue.mockReturnValue({ dueCards: [], leechCards: [] });
         mocks.getFlashcardStatistics.mockResolvedValue([]);
         mocks.kernelRead.mockResolvedValue({ code: 0, data: {} });
     });
 
     afterEach(() => {
+        cleanup();
         vi.restoreAllMocks();
     });
 
@@ -66,6 +89,22 @@ describe("Dashboard manual advance 与中心页并发刷新请求顺序防护（
         getReviewedDocCount: () => 0,
         getTodayDeckSummaries: () => [],
         calcCoverage: () => ({ reviewedDocs: 0, totalDocs: 0, coveragePct: 0 }),
+        getV2Status: () => null,
+        getDailyTargets: () => ({ new: 20, review: 50 }),
+        openReview: vi.fn(),
+        openManager: vi.fn(),
+        openManagerDeck: vi.fn(),
+        openOnboarding: vi.fn(),
+        openQuickCard: vi.fn(),
+        getAIBatches: () => [],
+        getLeechCards: () => [],
+        rewriteWithAI: vi.fn(),
+        writeReportDoc: vi.fn(async () => undefined),
+        getExamCountdown: () => null,
+        getXpEnabled: () => false,
+        getHeatmapWeeks: () => 4,
+        getSuspendedCount: () => 0,
+        restoreSuspendedToday: vi.fn(async () => 0),
         onReviewed: (cb: () => void) => {
             reviewedCallbacks.push(cb);
             return () => {
@@ -78,99 +117,90 @@ describe("Dashboard manual advance 与中心页并发刷新请求顺序防护（
                 sessionFinishedCallbacks = sessionFinishedCallbacks.filter((c) => c !== cb);
             };
         },
-        openReview: vi.fn(),
-        openManager: vi.fn(),
-        openOnboarding: vi.fn(),
         getCustomDecks: () => [],
-        getV2Status: () => false,
         getLearningTargets: () => ({ new: 20, review: 50 }),
         ...overrides,
     });
 
-    it("手动推进刷新（Manual Advance）：连续点击刷新时推进代次，旧响应不覆盖新卡组数据", async () => {
+    it("手动推进刷新（Manual Advance）：手动刷新与 session-finished 并发推进代次，旧响应不覆盖新卡组数据", async () => {
         const deferredMount = deferred<unknown[]>();
-        const deferredManual1 = deferred<unknown[]>();
-        const deferredManual2 = deferred<unknown[]>();
+        const deferredManual = deferred<unknown[]>();
+        const deferredSession = deferred<unknown[]>();
 
         mocks.getRiffDecks
             .mockReturnValueOnce(deferredMount.promise)
-            .mockReturnValueOnce(deferredManual1.promise)
-            .mockReturnValueOnce(deferredManual2.promise);
+            .mockReturnValueOnce(deferredManual.promise)
+            .mockReturnValueOnce(deferredSession.promise);
 
-        const view = render(Dashboard, { ctx: makeCtx() });
+        render(Dashboard, { ctx: makeCtx() });
         // 挂载初次加载完成
         deferredMount.resolve([{ id: "d-init", name: "初始阶段卡组", size: 10 }]);
-        await vi.advanceTimersByTimeAsync(0);
+        await vi.advanceTimersByTimeAsync(10);
 
         expect(screen.getByText("初始阶段卡组")).toBeTruthy();
 
-        // 找到手动刷新按钮并点击，触发 manual advance generation 1
-        const refreshBtn = screen.getByRole("button", { name: i18n.dashboard.refresh });
+        // 找到主刷新按钮并点击，触发第 1 次手动推进
+        const refreshBtn = screen.getByTestId("dashboard-refresh-btn");
         await fireEvent.click(refreshBtn);
         expect(mocks.getRiffDecks).toHaveBeenCalledTimes(2);
 
-        // 在第 1 次手动推进尚未响应完成时，立即再次点击手动推进，触发 manual advance generation 2
-        await fireEvent.click(refreshBtn);
+        // 在第 1 次手动推进尚未响应完成时，后台 session-finished 事件并发到达，推进生成第 2 代次请求
+        notifySessionFinished();
         expect(mocks.getRiffDecks).toHaveBeenCalledTimes(3);
 
-        // 第 1 次响应带着陈旧数据晚到并 resolve
-        deferredManual1.resolve([{ id: "d-stale", name: "过时慢响应卡组", size: 5 }]);
-        await vi.advanceTimersByTimeAsync(0);
+        // 第 1 次手动推进带着陈旧数据晚到并 resolve
+        deferredManual.resolve([{ id: "d-stale", name: "过时慢响应卡组", size: 5 }]);
+        await vi.advanceTimersByTimeAsync(10);
 
         // 验证：界面上绝不出现过时慢响应的卡组内容
         expect(screen.queryByText("过时慢响应卡组")).toBeNull();
 
-        // 第 2 次（最新世代）响应正常到达并 resolve
-        deferredManual2.resolve([{ id: "d-latest", name: "最新推进卡组", size: 99 }]);
-        await vi.advanceTimersByTimeAsync(0);
+        // 第 2 次（最新 session 推进世代）响应到达并 resolve
+        deferredSession.resolve([{ id: "d-latest", name: "最新推进卡组", size: 99 }]);
+        await vi.advanceTimersByTimeAsync(10);
 
         // 验证：最新世代数据成功采纳展示
         expect(screen.getByText("最新推进卡组")).toBeTruthy();
-
-        view.unmount();
     });
 
     it("故障隔离：过时代次的慢请求发生异常时，绝不覆盖当前成功展示的数据与更新时间", async () => {
         const deferredMount = deferred<unknown[]>();
         const deferredManualFail = deferred<unknown[]>();
-        const deferredManualSuccess = deferred<unknown[]>();
+        const deferredSessionSuccess = deferred<unknown[]>();
 
         mocks.getRiffDecks
             .mockReturnValueOnce(deferredMount.promise)
             .mockReturnValueOnce(deferredManualFail.promise)
-            .mockReturnValueOnce(deferredManualSuccess.promise);
+            .mockReturnValueOnce(deferredSessionSuccess.promise);
 
-        const view = render(Dashboard, { ctx: makeCtx() });
+        render(Dashboard, { ctx: makeCtx() });
         deferredMount.resolve([{ id: "d-ok", name: "稳定就绪卡组", size: 25 }]);
-        await vi.advanceTimersByTimeAsync(0);
+        await vi.advanceTimersByTimeAsync(10);
 
         expect(screen.getByText("稳定就绪卡组")).toBeTruthy();
 
-        const refreshBtn = screen.getByRole("button", { name: i18n.dashboard.refresh });
+        const refreshBtn = screen.getByTestId("dashboard-refresh-btn");
         // 第一次手动刷新
         await fireEvent.click(refreshBtn);
-        // 并发第二次手动刷新
-        await fireEvent.click(refreshBtn);
+        // 并发 session-finished 推进新世代
+        notifySessionFinished();
 
         // 第一次请求失败（如网络超时或内核锁）
         deferredManualFail.reject(new Error("Network timeout on old generation"));
-        await vi.advanceTimersByTimeAsync(0);
+        await vi.advanceTimersByTimeAsync(10);
 
         // 验证：由于该错误属于已落后的代次，界面保留原有稳定状态，不显示错误警告横幅
         expect(screen.queryByText(/Network timeout/i)).toBeNull();
         expect(screen.getByText("稳定就绪卡组")).toBeTruthy();
 
         // 第二次请求正常返回
-        deferredManualSuccess.resolve([{ id: "d-ok-2", name: "二次更新卡组", size: 30 }]);
-        await vi.advanceTimersByTimeAsync(0);
+        deferredSessionSuccess.resolve([{ id: "d-ok-2", name: "二次更新卡组", size: 30 }]);
+        await vi.advanceTimersByTimeAsync(10);
 
         expect(screen.getByText("二次更新卡组")).toBeTruthy();
-
-        view.unmount();
     });
 
     it("慢面板（深度统计与知识覆盖率）晚于下一次手动推进到达时被安全丢弃", async () => {
-        const deferredMount = deferred<unknown[]>();
         const deferredDocCovOld = deferred<{ reviewedDocs: number; totalDocs: number; coveragePct: number }>();
 
         mocks.getRiffDecks.mockResolvedValue([{ id: "d1", name: "核心卡组", size: 10 }]);
@@ -186,21 +216,19 @@ describe("Dashboard manual advance 与中心页并发刷新请求顺序防护（
             },
         });
 
-        const view = render(Dashboard, { ctx });
-        await vi.advanceTimersByTimeAsync(0);
+        render(Dashboard, { ctx });
+        await vi.advanceTimersByTimeAsync(10);
 
         // 手动推进触发新世代
-        const refreshBtn = screen.getByRole("button", { name: i18n.dashboard.refresh });
+        const refreshBtn = screen.getByTestId("dashboard-refresh-btn");
         await fireEvent.click(refreshBtn);
-        await vi.advanceTimersByTimeAsync(0);
+        await vi.advanceTimersByTimeAsync(10);
 
         // 此时第一世代慢面板的旧数据才返回
         deferredDocCovOld.resolve({ reviewedDocs: 1, totalDocs: 100, coveragePct: 1 });
-        await vi.advanceTimersByTimeAsync(0);
+        await vi.advanceTimersByTimeAsync(10);
 
         // 验证：组件未崩溃且旧的 1% 覆盖率不会冲掉最新状态
         expect(screen.getByText("核心卡组")).toBeTruthy();
-
-        view.unmount();
     });
 });
