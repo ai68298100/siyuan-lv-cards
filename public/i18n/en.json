@@ -1603,6 +1603,840 @@
             "lifecycle": "Preserves: content lifecycle trail"
         }
     },
+    "returnSimulation": {
+        "title": "Return impact read-only simulation",
+        "subtitle": "Compare 5 return strategies, quantify workload & schedule impact; kernel is untouched before confirm",
+        "reason": {
+            "normal": "Light backlog and short absence: standard review recommended",
+            "backlogRelief": "Large backlog or long absence: narrow scope recommended to ease cognitive burden",
+            "defects": "Outdated materials or broken card syntax detected: maintenance first to protect memory integrity",
+            "rebuildRestart": "Extended absence with massive backlog: smooth restart with ramp-up seed batch recommended",
+            "phaseArchived": "Finished exam phases or completed goals detected: archive phase to remove awakening load"
+        },
+        "strategy": {
+            "continueOld": {
+                "name": "Continue old plan",
+                "desc": "Face all due cards as scheduled; fastest way to clear backlog when energy is high",
+                "recommendedFor": "Short absence (<=7d), small backlog, and no defective cards"
+            },
+            "narrowScope": {
+                "name": "Narrow scope relief",
+                "desc": "Set a small budget (e.g. 15 cards) for today; remaining cards stay quietly in queue",
+                "recommendedFor": "Large backlog (>100 cards) or long absence"
+            },
+            "maintenanceFirst": {
+                "name": "Maintenance first",
+                "desc": "Pause normal review today; repair broken syntax and stale sources first to guard memory",
+                "recommendedFor": "Defective cards, stale sources, or pending revisions detected"
+            },
+            "archivePhase": {
+                "name": "Phase archive",
+                "desc": "Archive finished course/goal decks to exclude them from daily due queue; unarchive anytime",
+                "recommendedFor": "Completed exam goals or finished project decks"
+            },
+            "rebuildFresh": {
+                "name": "Smooth rebuild plan",
+                "desc": "Preserve kernel due/revlog history, reset today's session scene, restart with seed batch",
+                "recommendedFor": "Very long absence (>30d) with severe backlog"
+            }
+        },
+        "change": {
+            "none": "No changes: full original queue and schedule preserved",
+            "sessionCap": "Session slice: today quota only, remainder kept in queue",
+            "divertToMaint": "Scene divert: today learning guided to maintenance workbench",
+            "phaseArchive": "Phase archive: mark selected decks archived, unarchivable anytime"
+        },
+        "risk": {
+            "overload": "High cognitive overload warning: reviewing too many cards at once causes fatigue",
+            "fatigue": "Moderate fatigue notice: large card count today, take breaks in between",
+            "archivedHidden": "Archive notice: archived decks won't trigger due alerts until unarchived",
+            "sessionReset": "Reset notice: resets today session scene with ramp-up batch; kernel history untouched"
+        },
+        "batch": {
+            "prepared": "Simulation plan ready for confirmation",
+            "applied": "Return strategy batch applied",
+            "reverted": "Return strategy batch reverted safely",
+            "undoTitle": "Revert return adjustments",
+            "undoDesc": "Restore session scope and card states to pre-simulation state"
+        }
+    },
+    "auditLog": {
+        "title": "User Audit Log",
+        "subtitle": "Inspectable time, source & result; secrets and sensitive bodies masked automatically",
+        "category": {
+            "create": "Card creation",
+            "rating": "Review rating",
+            "reschedule": "Rescheduling",
+            "import": "Content import",
+            "export": "Data export",
+            "integration": "Ecosystem bridge",
+            "delete": "Delete & remove",
+            "restore": "Restore & revert",
+            "automation": "Automation rule"
+        },
+        "source": {
+            "ui": "UI action",
+            "shortcut": "Keyboard shortcut",
+            "commandPalette": "Command palette",
+            "aiWizard": "AI wizard",
+            "ecosystemBridge": "Ecosystem bridge",
+            "maintenance": "Maintenance hub",
+            "automation": "Automation engine"
+        },
+        "result": {
+            "success": "Success",
+            "failure": "Failure",
+            "cancelled": "Cancelled"
+        },
+        "export": {
+            "json": "Export masked JSON",
+            "csv": "Export audit CSV",
+            "empty": "No audit records found in current filter"
+        }
+    },
+    "learningOutcome": {
+        "title": "Learning Outcome Claim & Readiness",
+        "subtitle": "Honest assessment across recall, explanation and application evidence; no exaggeration",
+        "status": {
+            "achieved": "Goal achieved",
+            "partial": "Partially achieved",
+            "insufficient": "Insufficient evidence",
+            "unknown": "Status unknown"
+        },
+        "reason": {
+            "allMet": "Recall, explanation, and application evidence all met configured thresholds",
+            "partiallyMet": "Some evidence dimensions met, but key areas remain unverified",
+            "belowThresholds": "Evidence quantity is below minimum thresholds, further study needed",
+            "noEvidence": "No valid recent practice or application evidence found"
+        },
+        "gap": {
+            "needRecall": "Recall reviews recommended to solidify foundational memory",
+            "needExplanation": "Concept explanation and rubric self-recitation recommended",
+            "needApplication": "Practical problem-solving or scenario application recommended"
+        },
+        "prereq": {
+            "ready": "Prerequisites solidly verified, ready for advanced learning",
+            "hasGaps": "Gaps detected in prerequisite concept evidence; review recommended",
+            "missingAll": "No learning evidence found for this prerequisite concept",
+            "insufficient": "Prerequisite evidence below threshold, foundation may be weak",
+            "notAchieved": "Prerequisite not yet achieved; you may consciously bypass if needed"
+        }
+    },
+    "consentCenter": {
+        "title": "Automation & Permission Consent Center",
+        "subtitle": "Centrally manage AI, media, notifications, bridge and sharing permissions; clear data scope with one-click revocation",
+        "status": {
+            "granted": "Granted",
+            "revoked": "Revoked",
+            "unprompted": "Unconfirmed"
+        },
+        "action": {
+            "grant": "Grant permission",
+            "revoke": "Revoke permission",
+            "revokedTip": "Permission revoked; related external requests and automations are strictly blocked"
+        },
+        "cap": {
+            "aiGeneration": {
+                "name": "AI card generation & analysis",
+                "desc": "Allow AI models in the wizard for card splitting, generation, and quality evaluation",
+                "scope": "Selected note text excerpts, card prompts and answers (keys isolated locally, never whole vault)"
+            },
+            "mediaProcessing": {
+                "name": "Local media & voice processing",
+                "desc": "Allow reading document images for occlusion cards, and calling local Web Audio / TTS for pronunciation",
+                "scope": "Local asset file references, pronunciation text (purely local, no network transmission)"
+            },
+            "systemNotification": {
+                "name": "Study reminders & system alerts",
+                "desc": "Send SiYuan system notification bubbles on daily due or critical milestones",
+                "scope": "Due card counts, study goal progress summaries (no private note bodies)"
+            },
+            "ecosystemBridge": {
+                "name": "Cross-plugin ecosystem window bridge",
+                "desc": "Allow ecosystem plugins (e.g. Lv Exam, Check-in) to read study status via window.__LV_CARDS_API__",
+                "scope": "Deck summaries, today due count, and review event broadcasting (controlled read-only API)"
+            },
+            "contentSharing": {
+                "name": "Flashcard sharing & package import/export",
+                "desc": "Allow generating and parsing .lvcards sharing packages and importing/exporting data",
+                "scope": "Prompts, answers, tags, and memo attributes of selected decks (local file I/O)"
+            },
+            "cloudSync": {
+                "name": "Cloud multi-device data sync",
+                "desc": "Allow synchronizing review progress and learning goals across multiple devices",
+                "scope": "revlog study history, card state metadata (end-to-end encrypted & local-first)"
+            },
+            "contactIntegration": {
+                "name": "Study contacts & peer integration",
+                "desc": "Support recording study interactions, joint exam progress, and knowledge sharing notes",
+                "scope": "Study contact tags, interaction timestamps, and memo notes"
+            }
+        }
+    },
+    "explainability": {
+        "title": "Suggestion Explanation Panel",
+        "subtitle": "Clearly state inputs, rules, AI usage, and kernel impact; fully transparent and controllable",
+        "impact": {
+            "none": "No impact: completely read-only advice, no native data or schedule modified",
+            "sessionOnly": "Session slice: adjusts today's quota only, kernel native schedule remains untouched",
+            "confirmReschedule": "Pending confirm: modifies native due date only after explicit user confirmation"
+        },
+        "reject": {
+            "notHelpful": "Current suggestion does not fit my actual study rhythm",
+            "wrongContext": "Context facts are inaccurate or outdated",
+            "preferManual": "I prefer to organize the upcoming study schedule manually"
+        },
+        "action": {
+            "view": "View evidence",
+            "accept": "Accept suggestion",
+            "reject": "Reject suggestion",
+            "modify": "Modify & accept",
+            "copy": "Copy explanation report"
+        }
+    },
+    "intentNav": {
+        "title": "Intent-Driven Feature Navigation",
+        "subtitle": "Search capabilities by 'memorize, understand, apply, maintain'; available, prerequisite-needed and alternatives clearly layered",
+        "intent": {
+            "memorize": "I want to memorize",
+            "understand": "I want to understand",
+            "apply": "I want to apply",
+            "maintain": "I want to maintain"
+        },
+        "status": {
+            "available": "Immediately available",
+            "prerequisiteNeeded": "Prerequisites needed first",
+            "subsequent": "Advanced learning feature",
+            "alternative": "Offline/manual alternative"
+        },
+        "prereq": {
+            "needDueCards": "No due cards today; explore cards from Library or Inbox",
+            "needCardsInDeck": "Current deck has no cards; add cards before starting drills"
+        },
+        "alt": {
+            "manualSplit": "Use '==Cloze==' or manual QA to split long notes into atomic cards",
+            "manualBidiCard": "Create bidirectional cards or comparison tables manually",
+            "hintLadder": "Use the built-in hint ladder during review for self-derivation",
+            "leechRewriteManual": "Edit card prompts directly in Maintenance to eliminate ambiguity"
+        },
+        "feature": {
+            "quickQa": {
+                "name": "Quick QA card maker",
+                "desc": "Quickly create single-assertion flashcards in minimal question-answer format"
+            },
+            "cloze": {
+                "name": "Note cloze deletion",
+                "desc": "Highlight keywords with ==cloze== in SiYuan notes to generate flashcards automatically"
+            },
+            "occlusion": {
+                "name": "Image occlusion card maker",
+                "desc": "Add occlusion masks on diagrams, flowcharts, or maps to test spatial memory"
+            },
+            "focusReview": {
+                "name": "Focus review",
+                "desc": "Native FSRS spaced-repetition anti-forgetting review with 4-level rating"
+            },
+            "typeInDrill": {
+                "name": "Type-in drill",
+                "desc": "Type exact answer spelling with character-level diff, great for languages"
+            },
+            "atomicSplit": {
+                "name": "Atomic fact split",
+                "desc": "AI-assisted breakdown of complex notes into independent atomic facts"
+            },
+            "wordSense": {
+                "name": "Word sense variants",
+                "desc": "Disambiguate polysemy and easily confused concepts with clear boundary clues"
+            },
+            "relationsMap": {
+                "name": "Card relations graph",
+                "desc": "Establish semantic links including prerequisites, counterexamples, and variants"
+            },
+            "socraticCoach": {
+                "name": "Socratic coach guide",
+                "desc": "Deepen concept understanding through progressive heuristic questioning"
+            },
+            "timedChallenge": {
+                "name": "Timed challenge mode",
+                "desc": "High-pressure rapid recall drill to sharpen retrieval speed"
+            },
+            "pairingGame": {
+                "name": "Concept pairing game",
+                "desc": "Drag and match concepts with explanations, ideal for pre-exam warm-up"
+            },
+            "examSprint": {
+                "name": "Exam sprint plan",
+                "desc": "Target specific exam dates with daily goals and dynamic recommendations"
+            },
+            "errorProbe": {
+                "name": "Error cause probe",
+                "desc": "Deeply examine misconceptions and root causes behind incorrect answers"
+            },
+            "maintenanceHub": {
+                "name": "Maintenance debt hub",
+                "desc": "Centrally review duplicate cards, prompt leaks, stale notes, and broken media"
+            },
+            "returnSim": {
+                "name": "Return read-only simulation",
+                "desc": "Quantitatively evaluate 5 return strategies and workload after absence"
+            },
+            "auditLog": {
+                "name": "User audit log",
+                "desc": "Inspect all critical operations with automatic privacy masking & export"
+            },
+            "consentCenter": {
+                "name": "Permission & consent center",
+                "desc": "Centrally manage AI, media, notifications, and cross-plugin bridge permissions"
+            }
+        }
+    },
+    "reportWriter": {
+        "title": "Study Report Writer",
+        "busy": "Writing report document, please wait…",
+        "busyRejected": "Another report is currently being written; please do not double-click",
+        "success": "Report document created and opened successfully",
+        "draftRetained": "Write incomplete; report draft safely retained, retry anytime",
+        "error": {
+            "noNotebook": "No usable notebook found; please open or create a notebook in SiYuan first",
+            "permissionDenied": "Target notebook is read-only or permission is insufficient to write",
+            "syncing": "SiYuan is synchronizing or notebook is locked; please try again later",
+            "timeout": "Report write request timed out; draft has been preserved",
+            "networkFailure": "Kernel communication failure; please check SiYuan kernel status",
+            "unknown": "Unknown error occurred while writing report; draft preserved"
+        },
+        "action": {
+            "retry": "Retry using draft",
+            "discardDraft": "Discard draft",
+            "openDoc": "Open generated document"
+        }
+    },
+    "cardFaceFallback": {
+        "title": "Rich Content Safe Fallback",
+        "formula": {
+            "title": "LaTeX Math formula parsing error",
+            "desc": "Formula rendering encountered a format issue; prompt safe, open source block to verify"
+        },
+        "media": {
+            "title": "Media asset not loaded",
+            "desc": "Referenced image or media is temporarily unavailable; retry or inspect source"
+        },
+        "embed": {
+            "title": "Embedded block unavailable",
+            "desc": "Referenced embed block or child view failed to render; view in native note"
+        },
+        "code": {
+            "title": "Code block layout protected",
+            "desc": "Code structure detected; horizontal safe wrapping and keyboard scroll enabled"
+        },
+        "table": {
+            "title": "Wide table layout contained",
+            "desc": "Table width exceeds viewport; horizontal keyboard scroll navigation supported"
+        },
+        "load": {
+            "title": "Card content load timed out",
+            "desc": "Slow kernel communication; queue position preserved, retry or skip"
+        },
+        "generic": {
+            "title": "Card face safely degraded",
+            "desc": "Encountered complex syntax or layout anomaly; view protected against white-screen"
+        },
+        "scroll": {
+            "code": "Code area can be navigated horizontally using arrow keys or swiping",
+            "table": "Table area supports horizontal keyboard navigation or swiping"
+        },
+        "action": {
+            "openSource": "Open in notes",
+            "retryLoad": "Retry loading",
+            "skipCard": "Skip card",
+            "reportIssue": "Mark for repair"
+        }
+    },
+    "scopePreset": {
+        "title": "Review Scope Preset",
+        "subtitle": "Support base, context, and session 3-layer composition; switch scopes without losing progress",
+        "builtin": {
+            "all": "All due cards (default)",
+            "quickDue": "Text quick QA",
+            "occlusionFocus": "Image occlusion focus",
+            "examCore": "Exam core & high-frequency points"
+        },
+        "layer": {
+            "base": "Global default scope",
+            "context": "Context scope (active note/notebook)",
+            "session": "Session temporary scope (highest priority)"
+        },
+        "fallback": {
+            "emptyFiltered": "No cards matched current temporary filter, automatically fell back to base scope"
+        }
+    },
+    "loadLedger": {
+        "title": "Learning Load & Cost Ledger",
+        "subtitle": "Independently account for 6 lifecycle learning costs, identify cognitive overload, and provide targeted relief",
+        "phase": {
+            "capture": "Material capture",
+            "comprehend": "Deep comprehension",
+            "author": "Card authoring",
+            "review": "Spaced review",
+            "apply": "Practical application",
+            "maintain": "Maintenance"
+        },
+        "level": {
+            "low": "Light & on track",
+            "medium": "Moderate burden",
+            "high": "Cognitive overload",
+            "critical": "Rote memorization sink"
+        },
+        "reason": {
+            "blindMemorization": "Frequent reviews with high forget rate, but negligible comprehension effort; prone to rote sink",
+            "overloadedCard": "Average review time is exceptionally long with frequent maintenance; card may be overloaded or multi-prompted",
+            "heavyMaintenance": "Maintenance time exceeds 50% of total review time; verify source notes and stability",
+            "healthyMastery": "Efficient study rhythm with good retention and balanced cognitive load"
+        },
+        "action": {
+            "needComprehend": "Pause blind drills; revisit notes to map out core concepts and underlying logic",
+            "atomicSplit": "Split the long card into 2-3 single-assertion atomic cards to lower retrieval difficulty",
+            "reviewSource": "Verify whether source notes changed or broke, archive or rewrite if necessary",
+            "keepGoing": "Keep going with current rhythm"
+        }
+    },
+    "offlineQueue": {
+        "title": "Offline Action Queue",
+        "subtitle": "Safely queue operations during offline/disconnect, replay idempotently after recovery, strictly guard against overwrite conflicts",
+        "status": {
+            "pending": "Queued offline",
+            "replaying": "Replaying",
+            "completed": "Synchronized successfully",
+            "conflictBlocked": "Conflict detected, safely paused",
+            "failed": "Replay failed"
+        },
+        "conflict": {
+            "title": "Offline data conflicts with remote source",
+            "modifiedRemotely": "Remote note was modified during this period; last-write-wins is strictly forbidden",
+            "viewDiff": "View conflict diff",
+            "resolveForce": "Confirm and overwrite with local version",
+            "discard": "Discard offline action"
+        },
+        "summary": {
+            "empty": "Offline queue is empty, all local operations are aligned with kernel",
+            "stats": "Total ${total} actions (${pending} pending, ${conflict} conflicts pending resolution)"
+        }
+    },
+    "syncConflict": {
+        "title": "Multi-device Sync Conflict Wizard",
+        "subtitle": "Granular 3-way diff across devices; preserve dual-retention, support forking variants, strictly no blind overwrite",
+        "domain": {
+            "content": "Card content (prompt/answer/cloze)",
+            "personal": "Personal fields (mnemonic/notes/tags)",
+            "template": "Card template and item types",
+            "history": "Review history and schedule logs",
+            "plan": "Goal archive and exam plans",
+            "event": "Audit events and completion trail"
+        },
+        "strategy": {
+            "chooseLocal": "Keep local changes",
+            "chooseRemote": "Adopt remote sync",
+            "forkVariant": "Fork sibling card (retain both)",
+            "manualMerge": "Manual custom merge"
+        },
+        "status": {
+            "unresolved": "Pending resolution",
+            "resolved": "Arbitration completed",
+            "autoMerged": "Safely auto-merged"
+        },
+        "prompt": {
+            "baseline": "Common baseline version",
+            "local": "Local current version",
+            "remote": "Remote incoming version",
+            "notice": "Simultaneous modifications detected on the same field; select resolution strategy to proceed"
+        }
+    },
+    "onboardingSafe": {
+        "title": "Onboarding Bootstrap Guard",
+        "creating": "Preparing sample cards for you, please wait…",
+        "reusing": "Found previously prepared sample cards, reusing existing doc without duplication",
+        "readOnlyFallback": "No notebook selected or available; enabled read-only walkthrough demo mode",
+        "alreadyCompleted": "You have already completed the onboarding wizard; reset in Settings if needed"
+    },
+    "batchJob": {
+        "title": "Batch Job Center",
+        "subtitle": "Long-running imports, AI processing, media extraction and backups run in the background with real-time progress and retry",
+        "type": {
+            "importPackage": "Package data import",
+            "aiBatch": "AI batch card processing",
+            "mediaExtraction": "Media asset extraction & verification",
+            "versionDiff": "Full version diff comparison",
+            "exportBackup": "Full data backup export",
+            "maintenanceRepair": "Batch card repair"
+        },
+        "status": {
+            "pending": "Queued",
+            "running": "Running",
+            "paused": "Paused",
+            "completed": "Job completed",
+            "cancelled": "Cancelled by user",
+            "failed": "Job failed"
+        },
+        "action": {
+            "pause": "Pause job",
+            "resume": "Resume execution",
+            "cancel": "Cancel job",
+            "retryFailed": "Retry failed items only",
+            "clearDone": "Clear completed records"
+        },
+        "progress": "Completed ${processed}/${total} items (${success} succeeded, ${failure} failed, ${percentage}%)"
+    },
+    "recoveryDrill": {
+        "title": "Disaster Recovery Drill Center",
+        "subtitle": "Covers migration, undelete, upgrade failure; rigorously verifies ID, aggregation, history and linkage",
+        "scenario": {
+            "deviceMigration": "Device migration & replacement",
+            "accidentalDeletion": "Accidental deletion rollback",
+            "upgradeFailure": "Plugin upgrade failure snapshot fallback",
+            "syncConflict": "Multi-device sync corruption repair",
+            "mediaCorruption": "Missing media asset restoration"
+        },
+        "verdict": {
+            "safe": "Drill passed: high data integrity, no destructive overwrite risk",
+            "warningOverlap": "Local data overlap detected: full replace will overwrite local new cards, snapshot first",
+            "noDeletedFound": "No new cards found in backup: backup matches local card set completely"
+        },
+        "risk": {
+            "overwriteExistingLocal": "Local cards exist; full restore will overwrite current data with backup",
+            "noNovelCards": "No missing cards found in the backup package",
+            "brokenRelationsDetected": "Some card relations point to non-existent target entities; broken items flagged",
+            "largeTimeGap": "Backup timestamp differs from current by > 30 days, please verify progress difference"
+        },
+        "integrity": {
+            "idPassed": "ID format and uniqueness check passed",
+            "aggregation": "Card aggregation: current ${current} -> projected ${projected} cards",
+            "history": "Review log timespan verification completed",
+            "linkage": "Card prerequisites and semantic relations verified"
+        }
+    },
+    "systemHealth": {
+        "title": "Long-Running System Health Dashboard",
+        "subtitle": "Monitor 7 metrics including storage growth, failed writes, orphan sources and broken media, each supporting fix, ignore and export",
+        "grade": {
+            "optimal": "Optimal Health",
+            "good": "Good & On-track",
+            "fair": "Fair Attention",
+            "degraded": "Noticeable Issues"
+        },
+        "metric": {
+            "storageGrowth": {
+                "name": "Storage scale & growth",
+                "desc": "Monitor revlog entry count and private storage footprint to prevent unbounded growth"
+            },
+            "failedWrites": {
+                "name": "Residual failed writes",
+                "desc": "Scan for abandoned drafts and interrupted pending transactions"
+            },
+            "orphanSources": {
+                "name": "Orphan card sources",
+                "desc": "Identify cards whose original note blocks were deleted in SiYuan but remain in decks"
+            },
+            "brokenMedia": {
+                "name": "Broken media assets",
+                "desc": "Check whether local images or audio referenced by cards are 404 or missing"
+            },
+            "staleTemplates": {
+                "name": "Deprecated prompt templates",
+                "desc": "Identify decks using older deprecated prompt templates"
+            },
+            "unprocessedCandidates": {
+                "name": "Inbox candidate backlog",
+                "desc": "Count captured knowledge objects remaining unprocessed in Inbox for >14 days"
+            },
+            "pendingReassessments": {
+                "name": "Downstream cards pending reassessment",
+                "desc": "Identify cards needing reassessment due to prerequisite concept changes"
+            }
+        },
+        "action": {
+            "fix": "One-click remedy",
+            "ignore": "Ignore item",
+            "unignore": "Unignore item",
+            "export": "Export health checklist"
+        }
+    },
+    "learningAutomation": {
+        "title": "Rule-Based Learning Automation",
+        "subtitle": "Trigger suggested actions from notes and events; rules only generate staged proposals, never auto-rate or overwrite",
+        "rule": {
+            "sourceUpdated": {
+                "name": "Auto-propose recheck after note update",
+                "desc": "When SiYuan note changes, automatically propose rechecking affected flashcards"
+            },
+            "examLowScore": {
+                "name": "Focus scope review for low exam scores",
+                "desc": "When mock score is below threshold, automatically propose adding missed cards to review scope"
+            },
+            "leechSplit": {
+                "name": "Auto-propose atomic split for leech cards",
+                "desc": "When repeated forgetting threshold is reached, automatically propose splitting into atomic cards"
+            }
+        },
+        "status": {
+            "pending": "Pending user approval",
+            "approved": "Approved and adopted",
+            "rejected": "Rejected and ignored",
+            "adjusted": "Adopted after parameter adjustment"
+        },
+        "action": {
+            "approve": "Confirm execution",
+            "reject": "Reject proposal",
+            "adjust": "Adjust parameters",
+            "clearDone": "Clear resolved records"
+        }
+    },
+    "kernelGateway": {
+        "title": "Kernel Request Gateway",
+        "subtitle": "Unified dispatch, timeout circuit breaking & credential masking to keep UI-kernel boundary robust",
+        "error": {
+            "authFailed": "Kernel authentication failed, please verify API Token configuration",
+            "notFound": "Requested kernel endpoint does not exist or is unsupported in current version",
+            "timeout": "Kernel request timed out; call safely terminated",
+            "invalidPayload": "Request payload parameter validation failed",
+            "kernelError": "Kernel service returned a business error code",
+            "networkError": "Cannot connect to SiYuan kernel, please ensure SiYuan is running"
+        }
+    },
+    "reviewFeedback": {
+        "title": "Local Review Feedback & Issues",
+        "subtitle": "Flag problem cards directly during review, zero network telemetry, purely local maintenance workflow, never alters kernel schedule",
+        "type": {
+            "factualError": "Factual error in prompt/answer",
+            "duplicate": "Content duplicates another card",
+            "stale": "Outdated content needing update",
+            "tooHard": "Overly complex or ambiguous phrasing",
+            "customNote": "Temporary memo annotation"
+        },
+        "status": {
+            "unresolved": "Pending maintenance",
+            "resolved": "Repaired & resolved"
+        },
+        "action": {
+            "flag": "Flag this card",
+            "resolve": "Mark as resolved",
+            "clear": "Clear flag",
+            "clearAllResolved": "Clear all resolved",
+            "openInMaintenance": "Review in Maintenance Hub"
+        }
+    },
+    "dualAxisMatrix": {
+        "title": "Credibility & Mastery Dual-Axis Matrix",
+        "subtitle": "Decouple content reliability from memory mastery, expose rote traps of stale knowledge, honestly mark unknown",
+        "credibility": {
+            "high": "High Credibility",
+            "medium": "Medium Credibility",
+            "low": "Low / Suspect",
+            "unknown": "Credibility Unknown"
+        },
+        "mastery": {
+            "mastered": "Firmly Mastered",
+            "learning": "In Progress",
+            "struggling": "Frequent Forgetting",
+            "unknown": "Mastery Unknown"
+        },
+        "quadrant": {
+            "coreAsset": "Core Asset (High Credibility · High Mastery)",
+            "dangerousTrap": "Rote Trap (Low Credibility · High Mastery)",
+            "staleNoise": "Stale Noise (Low Credibility · Low Mastery)",
+            "promisingTarget": "Promising Target (High Credibility · Low Mastery)",
+            "uncalibrated": "Uncalibrated Area (Insufficient Evidence)"
+        },
+        "action": {
+            "maintainRhythm": "Maintain current spaced review rhythm",
+            "freezeAndRewrite": "Alert: knowledge is stale or suspect; freeze and rewrite immediately",
+            "deleteOrArchive": "Low-value content, recommended to delete or archive",
+            "focusDrill": "Reliable new knowledge, recommended for priority study",
+            "gatherEvidence": "Insufficient evidence, please complete reviews or verify note sources"
+        },
+        "reason": {
+            "healthyMastery": "Healthy sources and stable retention form high-quality memory assets",
+            "memorizedStaleKnowledge": "High fluency but source notes are outdated or conflicting; memorized incorrect content",
+            "worthlessNoise": "Neither retained nor backed by valid sources; pure cognitive noise",
+            "reliableTarget": "Highly reliable source but memory is early; most worthy target for effort",
+            "missingAxisData": "Insufficient review logs or source validation data, remaining neutral unknown"
+        }
+    },
+    "deviceMatrix": {
+        "title": "Cross-Platform Capability Matrix & Device Contract",
+        "subtitle": "Multi-device environmental awareness; unsupported features gracefully degrade or hide, strictly eliminating non-functional fake buttons, core review never blocked",
+        "support": {
+            "full": "Fully Supported",
+            "degraded": "Graceful Fallback",
+            "unsupported": "Unsupported on Current Device (Safely Hidden)"
+        },
+        "fallback": {
+            "useTouchButtons": "Touch device: keyboard shortcut hints hidden, full-sized touch rating buttons enabled",
+            "useKeyboardOrClick": "Desktop device: navigate with clicks or 1/2/3/4 number shortcuts",
+            "editOcclusionOnDesktop": "Narrow touch device: complex polygon drawing recommended on desktop; view-only review available here",
+            "useManualTemplates": "Offline environment: cloud AI buttons safely hidden, built-in manual templates supported",
+            "browserBlobDownload": "Web browser environment: degraded to standard browser download for data packages",
+            "noMicrophone": "No usable microphone detected; pronunciation recording hidden",
+            "horizontalKeyboardScroll": "Narrow mobile device: wide tables wrapped with horizontal keyboard scrolling support"
+        }
+    },
+    "strategyExperiment": {
+        "title": "Personal Learning Strategy Experiments",
+        "subtitle": "Side-car comparison of item types, hint dependencies and times of day on retention; strictly transparent sample sizes, never touches native FSRS",
+        "confidence": {
+            "reliable": "Sample size sufficient (n ≥ 20), conclusions possess high statistical reference value",
+            "insufficientSample": "Sample size small (n < 20), conclusions are for preliminary observation only",
+            "noData": "No review observation data in this dimension"
+        },
+        "timeSlot": {
+            "morning": "Morning Slot (05:00 - 11:59)",
+            "afternoon": "Afternoon Slot (12:00 - 17:59)",
+            "evening": "Prime Evening (18:00 - 22:59)",
+            "night": "Late Night (23:00 - 04:59)"
+        },
+        "hint": {
+            "none": "Independent recall without hints",
+            "subtle": "Weak hint (clue keyword)",
+            "direct": "Strong hint (direct preview of explanation)"
+        }
+    },
+    "agentCatalog": {
+        "title": "Agent Capability Catalog",
+        "subtitle": "Structured schemas for external agent tools, strictly bound to Consent Center permissions with zero private body leakage",
+        "tool": {
+            "getStats": {
+                "name": "Read learning & forgetting stats",
+                "desc": "Provides review counts, retention rates, and due trends in purely numerical aggregates"
+            },
+            "prepareCandidates": {
+                "name": "Prepare card candidate drafts",
+                "desc": "Invokes AI wizard to generate flashcard proposals (drafts only, user confirm required)"
+            },
+            "openScope": {
+                "name": "Mount review scope and navigate",
+                "desc": "Mounts specific knowledge tags or scoped preset queues for user review"
+            },
+            "exportReport": {
+                "name": "Export study review report",
+                "desc": "Generates standardized Markdown summary reports for exams or weekly reviews"
+            },
+            "queryHealth": {
+                "name": "Query system health metrics",
+                "desc": "Fetches storage scale, orphan cards, and media status diagnostic data"
+            },
+            "triageDebt": {
+                "name": "Query pending maintenance debt",
+                "desc": "Fetches ID lists of leeches and cards with syntax or prompt ambiguity"
+            }
+        },
+        "error": {
+            "toolNotFound": "Specified Agent tool capability not found",
+            "permissionDenied": "This capability is not authorized in Consent Center; call safely intercepted",
+            "missingRequiredParam": "Missing required parameter; invocation aborted",
+            "executionFailed": "Tool execution encountered an exception"
+        }
+    },
+    "userFeedbackLoop": {
+        "title": "Product Goals & User Feedback Loop",
+        "subtitle": "Associate high-frequency issues with user tasks and evidence; decouple usage, outcome and satisfaction",
+        "usage": {
+            "light": "Light Usage",
+            "moderate": "Moderate Usage",
+            "heavy": "Heavy Usage"
+        },
+        "outcome": {
+            "low": "Outcome Needs Work",
+            "medium": "Good Outcome",
+            "high": "High Outcome"
+        },
+        "nps": {
+            "promoter": "Promoter",
+            "passive": "Passive User",
+            "detractor": "Detractor",
+            "unknown": "Unrated"
+        },
+        "insight": {
+            "balancedGrowth": "Balanced growth between usage frequency and study outcomes",
+            "busyWithoutMastery": "Warning: high usage with low objective mastery; recommend reviewing card quality and study techniques",
+            "efficientTool": "Cost-effective lightweight tool: achieved high mastery with modest usage",
+            "frictionInWorkflow": "Target outcomes achieved but high workflow friction; optimize UX and accessibility"
+        }
+    },
+    "knowledgeFreshness": {
+        "title": "Knowledge Freshness & Mastery Decoupling",
+        "subtitle": "Distinguish factual obsolescence, version changes, goal ends from memory forgetting; zero forgetting penalty during protection, retain before-after diff",
+        "status": {
+            "fresh": "Fresh & On Track",
+            "contentStale": "Facts Outdated",
+            "versionChanged": "Version Changed",
+            "goalEnded": "Phase Goal Ended",
+            "sourceInvalid": "Source Note Invalid"
+        },
+        "reason": {
+            "contentStale": "Note content or objective facts are outdated; protected from forgetting penalties",
+            "versionChanged": "Knowledge version has evolved, diff verification recommended",
+            "goalEnded": "Associated exam or goal concluded; recommend archiving or lowering frequency",
+            "sourceInvalid": "Source note moved or deleted; relink source required",
+            "recalibrated": "Completed before-and-after revision, smoothly restored to regular review"
+        },
+        "action": {
+            "protect": "Enable obsolescence protection (no penalty on fail)",
+            "recalibrate": "Record new version (before-after diff)",
+            "viewDiff": "View before-after version diff"
+        }
+    },
+    "revisionInbox": {
+        "title": "Application Feedback Revision Inbox",
+        "subtitle": "Stage feedback when discovering missing constraints, misconceptions, or new examples; generate diff & evidence, update only after user approval",
+        "kind": {
+            "missingCondition": "Missing condition / boundary constraint",
+            "misconceptionFix": "Misconception correction",
+            "newExample": "New practical example / evidence"
+        },
+        "status": {
+            "staged": "Staged for approval",
+            "applied": "Applied & merged",
+            "rejected": "Rejected & discarded",
+            "customized": "Customized & adopted"
+        },
+        "diff": {
+            "title": "Before-and-after comparison diff",
+            "original": "Current prompt / answer",
+            "proposed": "Proposed prompt / answer",
+            "noChange": "(No change in this field)"
+        },
+        "action": {
+            "approve": "Confirm & apply revision",
+            "reject": "Discard revision",
+            "customize": "Manually edit before apply",
+            "viewEvidence": "View source task & evidence"
+        }
+    },
+    "pipelineMetrics": {
+        "title": "Stage-to-Stage Cognitive Pipeline Funnel",
+        "subtitle": "Track real conversion rates from capture through comprehend, recall, apply, maintain to transfer; strictly preserve denominators, no vanity metrics via streaks",
+        "stage": {
+            "capture": "Knowledge Capture",
+            "comprehend": "Deep Comprehension",
+            "recall": "Spaced Recall",
+            "apply": "Practical Application",
+            "maintain": "Maintenance",
+            "transfer": "Cross-Domain Transfer"
+        },
+        "reason": {
+            "notAttempted": "Not yet actively scheduled for learning",
+            "skippedDeliberately": "User deliberately skipped after evaluation",
+            "dependencyUnavailable": "Prerequisite concepts not met, transition blocked",
+            "tooDifficult": "Overloaded or too complex, creating cognitive barrier",
+            "staleAbandoned": "Knowledge outdated or goal ended, abandoned intentionally",
+            "unknown": "Dropoff reason not sufficiently recorded"
+        },
+        "bottleneck": {
+            "captureToComprehend": "Major drop-off in capture→comprehend: fragmented notes collected but never digested",
+            "comprehendToRecall": "Major drop-off in comprehend→recall: understood but no flashcards created to build anti-forgetting connection",
+            "recallToApply": "Major drop-off in recall→apply: can recite concepts but lacks problem/practice verification",
+            "applyToMaintain": "Major drop-off in apply→maintain: errors and new conditions discovered in practice not fed back into card content",
+            "maintainToTransfer": "Major drop-off in maintain→transfer: knowledge isolated, no cross-domain connections built"
+        }
+    },
     "editor": {
         "edit": "Edit",
         "title": "Edit content",
@@ -1621,6 +2455,90 @@
         "qualityInvalidOcclusion": "The image occlusion card has no valid occlusion region. Edit its regions before adding it.",
         "qualityMissingBlock": "The card's source block could not be found. Refresh and select it again.",
         "loadFail": "Failed to load content for editing"
+    },
+    "achievementExport": {
+        "title": "Learning Achievement Certificate & Export",
+        "subtitle": "Generate tamper-proof attestation, sanitized logs, weak points list with zero privacy leakage",
+        "certificate": {
+            "issuedTo": "Issued to learner",
+            "goalCompleted": "Goal completed",
+            "completedDate": "Completion date",
+            "cardsMastered": "Total cards mastered",
+            "studySpanDays": "Study span (days)",
+            "retentionRate": "Overall retention rate",
+            "verificationFingerprint": "Tamper-proof verification fingerprint"
+        },
+        "log": {
+            "date": "Date",
+            "cardsReviewed": "Cards reviewed",
+            "dailyRetention": "Daily retention rate",
+            "durationMinutes": "Duration (min)"
+        },
+        "weakPoints": {
+            "title": "Weak Points List (Ongoing Attention Required)",
+            "topicName": "Topic name",
+            "failureCount": "Failure count",
+            "forgetRate": "Forget rate"
+        },
+        "suggestion": {
+            "maintainIntervals": "Maintain current review intervals",
+            "focusOnWeakPoints": "Focus attention on identified weak knowledge points",
+            "scheduleWeakPointDrill": "Schedule targeted drill sessions for weak points"
+        },
+        "remedy": {
+            "periodicRecheck": "Periodic re-check (e.g., weekly)"
+        }
+    },
+    "achievementDashboard": {
+        "title": "Learning Achievement Dashboard",
+        "subtitle": "Multi-dimensional metrics aggregation, trend charts and group comparisons with zero privacy leakage",
+        "summary": {
+            "cardsMastered": "Cards mastered",
+            "retentionRate": "Overall retention rate",
+            "studyMinutes": "Total study minutes",
+            "streakDays": "Consecutive streak days"
+        },
+        "trend": {
+            "labelDate": "Date",
+            "labelValue": "Value",
+            "baseline": "Historical baseline",
+            "deviation": "Deviation",
+            "spike": "Anomaly spike",
+            "drop": "Anomaly drop",
+            "stable": "Stable zone"
+        },
+        "comparison": {
+            "groupName": "Group name",
+            "percentileRanking": "Percentile ranking",
+            "groupAvgRetention": "Group avg retention",
+            "groupAvgStudyMinutes": "Group avg study minutes",
+            "nMembers": "Member count"
+        },
+        "baseline": {
+            "windowDays": "Baseline window (days)",
+            "baselineRetention": "Baseline retention",
+            "baselineStudyMinutes": "Baseline study minutes",
+            "currentDeviationRetention": "Current retention deviation",
+            "currentDeviationMinutes": "Current study deviation",
+            "warningLowRetention": "Retention below baseline by 20%",
+            "warningHighStudyMinutes": "Study above baseline by 50%"
+        }
+    },
+    "achievementExportV2": {
+        "title": "Learning Achievement Certificate & Dual-Format Export",
+        "subtitle": "Markdown certificate + JSON raw data, tamper-proof signature verification, zero privacy leakage",
+        "format": {
+            "markdown": "Markdown certificate (printable)",
+            "json": "JSON raw data (machine-readable)"
+        },
+        "signature": {
+            "label": "Tamper-proof verification fingerprint",
+            "verifySuccess": "Signature verification passed",
+            "verifyFailed": "Signature verification failed, possible tampering detected"
+        },
+        "weakPoints": {
+            "sortedByFailures": "Sorted by failure count descending"
+        }
     },
     "aiPromptGenericLabel": "Generic cards",
     "aiPromptExamLabel": "Exam sprint",
@@ -1830,6 +2748,12 @@
     "targetDisabled": "The current AI configuration is under emergency stop.",
     "tplAnswerRubric": "Answer rubric",
     "tplListTableBidi": "List/table/bidirectional",
+    "tplWordSenseVariants": "Word sense variants",
+    "tplStatsExplain": "Stats report explain",
+    "tplSocraticCoach": "Socratic coach",
+    "tplErrorCauseProbe": "Error cause probe",
+    "tplLeechRootRewrite": "Leech root-cause rewrite",
+    "tplSourceUpdateImpact": "Source update impact assessment",
     "loState": {
         "clarified": "Clarified what it is and why to learn",
         "retired": {

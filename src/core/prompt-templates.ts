@@ -153,6 +153,86 @@ export const PROMPT_TEMPLATES: PromptTemplate[] = [
         inputs: ["material", "count"],
         output: "cards-json",
     },
+    {
+        // BV-13 词义变体（多义词辨析）
+        id: "word-sense-variants",
+        category: "language",
+        nameKey: "tplWordSenseVariants",
+        systemPrompt:
+            "你是多义词辨析制卡助手。从给定材料中识别 ${count} 组多义词/同形不同义的词条，" +
+            "输出 JSON 数组：每项 {\"term\":\"目标词\",\"senseA\":\"义项 A 的释义\",\"senseAExample\":\"义项 A 的例句/材料原句\"," +
+            "\"senseB\":\"义项 B 的释义\",\"senseBExample\":\"义项 B 的例句/材料原句\"," +
+            "\"boundary\":\"两条义项的边界判别线索\",\"commonMistake\":\"常见混淆方式\"}。" +
+            "要求：义项 A 与义项 B 必须出自同一目标词的不同语义分支；边界判别线索要可观察（搭配/语境/重音/词性）；常见混淆方式要可操作。只输出 JSON。",
+        inputs: ["material", "count"],
+        output: "cards-json",
+    },
+    {
+        // BV-23 统计报告解释（个人表现解读）
+        id: "stats-report-explain",
+        category: "maintenance",
+        nameKey: "tplStatsExplain",
+        systemPrompt:
+            "你是个人学习统计解释助手。基于用户最近 ${windowDays} 天的复习日志（卡片总数/命中率/反应时间/遗忘点/累计次数），" +
+            "输出 JSON 数组：每项 {\"metric\":\"指标名\",\"value\":\"实际值或区间\",\"verdict\":\"判断（稳定/波动/异常）\"," +
+            "\"cause\":\"可观察原因（材料/题型/状态/时间窗）\",\"action\":\"建议动作（仅建议，不代替用户决策）\"}。" +
+            "要求：不直接报\"已掌握\"或\"未掌握\"；不基于连击或保持率做绝对结论；动作建议只描述行为选项，不发起任何写入。只输出 JSON。",
+        inputs: ["windowDays", "stats"],
+        output: "advice-text",
+    },
+    {
+        // BV-15 苏格拉底教练（提问引导推导）
+        id: "socratic-coach",
+        category: "authoring",
+        nameKey: "tplSocraticCoach",
+        systemPrompt:
+            "你是苏格拉底启发式教练助手。给定学习材料与用户的尝试回答，不直接公布最终答案，" +
+            "输出 JSON 数组：每项 {\"guidingQuestion\":\"引导性递进问题\",\"hintLevel\":\"梯次提示（弱/中/强）\"," +
+            "\"targetInsight\":\"期望用户自行顿悟的核心点\",\"anchorInSource\":\"材料原文锚点\"}。" +
+            "要求：问题由浅入深，启发用户自主推导，不代用户作答，不泄漏题眼。只输出 JSON。",
+        inputs: ["material", "userDraft"],
+        output: "advice-text",
+    },
+    {
+        // BV-16 错因追问（错题根因排查）
+        id: "error-cause-probe",
+        category: "maintenance",
+        nameKey: "tplErrorCauseProbe",
+        systemPrompt:
+            "你是错因追问排查助手。给定题面、标准答案、用户错误作答与来源材料，" +
+            "输出 JSON 数组：每项 {\"probeQuestion\":\"追问排查问题\",\"suspectedCause\":\"疑似错因（概念混淆/条件遗漏/计算或记忆漂移/题面歧义）\"," +
+            "\"diagnosticOptions\":[\"选项A\",\"选项B\",\"选项C\"],\"remedy\":\"针对性纠偏建议\"}。" +
+            "要求：排查重点在知识断层与隐性误区，帮助用户准确定位失分原因。只输出 JSON。",
+        inputs: ["cardPrompt", "expectedAnswer", "userAnswer", "material"],
+        output: "cards-json",
+    },
+    {
+        // BV-19 leech 根因改写（顽疾卡原子拆解）
+        id: "leech-root-rewrite",
+        category: "maintenance",
+        nameKey: "tplLeechRootRewrite",
+        systemPrompt:
+            "你是顽疾卡（Leech）根因改写助手。给定多次遗忘的卡片内容、遗忘历史与来源材料，" +
+            "输出 JSON 数组：每项 {\"splitCardType\":\"拆分后卡型（单空挖空/极简问答/二选一判断）\"," +
+            "\"newPrompt\":\"改写后新题面\",\"newAnswer\":\"改写后新答案\",\"whySplit\":\"拆分必要性说明\"," +
+            "\"rootCause\":\"原始卡缺陷诊断（过长/双问题/线索泄露/缺乏对比）\"}。" +
+            "要求：必须将多知识点大卡拆分为 2-3 张单断言原子卡，坚决消除认知混淆。只输出 JSON。",
+        inputs: ["cardContent", "failureCount", "material"],
+        output: "cards-json",
+    },
+    {
+        // BV-20 来源更新影响（笔记变更影响评估）
+        id: "source-update-impact",
+        category: "maintenance",
+        nameKey: "tplSourceUpdateImpact",
+        systemPrompt:
+            "你是笔记来源变更影响评估助手。给定思源笔记原段落与修订后差异摘要，以及已有闪卡清单，" +
+            "输出 JSON 数组：每项 {\"affectedCardId\":\"受影响卡片标识或摘要\",\"impactLevel\":\"影响等级（严重冲突/需更新/需淘汰/无影响）\"," +
+            "\"diffPoint\":\"来源变更点说明\",\"suggestedAction\":\"处置建议（改写答案/补充条件/归档卡片）\"}。" +
+            "要求：先列出具体变化依据，不自动修改卡片内容，处置建议交由用户确认。只输出 JSON。",
+        inputs: ["diffSummary", "affectedCards"],
+        output: "diff-preview",
+    },
 ];
 
 /** 按 id 取模板（未知 id 返回 undefined，调用方回退 generic） */

@@ -1603,6 +1603,840 @@
             "lifecycle": "保留：内容生命周期轨迹"
         }
     },
+    "returnSimulation": {
+        "title": "返场影响只读模拟",
+        "subtitle": "对比五种返场打法，量化今日负担与排期影响，确认前不写内核",
+        "reason": {
+            "normal": "积压较轻且离开时间短，建议保持原计划高效通关",
+            "backlogRelief": "到期积压较大或离开较久，推荐削峰缩小范围，平滑恢复节奏",
+            "defects": "检测到材料过时或结构有疑问的卡片，推荐先修后学，避免坏卡冒充遗忘",
+            "rebuildRestart": "离开时间超长且积压庞大，推荐平滑重建起跑批次，重拾学习习惯",
+            "phaseArchived": "检测到已完结的学习阶段或课程，推荐阶段封存降低日常唤醒负担"
+        },
+        "strategy": {
+            "continueOld": {
+                "name": "继续旧计划",
+                "desc": "照常面对全部到期卡片，最快消解积压，适合精力充沛状态",
+                "recommendedFor": "离开天数少（<=7天）、积压较轻且无坏卡时"
+            },
+            "narrowScope": {
+                "name": "缩小范围削峰",
+                "desc": "今日设定 15 张小预算起跑，剩余卡片留在队列，不造成心理压力",
+                "recommendedFor": "到期积压多（>100张）或离开时间较长时"
+            },
+            "maintenanceFirst": {
+                "name": "维护优先",
+                "desc": "今日常规复习暂缓，先处理结构疑问与过时材料，捍卫真实记忆",
+                "recommendedFor": "存在坏卡、过时材料或待修订内容时"
+            },
+            "archivePhase": {
+                "name": "阶段封存",
+                "desc": "将已结项课程/目标的卡组归档封存，剔除唤醒队列，随时可解封",
+                "recommendedFor": "有已考完或阶段性目标结束的卡组时"
+            },
+            "rebuildFresh": {
+                "name": "平滑重建计划",
+                "desc": "保留内核历史调度与复习日志，仅重置本场现场，以小种子批次轻装重启",
+                "recommendedFor": "极长间隔（>30天）返场且积压极重时"
+            }
+        },
+        "change": {
+            "none": "无变动：完整保持原队列与排期",
+            "sessionCap": "临时会话：仅展示今日配额，其余暂留在队列",
+            "divertToMaint": "导流现场：今日学习指引转至维护工作台",
+            "phaseArchive": "阶段归档：标记指定卡组为封存状态，随时可解除"
+        },
+        "risk": {
+            "overload": "高认知负荷预警：单次复习量过大容易产生挫败感，请量力而行",
+            "fatigue": "适度疲劳提示：今日卡片较多，建议中间适当休息",
+            "archivedHidden": "封存提示：封存卡组暂不产生到期通知，若需复习需在管理页解封",
+            "sessionReset": "重开提示：将重置今日临时现场并按平滑批次释放，不影响内核历史数据"
+        },
+        "batch": {
+            "prepared": "模拟方案已就绪，等待确认",
+            "applied": "返场批次已生效",
+            "reverted": "返场批次已安全撤销",
+            "undoTitle": "撤销返场调整",
+            "undoDesc": "恢复至模拟前的会话范围与卡片状态"
+        }
+    },
+    "auditLog": {
+        "title": "用户审计日志",
+        "subtitle": "时间、来源与结果可查，密钥与敏感正文自动脱敏保护",
+        "category": {
+            "create": "卡片创建",
+            "rating": "复习评分",
+            "reschedule": "排期改期",
+            "import": "内容导入",
+            "export": "数据导出",
+            "integration": "生态联动",
+            "delete": "删除移出",
+            "restore": "恢复撤销",
+            "automation": "规则自动化"
+        },
+        "source": {
+            "ui": "界面操作",
+            "shortcut": "键盘快捷键",
+            "commandPalette": "命令面板",
+            "aiWizard": "AI 向导",
+            "ecosystemBridge": "生态桥接",
+            "maintenance": "维护中心",
+            "automation": "自动化引擎"
+        },
+        "result": {
+            "success": "成功",
+            "failure": "失败",
+            "cancelled": "已取消"
+        },
+        "export": {
+            "json": "导出脱敏 JSON",
+            "csv": "导出审计 CSV",
+            "empty": "当前筛选范围内暂无审计日志"
+        }
+    },
+    "learningOutcome": {
+        "title": "学习结果声明与准备度",
+        "subtitle": "基于回忆、解释与应用三维证据诚实判定，不夸大、不伪造",
+        "status": {
+            "achieved": "达到目标",
+            "partial": "部分达到",
+            "insufficient": "证据不足",
+            "unknown": "状态未知"
+        },
+        "reason": {
+            "allMet": "回忆、解释与应用三项证据均达到设定阈值",
+            "partiallyMet": "部分维度证据达标，仍有未充分验证的领域",
+            "belowThresholds": "已有证据量低于最低阈值，需补充学习记录",
+            "noEvidence": "近期无有效实战或练习证据"
+        },
+        "gap": {
+            "needRecall": "建议补充回忆复习，巩固基础记忆",
+            "needExplanation": "建议补充概念解释与要点自述",
+            "needApplication": "建议结合题目或真实场景进行实战应用"
+        },
+        "prereq": {
+            "ready": "前置依赖准备充分，可开启高阶学习",
+            "hasGaps": "检测到先修概念证据存在缺口，建议先查漏补缺",
+            "missingAll": "尚未建立该先修概念的学习证据",
+            "insufficient": "先修概念证据未达标，基础可能不够扎实",
+            "notAchieved": "先修概念尚未达到目标，可根据需要知情绕过"
+        }
+    },
+    "consentCenter": {
+        "title": "功能与自动化同意中心",
+        "subtitle": "集中管理 AI、媒体、通知、联动与分享权限，数据范围透明可见，支持一键撤销",
+        "status": {
+            "granted": "已授权",
+            "revoked": "已撤销",
+            "unprompted": "未确认"
+        },
+        "action": {
+            "grant": "开启授权",
+            "revoke": "撤销授权",
+            "revokedTip": "权限已撤销，相关外部请求与自动化已被阻断"
+        },
+        "cap": {
+            "aiGeneration": {
+                "name": "AI 智能制卡与分析",
+                "desc": "允许在向导中使用大模型进行卡片拆解、生成与质量评估",
+                "scope": "选中笔记片段文本、卡片题面与答案（密钥本地隔离，不上传整库）"
+            },
+            "mediaProcessing": {
+                "name": "本地媒体与语音处理",
+                "desc": "允许读取文档图片用于遮挡制卡，及调用本地 Web Audio / TTS 播放发音",
+                "scope": "本地资源文件引用、发音文本（纯本地运行，不外发网络）"
+            },
+            "systemNotification": {
+                "name": "学习提醒与状态通知",
+                "desc": "在每日到期或关键学习节点发送思源系统级消息气泡提醒",
+                "scope": "到期卡片数量、学习目标进度摘要（无笔记私有正文）"
+            },
+            "ecosystemBridge": {
+                "name": "跨插件生态窗口桥",
+                "desc": "允许小驴考试、打卡等生态插件通过 window.__LV_CARDS_API__ 读取学习状态",
+                "scope": "卡组概览、今日到期数与复习事件广播（受控只读接口）"
+            },
+            "contentSharing": {
+                "name": "闪卡内容分享与包导入导出",
+                "desc": "允许生成与解析 .lvcards 分享包及导入导出数据",
+                "scope": "选定卡组的题面、答案、标签与助记属性（本地文件读写）"
+            },
+            "cloudSync": {
+                "name": "云端多端数据同步",
+                "desc": "允许在多设备间同步复习进度与学习目标",
+                "scope": "revlog 学习日志、卡片状态元数据（端到端加密与本地优先）"
+            },
+            "contactIntegration": {
+                "name": "学习人脉与搭子联动",
+                "desc": "支持记录学习互动、共同备考进度与知识分享记录",
+                "scope": "学习联系人标签、互动时间与备忘记录"
+            }
+        }
+    },
+    "explainability": {
+        "title": "建议解释面板",
+        "subtitle": "清晰说明输入依据、规则来源、AI 调用状态与内核影响，完全透明可控",
+        "impact": {
+            "none": "无影响：完全只读建议，不改动任何内核数据与排期",
+            "sessionOnly": "临时现场：仅调整本次学习会话的展示配额，内核原排期不受损",
+            "confirmReschedule": "待确认写入：仅在用户显式确认后才会调整原生到期时间"
+        },
+        "reject": {
+            "notHelpful": "当前建议不符合我的实际学习节奏",
+            "wrongContext": "输入的背景事实存在偏差或已失效",
+            "preferManual": "我希望手工安排接下来的学习进度"
+        },
+        "action": {
+            "view": "查看依据",
+            "accept": "采纳建议",
+            "reject": "拒绝建议",
+            "modify": "调整并采纳",
+            "copy": "复制解释报告"
+        }
+    },
+    "intentNav": {
+        "title": "意图驱动功能导航",
+        "subtitle": "按「我想记住、理解、应用、维护」搜索能力，当前可用、前置依赖与替代方案清晰分层",
+        "intent": {
+            "memorize": "我想记住",
+            "understand": "我想理解",
+            "apply": "我想应用",
+            "maintain": "我想维护"
+        },
+        "status": {
+            "available": "当前直接可用",
+            "prerequisiteNeeded": "需先完成前置准备",
+            "subsequent": "进阶深化功能",
+            "alternative": "离线/手工替代打法"
+        },
+        "prereq": {
+            "needDueCards": "今日暂无到期卡片，可从卡片库或收件箱开启新卡",
+            "needCardsInDeck": "当前卡组暂无卡片，请先添加卡片后再开始练习"
+        },
+        "alt": {
+            "manualSplit": "可使用「==挖空==」或手工问答将大段笔记拆为多张卡",
+            "manualBidiCard": "可手工制作「双向问答卡」或表格对比卡",
+            "hintLadder": "可使用复习端内置的「梯度提示阶梯」进行自主推导",
+            "leechRewriteManual": "可前往维护中心直接编辑题面，消除多问题与模糊线索"
+        },
+        "feature": {
+            "quickQa": {
+                "name": "快速问答制卡",
+                "desc": "以一问一答极简形式快速创建单断言闪卡"
+            },
+            "cloze": {
+                "name": "笔记挖空制卡",
+                "desc": "在思源笔记中选中关键词打上 ==挖空== 即可自动成卡"
+            },
+            "occlusion": {
+                "name": "图片遮挡制卡",
+                "desc": "在流程图、解剖图或架构图上添加遮挡框，测试图形局部记忆"
+            },
+            "focusReview": {
+                "name": "专注复习",
+                "desc": "基于思源原生 FSRS 算法进行抗遗忘复习，支持 4 档自评"
+            },
+            "typeInDrill": {
+                "name": "打字默写练习",
+                "desc": "键盘敲入答案拼写，严格核对字符差异，适合外语与精准定义"
+            },
+            "atomicSplit": {
+                "name": "原子事实拆解",
+                "desc": "AI 辅助将复杂笔记拆分为互相独立的原子事实"
+            },
+            "wordSense": {
+                "name": "词义变体辨析",
+                "desc": "梳理一词多义与易混淆概念，建立清晰的边界判别线索"
+            },
+            "relationsMap": {
+                "name": "卡片关系图谱",
+                "desc": "建立先修前置、反例、兄弟变体等语义关联"
+            },
+            "socraticCoach": {
+                "name": "苏格拉底启发教练",
+                "desc": "通过递进追问引导自我顿悟，加深概念理解"
+            },
+            "timedChallenge": {
+                "name": "限时挑战模式",
+                "desc": "高压快速作答练习，锻炼实战敏捷度与提取速度"
+            },
+            "pairingGame": {
+                "name": "概念配对连连看",
+                "desc": "拖拽匹配概念与对应解释，适合考前轻量热身"
+            },
+            "examSprint": {
+                "name": "考试冲刺计划",
+                "desc": "围绕特定考试目标设置每日任务，实时推导动态建议"
+            },
+            "errorProbe": {
+                "name": "错因追问排查",
+                "desc": "深度剖析错误背后的概念误区与思维漏洞"
+            },
+            "maintenanceHub": {
+                "name": "维护债务中心",
+                "desc": "集中审阅重复卡、题面泄漏、失效媒体与过时卡片"
+            },
+            "returnSim": {
+                "name": "返场只读模拟",
+                "desc": "长间隔返场时量化评估 5 种打法的影响与消解周期"
+            },
+            "auditLog": {
+                "name": "用户审计日志",
+                "desc": "全量关键操作对账查询，敏感信息自动脱敏并支持导出"
+            },
+            "consentCenter": {
+                "name": "权限与同意中心",
+                "desc": "集中管理 AI、媒体、通知与跨插件桥接权限"
+            }
+        }
+    },
+    "reportWriter": {
+        "title": "学习报告生成器",
+        "busy": "正在写入报告文档，请稍候…",
+        "busyRejected": "当前已有报告正在写入中，请勿重复点击",
+        "success": "报告已成功写入文档并打开",
+        "draftRetained": "写入未完成，报告草稿已安全保留，可随时重试",
+        "error": {
+            "noNotebook": "未检测到可用笔记本，请先在思源中创建或打开笔记本",
+            "permissionDenied": "目标笔记本权限不足或处于只读状态，无法写入",
+            "syncing": "思源多端同步中或笔记本被锁定，请稍后重试",
+            "timeout": "写入报告请求超时，草稿已保留",
+            "networkFailure": "与思源内核通信异常，请检查内核运行状态",
+            "unknown": "写入报告发生未知错误，草稿已保留"
+        },
+        "action": {
+            "retry": "使用草稿重试",
+            "discardDraft": "放弃草稿",
+            "openDoc": "打开已生成文档"
+        }
+    },
+    "cardFaceFallback": {
+        "title": "富内容安全占位",
+        "formula": {
+            "title": "LaTeX 数学公式解析受阻",
+            "desc": "公式渲染遇到格式异常；已安全保护题面，可直接打开原块核对"
+        },
+        "media": {
+            "title": "媒体资源未加载",
+            "desc": "卡片所引用的图片或资源暂不可用，可重试加载或查看来源"
+        },
+        "embed": {
+            "title": "嵌入块暂不可用",
+            "desc": "引用的嵌入块或子视图加载受阻，请在笔记中查看原块"
+        },
+        "code": {
+            "title": "代码块排版已保护",
+            "desc": "检测到代码块结构，已开启横向安全包裹与滚动支持"
+        },
+        "table": {
+            "title": "超宽表格排版已收纳",
+            "desc": "表格宽度超出屏幕，支持横向键盘移动浏览"
+        },
+        "load": {
+            "title": "卡片内容加载超时",
+            "desc": "与思源内核通信慢，队列顺序已保留，可重试或跳过"
+        },
+        "generic": {
+            "title": "卡面内容已安全降级",
+            "desc": "遇到复杂语法或排版异常，已自动保护视图防止白屏"
+        },
+        "scroll": {
+            "code": "代码区域可通过左右键或横向滑动查看完整内容",
+            "table": "表格区域支持键盘横向导航或滑动查看完整数据"
+        },
+        "action": {
+            "openSource": "在笔记中打开",
+            "retryLoad": "重试加载",
+            "skipCard": "跳过本卡",
+            "reportIssue": "标记待修"
+        }
+    },
+    "scopePreset": {
+        "title": "复习范围预设",
+        "subtitle": "支持全局默认、场景上下文与本场临时三层合成，切范围无损保留进度",
+        "builtin": {
+            "all": "全库到期（默认）",
+            "quickDue": "纯文本快速问答",
+            "occlusionFocus": "图形遮挡专项",
+            "examCore": "考试重点与高频考点"
+        },
+        "layer": {
+            "base": "全局默认范围",
+            "context": "场景关联范围（当前文档/笔记本）",
+            "session": "本场临时范围（最高优先级）"
+        },
+        "fallback": {
+            "emptyFiltered": "当前临时筛选条件下无匹配卡片，已自动平滑展示基础范围"
+        }
+    },
+    "loadLedger": {
+        "title": "学习负担账本",
+        "subtitle": "独立核算六大生命周期学习成本，识别认知负荷陷阱，提供针对性减负动作",
+        "phase": {
+            "capture": "材料捕获",
+            "comprehend": "深度理解",
+            "author": "制卡加工",
+            "review": "常规复习",
+            "apply": "实战应用",
+            "maintain": "卡片维护"
+        },
+        "level": {
+            "low": "轻量在轨",
+            "medium": "负荷适中",
+            "high": "认知过载",
+            "critical": "死记硬背陷阱"
+        },
+        "reason": {
+            "blindMemorization": "复习次数较多且遗忘率偏高，但深度理解投入极低，容易陷入死记硬背",
+            "overloadedCard": "平均单卡复习时间过长且维护频次高，疑似卡片信息量过大或含双问题",
+            "heavyMaintenance": "卡片维护耗时已超过复习总耗时的 50%，建议核对笔记来源与稳定性",
+            "healthyMastery": "复习节奏高效稳定，保持率良好，认知负担适中"
+        },
+        "action": {
+            "needComprehend": "暂停盲目刷题，先返回笔记梳理概念脉络与核心逻辑",
+            "atomicSplit": "将长卡片拆解为 2-3 张单断言原子卡，降低单次提取难度",
+            "reviewSource": "核对来源笔记是否有变更或失效，必要时归档或重写",
+            "keepGoing": "保持当前节奏继续学习"
+        }
+    },
+    "offlineQueue": {
+        "title": "离线动作队列",
+        "subtitle": "断网与离线状态下操作安全排队，网络恢复后幂等重放，严格拦截覆盖冲突",
+        "status": {
+            "pending": "离线排队中",
+            "replaying": "正在重放",
+            "completed": "已成功同步",
+            "conflictBlocked": "检测到修改冲突，已安全暂停",
+            "failed": "重放失败"
+        },
+        "conflict": {
+            "title": "离线数据与远端存在冲突",
+            "modifiedRemotely": "思源远端来源在此期间已被修改，禁止最后写入覆盖一切",
+            "viewDiff": "查看冲突差异",
+            "resolveForce": "确认以本地版本强制覆盖",
+            "discard": "放弃离线动作"
+        },
+        "summary": {
+            "empty": "离线队列为空，所有本地操作已与内核对齐",
+            "stats": "共 ${total} 项动作（待同步 ${pending}，冲突待处理 ${conflict}）"
+        }
+    },
+    "syncConflict": {
+        "title": "多设备同步冲突决策向导",
+        "subtitle": "多端修改细粒度三向对比，保留两侧原值，支持分叉变体，严禁最后写入覆盖一切",
+        "domain": {
+            "content": "卡面内容（题面/答案/挖空）",
+            "personal": "个人字段（助记/笔记/标签）",
+            "template": "卡片模板与题型定义",
+            "history": "复习历史与调度日志",
+            "plan": "目标档案与考试计划",
+            "event": "审计事件与完成轨迹"
+        },
+        "strategy": {
+            "chooseLocal": "保留本地修改",
+            "chooseRemote": "采纳远端同步",
+            "forkVariant": "分叉为兄弟卡（两侧均保留）",
+            "manualMerge": "人工合并定制"
+        },
+        "status": {
+            "unresolved": "待仲裁决策",
+            "resolved": "已完成仲裁",
+            "autoMerged": "已自动安全合并"
+        },
+        "prompt": {
+            "baseline": "公共基线原值",
+            "local": "本地当前版本",
+            "remote": "远端传入版本",
+            "notice": "检测到多端同时修改同一字段，请选择处置策略后继续保存"
+        }
+    },
+    "onboardingSafe": {
+        "title": "新手引导装配守卫",
+        "creating": "正在为你准备示例卡片，请稍候…",
+        "reusing": "已检测到此前准备好的示例卡片，无需重复创建",
+        "readOnlyFallback": "未选择或没有可用笔记本，已为你开启免写演示模式，体验不中断",
+        "alreadyCompleted": "你已完成过新手引导，如需重置可在设置中操作"
+    },
+    "batchJob": {
+        "title": "批处理作业中心",
+        "subtitle": "长耗时导入、AI 拆解、媒体提取与备份任务后台排队，进度实时可见，支持取消与断点重试",
+        "type": {
+            "importPackage": "卡包数据导入",
+            "aiBatch": "AI 批量卡片处理",
+            "mediaExtraction": "媒体资源提取与校验",
+            "versionDiff": "版本差异全量比对",
+            "exportBackup": "全量数据备份导出",
+            "maintenanceRepair": "坏卡批量修复"
+        },
+        "status": {
+            "pending": "排队等待中",
+            "running": "正在执行",
+            "paused": "已暂停",
+            "completed": "作业已完成",
+            "cancelled": "用户已取消",
+            "failed": "作业执行失败"
+        },
+        "action": {
+            "pause": "暂停作业",
+            "resume": "恢复执行",
+            "cancel": "取消作业",
+            "retryFailed": "仅重试失败项",
+            "clearDone": "清除已完成记录"
+        },
+        "progress": "已完成 ${processed}/${total} 项（成功 ${success}，失败 ${failure}，进度 ${percentage}%）"
+    },
+    "recoveryDrill": {
+        "title": "备份与灾难恢复演练中心",
+        "subtitle": "覆盖设备迁移、误删回滚、升级失败等五大场景，严格核对 ID、聚合、历史与联动指标",
+        "scenario": {
+            "deviceMigration": "换机多设备迁移",
+            "accidentalDeletion": "误删卡片/卡组回滚",
+            "upgradeFailure": "插件升级失败快照回退",
+            "syncConflict": "多端同步紊乱修复",
+            "mediaCorruption": "缺失媒体附件恢复"
+        },
+        "verdict": {
+            "safe": "演练通过：数据完整性高，无破坏性覆盖风险",
+            "warningOverlap": "存在本地数据重叠：全量替换将覆盖当前本地新卡，建议先导出快照",
+            "noDeletedFound": "未在备份中检索到新卡片：备份包与本地卡片集合完全一致"
+        },
+        "risk": {
+            "overwriteExistingLocal": "本地当前已有卡片，全量恢复将以备份覆盖现有数据",
+            "noNovelCards": "备份包中未发现本地缺失的新增卡片",
+            "brokenRelationsDetected": "部分卡片关联指向了不存在的目标实体，已标出破损项",
+            "largeTimeGap": "备份包时间戳与当前间隔超过 30 天，请核对复习进度差"
+        },
+        "integrity": {
+            "idPassed": "ID 格式与唯一性核对通过",
+            "aggregation": "卡片聚合对比：当前 ${current} 张 -> 恢复后预计 ${projected} 张",
+            "history": "复习日志时间跨度核对完成",
+            "linkage": "卡片前置与语义关系检查完成"
+        }
+    },
+    "systemHealth": {
+        "title": "长期运行健康仪表盘",
+        "subtitle": "监控存储膨胀、失败写入、孤儿来源、失效媒体等 7 大指标，每项支持修复、忽略与导出",
+        "grade": {
+            "optimal": "极致健康",
+            "good": "良好在轨",
+            "fair": "适度关注",
+            "degraded": "存在明显隐患"
+        },
+        "metric": {
+            "storageGrowth": {
+                "name": "存储规模与增长",
+                "desc": "监控 revlog 学习日志与私有存储占用，防止无界膨胀"
+            },
+            "failedWrites": {
+                "name": "残留失败写入",
+                "desc": "扫描异常中断留下的临时草稿与挂起事务"
+            },
+            "orphanSources": {
+                "name": "孤儿卡片来源",
+                "desc": "排查思源中原笔记已删除但闪卡仍滞留的孤儿卡片"
+            },
+            "brokenMedia": {
+                "name": "失效媒体资源",
+                "desc": "检测卡片引用的图片、音频等本地附件是否存在 404 缺失"
+            },
+            "staleTemplates": {
+                "name": "过时提示词模板",
+                "desc": "检查是否有卡组使用了旧版已被弃用的提示词模板"
+            },
+            "unprocessedCandidates": {
+                "name": "收件箱过期滞留",
+                "desc": "统计收件箱中超过 14 天未归纳制卡的候选知识点"
+            },
+            "pendingReassessments": {
+                "name": "待复评后置卡片",
+                "desc": "识别因前置依赖概念发生改动而需要重新复评的下游卡片"
+            }
+        },
+        "action": {
+            "fix": "一键处置修复",
+            "ignore": "设为忽略",
+            "unignore": "取消忽略",
+            "export": "导出体检清单"
+        }
+    },
+    "learningAutomation": {
+        "title": "规则化学习自动化",
+        "subtitle": "基于笔记与事件触发建议动作，规则仅生成待确认提案，绝不自动改分或静默覆盖",
+        "rule": {
+            "sourceUpdated": {
+                "name": "来源更新后自动提议复核",
+                "desc": "当思源笔记内容更新时，自动生成受影响闪卡的复核提案"
+            },
+            "examLowScore": {
+                "name": "考试低分知识点削峰复习",
+                "desc": "模拟考得分低于预期时，自动提议将错题归入今日专项复习范围"
+            },
+            "leechSplit": {
+                "name": "顽疾卡自动提议原子拆解",
+                "desc": "单卡连续遗忘达到阈值时，自动提议进入向导拆解为多张单断言卡"
+            }
+        },
+        "status": {
+            "pending": "待用户审批确认",
+            "approved": "已审批采纳",
+            "rejected": "已拒绝忽略",
+            "adjusted": "已人工调整参数后采纳"
+        },
+        "action": {
+            "approve": "确认执行",
+            "reject": "拒绝提案",
+            "adjust": "调整参数",
+            "clearDone": "清除已决记录"
+        }
+    },
+    "kernelGateway": {
+        "title": "内核请求网关",
+        "subtitle": "统一请求调度、超时熔断与凭据脱敏，确保 UI 与内核调用边界坚固",
+        "error": {
+            "authFailed": "思源内核鉴权失败，请检查 API Token 配置",
+            "notFound": "请求的内核端点不存在或当前思源版本不支持",
+            "timeout": "内核请求超时，调用已安全终止",
+            "invalidPayload": "请求入参校验失败",
+            "kernelError": "内核服务返回业务异常错误",
+            "networkError": "无法连接到思源内核服务，请确认思源正常运行"
+        }
+    },
+    "reviewFeedback": {
+        "title": "复习本地反馈与标记",
+        "subtitle": "复习时顺手标记问题卡，零网络遥测，纯本地维护流转，绝不篡改内核排期",
+        "type": {
+            "factualError": "题面/答案有误",
+            "duplicate": "内容与其他卡片重复",
+            "stale": "知识点过时需更新",
+            "tooHard": "表述晦涩或过于难懂",
+            "customNote": "临时备忘批注"
+        },
+        "status": {
+            "unresolved": "待维护处理",
+            "resolved": "已修复解决"
+        },
+        "action": {
+            "flag": "标记此卡",
+            "resolve": "标为已解决",
+            "clear": "清除标记",
+            "clearAllResolved": "清除所有已解决项",
+            "openInMaintenance": "在维护工作台集中处理"
+        }
+    },
+    "dualAxisMatrix": {
+        "title": "知识可信度与掌握度双轴象限",
+        "subtitle": "解耦内容可靠性与记忆掌握度，识破熟读错误知识的负资产陷阱，缺少数据诚实标为未知",
+        "credibility": {
+            "high": "高可信",
+            "medium": "中等可信",
+            "low": "低可信/存疑",
+            "unknown": "可信度未知"
+        },
+        "mastery": {
+            "mastered": "已牢固掌握",
+            "learning": "学习推进中",
+            "struggling": "频繁遗忘挣扎",
+            "unknown": "掌握度未知"
+        },
+        "quadrant": {
+            "coreAsset": "核心资产区（高可信·高掌握）",
+            "dangerousTrap": "熟读错误陷阱（低可信·高掌握）",
+            "staleNoise": "冗余噪音区（低可信·低掌握）",
+            "promisingTarget": "重点攻坚区（高可信·低掌握）",
+            "uncalibrated": "待标定区域（证据不足）"
+        },
+        "action": {
+            "maintainRhythm": "保持当前复习节奏",
+            "freezeAndRewrite": "警报：知识已过时或存疑，建议立即冻结并重写",
+            "deleteOrArchive": "低价值内容，建议果断删除或归档",
+            "focusDrill": "可靠新知，建议列入今日核心攻坚",
+            "gatherEvidence": "缺乏足够证据，建议完成复习或核实来源"
+        },
+        "reason": {
+            "healthyMastery": "知识来源健康且记忆稳固，是高质量的长期记忆资产",
+            "memorizedStaleKnowledge": "卡片熟练度高但原笔记已过时或冲突，熟读了错误内容",
+            "worthlessNoise": "卡片既未记住且来源已脱节或过时，属于纯负荷噪音",
+            "reliableTarget": "来源可靠度高但记忆尚处于初期，是最值得投入攻坚的目标",
+            "missingAxisData": "尚无足够的复习日志或来源校验数据，保持中立未知"
+        }
+    },
+    "deviceMatrix": {
+        "title": "跨端能力降级与设备契约",
+        "subtitle": "多端环境感知，不可用功能平滑降级或隐藏，绝不出现点击无响应的假按钮，核心复习永不阻塞",
+        "support": {
+            "full": "完全支持",
+            "degraded": "平滑降级支持",
+            "unsupported": "当前环境不支持（已安全隐藏）"
+        },
+        "fallback": {
+            "useTouchButtons": "纯触控设备：隐藏快捷键提示，已启用全尺寸触控评分按钮",
+            "useKeyboardOrClick": "桌面键鼠设备：通过点击或 1/2/3/4 数字快捷键操作",
+            "editOcclusionOnDesktop": "窄屏触控设备：复杂多边形遮挡绘制建议在桌面端完成，当前仅提供只读复习",
+            "useManualTemplates": "离线环境：云端 AI 接口已安全隐藏，支持使用内置手工模板制卡",
+            "browserBlobDownload": "Web 浏览器环境：已降级为标准文件下载保存数据包",
+            "noMicrophone": "未检测到可用麦克风设备，录音评测功能已隐藏",
+            "horizontalKeyboardScroll": "窄屏移动设备：超宽表格已启用横向滚动收纳与键盘移动支持"
+        }
+    },
+    "strategyExperiment": {
+        "title": "个人学习策略实验",
+        "subtitle": "旁路对比题型、提示依赖与时段对记忆保留的影响，样本量严格透明，绝不改动内核 FSRS 算法",
+        "confidence": {
+            "reliable": "样本量充足（n ≥ 20），结论具备较高统计参考价值",
+            "insufficientSample": "样本量较少（n < 20），结论仅供初步观察",
+            "noData": "该维度暂无复习观测数据"
+        },
+        "timeSlot": {
+            "morning": "清晨时段 (05:00 - 11:59)",
+            "afternoon": "午后时段 (12:00 - 17:59)",
+            "evening": "傍晚黄金 (18:00 - 22:59)",
+            "night": "深夜时段 (23:00 - 04:59)"
+        },
+        "hint": {
+            "none": "无提示独立回忆",
+            "subtle": "弱提示（线索关键词）",
+            "direct": "强提示（直接看解析前置）"
+        }
+    },
+    "agentCatalog": {
+        "title": "Agent 工具能力目录",
+        "subtitle": "结构化定义 Agent 扩展能力，严格绑定同意中心授权，零私有正文泄露",
+        "tool": {
+            "getStats": {
+                "name": "读取学习与遗忘统计",
+                "desc": "以纯数字聚合形式提供复习次数、保留率与到期趋势"
+            },
+            "prepareCandidates": {
+                "name": "准备候选卡片草稿",
+                "desc": "调用 AI 向导生成候选闪卡提案（仅生成草稿，待用户确认）"
+            },
+            "openScope": {
+                "name": "装配复习范围并导航",
+                "desc": "为用户装配特定知识点或预设的复习队列"
+            },
+            "exportReport": {
+                "name": "导出学习复盘报告",
+                "desc": "将考试或周度复盘生成标准 Markdown 摘要"
+            },
+            "queryHealth": {
+                "name": "查询系统健康指标",
+                "desc": "获取存储规模、孤儿卡片与媒体状态诊断数据"
+            },
+            "triageDebt": {
+                "name": "查询待维护坏卡清单",
+                "desc": "获取顽疾卡与存在语法疑问的卡片 ID 列表"
+            }
+        },
+        "error": {
+            "toolNotFound": "未找到指定的 Agent 工具能力",
+            "permissionDenied": "该能力未在同意中心中获得用户授权，调用已被安全拦截",
+            "missingRequiredParam": "缺少必填参数，调用被终止",
+            "executionFailed": "工具执行发生异常"
+        }
+    },
+    "userFeedbackLoop": {
+        "title": "产品目标与用户反馈闭环",
+        "subtitle": "高频问题关联用户任务与证据链，使用率、学习结果与满意度三维解耦，杜绝混淆指标",
+        "usage": {
+            "light": "轻量使用",
+            "moderate": "适度使用",
+            "heavy": "高频重度使用"
+        },
+        "outcome": {
+            "low": "成效待提升",
+            "medium": "成效良好",
+            "high": "高成果达成"
+        },
+        "nps": {
+            "promoter": "高满意推荐者",
+            "passive": "中立体验者",
+            "detractor": "体验受阻批评者",
+            "unknown": "未评分"
+        },
+        "insight": {
+            "balancedGrowth": "使用频次与学习成效均衡成长",
+            "busyWithoutMastery": "警惕虚假繁荣：使用频次极高但客观掌握率偏低，建议优化卡片质量与复习方法",
+            "efficientTool": "高性价比轻量工具：较低使用耗时达成较高掌握效果",
+            "frictionInWorkflow": "结果达标但操作阻力大，需优化交互流程与无障碍体验"
+        }
+    },
+    "knowledgeFreshness": {
+        "title": "知识新鲜度与掌握解耦",
+        "subtitle": "区分事实过时、版本变更、目标结束与记忆遗忘，过时保护期绝不计入遗忘惩罚，更新前后保留对照",
+        "status": {
+            "fresh": "新鲜在轨",
+            "contentStale": "事实已过时",
+            "versionChanged": "版本规范已变更",
+            "goalEnded": "阶段目标已结束",
+            "sourceInvalid": "来源笔记已失效"
+        },
+        "reason": {
+            "contentStale": "检测到材料内容或客观事实已过时，处于保护期免除遗忘惩罚",
+            "versionChanged": "知识体系版本已演进，建议核对新旧差异",
+            "goalEnded": "关联的考试或学习目标已完结，建议封存或降级复习频次",
+            "sourceInvalid": "来源笔记已被移动或删除，需重连来源",
+            "recalibrated": "已完成新旧内容对照修订，平滑恢复常规复习"
+        },
+        "action": {
+            "protect": "开启过时保护（答错不惩罚）",
+            "recalibrate": "录入新版本（新旧对照）",
+            "viewDiff": "查看新旧版本差异"
+        }
+    },
+    "revisionInbox": {
+        "title": "应用反馈修订收件箱",
+        "subtitle": "任务中发现缺条件、误解或新例子时暂存收件箱，生成差异与证据对比，用户审批确认后更新",
+        "kind": {
+            "missingCondition": "缺失适用条件/边界约束",
+            "misconceptionFix": "概念定义误区纠正",
+            "newExample": "补充生动实战正反例"
+        },
+        "status": {
+            "staged": "待审批确认",
+            "applied": "已采纳合并",
+            "rejected": "已忽略丢弃",
+            "customized": "已人工调整后采纳"
+        },
+        "diff": {
+            "title": "修改前后对照差异",
+            "original": "当前旧题面/答案",
+            "proposed": "拟修订新题面/答案",
+            "noChange": "（该字段无改动）"
+        },
+        "action": {
+            "approve": "确认采纳修改",
+            "reject": "丢弃本次修订",
+            "customize": "手动精修后采纳",
+            "viewEvidence": "查看来源任务与证据"
+        }
+    },
+    "pipelineMetrics": {
+        "title": "阶段到阶段认知流转漏斗",
+        "subtitle": "追踪捕获、理解、回忆、应用、维护到迁移的真实转化率，严格保留分母，不以连击数粉饰掌握",
+        "stage": {
+            "capture": "知识捕获",
+            "comprehend": "深度理解",
+            "recall": "间隔回忆",
+            "apply": "情境实战",
+            "maintain": "存量维护",
+            "transfer": "跨域迁移"
+        },
+        "reason": {
+            "notAttempted": "尚未主动安排学习尝试",
+            "skippedDeliberately": "评估后用户主动跳过",
+            "dependencyUnavailable": "先修前置概念尚未达成，流转受阻",
+            "tooDifficult": "表述过载或难度过高，产生认知壁垒",
+            "staleAbandoned": "知识过时或目标结束，主动放弃",
+            "unknown": "流失原因未充分记录"
+        },
+        "bottleneck": {
+            "captureToComprehend": "主要流失在「捕获 -> 理解」：碎片笔记收集后长期未做消化梳理",
+            "comprehendToRecall": "主要流失在「理解 -> 回忆」：理解后未及时制作闪卡建立抗遗忘连接",
+            "recallToApply": "主要流失在「回忆 -> 应用」：能背出概念但缺乏题目或实战验证",
+            "applyToMaintain": "主要流失在「应用 -> 维护」：实战发现的错误与新条件未及时反哺卡面",
+            "maintainToTransfer": "主要流失在「维护 -> 迁移」：知识孤立存在，尚未举一反三建立跨学科链接"
+        }
+    },
     "editor": {
         "edit": "编辑",
         "title": "编辑内容",
@@ -1621,6 +2455,90 @@
         "qualityInvalidOcclusion": "图片遮挡卡缺少有效遮挡区域；请重新编辑遮挡区域后再入组。",
         "qualityMissingBlock": "找不到卡片来源块；请刷新后重新选择卡片。",
         "loadFail": "内容加载失败，无法编辑"
+    },
+    "achievementExport": {
+        "title": "学习成果证明与导出",
+        "subtitle": "生成防篡改签名证明、脱敏复习日志、薄弱点清单与后续建议，零隐私泄露",
+        "certificate": {
+            "issuedTo": "授予学习者",
+            "goalCompleted": "达成目标",
+            "completedDate": "达成日期",
+            "cardsMastered": "掌握卡片总数",
+            "studySpanDays": "学习周期跨度",
+            "retentionRate": "综合记忆保持率",
+            "verificationFingerprint": "防伪验真指纹"
+        },
+        "log": {
+            "date": "日期",
+            "cardsReviewed": "复习卡数",
+            "dailyRetention": "当日保持率",
+            "durationMinutes": "投入时长(分)"
+        },
+        "weakPoints": {
+            "title": "需持续关注的薄弱点清单",
+            "topicName": "主题名称",
+            "failureCount": "累计失误次数",
+            "forgetRate": "遗忘率"
+        },
+        "suggestion": {
+            "maintainIntervals": "维持当前复习间隔节奏",
+            "focusOnWeakPoints": "重点关注已识别的薄弱知识点",
+            "scheduleWeakPointDrill": "安排薄弱点专项强化训练"
+        },
+        "remedy": {
+            "periodicRecheck": "定期重新核对（如每周一次）"
+        }
+    },
+    "achievementDashboard": {
+        "title": "学习成果可视化仪表盘",
+        "subtitle": "多维指标聚合、趋势图与同组对比，零隐私泄露的纯统计展示",
+        "summary": {
+            "cardsMastered": "掌握卡片数",
+            "retentionRate": "综合保持率",
+            "studyMinutes": "累计投入(分)",
+            "streakDays": "连续打卡天数"
+        },
+        "trend": {
+            "labelDate": "日期",
+            "labelValue": "数值",
+            "baseline": "历史基线",
+            "deviation": "偏离度",
+            "spike": "异常高峰",
+            "drop": "异常低谷",
+            "stable": "平稳区间"
+        },
+        "comparison": {
+            "groupName": "分组名称",
+            "percentileRanking": "百分位排名",
+            "groupAvgRetention": "组均保持率",
+            "groupAvgStudyMinutes": "组均投入时长",
+            "nMembers": "成员数"
+        },
+        "baseline": {
+            "windowDays": "基线窗口(天)",
+            "baselineRetention": "基线保持率",
+            "baselineStudyMinutes": "基线投入时长",
+            "currentDeviationRetention": "当前保持率偏离",
+            "currentDeviationMinutes": "当前投入偏离",
+            "warningLowRetention": "保持率低于基线 20%",
+            "warningHighStudyMinutes": "投入超过基线 50%"
+        }
+    },
+    "achievementExportV2": {
+        "title": "学习成果证明与双格式导出",
+        "subtitle": "Markdown 证书 + JSON 原始数据，防篡改签名验证，隐私零泄露",
+        "format": {
+            "markdown": "Markdown 证书（可打印）",
+            "json": "JSON 原始数据（机器可读）"
+        },
+        "signature": {
+            "label": "防伪验真指纹",
+            "verifySuccess": "签名校验通过",
+            "verifyFailed": "签名校验失败，可能已被篡改"
+        },
+        "weakPoints": {
+            "sortedByFailures": "按失误次数降序排列"
+        }
     },
     "aiPromptGenericLabel": "通用制卡",
     "aiPromptExamLabel": "考试冲刺",
@@ -1830,6 +2748,12 @@
     "targetDisabled": "当前 AI 配置处于紧急停用状态。",
     "tplAnswerRubric": "答案评分要点（rubric）",
     "tplListTableBidi": "列表/表格/双向卡",
+    "tplWordSenseVariants": "词义变体辨析",
+    "tplStatsExplain": "统计报告解释",
+    "tplSocraticCoach": "苏格拉底教练",
+    "tplErrorCauseProbe": "错因追问排查",
+    "tplLeechRootRewrite": "顽疾卡根因改写",
+    "tplSourceUpdateImpact": "来源更新影响评估",
     "loState": {
         "clarified": "已弄清它是什么、为何学",
         "retired": {

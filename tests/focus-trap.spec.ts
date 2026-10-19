@@ -241,4 +241,62 @@ describe("focus-trap（AS-1）", () => {
         expect(tab.defaultPrevented).toBe(true);
         trap.release();
     });
+
+    it("aria-hidden='true' 及其祖先元素被严格排除出可聚焦列表", () => {
+        const ariaHiddenBox = document.createElement("div");
+        ariaHiddenBox.innerHTML = `
+            <button id="normal-btn">正常按钮</button>
+            <div aria-hidden="true">
+                <button id="hidden-aria-btn">无障碍隐藏按钮</button>
+            </div>
+            <button id="direct-aria-hidden" aria-hidden="true">直接隐藏按钮</button>
+        `;
+        document.body.appendChild(ariaHiddenBox);
+
+        const focusables = getFocusable(ariaHiddenBox);
+        expect(focusables.map(el => el.id)).toEqual(["normal-btn"]);
+        ariaHiddenBox.remove();
+    });
+
+    it("支持自定义 initialFocus 选择器优先聚焦指定输入框", () => {
+        const customBox = document.createElement("div");
+        customBox.innerHTML = `
+            <button id="close-btn">关闭</button>
+            <input id="target-input" type="text" />
+            <button id="submit-btn">提交</button>
+        `;
+        document.body.appendChild(customBox);
+
+        // 指定初始焦点为 #target-input 而不是默认的第一个 #close-btn
+        const trap = trapFocus(customBox, {
+            initialFocus: "#target-input",
+            restoreOnRelease: false,
+        });
+
+        expect(document.activeElement?.id).toBe("target-input");
+        expect(trap.getFocusables().map(el => el.id)).toEqual(["close-btn", "target-input", "submit-btn"]);
+        trap.release();
+        customBox.remove();
+    });
+
+    it("autoFocus=false 支持延迟手动调用 focusInitial", () => {
+        const delayBox = document.createElement("div");
+        delayBox.innerHTML = `<button id="b1">B1</button>`;
+        document.body.appendChild(delayBox);
+
+        host.focus();
+        expect(document.activeElement).toBe(host);
+
+        // autoFocus: false 不自动转移焦点
+        const trap = trapFocus(delayBox, { autoFocus: false, restoreOnRelease: false });
+        expect(document.activeElement).toBe(host);
+
+        // 手动调用 focusInitial 转移成功
+        const success = trap.focusInitial();
+        expect(success).toBe(true);
+        expect(document.activeElement?.id).toBe("b1");
+
+        trap.release();
+        delayBox.remove();
+    });
 });

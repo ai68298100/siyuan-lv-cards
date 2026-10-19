@@ -286,3 +286,218 @@ export function computeCurveSvgPaths(
 
     return { empirical, theoretical };
 }
+
+// ----------------------------------------------------------------------------
+// AR-5 报告写入状态机与并发互斥控制器
+// ----------------------------------------------------------------------------
+
+export type ReportWriteStatus = "idle" | "busy" | "success" | "failed";
+
+export type ReportWriteErrorType =
+    | "no-notebook"
+    | "permission-denied"
+    | "syncing"
+    | "timeout"
+    | "network-failure"
+    | "unknown";
+
+/** 报告写入运行态上下文（单向不可变流动） */
+export interface ReportWriteContext {
+    status: ReportWriteStatus;
+    inFlightTitle?: string;
+    inFlightMarkdown?: string;
+    draftTitle?: string;
+    draftMarkdown?: string;
+    errorType?: ReportWriteErrorType;
+    errorI18nKey?: string;
+    errorMessage?: string;
+    lastSuccessDocId?: string;
+    lastSuccessDocPath?: string;
+    startedAt?: number;
+    finishedAt?: number;
+}
+
+export function createReportWriteContext(): ReportWriteContext {
+    return {
+        status: "idle",
+    };
+}
+
+/**
+ * 智能分类报告写入异常（无笔记本/权限不足/同步中/超时）
+ */
+export function classifyReportWriteError(err: unknown): {
+    type: ReportWriteErrorType;
+    i18nKey: string;
+    message: string;
+} {
+    const rawMsg = err instanceof Error ? err.message : String(err ?? "");
+    const lower = rawMsg.toLowerCase();
+
+    if (lower.includes("no-notebook") || lower.includes("no notebook") || lower.includes("找不到笔记本") || lower.includes("未找到可用笔记本") || lower.includes("无可用笔记本") || (lower.includes("笔记本") && (lower.includes("未找到") || lower.includes("无") || lower.includes("缺失")))) {
+        return {
+            type: "no-notebook",
+            i18nKey: "reportWriter.error.noNotebook",
+            message: rawMsg || "未找到可用笔记本",
+        };
+    }
+
+    if (lower.includes("permission") || lower.includes("read-only") || lower.includes("readonly") || lower.includes("权限不足") || lower.includes("只读")) {
+        return {
+            type: "permission-denied",
+            i18nKey: "reportWriter.error.permissionDenied",
+            message: rawMsg || "目标笔记本处于只读状态或权限不足",
+        };
+    }
+
+    if (lower.includes("sync") || lower.includes("同步中") || lower.includes("busy") || lower.includes("锁定")) {
+        return {
+            type: "syncing",
+            i18nKey: "reportWriter.error.syncing",
+            message: rawMsg || "笔记本同步中，请稍后重试",
+        };
+    }
+
+    if (lower.includes("timeout") || lower.includes("timed out") || lower.includes("超时")) {
+        return {
+            type: "timeout",
+            i18nKey: "reportWriter.error.timeout",
+            message: rawMsg || "写入请求超时",
+        };
+    }
+
+    if (lower.includes("network") || lower.includes("fetch") || lower.includes("econnrefused")) {
+        return {
+            type: "network-failure",
+            i18nKey: "reportWriter.error.networkFailure",
+            message: rawMsg || "网络连接异常",
+        };
+    }
+
+    return {
+        type: "unknown",
+        i18nKey: "reportWriter.error.unknown",
+        message: rawMsg || "写入报告发生未知错误",
+    };
+}
+
+/**
+ * 开始写入（加锁，防并发重入）：若当前已处于 busy 状态则抛出异常
+ */
+export function startReportWrite(
+    ctx: ReportWriteContext,
+    title: string,
+    markdown: string,
+    now: number = Date.now(),
+): ReportWriteContext {
+    if (ctx.status === "busy") {
+        throw new Error("REPORT_WRITE_BUSY: another write is currently in-flight");
+    }
+
+    return {
+        ...ctx,
+        status: "busy",
+        inFlightTitle: title,
+        inFlightMarkdown: markdown,
+        errorType: undefined,
+        errorI18nKey: undefined,
+        errorMessage: undefined,
+        startedAt: now,
+        finishedAt: undefined,
+    };
+}
+
+/**
+ * 成功完成写入：清空草稿与忙碌标记，记录落地文档 ID 与路径
+ */
+export function completeReportWrite(
+    ctx: ReportWriteContext,
+    docId: string,
+    docPath: string,
+    now: number = Date.now(),
+): ReportWriteContext {
+    return {
+        ...ctx,
+        status: "success",
+        inFlightTitle: undefined,
+        inFlightMarkdown: undefined,
+        draftTitle: undefined,
+        draftMarkdown: undefined,
+        lastSuccessDocId: docId,
+        lastSuccessDocPath: docPath,
+        finishedAt: now,
+    };
+}
+
+/**
+ * 写入失败：将在途数据安全沉淀为草稿（draftMarkdown/draftTitle），分类并保存错误信息
+ */
+export function failReportWrite(
+    ctx: ReportWriteContext,
+    err: unknown,
+    now: number = Date.now(),
+): ReportWriteContext {
+    const classification = classifyReportWriteError(err);
+
+    return {
+        ...ctx,
+        status: "failed",
+        draftTitle: ctx.inFlightTitle ?? ctx.draftTitle,
+        draftMarkdown: ctx.inFlightMarkdown ?? ctx.draftMarkdown,
+        inFlightTitle: undefined,
+        inFlightMarkdown: undefined,
+        errorType: classification.type,
+        errorI18nKey: classification.i18nKey,
+        errorMessage: classification.message,
+        finishedAt: now,
+    };
+}
+
+/**
+ * 显式丢弃/清除已保留的草稿
+ */
+export function clearReportWriteDraft(ctx: ReportWriteContext): ReportWriteContext {
+    return {
+        ...ctx,
+        draftTitle: undefined,
+        draftMarkdown: undefined,
+    };
+}
+
+/**
+ * 受保护的报告写入高阶异步执行器：统一执行加锁、写入、成功与失败补偿
+ */
+export async function executeProtectedReportWrite(
+    ctx: ReportWriteContext,
+    params: {
+        title: string;
+        markdown: string;
+        writeAction: (title: string, markdown: string) => Promise<{ docId: string; docPath: string }>;
+        onStateChange?: (nextCtx: ReportWriteContext) => void;
+        now?: number;
+    },
+): Promise<{ success: boolean; context: ReportWriteContext; docId?: string; docPath?: string }> {
+    const initialNow = params.now ?? Date.now();
+    let current = startReportWrite(ctx, params.title, params.markdown, initialNow);
+    params.onStateChange?.(current);
+
+    try {
+        const res = await params.writeAction(params.title, params.markdown);
+        current = completeReportWrite(current, res.docId, res.docPath, Date.now());
+        params.onStateChange?.(current);
+        return {
+            success: true,
+            context: current,
+            docId: res.docId,
+            docPath: res.docPath,
+        };
+    } catch (err) {
+        current = failReportWrite(current, err, Date.now());
+        params.onStateChange?.(current);
+        return {
+            success: false,
+            context: current,
+        };
+    }
+}
+
