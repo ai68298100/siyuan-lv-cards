@@ -1,6 +1,7 @@
 <script lang="ts">
     import { onDestroy, onMount } from "svelte";
     import { getBlockDOM, setBlockAttrs } from "@/api/siyuan";
+    import { rafThrottle } from "@/libs/throttle";
     import { emptyOcclusion, serializeOcclusion, type OcclusionRect } from "@/core/occlusion";
     import LvKbd from "./kit/LvKbd.svelte";
     import LvIcon from "./kit/LvIcon.svelte";
@@ -26,24 +27,53 @@
     let loadSeq = 0;
     let image: HTMLImageElement | null = null;
     let activePointerId: number | null = null;
+    let cachedOverlayBox: DOMRect | null = null;
+
+    function positionOverlay() {
+        if (disposed || !preview || !overlay) return;
+        const img = content?.querySelector("img");
+        if (!img) return;
+        const box = {
+            left: img.offsetLeft,
+            top: img.offsetTop,
+            width: img.offsetWidth,
+            height: img.offsetHeight,
+        };
+        // 坐标相对图片包围盒：覆盖层精确贴在图片上
+        overlay.style.left = `${box.left}px`;
+        overlay.style.top = `${box.top}px`;
+        overlay.style.width = `${box.width}px`;
+        overlay.style.height = `${box.height}px`;
+    }
+
+    const throttledPositionOverlay = rafThrottle(() => {
+        positionOverlay();
+    });
 
     function svgPoint(e: PointerEvent): { x: number; y: number } | null {
         if (!overlay) return null;
-        const box = overlay.getBoundingClientRect();
+        const box = cachedOverlayBox ?? overlay.getBoundingClientRect();
         const x = (e.clientX - box.left) / box.width;
         const y = (e.clientY - box.top) / box.height;
         return { x: Math.min(1, Math.max(0, x)), y: Math.min(1, Math.max(0, y)) };
     }
 
+    const throttledMoveUpdate = rafThrottle((q: { x: number; y: number }) => {
+        if (disposed || !drawing) return;
+        drawing = { ...drawing, w: q.x - drawing.x, h: q.y - drawing.y };
+    });
+
     function onMove(e: PointerEvent) {
         if (e.pointerId !== activePointerId || !drawing) return;
         const q = svgPoint(e);
         if (!q) return;
-        drawing = { ...drawing, w: q.x - drawing.x, h: q.y - drawing.y };
+        throttledMoveUpdate(q);
     }
 
     function finishDrawing(e: PointerEvent, commit: boolean) {
         if (e.pointerId !== activePointerId) return;
+        throttledMoveUpdate.flush();
+        cachedOverlayBox = null;
         activePointerId = null;
         if (commit && drawing && Math.abs(drawing.w) > 0.01 && Math.abs(drawing.h) > 0.01) {
             const r = drawing;
@@ -67,6 +97,7 @@
 
     function onDown(e: PointerEvent) {
         if (!overlay || activePointerId !== null) return;
+        cachedOverlayBox = overlay.getBoundingClientRect();
         const p = svgPoint(e);
         if (!p) return;
         e.preventDefault();
@@ -78,7 +109,8 @@
         const seq = ++loadSeq;
         loading = true;
         errorMsg = "";
-        if (image) image.removeEventListener("load", positionOverlay);
+        if (image) image.removeEventListener("load", throttledPositionOverlay);
+        window.removeEventListener("resize", throttledPositionOverlay);
         image = null;
         if (content) content.innerHTML = "";
         try {
@@ -108,9 +140,9 @@
                     }, { once: true });
                 }
                 positionOverlay();
-                // 图片加载完成后尺寸才稳定，再校一次；窗口缩放同步
-                image.addEventListener("load", positionOverlay);
-                window.addEventListener("resize", positionOverlay);
+                // 图片加载完成后尺寸才稳定，再校一次；窗口缩放经帧率节流同步
+                image.addEventListener("load", throttledPositionOverlay);
+                window.addEventListener("resize", throttledPositionOverlay);
             }
         } catch (e: any) {
             if (!disposed && seq === loadSeq) errorMsg = e?.message ?? String(e);
@@ -136,29 +168,15 @@
         disposed = true;
         activePointerId = null;
         drawing = null;
+        cachedOverlayBox = null;
+        throttledMoveUpdate.cancel();
+        throttledPositionOverlay.cancel();
         if (image) {
-            image.removeEventListener("load", positionOverlay);
+            image.removeEventListener("load", throttledPositionOverlay);
             image = null;
         }
-        window.removeEventListener("resize", positionOverlay);
+        window.removeEventListener("resize", throttledPositionOverlay);
     });
-
-    function positionOverlay() {
-        if (!preview || !overlay) return;
-        const img = content?.querySelector("img");
-        if (!img) return;
-        const box = {
-            left: img.offsetLeft,
-            top: img.offsetTop,
-            width: img.offsetWidth,
-            height: img.offsetHeight,
-        };
-        // 坐标相对图片包围盒：覆盖层精确贴在图片上
-        overlay.style.left = `${box.left}px`;
-        overlay.style.top = `${box.top}px`;
-        overlay.style.width = `${box.width}px`;
-        overlay.style.height = `${box.height}px`;
-    }
 
     async function save() {
         if (busy || loading || errorMsg || rects.length === 0) return;

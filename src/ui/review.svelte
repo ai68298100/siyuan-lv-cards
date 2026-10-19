@@ -1,6 +1,7 @@
 <script lang="ts">
     import { onDestroy, onMount } from "svelte";
     import { fade } from "svelte/transition";
+    import { rafThrottle } from "@/libs/throttle";
     import { countUp } from "./kit/countup";
     import { getMotionDuration } from "./kit/motion";
     import { openTab, showMessage } from "siyuan";
@@ -405,13 +406,17 @@
     let keyboardInset = $state(0);
     const isKeyboardOpen = $derived(keyboardInset > 120);
 
-    function onViewportChange() {
-        if (typeof window === "undefined" || !window.visualViewport) return;
+    const throttledViewportChange = rafThrottle(() => {
+        if (isDisposed || typeof window === "undefined" || !window.visualViewport) return;
         const inset = Math.max(0, window.innerHeight - window.visualViewport.height);
         keyboardInset = inset;
         if (inset > 120 && document.activeElement && rootEl?.contains(document.activeElement)) {
             (document.activeElement as HTMLElement).scrollIntoView?.({ block: "nearest", behavior: "smooth" });
         }
+    });
+
+    function onViewportChange() {
+        throttledViewportChange();
     }
     let showReschedule = $state(false);
     /** BX-3 本场偏好：覆盖全局设置（仅当前复习面板生命周期内有效，切页后还原） */
@@ -1818,25 +1823,30 @@
         if (!activeOcclusion || !target || !html) return;
         const image = target.querySelector("img");
         if (!image) return;
-        const remeasure = () => positionOcclusion();
-        const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(remeasure) : null;
+        const throttledRemeasure = rafThrottle(() => {
+            if (isDisposed) return;
+            positionOcclusion();
+        });
+        const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => throttledRemeasure()) : null;
         observer?.observe(target);
         observer?.observe(image);
-        image.addEventListener("load", remeasure);
-        window.addEventListener("resize", remeasure);
-        window.visualViewport?.addEventListener("resize", remeasure);
-        window.visualViewport?.addEventListener("scroll", remeasure);
+        image.addEventListener("load", throttledRemeasure);
+        window.addEventListener("resize", throttledRemeasure);
+        window.visualViewport?.addEventListener("resize", throttledRemeasure);
+        window.visualViewport?.addEventListener("scroll", throttledRemeasure);
         return () => {
+            throttledRemeasure.cancel();
             observer?.disconnect();
-            image.removeEventListener("load", remeasure);
-            window.removeEventListener("resize", remeasure);
-            window.visualViewport?.removeEventListener("resize", remeasure);
-            window.visualViewport?.removeEventListener("scroll", remeasure);
+            image.removeEventListener("load", throttledRemeasure);
+            window.removeEventListener("resize", throttledRemeasure);
+            window.visualViewport?.removeEventListener("resize", throttledRemeasure);
+            window.visualViewport?.removeEventListener("scroll", throttledRemeasure);
         };
     });
 
     onDestroy(() => {
         isDisposed = true;
+        throttledViewportChange.cancel();
         stopTimeout(); // AJ7：销毁时清理倒计时，防止泄漏
         stopRequeueTimers();
         if (typeof window !== "undefined" && window.visualViewport) {

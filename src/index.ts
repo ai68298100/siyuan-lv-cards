@@ -364,6 +364,30 @@ export default class LvCardsPlugin extends Plugin {
     /** Last revlog snapshot confirmed by persistence; failed overlapping writes
      * must never roll back to another unconfirmed optimistic snapshot. */
     private persistedRevlogSnapshot: RevlogData | null = null;
+    /** Revlog block index cache (O(1) lookups for manager list rendering) */
+    private cachedRevlogVersion = -1;
+    private cachedReviewedBlockIDs: Set<string> | null = null;
+    private cachedLapsesMap: Record<string, number> | null = null;
+
+    private getRevlogBlockIndex(): { reviewedSet: Set<string>; lapsesMap: Record<string, number> } {
+        if (this.cachedRevlogVersion === this.revlogMutationVersion && this.cachedReviewedBlockIDs && this.cachedLapsesMap) {
+            return { reviewedSet: this.cachedReviewedBlockIDs, lapsesMap: this.cachedLapsesMap };
+        }
+        const reviewedSet = new Set<string>();
+        const lapsesMap: Record<string, number> = {};
+        for (const e of this.revlog.entries) {
+            if (e.blockID) {
+                reviewedSet.add(e.blockID);
+                if (e.rating === 1) {
+                    lapsesMap[e.blockID] = (lapsesMap[e.blockID] ?? 0) + 1;
+                }
+            }
+        }
+        this.cachedRevlogVersion = this.revlogMutationVersion;
+        this.cachedReviewedBlockIDs = reviewedSet;
+        this.cachedLapsesMap = lapsesMap;
+        return { reviewedSet, lapsesMap };
+    }
     private inboxMutationVersion = 0;
     private errorTagMutationVersion = 0;
     private persistedErrorTagsSnapshot: ErrorTagsData | null = null;
@@ -849,6 +873,7 @@ export default class LvCardsPlugin extends Plugin {
     private async applyLoadedStores(loaded: Record<string, unknown>) {
         this.settings = normalizeSettings(loaded[SETTINGS_DATA]);
         this.revlog = normalizeRevlog(loaded[REVLOG_DATA]); // AQ-3：清洗非法条目并由明细重建 days
+        this.revlogMutationVersion += 1;
         this.suspendToday = normalizeSuspendToday(loaded[SUSPEND_TODAY_DATA]);
         this.killSwitch = normalizeKillSwitch(loaded[AI_KILL_SWITCH_DATA]);
         this.examPlans = normalizeExamPlans(loaded[EXAM_PLANS_DATA]);
@@ -1158,18 +1183,10 @@ export default class LvCardsPlugin extends Plugin {
                                 const items = leechCards(plugin.revlog, plugin.settings.leechThreshold);
                                 return items.map(i => ({ blockID: i.blockID, lapses: i.lapses }));
                             },
-                            // 状态过滤（M6·FR2）：新卡=本地 revlog 无记录；到期=内核到期清单交集
-                            isNewBlock: (blockID: string) => !plugin.revlog.entries.some(e => e.blockID === blockID),
-                            // 遗忘次数映射（272）：管理器 lapses 排序用
-                            getLapsesMap: () => {
-                                const map: Record<string, number> = {};
-                                for (const e of plugin.revlog.entries) {
-                                    if (e.rating === 1 && e.blockID) {
-                                        map[e.blockID] = (map[e.blockID] ?? 0) + 1;
-                                    }
-                                }
-                                return map;
-                            },
+                            // 状态过滤（M6·FR2）：新卡=本地 revlog 无记录；到期=内核到期清单交集（经版本索引缓存为 O(1) 检索）
+                            isNewBlock: (blockID: string) => !plugin.getRevlogBlockIndex().reviewedSet.has(blockID),
+                            // 遗忘次数映射（272）：管理器 lapses 排序用（版本索引缓存加速，免除高频重算）
+                            getLapsesMap: () => plugin.getRevlogBlockIndex().lapsesMap,
                             // T05 分面（docs/40）：块学习记录与关联疑问
                             getBlockHistory: (blockID: string) =>
                                 plugin.revlog.entries

@@ -95,12 +95,14 @@ import { confirmDialog } from "@/libs/dialog";
     let loading = $state(true);
     let page = $state(1);
     let viewReady = $state(false);
+    let disposed = false;
     let restorePositionOnLoad = false;
     let restoreScrollTop = 0;
     let restoreFocusId = "";
     let liveScrollTop = 0;
     let focusedControlId = "";
     let viewSaveTimer: ReturnType<typeof setTimeout> | null = null;
+    const lapsesMap = $derived(ctx.getLapsesMap ? ctx.getLapsesMap() : {});
     let total = $state(0);
     let pageCount = $state(1);
     let blocks: SearchBlock[] = $state([]);
@@ -170,18 +172,16 @@ import { confirmDialog } from "@/libs/dialog";
                 return [...arr].sort((a, b) => stripHtml(a.content).localeCompare(stripHtml(b.content)));
             }
             if (sortMode === "lapses") {
-                // 遗忘次数降序（272）：烂卡优先
-                const lapses = ctx.getLapsesMap();
-                return [...arr].sort((a, b) => (lapses[b.id] ?? 0) - (lapses[a.id] ?? 0));
+                // 遗忘次数降序（272）：烂卡优先（使用响应式派生表，避免每次比较重复扫表）
+                return [...arr].sort((a, b) => (lapsesMap[b.id] ?? 0) - (lapsesMap[a.id] ?? 0));
             }
             return arr;
         })()
     );
 
     function stripHtml(html: string): string {
-        const div = document.createElement("div");
-        div.innerHTML = html ?? "";
-        return (div.textContent ?? "").trim();
+        if (!html) return "";
+        return html.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").trim();
     }
 
     async function load() {
@@ -213,10 +213,12 @@ import { confirmDialog } from "@/libs/dialog";
             total = cards.total;
             pageCount = nextPageCount;
         } catch (e: any) {
+            if (disposed) return;
             if (seq === loadSeq) {
                 errorMsg = friendlyError(e, t);
             }
         } finally {
+            if (disposed) return;
             if (seq === loadSeq) {
                 loading = false;
                 await restoreViewPosition();
@@ -225,10 +227,10 @@ import { confirmDialog } from "@/libs/dialog";
     }
 
     async function restoreViewPosition() {
-        if (!restorePositionOnLoad || loading || dueLoading || errorMsg || dueError) return;
+        if (disposed || !restorePositionOnLoad || loading || dueLoading || errorMsg || dueError) return;
         // 列表替换加载骨架后再恢复；到期筛选还需等其独立查询完成。
         await tick();
-        if (!restorePositionOnLoad || loading || dueLoading) return;
+        if (disposed || !restorePositionOnLoad || loading || dueLoading) return;
         const pageEl = document.getElementById("lv-manager-page");
         if (pageEl) pageEl.scrollTop = restoreScrollTop;
         const focusEl = restoreFocusId ? document.getElementById(restoreFocusId) : null;
@@ -262,10 +264,13 @@ import { confirmDialog } from "@/libs/dialog";
     }
 
     function scheduleViewSave() {
+        if (disposed) return;
         if (viewSaveTimer) clearTimeout(viewSaveTimer);
         viewSaveTimer = setTimeout(() => {
             viewSaveTimer = null;
-            ctx.view?.save(serializeView());
+            if (!disposed && viewReady) {
+                ctx.view?.save(serializeView());
+            }
         }, 180);
     }
 
@@ -311,10 +316,12 @@ import { confirmDialog } from "@/libs/dialog";
                 await load();
             }
         } catch (e: any) {
+            if (disposed) return;
             if (seq === dueSeq && statusFilter === "due") {
                 dueError = friendlyError(e, t) || t.manager.dueLoadFailed;
             }
         } finally {
+            if (disposed) return;
             if (seq === dueSeq) {
                 dueLoading = false;
                 await restoreViewPosition();
@@ -579,6 +586,7 @@ import { confirmDialog } from "@/libs/dialog";
             }, 180);
         });
         return () => {
+            disposed = true;
             offStores?.();
             offReviewed?.();
             if (viewSaveTimer) {
@@ -590,12 +598,17 @@ import { confirmDialog } from "@/libs/dialog";
                 clearTimeout(storesChangedTimer);
                 storesChangedTimer = null;
             }
+            if (filterTimer) {
+                clearTimeout(filterTimer);
+                filterTimer = null;
+            }
         };
     });
 
-    // BI-17：视图变化即持久化（settings 走 saveSettingsSoon 防抖）
+    // BI-17：视图变化即持久化（经 scheduleViewSave 防抖排队，避免高频输入与滚动瞬时写盘）
     $effect(() => {
-        if (viewReady) ctx.view?.save(serializeView());
+        const _ = [filterText, sortMode, leechOnly, statusFilter, page];
+        if (viewReady) scheduleViewSave();
     });
 
     function saveCurrent() {
@@ -770,8 +783,8 @@ import { confirmDialog } from "@/libs/dialog";
                                 {:else if dueSet.has(b.id)}
                                     <span class="lv-chip2 lv-chip2--default">{t.manager.statusDue ?? "到期"}</span>
                                 {/if}
-                                {#if (ctx.getLapsesMap()[b.id] ?? 0) >= 4}
-                                    <span class="lv-chip2 lv-chip2--warn" title={`已遗忘 ${ctx.getLapsesMap()[b.id]} 次`}><LvIcon name="warning" size={14} /> {ctx.getLapsesMap()[b.id]}</span>
+                                {#if (lapsesMap[b.id] ?? 0) >= 4}
+                                    <span class="lv-chip2 lv-chip2--warn" title={`已遗忘 ${lapsesMap[b.id]} 次`}><LvIcon name="warning" size={14} /> {lapsesMap[b.id]}</span>
                                 {/if}
                                 <span>{b.hPath ?? ""} {b.name ? "· " + b.name : ""}</span>
                             </span>
