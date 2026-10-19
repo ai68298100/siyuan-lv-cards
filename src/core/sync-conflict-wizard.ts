@@ -42,7 +42,7 @@ export interface FieldConflictItem<T = unknown> {
 }
 
 /** 实体差异三路输入模型 */
-export interface ThreeWayDiffInput<T extends Record<string, any>> {
+export interface ThreeWayDiffInput<T extends Record<string, unknown>> {
     domain: ConflictDomain;
     entityId: string;
     entityName?: string;
@@ -76,7 +76,7 @@ export function areValuesEqual(a: unknown, b: unknown): boolean {
         const keysA = Object.keys(a as Record<string, unknown>);
         const keysB = Object.keys(b as Record<string, unknown>);
         if (keysA.length !== keysB.length) return false;
-        return keysA.every(k => areValuesEqual((a as any)[k], (b as any)[k]));
+        return keysA.every(k => areValuesEqual((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]));
     }
 
     return false;
@@ -89,7 +89,7 @@ export function areValuesEqual(a: unknown, b: unknown): boolean {
  * - 若 Local == Remote，两侧做了相同的修改，自动采纳；
  * - 若 Local != Remote 且两侧均不同于 Base，产生真实冲突！
  */
-export function compareThreeWayEntity<T extends Record<string, any>>(
+export function compareThreeWayEntity<T extends Record<string, unknown>>(
     input: ThreeWayDiffInput<T>,
     now: number = Date.now(),
 ): {
@@ -117,21 +117,21 @@ export function compareThreeWayEntity<T extends Record<string, any>>(
 
         if (!localChanged && !remoteChanged) {
             // 两侧均无修改，保留原值
-            autoMergedResult[key as keyof T] = bVal;
+            autoMergedResult[key as keyof T] = bVal as T[keyof T];
         } else if (localChanged && !remoteChanged) {
             // 仅本地修改，无冲突采纳本地
-            autoMergedResult[key as keyof T] = lVal;
+            autoMergedResult[key as keyof T] = lVal as T[keyof T];
         } else if (!localChanged && remoteChanged) {
             // 仅远端修改，无冲突采纳远端
-            autoMergedResult[key as keyof T] = rVal;
+            autoMergedResult[key as keyof T] = rVal as T[keyof T];
         } else if (areValuesEqual(lVal, rVal)) {
             // 两侧做了相同修改，无冲突采纳
-            autoMergedResult[key as keyof T] = lVal;
+            autoMergedResult[key as keyof T] = lVal as T[keyof T];
         } else {
             // 特殊情况：数组追加合并（例如复习日志 revlog，如果能无损并集去重则自动合并）
             if (input.domain === "history" && Array.isArray(lVal) && Array.isArray(rVal) && Array.isArray(bVal)) {
                 const mergedArray = mergeArrayHistory(bVal, lVal, rVal);
-                autoMergedResult[key as keyof T] = mergedArray as any;
+                autoMergedResult[key as keyof T] = mergedArray as unknown as T[keyof T];
                 continue;
             }
 
@@ -199,14 +199,14 @@ export function resolveConflictItem(
 /**
  * 将已解决的冲突项与自动合并结果合成为最终落地对象
  */
-export function assembleFinalResolvedEntity<T extends Record<string, any>>(
+export function assembleFinalResolvedEntity<T extends Record<string, unknown>>(
     autoMerged: Partial<T>,
     resolvedConflicts: readonly FieldConflictItem[],
 ): {
     finalEntity: T;
     forkedVariants?: T[];
 } {
-    const finalEntity: any = { ...autoMerged };
+    const finalEntity: Record<string, unknown> = { ...autoMerged };
     const forkedVariants: T[] = [];
 
     for (const c of resolvedConflicts) {
@@ -227,13 +227,13 @@ export function assembleFinalResolvedEntity<T extends Record<string, any>>(
             case "fork-variant":
                 // 实体分叉：主实体采纳本地，同时生成孪生变体实体保存远端内容
                 finalEntity[c.field] = c.localValue;
-                const forkedEntity: any = {
+                const forkedEntity: Record<string, unknown> = {
                     ...autoMerged,
                     [c.field]: c.remoteValue,
                     isForkedVariant: true,
                     forkedFromId: c.entityId,
                 };
-                forkedVariants.push(forkedEntity);
+                forkedVariants.push(forkedEntity as unknown as T);
                 break;
         }
     }

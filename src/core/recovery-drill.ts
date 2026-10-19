@@ -100,8 +100,9 @@ export function simulateRecoveryDrill(
             if (Array.isArray(content)) {
                 for (const item of content) {
                     if (item && typeof item === "object") {
-                        if ((item as any).id) incomingCardIds.push((item as any).id);
-                        if ((item as any).deckId) incomingDeckIds.push((item as any).deckId);
+                        const rec = item as Record<string, unknown>;
+                        if (typeof rec.id === "string") incomingCardIds.push(rec.id);
+                        if (typeof rec.deckId === "string") incomingDeckIds.push(rec.deckId);
                     }
                 }
             }
@@ -115,8 +116,11 @@ export function simulateRecoveryDrill(
         if (fileName.includes("revlog") && Array.isArray(content)) {
             incomingRevlogCount += content.length;
             for (const r of content) {
-                if (r && typeof (r as any).timestamp === "number") {
-                    incomingLatestRevlogTime = Math.max(incomingLatestRevlogTime, (r as any).timestamp);
+                if (r && typeof r === "object") {
+                    const rec = r as Record<string, unknown>;
+                    if (typeof rec.timestamp === "number") {
+                        incomingLatestRevlogTime = Math.max(incomingLatestRevlogTime, rec.timestamp);
+                    }
                 }
             }
         }
@@ -127,11 +131,12 @@ export function simulateRecoveryDrill(
     const incomingIdSet = new Set(incomingCardIds);
     for (const [fileName, content] of Object.entries(rawFiles)) {
         if (fileName.includes("relation") && typeof content === "object" && content !== null) {
-            const rels = (content as any).relations;
+            const relContainer = content as { relations?: Array<{ to?: string }> };
+            const rels = relContainer.relations;
             if (Array.isArray(rels)) {
                 for (const rel of rels) {
                     // 若目标既不在备份也不在当前宿主，记为破损关联
-                    if (!incomingIdSet.has(rel.to) && !current.cardIds.includes(rel.to)) {
+                    if (typeof rel?.to === "string" && !incomingIdSet.has(rel.to) && !current.cardIds.includes(rel.to)) {
                         brokenRelationsCount++;
                     }
                 }

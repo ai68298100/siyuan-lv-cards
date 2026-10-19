@@ -7,7 +7,7 @@
  * 3. 避免过度布局计算 (layout thrashing) 与多余的持久化写盘
  */
 
-export interface CancelableFunction<T extends (...args: any[]) => any> {
+export interface CancelableFunction<T extends (...args: never[]) => unknown> {
     (...args: Parameters<T>): void;
     /** 取消挂起中的待执行调用，清理定时器/帧请求，防止内存泄漏 */
     cancel(): void;
@@ -36,7 +36,7 @@ export interface DebounceOptions {
 /**
  * 节流函数：限制函数在指定时间窗口 waitMs 内至多执行一次。
  */
-export function throttle<T extends (...args: any[]) => any>(
+export function throttle<T extends (...args: never[]) => unknown>(
     fn: T,
     waitMs: number,
     options: ThrottleOptions = {},
@@ -46,7 +46,7 @@ export function throttle<T extends (...args: any[]) => any>(
 
     let timer: ReturnType<typeof setTimeout> | null = null;
     let lastArgs: Parameters<T> | null = null;
-    let lastThis: any = null;
+    let lastThis: unknown = null;
     let lastExecTime = 0;
 
     function invoke(time: number) {
@@ -66,7 +66,7 @@ export function throttle<T extends (...args: any[]) => any>(
         }
     }
 
-    const throttled = function (this: any, ...args: Parameters<T>) {
+    const throttled = function (this: unknown, ...args: Parameters<T>) {
         const now = Date.now();
         lastArgs = args;
         lastThis = this;
@@ -133,7 +133,7 @@ export function throttle<T extends (...args: any[]) => any>(
 /**
  * 防抖函数：在最后一次触发后等待 waitMs 毫秒才执行。
  */
-export function debounce<T extends (...args: any[]) => any>(
+export function debounce<T extends (...args: never[]) => unknown>(
     fn: T,
     waitMs: number,
     options: DebounceOptions = {},
@@ -145,7 +145,7 @@ export function debounce<T extends (...args: any[]) => any>(
     let timer: ReturnType<typeof setTimeout> | null = null;
     let maxTimer: ReturnType<typeof setTimeout> | null = null;
     let lastArgs: Parameters<T> | null = null;
-    let lastThis: any = null;
+    let lastThis: unknown = null;
 
     function invoke() {
         const args = lastArgs;
@@ -193,7 +193,7 @@ export function debounce<T extends (...args: any[]) => any>(
         }
     }
 
-    const debounced = function (this: any, ...args: Parameters<T>) {
+    const debounced = function (this: unknown, ...args: Parameters<T>) {
         const isWaiting = timer !== null;
         lastArgs = args;
         lastThis = this;
@@ -238,11 +238,11 @@ export function debounce<T extends (...args: any[]) => any>(
  *
  * 在非浏览器或 Node 环境下自动降级为 16ms setTimeout。
  */
-export function rafThrottle<T extends (...args: any[]) => any>(fn: T): CancelableFunction<T> {
+export function rafThrottle<T extends (...args: never[]) => unknown>(fn: T): CancelableFunction<T> {
     let rafId: number | null = null;
     let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
     let lastArgs: Parameters<T> | null = null;
-    let lastThis: any = null;
+    let lastThis: unknown = null;
 
     const hasRaf = typeof requestAnimationFrame === "function";
 
@@ -270,7 +270,7 @@ export function rafThrottle<T extends (...args: any[]) => any>(fn: T): Cancelabl
         }
     }
 
-    const throttled = function (this: any, ...args: Parameters<T>) {
+    const throttled = function (this: unknown, ...args: Parameters<T>) {
         lastArgs = args;
         lastThis = this;
 

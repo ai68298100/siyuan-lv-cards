@@ -38,17 +38,34 @@ export interface Notebook {
     name: string;
 }
 
+interface RawNotebook {
+    id: string;
+    name: string;
+    closed?: boolean;
+    [key: string]: unknown;
+}
+
+interface CreateNotebookResult {
+    notebook?: { id?: string } | string;
+    id?: string;
+    [key: string]: unknown;
+}
+
 /** 已打开的笔记本列表（供复习范围选择；加密本由内核在拉卡时报错，这里不做前置过滤——AA 组另测） */
 export const getNotebooks = async (): Promise<Notebook[]> => {
-    const data = await kernelRead<{ notebooks?: any[] }>("/api/notebook/lsNotebooks", {});
-    const boxes: any[] = data?.notebooks ?? [];
-    return boxes.filter(b => !b.closed).map(b => ({ id: b.id as string, name: b.name as string }));
+    const data = await kernelRead<{ notebooks?: RawNotebook[] }>("/api/notebook/lsNotebooks", {});
+    const boxes: RawNotebook[] = data?.notebooks ?? [];
+    return boxes.filter(b => !b.closed).map(b => ({ id: b.id, name: b.name }));
 };
 
 /** 创建笔记本（Anki 导入落点；同名已存在时内核报错由调用方处理） */
 export const createNotebook = async (name: string): Promise<string | null> => {
-    const d: any = await kernelPost("/api/notebook/createNotebook", { name });
-    return d?.notebook?.id ?? d?.notebook ?? d?.id ?? null;
+    const d = await kernelPost<CreateNotebookResult>("/api/notebook/createNotebook", { name });
+    if (!d) return null;
+    if (typeof d.notebook === "object" && d.notebook?.id) return d.notebook.id;
+    if (typeof d.notebook === "string") return d.notebook;
+    if (typeof d.id === "string") return d.id;
+    return null;
 };
 
 /** Markdown 创建文档，返回文档块 ID（快速制卡/示例卡落点） */

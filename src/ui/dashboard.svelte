@@ -1,5 +1,6 @@
 <script lang="ts">
     import { onMount } from "svelte";
+    import type { App } from "siyuan";
     import { fade } from "svelte/transition";
     import { getRiffDecks, getRiffCards, getRiffDueCards, type RiffDeck } from "@/api/riff";
     import { dueCache } from "@/api/due-shared";
@@ -26,8 +27,8 @@
     import LvIcon from "./kit/LvIcon.svelte";
 
     export interface DashboardCtx {
-        i18n: any;
-        app: any;
+        i18n: Record<string, any>;
+        app: App;
         getRevlog: () => RevlogData;
         getV2Status: () => MigrationStatus | null;
         getDailyTargets: () => { new: number; review: number };
@@ -241,7 +242,7 @@
         writeError = "";
         try {
             await ctx.writeReportDoc(buildReportMd());
-        } catch (e: any) {
+        } catch (e: unknown) {
             writeError = friendlyError(e, t);
         } finally {
             writeBusy = false;
@@ -449,7 +450,8 @@
                 const r = await getRiffCards("", page, 100);
                 pageCount = Number(r.pageCount ?? 1);
                 for (const b of r.blocks ?? []) {
-                    const rc = (b as any).riffCard ?? (b as any).RiffCard;
+                    const blockRec = b as unknown as { riffCard?: { due?: unknown; state?: unknown }; RiffCard?: { due?: unknown; state?: unknown } };
+                    const rc = blockRec.riffCard ?? blockRec.RiffCard;
                     if (rc) cards.push({ due: String(rc.due ?? ""), state: Number(rc.state ?? 0) });
                 }
                 page += 1;
@@ -493,8 +495,8 @@
             // hero 统计（到期数等）的渲染；快路径先行呈现，慢面板就绪后渐进补齐
             const docCovPromise: Promise<{ docs: { docID: string; title: string; seen: number }[]; unattributed: number } | null> =
                 ctx.getDocCoverage ? ctx.getDocCoverage().catch(() => null) : Promise.resolve(null);
-            const v2StatsPromise: Promise<any[]> = ctx.getV2Status()
-                ? getFlashcardStatistics({}).then((s) => s as unknown as any[]).catch(() => [])
+            const v2StatsPromise: Promise<unknown[]> = ctx.getV2Status()
+                ? getFlashcardStatistics({}).then((s) => (Array.isArray(s) ? s : [])).catch(() => [])
                 : Promise.resolve([]);
             const [deckList, due] = await Promise.all([
                 getRiffDecks(),
@@ -574,7 +576,7 @@
                     }
                 }
             }
-        } catch (e: any) {
+        } catch (e: unknown) {
             if (seq === refreshSeq) {
                 errorMsg = friendlyError(e, t);
             }

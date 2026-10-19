@@ -89,18 +89,44 @@ type doOperation = {
     retData: null;
 }
 
-interface Window {
-    siyuan: {
-        config: any;
-        notebooks: any;
-        menus: any;
-        dialogs: any;
-        blockPanels: any;
-        storage: any;
-        user: any;
-        ws: any;
-        languages: any;
-        emojis: any;
+interface SiyuanLanguages {
+    cancel?: string;
+    confirm?: string;
+    lang?: string;
+    [key: string]: string | undefined;
+}
+
+interface SiyuanConfig {
+    lang?: string;
+    appearance?: {
+        mode?: number;
+        themeJS?: boolean;
+        themeDark?: string;
+        themeLight?: string;
+        [key: string]: unknown;
     };
-    Lute: any;
+    [key: string]: unknown;
+}
+
+interface SiyuanGlobal {
+    config?: SiyuanConfig;
+    notebooks?: unknown[];
+    menus?: unknown;
+    dialogs?: unknown[];
+    blockPanels?: unknown[];
+    storage?: unknown;
+    user?: Record<string, unknown>;
+    ws?: unknown;
+    languages?: SiyuanLanguages;
+    emojis?: unknown[];
+    [key: string]: unknown;
+}
+
+interface Window {
+    siyuan: SiyuanGlobal;
+    Lute?: unknown;
+    LVEcosystem?: unknown;
+    LVEcosystemEvents?: unknown;
+    LVExamBridge?: unknown;
+    [key: string]: unknown;
 }

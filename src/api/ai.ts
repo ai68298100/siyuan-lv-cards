@@ -86,8 +86,14 @@ export async function aiChat(cfg: AIConfig, system: string, user: string, opts: 
         throw new AICanceledError();
     }
     const timeoutMs = opts.timeoutMs ?? 15000;
-    const resp: any = await requestWithPolicy(
-        () => (fetchSyncPost as any)("/api/ai/chatGPT", {
+    interface SiyuanAiResp {
+        code?: number;
+        msg?: string;
+        data?: { content?: string; text?: string } | string;
+        [key: string]: unknown;
+    }
+    const resp = await requestWithPolicy<SiyuanAiResp>(
+        () => (fetchSyncPost as (url: string, data: unknown) => Promise<SiyuanAiResp>)("/api/ai/chatGPT", {
             messages: [
                 { role: "system", content: system },
                 { role: "user", content: user },
@@ -107,8 +113,9 @@ export async function aiChat(cfg: AIConfig, system: string, user: string, opts: 
         }
         throw new Error(resp?.msg || `kernel error (code=${resp?.code ?? "unknown"})`);
     }
-    const d = resp.data as any;
-    return typeof d === "string" ? d : String(d?.content ?? d?.text ?? "");
+    const d = resp.data;
+    if (typeof d === "string") return d;
+    return String(d?.content ?? d?.text ?? "");
 }
 
 function describe(e: unknown): string {
@@ -153,7 +160,7 @@ async function chatCompletions(cfg: AIConfig, system: string, user: string, opts
                     throw new AIHttpError(resp.status, code, parseRetryAfter(resp.headers?.get("retry-after")));
                 }
                 try {
-                    const j: any = await resp.json();
+                    const j = (await resp.json()) as { choices?: Array<{ message?: { content?: string } }> };
                     return String(j?.choices?.[0]?.message?.content ?? "");
                 } catch {
                     throw new Error("AI parse failed");

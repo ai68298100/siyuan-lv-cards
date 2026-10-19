@@ -117,7 +117,7 @@ export async function executeGatewayCall<T>(
     const timeout = options.timeoutMs ?? 10000;
     const sanitizedPayload = sanitizeAuditDetails(rawPayload) || {};
 
-    let timer: any = null;
+    let timer: ReturnType<typeof setTimeout> | null = null;
     const timeoutPromise = new Promise<never>((_, reject) => {
         timer = setTimeout(() => {
             reject(new Error(`Kernel request timeout after ${timeout}ms: ${endpoint}`));
@@ -130,12 +130,13 @@ export async function executeGatewayCall<T>(
 
         // 标准内核返回格式解包：{ code: 0, data: T, msg: string }
         if (rawRes && typeof rawRes === "object") {
-            const code = (rawRes as any).code;
+            const resObj = rawRes as { code?: unknown; msg?: unknown; data?: unknown };
+            const code = typeof resObj.code === "number" ? resObj.code : undefined;
             if (code !== undefined && code !== 0) {
-                const msg = (rawRes as any).msg || `Kernel error code ${code}`;
+                const msg = typeof resObj.msg === "string" ? resObj.msg : `Kernel error code ${code}`;
                 throw new Error(msg);
             }
-            const data = (rawRes as any).data !== undefined ? (rawRes as any).data : rawRes;
+            const data = resObj.data !== undefined ? resObj.data : rawRes;
             return {
                 success: true,
                 data: data as T,

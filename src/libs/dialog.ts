@@ -17,15 +17,15 @@ import { trapFocus, type FocusTrap } from "./focus-trap";
  * 未安装时回退 shell 自有 svelte（dev 模式进程内组件）。
  */
 export type DialogMounter = (
-    comp: Component<any>,
+    comp: Component<Record<string, unknown>>,
     target: HTMLElement,
-    props: Record<string, any>
+    props: Record<string, unknown>
 ) => { destroy: () => void };
 let dialogMounter: DialogMounter | null = null;
 export function setDialogMounter(m: DialogMounter): void {
     dialogMounter = m;
 }
-function mountDialog(comp: Component<any>, target: HTMLElement, props: Record<string, any>): { destroy: () => void } {
+function mountDialog(comp: Component<Record<string, unknown>>, target: HTMLElement, props: Record<string, unknown>): { destroy: () => void } {
     if (dialogMounter) {
         return dialogMounter(comp, target, props);
     }
@@ -34,7 +34,8 @@ function mountDialog(comp: Component<any>, target: HTMLElement, props: Record<st
     // Vite's DEV_MODE define removes this branch (and the Svelte runtime) from
     // the production shell bundle.
     if (process.env.DEV_MODE) {
-        const s = (globalThis as any).svelte ?? (typeof window !== "undefined" && (window as any).svelte);
+        type SvelteRuntime = { mount: (comp: unknown, options: { target: HTMLElement; props: Record<string, unknown> }) => unknown; unmount: (app: unknown) => void };
+        const s = ((globalThis as unknown as { svelte?: SvelteRuntime }).svelte ?? (typeof window !== "undefined" ? (window as unknown as { svelte?: SvelteRuntime }).svelte : undefined));
         if (typeof s?.mount === "function") {
             const app = s.mount(comp, { target, props });
             return { destroy: () => { void s.unmount(app); } };
@@ -126,8 +127,8 @@ export const simpleDialog = (args: {
 
 export const svelteDialog = (args: {
     title: string,
-    component: Component<any>, // Svelte 5 component constructor
-    props?: Record<string, any>,
+    component: Component<Record<string, unknown>>, // Svelte 5 component constructor
+    props?: Record<string, unknown>,
     width?: string,
     height?: string,
     callback?: () => void;
