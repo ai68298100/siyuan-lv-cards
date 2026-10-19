@@ -3021,5 +3021,33 @@
         "warning": {
             "largeBacklogSpread": "Large card volume will be smoothed over upcoming days to prevent cognitive overload"
         }
+    },
+    "misconceptionCluster": {
+        "title": "Misconception Cluster Map",
+        "subtitle": "Cluster confirmed error tags and confused concepts to suggest comparisons, counter-examples, and source revisions",
+        "severity": {
+            "critical": "Critical",
+            "high": "High",
+            "medium": "Medium",
+            "low": "Low"
+        },
+        "dimensions": {
+            "definition": "Core Concept Definition",
+            "applicability": "Applicability Scope & Constraints",
+            "behavior": "Input/Output & Behavior Profile",
+            "pitfalls": "Common Traps & Confusion Pitfalls"
+        },
+        "scenario": {
+            "generalBoundary": "General Boundary Discrimination",
+            "edgeCondition": "Edge & Corner Condition Validation",
+            "counterIntuitive": "Counter-Intuitive Comparison Scenario",
+            "sequenceViolation": "Execution Order & Causality Inversion"
+        },
+        "advice": {
+            "buildComparisonTable": "Construct Multi-Dimensional Comparison Table",
+            "createCounterExample": "Design Boundary & Counter-Example Test Cards",
+            "splitCardAndAddDistinction": "Split Composite Card and Clarify Distinctions",
+            "enrichSourceSummary": "Enrich Source Document with Comparison Notes"
+        }
     }
 }

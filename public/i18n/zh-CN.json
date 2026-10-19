@@ -3021,5 +3021,33 @@
         "warning": {
             "largeBacklogSpread": "阶段卡片较多，将按每日限额平滑分摊至未来若干天，避免突发过载"
         }
+    },
+    "misconceptionCluster": {
+        "title": "误解簇地图",
+        "subtitle": "按用户确认的错误原因和混淆概念聚类，生成对比、反例和来源修订建议",
+        "severity": {
+            "critical": "严重",
+            "high": "高",
+            "medium": "中",
+            "low": "轻度"
+        },
+        "dimensions": {
+            "definition": "核心概念定义",
+            "applicability": "适用边界与条件",
+            "behavior": "输入输出与行为特征",
+            "pitfalls": "易错陷阱与辨析盲点"
+        },
+        "scenario": {
+            "generalBoundary": "通用边界判别",
+            "edgeCondition": "边界极端条件判定",
+            "counterIntuitive": "反直觉/容易先入为主的对比场景",
+            "sequenceViolation": "前后执行顺序或因果依赖颠倒"
+        },
+        "advice": {
+            "buildComparisonTable": "构建核心维度对比辨析表",
+            "createCounterExample": "设计边界与反例测试卡片",
+            "splitCardAndAddDistinction": "拆分复合题面并补充概念区分",
+            "enrichSourceSummary": "在来源笔记中补充易错对比小结"
+        }
     }
 }
