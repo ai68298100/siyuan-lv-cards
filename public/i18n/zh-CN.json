@@ -2985,5 +2985,41 @@
     "capability": {
         "title": "能力分布",
         "sub": "按知识对象的掌握阶段汇总（本地日志口径）"
+    },
+    "phaseArchive": {
+        "title": "长期项目阶段封存与复开",
+        "subtitle": "课程/语言/专业项目封存上下文；复开先检查版本与来源，不自动制造今日负担",
+        "domain": {
+            "course": "课程学期",
+            "language": "语言学习",
+            "professional": "专业认证",
+            "general": "通用专题"
+        },
+        "reason": {
+            "curriculumFinished": "课程结课/学期结束",
+            "examCompleted": "考试或认证已结束",
+            "stageMastered": "当前阶段目标已达成",
+            "pauseTemporarily": "临时搁置/精力转向其他任务",
+            "customArchive": "用户自定义封存"
+        },
+        "check": {
+            "noSnapshot": "阶段尚未封存，无历史快照",
+            "allHealthy": "来源与版本均完整可用，可直接复开",
+            "hasBlockers": "检测到关键来源缺失或卡片丢失，需先核对",
+            "needsReview": "部分来源内容发生更新漂移，建议先复核差异"
+        },
+        "issue": {
+            "sourceMissing": "来源文档或块已被删除或无法定位",
+            "sourceDrifted": "来源内容自封存后已被修改（指纹漂移）"
+        },
+        "plan": {
+            "empty": "阶段内无卡片，复开后不产生额外调度负担",
+            "pausedDesc": "项目恢复为活跃，但卡片暂时挂起不计入今日到期队列",
+            "diagnosticDesc": "生成单次抽样摸底测验（10~15 张），摸底前不污染日常主复习",
+            "gradualRampDesc": "平滑渐进释放：严格限制今日配额，多余卡片分摊至后续天数"
+        },
+        "warning": {
+            "largeBacklogSpread": "阶段卡片较多，将按每日限额平滑分摊至未来若干天，避免突发过载"
+        }
     }
 }

@@ -11734,8 +11734,8 @@
     },
     {
       "id": "BI-29",
-      "status": "open",
-      "checkbox": " ",
+      "status": "implemented",
+      "checkbox": "x",
       "priority": "P2",
       "group": "BI",
       "groupName": "第四轮：用户旅程、状态和下一步决策（仅扩充规划）",

@@ -2985,5 +2985,41 @@
     "capability": {
         "title": "Capability mix",
         "sub": "Grouped by knowledge-object mastery stage (local log basis)"
+    },
+    "phaseArchive": {
+        "title": "Long-term Project Phase Archive & Reopening",
+        "subtitle": "Archive context for courses/languages/professional tracks; check versions and sources first, without generating instant daily overload",
+        "domain": {
+            "course": "Curriculum / Term",
+            "language": "Language Learning",
+            "professional": "Professional Certification",
+            "general": "General Track"
+        },
+        "reason": {
+            "curriculumFinished": "Curriculum completed / Term ended",
+            "examCompleted": "Exam or certification finished",
+            "stageMastered": "Phase goal achieved",
+            "pauseTemporarily": "Paused temporarily / Shifted focus",
+            "customArchive": "Custom archive reason"
+        },
+        "check": {
+            "noSnapshot": "Phase is not archived; no snapshot found",
+            "allHealthy": "Sources and versions are all healthy and ready to reopen",
+            "hasBlockers": "Missing sources or missing cards detected; review needed",
+            "needsReview": "Some sources have been updated since archive; review recommended"
+        },
+        "issue": {
+            "sourceMissing": "Source doc/block was removed or cannot be found",
+            "sourceDrifted": "Source content was modified after archive (content drift)"
+        },
+        "plan": {
+            "empty": "No cards in phase; reopening causes zero extra scheduling load",
+            "pausedDesc": "Project active, but cards remain paused to avoid polluting today's due queue",
+            "diagnosticDesc": "Generate a sample diagnostic quiz (10-15 cards) without altering routine review",
+            "gradualRampDesc": "Gradual ramp-up: strictly cap today's load, spreading backlog smoothly across days"
+        },
+        "warning": {
+            "largeBacklogSpread": "Large card volume will be smoothed over upcoming days to prevent cognitive overload"
+        }
     }
 }
