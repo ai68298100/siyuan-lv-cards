@@ -19,9 +19,9 @@ The full-lifecycle flashcard learning platform for SiYuan — local-first, nativ
 
 > **Note**: The primary README and all design docs are in Chinese. This page covers the essentials; see [docs/](./docs/README.md) for full design material.
 
-Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.4** (2026-10-17), delivering native .lvcards sharing package export/import, touch haptic feedback, and custom card CSS. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.4) for the package and publishing status.
+Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.5** (2026-10-17), delivering native .lvcards sharing package export/import, touch haptic feedback, and custom card CSS. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.5) for the package and publishing status.
 
-## What's New in v0.210.4
+## What's New in v0.210.5
 
 - Fully upgrade and adapt to official SiYuan SDK `siyuan@1.2.9`, fixing `i18n` declaration typing conflicts with `JSONValue` assignments and `Custom` tab model contexts.
 - Merge core dependency upgrades: `vite@8.3.4`, `@types/node@26.6.5`, `happy-dom@21.0.3`, `npm-run-all2@9.0.3`, and CI workflow `actions/setup-node@7.1.0`.

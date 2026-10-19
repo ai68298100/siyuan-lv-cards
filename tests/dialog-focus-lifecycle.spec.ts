@@ -175,6 +175,8 @@ describe("svelteDialog 延迟销毁与焦点归还", () => {
     it("无注入挂载器的开发模式也卸载真正的 Svelte 组件，重复关闭保持一次性", async () => {
         vi.resetModules();
         vi.stubEnv("DEV_MODE", "true");
+        const svelteMod = await import("svelte");
+        (globalThis as any).svelte = svelteMod;
         const { svelteDialog: openDevDialog } = await import("../src/libs/dialog");
         const { default: Palette } = await import("../src/ui/kit/LvPalette.svelte");
         const { flushSync } = await import("svelte");
@@ -206,6 +208,7 @@ describe("svelteDialog 延迟销毁与焦点归还", () => {
         expect(hostState.instances[0].destroyCalls).toBe(1);
         expect(callback).toHaveBeenCalledTimes(1);
         expect(document.activeElement).toBe(opener);
+        delete (globalThis as any).svelte;
     });
 
     it("wraps and injects closeOnce into onClose, forwarding arguments and triggering dialog teardown (AR-2)", () => {

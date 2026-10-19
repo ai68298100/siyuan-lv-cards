@@ -1,6 +1,6 @@
 # Changelog
 
-## 未发布 · 分享包导出完整性与元数据恢复闭环
+## v0.210.5 2026-10-19 · 跨插件对外生态窗口桥、高对比度无障碍加固与对话框/生命周期闭环
 
 - 彻底解除分享包导出端的 20 页（2000 张）硬编码截断，实现无上限全量分页读取与总数、页数、唯一 ID 严格校验，支持大卡组无截断导出；废弃 `ddStripHtml` 粗暴剥离 HTML 标签，分批通过 SQL 显式 LIMIT 读取底层原始 `blocks.markdown` 与 `blocks.memo`，代码块、LaTeX、硬换行与列表格式完全保真。
 - 纯模块 `lvcards-export.ts` 结合卡面特征精准自适应推断卡型（cloze/code/list/qa）；导出文件重新导入时 100% 判定为重复项，闭环双向导入往返无损一致性。
@@ -13,7 +13,7 @@
 - 设置持久化生命周期与版本代次控制闭环（P0 风险收口）：新增测试套件 `tests/settings-persistence-lifecycle.spec.ts`，验证 1200ms 防抖合并、重载前强制冲刷落盘、单次磁盘失败安全回滚至持久化基线、以及连续并发请求下版本代次守卫（Mutation Version Guard）防止旧失败冲垮最新设置。
 - 修复周历视图跨周测试的时间敏感性缺陷（固定测试系统时间锚点）。当前全量 182 文件、1476 项测试全部通过，TypeScript 与 Svelte-check 0 错误 0 警告，i18n 1874 键 985 处引用全对齐，主包 gzip 维持 56111 bytes（低于 55 KiB 门禁，余 209 bytes）。详见[导出记录](./docs/audits/2026-10-19-lvcards-export-integrity.md)、[元数据恢复记录](./docs/audits/2026-10-19-lvcards-metadata-restoration.md)、[菜单图标隔离记录](./docs/audits/2026-10-19-menu-icon-containment.md)、[内核契约记录](./docs/audits/2026-10-19-kernel-plugin-contract.md)、[响应校验统一记录](./docs/audits/2026-10-19-api-response-unification.md)、[通用API契约记录](./docs/audits/2026-10-19-siyuan-api-contracts.md)、[启动容错记录](./docs/audits/2026-10-19-store-startup-fault-tolerance.md)与[设置生命周期记录](./docs/audits/2026-10-19-settings-persistence-lifecycle.md)。
 
-## 未发布 · 分享包导入完整性及迁移交互修复
+### 分享包导入完整性及迁移交互修复
 
 - `.lvcards` 去重改为完整分页取 ID、分批读取原始 Markdown；页数/总数漂移、缺行或重复身份时停止导入。指纹保留代码缩进和硬换行，修复包内重复与同 ID 冲突误报；混合损坏条目整包拒绝，写入前复用统一题面/答案结构门禁。
 - 分享包卡组名和 Obsidian 文件名确认摘要统一 HTML 转义。导入后校验一级块数量、根/父身份和严格正文对应关系；空目标 ID 或块错配不入组，保留文档并说明状态。

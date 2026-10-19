@@ -56,29 +56,8 @@ export function pairImportedBlocks(
 
 // ---------- 幂等台账 ----------
 
-export interface LedgerEntry {
-    guid: string;
-    deckID: string;
-    blockID: string;
-    importedAt: number;
-}
-
-/** 台账清洗：坏条目剔除、guid 去重（保留最新 importedAt）、限量（防无限膨胀） */
-export function normalizeLedger(raw: unknown, cap = 50000): LedgerEntry[] {
-    const list = Array.isArray(raw) ? raw : [];
-    const byGuid = new Map<string, LedgerEntry>();
-    for (const item of list) {
-        const e = item as Partial<LedgerEntry>;
-        if (typeof e?.guid !== "string" || !e.guid || typeof e?.blockID !== "string" || !e.blockID) continue;
-        const prev = byGuid.get(e.guid);
-        const at = typeof e.importedAt === "number" ? e.importedAt : 0;
-        if (!prev || at > (prev.importedAt ?? 0)) {
-            byGuid.set(e.guid, { guid: e.guid, deckID: String(e.deckID ?? ""), blockID: e.blockID, importedAt: at });
-        }
-    }
-    const out = [...byGuid.values()].sort((a, b) => a.importedAt - b.importedAt);
-    return out.length > cap ? out.slice(out.length - cap) : out;
-}
+export { normalizeLedger, type LedgerEntry } from "./import-ledgers";
+import { normalizeLedger, type LedgerEntry } from "./import-ledgers";
 
 /** 重导过滤：台账内 guid 视为已导入（不重复建卡） */
 export function partitionNew(cards: PreviewCard[], ledger: LedgerEntry[]): { fresh: PreviewCard[]; already: string[] } {

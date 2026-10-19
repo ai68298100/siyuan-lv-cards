@@ -34,15 +34,10 @@ export interface BackupBundle {
 
 /** 稳定序列化（键排序，数组保序）——checksum 可复现的前提 */
 export function stableStringify(value: unknown): string {
-    if (value === null || typeof value !== "object") {
-        return JSON.stringify(value ?? null);
-    }
-    if (Array.isArray(value)) {
-        return `[${value.map(v => stableStringify(v)).join(",")}]`;
-    }
+    if (!value || typeof value !== "object") return JSON.stringify(value ?? null);
+    if (Array.isArray(value)) return "[" + value.map(stableStringify).join(",") + "]";
     const obj = value as Record<string, unknown>;
-    const keys = Object.keys(obj).sort();
-    return `{${keys.map(k => `${JSON.stringify(k)}:${stableStringify(obj[k])}`).join(",")}}`;
+    return "{" + Object.keys(obj).sort().map(k => JSON.stringify(k) + ":" + stableStringify(obj[k])).join(",") + "}";
 }
 
 /** FNV-1a 指纹（与 ai-provenance 同算法；此处独立实现保持模块零依赖） */
@@ -50,19 +45,14 @@ export function checksumOf(value: unknown): string {
     const text = stableStringify(value);
     let h = 0x811c9dc5;
     for (let i = 0; i < text.length; i++) {
-        h ^= text.charCodeAt(i);
-        h = Math.imul(h, 0x01000193);
+        h = Math.imul(h ^ text.charCodeAt(i), 0x01000193);
     }
     return (h >>> 0).toString(16).padStart(8, "0");
 }
 
 function entriesOf(value: unknown): number | null {
-    if (Array.isArray(value)) {
-        return value.length;
-    }
-    if (value && typeof value === "object") {
-        return Object.keys(value).length;
-    }
+    if (Array.isArray(value)) return value.length;
+    if (value && typeof value === "object") return Object.keys(value).length;
     return null;
 }
 

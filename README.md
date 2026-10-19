@@ -21,11 +21,11 @@
 
 小驴闪卡（内测版）的定位是**思源笔记里的全生命周期记忆引擎**：让笔记里每一段值得记的内容，都能可回源地变成卡片，用内核原生 FSRS 排期，用可审计的 AI 提效；数据本地优先，方便带走。
 
-当前版本为 **v0.210.4（2026-10-17）**，落地原生分享包（.lvcards）、移动端触感微震动与自定义卡面 CSS。安装包与发布状态见 [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.4)。
+当前版本为 **v0.210.5（2026-10-17）**，落地原生分享包（.lvcards）、移动端触感微震动与自定义卡面 CSS。安装包与发布状态见 [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.5)。
 
 [下载最新版](https://github.com/ai68298100/siyuan-lv-cards/releases/latest) · [提交问题](https://github.com/ai68298100/siyuan-lv-cards/issues/new/choose) · [贡献指南](./CONTRIBUTING.md)
 
-## 本次更新（v0.210.4）
+## 本次更新（v0.210.5）
 
 - 全面升级并适配思源官方 SDK `siyuan@1.2.9`，修复新版 SDK 下 `i18n` 声明类型收紧导致的赋值兼容性与 `Custom` 标签上下文。
 - 合入依赖链升级：`vite@8.3.4`、`@types/node@26.6.5`、`happy-dom@21.0.3`、`npm-run-all2@9.0.3` 及 CI `actions/setup-node@7.1.0`。

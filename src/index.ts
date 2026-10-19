@@ -45,7 +45,7 @@ import { aiChat, estimateTokens, parseCards, isAICanceled } from "./api/ai";
 import { normalizeSuspendToday, rollDateIfNeeded, isSuspended, type SuspendTodayData } from "./core/suspend-today";
 import { createSuspendTodayMutations } from "./core/suspend-today-persistence";
 import { createSnapshotMutationQueue } from "./core/snapshot-mutation-queue";
-import { normalizeLedger, type LedgerEntry } from "./core/anki-import";
+import { normalizeLedger, type LedgerEntry } from "./core/import-ledgers";
 import { acceptVersion, appendVersion, emptyContentVersions, normalizeContentVersions, versionsOf } from "./core/content-versions";
 import { assembleGeneratePrompt } from "./core/ai-pipeline";
 import { checkEligibility } from "./core/ai-eligibility";
@@ -57,7 +57,7 @@ import { isSelectableModel, estimateCallCostUsd } from "./core/ai-model-registry
 import { budgetState, emptyCostLedger, normalizeCostLedger, recordEntry, type CostLedgerData } from "./core/ai-cost-ledger";
 import { MODEL_PRICE_SNAPSHOT } from "./core/ai-model-registry";
 import { buildBackupBundle, previewRestore } from "./core/backup";
-import { normalizeObLedger, type ObLedgerEntry } from "./core/obsidian-import";
+import { normalizeObLedger, type ObLedgerEntry } from "./core/import-ledgers";
 import { parseRevlogCsv } from "./core/revlog-csv";
 import { normalizeSessionState, type SessionState } from "./core/session-state";
 import { normalizeExamPlans, daysLeft, type ExamPlan, type ExamPlansData } from "./core/exam";
@@ -75,9 +75,7 @@ import { showPluginTopbarMenu } from "./bootstrap/topbar-menu";
 import { createFullSampleWorkspace, createOnboardingSampleCards } from "./core/workspace-samples";
 import {
     downloadFile,
-    formatRevlogExportJson,
     formatRevlogExportCsv,
-    formatSettingsExportJson,
     buildCostLedgerExportPayload,
     applyRestoreTransaction,
 } from "./core/data-transfer";
@@ -324,6 +322,8 @@ function createEmptyRepairJournal(): MaintenanceRepairJournal {
 }
 
 /** Capture a JSON-compatible store value without retaining a mutable runtime reference. */
+const todayDate = () => localDate(Date.now());
+
 function cloneStore<T>(value: T): T {
     try {
         return JSON.parse(JSON.stringify(value)) as T;
@@ -475,8 +475,15 @@ export default class LvCardsPlugin extends Plugin {
         }
         this.lastPersistToast = now;
         try {
-            showMessage(this.i18n.storageWriteFail, 4000, "error");
+            this.showStorageFail();
         } catch { /* i18n 未就绪时仅留日志 */ }
+    }
+    private showStorageFail() {
+        this.showStorageFail();
+    }
+    private toastStorageFail(): never {
+        this.showStorageFail();
+        throw new Error(this.i18n.storageWriteFail);
     }
     private saveSettingsSoon() {
         if (this.settingsSaveTimer) clearTimeout(this.settingsSaveTimer);
@@ -490,7 +497,7 @@ export default class LvCardsPlugin extends Plugin {
         // 角标心跳间隔可能随设置变化（440）：即时重建定时器
         this.setupBadgeTimer();
         const version = ++this.settingsMutationVersion;
-        const next = normalizeSettings(JSON.parse(JSON.stringify(this.settings)));
+        const next = normalizeSettings(cloneStore(this.settings));
         const done = this.persist.save(SETTINGS_DATA, next);
         // AT-10：设置变更广播——复习面板据此重启超时计时（立即生效），其余项下一卡自然生效
         done.then(() => {
@@ -500,7 +507,7 @@ export default class LvCardsPlugin extends Plugin {
             } catch { /* 事件旁路 */ }
         }).catch(() => {
             if (version === this.settingsMutationVersion && this.persistedSettingsSnapshot) {
-                this.settings = normalizeSettings(JSON.parse(JSON.stringify(this.persistedSettingsSnapshot)));
+                this.settings = cloneStore(this.persistedSettingsSnapshot);
                 this.setupBadgeTimer();
             }
         });
@@ -813,7 +820,7 @@ export default class LvCardsPlugin extends Plugin {
             try {
                 (this.eventBus as any).emit(LV_EVENTS.storesChanged, storesChangedEvent(files));
             } catch { /* 事件旁路，数据已成功重载 */ }
-            lvLog("info", `[sync] reloaded ${LvCardsPlugin.STORE_KEYS.length} stores after data change`);
+            lvLog("info", "[sync] reloaded stores");
         } catch (e) {
             lvLog("error", `[sync] reload failed: ${e instanceof Error ? e.message : String(e)}`);
         } finally {
@@ -845,7 +852,7 @@ export default class LvCardsPlugin extends Plugin {
         this.suspendToday = normalizeSuspendToday(loaded[SUSPEND_TODAY_DATA]);
         this.killSwitch = normalizeKillSwitch(loaded[AI_KILL_SWITCH_DATA]);
         this.examPlans = normalizeExamPlans(loaded[EXAM_PLANS_DATA]);
-        this.sessionState = normalizeSessionState(loaded[SESSION_STATE_DATA], localDate(Date.now()));
+        this.sessionState = normalizeSessionState(loaded[SESSION_STATE_DATA], todayDate());
         // BK-1/BK-2：知识对象与关系图并入同批加载（normalize 白名单清洗）
         this.knowledgeObjects = normalizeKnowledgeObjects(loaded[KNOWLEDGE_OBJECTS_DATA]);
         this.cardRelations = normalizeCardRelations(loaded[CARD_RELATIONS_DATA]);
@@ -882,7 +889,7 @@ export default class LvCardsPlugin extends Plugin {
             fallback: emptyAIJobs,
             normalize: normalizeAIJobs,
         }, loaded[AI_JOBS_DATA]);
-        this.persistedSettingsSnapshot = normalizeSettings(JSON.parse(JSON.stringify(this.settings)));
+        this.persistedSettingsSnapshot = normalizeSettings(cloneStore(this.settings));
         this.persistedRevlogSnapshot = cloneStore(this.revlog);
         // Keep immutable disk baselines for all optimistic stores. If several writes
         // fail in succession, rolling back to the previous in-memory value would
@@ -901,11 +908,7 @@ export default class LvCardsPlugin extends Plugin {
         // AT-6：启动性能计时起点（onload 首行）
         this.perf.markStart();
         this.paletteState = null;
-        this.addIcons(`<symbol id="iconLvCards" viewBox="0 0 32 32">
-<path d="M6 10h16v16H6z" fill="none" stroke="currentColor" stroke-width="2"></path>
-<path d="M10 6h16v16" fill="none" stroke="currentColor" stroke-width="2"></path>
-<path d="M11 16h6M11 20h10" stroke="currentColor" stroke-width="2"></path>
-</symbol>`);
+        this.addIcons(`<symbol id="iconLvCards" viewBox="0 0 32 32"><path d="M6 10h16v16H6zM10 6h16v16M11 16h6M11 20h10" fill="none" stroke="currentColor" stroke-width="2"/></symbol>`);
 
         // AQ-1：批量加载以 keys 数组驱动并按位置配对，杜绝「6 项加载只解构 5 项」的错位回归
         // （AT-1：读取与装配抽成方法，同步/覆盖变更后的有界串行重载复用同一路径）
@@ -947,33 +950,27 @@ export default class LvCardsPlugin extends Plugin {
         // 对外窗口桥 window.xiaolvCards / window.lvCards（小驴生态协商协议 v1）
         this.disposeCardsBridge = mountCardsBridge({
             getStats: async () => {
-                const today = localDate(Date.now());
-                const dayStat = this.revlog.days[today] ?? { new: 0, review: 0, forget: 0 };
-                const dueCount = await cachedDueCount().catch(() => 0);
+                const day = this.revlog.days[todayDate()];
                 return {
-                    todayReviews: dayStat.review,
-                    todayNew: dayStat.new,
-                    todayForget: dayStat.forget,
+                    todayReviews: day?.review ?? 0,
+                    todayNew: day?.new ?? 0,
+                    todayForget: day?.forget ?? 0,
                     streak: calcStreak(this.revlog),
-                    dueCount,
+                    dueCount: await cachedDueCount().catch(() => 0),
                     historyDays: Object.keys(this.revlog.days).length,
                 };
             },
             getDueSummary: async () => {
-                const data = await dueCache.get("");
+                const d = await dueCache.get("");
                 return {
-                    unreviewedCount: data?.unreviewedCount ?? 0,
-                    unreviewedNewCardCount: data?.unreviewedNewCardCount ?? 0,
-                    unreviewedOldCardCount: data?.unreviewedOldCardCount ?? 0,
+                    unreviewedCount: d?.unreviewedCount ?? 0,
+                    unreviewedNewCardCount: d?.unreviewedNewCardCount ?? 0,
+                    unreviewedOldCardCount: d?.unreviewedOldCardCount ?? 0,
                     updatedAt: new Date().toISOString(),
                 };
             },
-            openHub: (tab?: string) => {
-                this.openTabOf(TAB_DASHBOARD, tab ? { tab } : undefined);
-            },
-            openReview: (options?: { scope?: string; cram?: boolean; entry?: string }) => {
-                this.openTabOf(TAB_REVIEW, options);
-            },
+            openHub: tab => this.openTabOf(TAB_DASHBOARD, tab ? { tab } : undefined),
+            openReview: opts => this.openTabOf(TAB_REVIEW, opts as Record<string, unknown>),
         });
 
         const plugin = this;
@@ -1139,7 +1136,7 @@ export default class LvCardsPlugin extends Plugin {
                                 },
                             },
                             saveFilter: (name: string, filter: string) => {
-                                const previous = normalizeSettings(JSON.parse(JSON.stringify(plugin.settings)));
+                                const previous = normalizeSettings(cloneStore(plugin.settings));
                                 plugin.settings.savedFilters = [
                                     ...plugin.settings.savedFilters.filter(f => f.name !== name),
                                     { name, filter },
@@ -1150,7 +1147,7 @@ export default class LvCardsPlugin extends Plugin {
                                 });
                             },
                             deleteFilter: (name: string) => {
-                                const previous = normalizeSettings(JSON.parse(JSON.stringify(plugin.settings)));
+                                const previous = normalizeSettings(cloneStore(plugin.settings));
                                 plugin.settings.savedFilters = plugin.settings.savedFilters.filter(f => f.name !== name);
                                 void plugin.saveSettingsNow().catch(() => {
                                     plugin.settings = previous;
@@ -1469,7 +1466,7 @@ export default class LvCardsPlugin extends Plugin {
                                 suspendedCount: plugin.suspendToday.cardIDs.length,
                                 session: (() => {
                                     const state = plugin.sessionState;
-                                    const today = localDate(Date.now());
+                                    const today = todayDate();
                                     const reviewed = state.date === today ? state.reviewedIDs.length : 0;
                                     const skipped = state.date === today ? state.skippedIDs.length : 0;
                                     return reviewed > 0 || skipped > 0 ? { date: state.date, reviewed, skipped } : null;
@@ -1574,7 +1571,7 @@ export default class LvCardsPlugin extends Plugin {
                             }
                         },
                         onScopePersist: (key: string) => {
-                            const previous = normalizeSettings(JSON.parse(JSON.stringify(plugin.settings)));
+                            const previous = normalizeSettings(cloneStore(plugin.settings));
                             plugin.settings.lastReviewScope = key;
                             void plugin.saveSettingsNow().catch(() => {
                                 plugin.settings = previous;
@@ -1585,7 +1582,7 @@ export default class LvCardsPlugin extends Plugin {
                         saveSessionState: (s: SessionState) => {
                             const previous = plugin.sessionState;
                             const version = ++plugin.sessionMutationVersion;
-                            const next = normalizeSessionState(s, localDate(Date.now()));
+                            const next = normalizeSessionState(s, todayDate());
                             plugin.sessionState = next;
                             void plugin.persist.save(SESSION_STATE_DATA, next).then(() => {
                                 // Persist receives a cloned payload; retain the same
@@ -1627,7 +1624,7 @@ export default class LvCardsPlugin extends Plugin {
                         },
                         // BI-10：长期返场检查事实聚合（只读；不写内核不自动重建，重建归 BI-28）
                         getReturnCheckFacts: async () => {
-                            const today = localDate(Date.now());
+                            const today = todayDate();
                             const active = plugin.learningGoals.goals.filter(g => isGoalActive(g, today));
                             const deadlines = active
                                 .map(g => daysUntilDeadline(g, today))
@@ -1781,11 +1778,11 @@ export default class LvCardsPlugin extends Plugin {
             lastDue: this.lastDue,
             inQuiet: this.inQuietHours(),
             lastRevlogTs: last?.ts ?? 0,
-            today: localDate(Date.now()),
-            alreadyWarnedToday: this.backlogWarnedFor === localDate(Date.now()),
+            today: todayDate(),
+            alreadyWarnedToday: this.backlogWarnedFor === todayDate(),
         });
         if (decision.shouldWarn) {
-            this.backlogWarnedFor = localDate(Date.now());
+            this.backlogWarnedFor = todayDate();
             showMessage(this.i18n.backlogWarn.replace("${n}", String(decision.days)), 4000, "info");
         }
     }
@@ -1796,7 +1793,7 @@ export default class LvCardsPlugin extends Plugin {
             reminderEnabled: this.settings.reminderEnabled,
             inQuiet: this.inQuietHours(),
             plans: this.examPlans.plans,
-            today: localDate(Date.now()),
+            today: todayDate(),
             lastNotifiedKey: this.examNotifiedFor,
         });
         if (decision.shouldNotify && decision.plan && decision.daysLeft !== undefined && decision.key) {
@@ -1811,7 +1808,7 @@ export default class LvCardsPlugin extends Plugin {
     }
 
     private checkDailyReminder() {
-        const today = localDate(Date.now());
+        const today = todayDate();
         if (!shouldTriggerDailyReminder({
             reminderEnabled: this.settings.reminderEnabled,
             reminderTime: this.settings.reminderTime,
@@ -1871,7 +1868,7 @@ export default class LvCardsPlugin extends Plugin {
             if (!ok) {
                 lvLog("warn", "unload: pending writes did not settle in 3s");
             }
-            lvLog("info", `unload cleanup done in ${Date.now() - unloadStart}ms`);
+            lvLog("info", "[unload] done: " + (Date.now() - unloadStart) + "ms");
         });
         if (this.badgeTimer) {
             clearInterval(this.badgeTimer);
@@ -1893,7 +1890,7 @@ export default class LvCardsPlugin extends Plugin {
             }
             this.lastDue = count;
             const activePlan = this.examPlans.plans.find(p => p.enabled && p.examDate);
-            const todayStat = this.revlog.days[localDate(Date.now())];
+            const todayStat = this.revlog.days[todayDate()];
             const descriptor = computeBadgeDescriptor({
                 reviewEnabled: !!this.settings.modules.review,
                 count,
@@ -1929,7 +1926,7 @@ export default class LvCardsPlugin extends Plugin {
 
         // 里程碑提醒（30/7/1 天，每天每档一次，内存态）
         if (desc.milestoneDays && plan) {
-            const key = `${plan.id}:${desc.milestoneDays}:${localDate(Date.now())}`;
+            const key = `${plan.id}:${desc.milestoneDays}:${todayDate()}`;
             if (!this.milestonesSeen.has(key)) {
                 this.milestonesSeen.add(key);
                 showMessage(this.i18n.examMilestone.replace("${name}", plan.name).replace("${n}", String(desc.milestoneDays)), 4000, "info");
@@ -2100,10 +2097,7 @@ export default class LvCardsPlugin extends Plugin {
     private async copyDiagnostics() {
         try {
             const { buildDiagnosticsText } = await loadHubServices();
-            let kv = "?";
-            try {
-                kv = await kernelVersion();
-            } catch { /* 旁路 */ }
+            const kv = await kernelVersion().catch(() => "?");
             const text = buildDiagnosticsText({
                 pluginVersion: (this as any).manifest?.version ?? "unknown",
                 kernelVersion: kv,
@@ -2252,11 +2246,10 @@ export default class LvCardsPlugin extends Plugin {
                 return;
             }
             const res = await createFullSampleWorkspace(nb.id, this.i18n);
-            if (res.alreadyExisted) {
-                showMessage((this.i18n as any).sampleExists ?? this.i18n.sampleDone.replace("${n}", "0"), 2500, "info");
-            } else {
-                showMessage(this.i18n.sampleDone.replace("${n}", String(res.createdCount)), 3000, "info");
-            }
+            const msg = res.alreadyExisted
+                ? ((this.i18n as any).sampleExists ?? this.i18n.sampleDone.replace("${n}", "0"))
+                : this.i18n.sampleDone.replace("${n}", res.createdCount);
+            showMessage(msg, 2500, "info");
             openTab({ app: this.app, doc: { id: res.docID } });
         } catch (e: any) {
             showMessage(e?.message ?? String(e), 3000, "error");
@@ -2375,7 +2368,7 @@ export default class LvCardsPlugin extends Plugin {
                         throw new Error(this.i18n.onboardingNoNotebook);
                     }
                     // 问答块统一落在「小驴闪卡/标记制卡/<日期>」文档（同路径复用既有文档）
-                    const today = localDate(Date.now());
+                    const today = todayDate();
                     const docID = await createDocWithMd(nb.id, `小驴闪卡/标记制卡/${today}`, "");
                     if (!docID) {
                         throw new Error(this.i18n.quickCardFail);
@@ -2422,28 +2415,18 @@ export default class LvCardsPlugin extends Plugin {
                     i18n: this.i18n,
                     applyPersona: async (id: "exam" | "notes" | "language") => {
                         const preset = PERSONA_PRESETS.find(p => p.id === id);
-                        if (!preset) {
-                            return;
-                        }
-                        const previous = this.settings;
-                        const next = {
+                        if (!preset) return;
+                        this.settings = {
                             ...this.settings,
                             modules: { ...this.settings.modules, ...preset.modules },
                             ...preset.params,
                             persona: id,
                         };
-                        try {
-                            await this.persist.save(SETTINGS_DATA, next);
-                            this.settings = next;
-                        } catch (e) {
-                            this.settings = previous;
-                            showMessage(this.i18n.storageWriteFail, 4000, "error");
-                            throw e;
-                        }
+                        await this.saveSettingsNow();
                     },
-                    createSampleCards: (nbId: string) => this.createSampleCards(nbId),
+                    createSampleCards: nbId => this.createSampleCards(nbId),
                     openHelp: () => this.openHelpDoc(),
-                    openSampleDoc: (docId: string) => openTab({ app: this.app, doc: { id: docId } }),
+                    openSampleDoc: docId => openTab({ app: this.app, doc: { id: docId } }),
                     openReview: () => this.openTabOf(TAB_REVIEW),
                     onClose: () => this.markOnboarded(),
                 },
@@ -2735,14 +2718,14 @@ export default class LvCardsPlugin extends Plugin {
                     });
                     const { system, user } = assembled;
                     // AuditSink（lvLog）：仅非敏感字段（task/模板来源/token 数/写入目标）
-                    lvLog("info", `[ai-pipeline] ${JSON.stringify(assembled.audit)}`);
+                    lvLog("info", "[ai-pipeline] " + assembled.audit.modelId);
                     if (assembled.needsBatching) {
                         throw new Error(this.i18n.aiTooLong);
                     }
                     const jobId = `job-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
                     let job = createJob(jobId, { type: this.settings.aiMode, label: source.slice(0, 50), excerpt: source.slice(0, 200) }, cfg);
                     job = transitionJob(job, { type: "GENERATE_START" }).job;
-                    const beforeJobStart = normalizeAIJobs(JSON.parse(JSON.stringify(this.aiJobs)));
+                    const beforeJobStart = normalizeAIJobs(cloneStore(this.aiJobs));
                     this.upsertAIJob(job);
                     await this.persistAIJobs(beforeJobStart);
                     let fallbackNotified = false;
@@ -2794,16 +2777,16 @@ export default class LvCardsPlugin extends Plugin {
                             type: "GENERATE_OK",
                             candidates: parsed.map(c => ({ q: c.q, a: c.a, d: c.d, keep: true, status: "pending" as const })),
                         }).job;
-                        const beforeJobReady = normalizeAIJobs(JSON.parse(JSON.stringify(this.aiJobs)));
+                        const beforeJobReady = normalizeAIJobs(cloneStore(this.aiJobs));
                         this.upsertAIJob(job);
                         await this.persistAIJobs(beforeJobReady);
                         // 批次元数据（质量反哺数据源，P2 消费）；tokens 供消耗历史（299）
                         // BU-19：批次 pin——生成环境快照落盘（modelId/templateHash/来源 hash，均指纹不含密钥与原文）
-                        const previousBatches = normalizeAIBatches(JSON.parse(JSON.stringify(this.aiBatches)));
+                        const previousBatches = normalizeAIBatches(cloneStore(this.aiBatches));
                         const batchesVersion = ++this.aiBatchesMutationVersion;
                         this.aiBatches.batches.push({
                             id: `ai-${Date.now().toString(36)}`,
-                            date: localDate(Date.now()),
+                            date: todayDate(),
                             deckID: "",
                             blockIDs: [],
                             tokens: estimateTokens(system) + estimateTokens(user) + estimateTokens(raw),
@@ -2828,12 +2811,12 @@ export default class LvCardsPlugin extends Plugin {
                             if (batchesVersion === this.aiBatchesMutationVersion) {
                                 this.aiBatches = cloneStore(this.persistedAIBatchesSnapshot ?? previousBatches);
                             }
-                            showMessage(this.i18n.storageWriteFail, 4000, "error");
+                            this.showStorageFail();
                         }
                         // BU-25（v0.196.0）：用量入账（估算显式标记；价格未知=null 不编数字；不含 key 与原文）
                         const tokensIn = estimateTokens(system) + estimateTokens(user);
                         const tokensOut = estimateTokens(raw);
-                        const previousCostLedger = normalizeCostLedger(JSON.parse(JSON.stringify(this.costLedger)));
+                        const previousCostLedger = normalizeCostLedger(cloneStore(this.costLedger));
                         const costVersion = ++this.costLedgerMutationVersion;
                         const nextCostLedger = recordEntry(this.costLedger, {
                             at: Date.now(),
@@ -2859,7 +2842,7 @@ export default class LvCardsPlugin extends Plugin {
                             if (costVersion === this.costLedgerMutationVersion) {
                                 this.costLedger = cloneStore(this.persistedCostLedgerSnapshot ?? previousCostLedger);
                             }
-                            showMessage(this.i18n.storageWriteFail, 4000, "error");
+                            this.showStorageFail();
                         }
                         // BU-24：预算预警（80% 阈值，到顶前提醒；超限已在下一轮请求前置阻断）
                         if (budgetState(this.costLedger, { enabled: this.settings.aiCostBudgetEnabled, monthlyTokenCap: this.settings.aiCostMonthlyCap }).warn) {
@@ -2907,7 +2890,7 @@ export default class LvCardsPlugin extends Plugin {
                 isSourceDenied: (kind: "doc" | "notebook", id: string) =>
                     isDenied(this.aiDenyList, kind === "doc" ? { docId: id } : { notebookId: id }).denied,
                 onDenySource: (kind: "doc" | "notebook", id: string) => {
-                    const previous = normalizeDenyList(JSON.parse(JSON.stringify(this.aiDenyList)));
+                    const previous = normalizeDenyList(cloneStore(this.aiDenyList));
                     const next = addDenyRule(this.aiDenyList, kind, id, Date.now());
                     const version = ++this.aiDenyMutationVersion;
                     this.aiDenyList = next;
@@ -2919,7 +2902,7 @@ export default class LvCardsPlugin extends Plugin {
                         if (version === this.aiDenyMutationVersion) {
                             this.aiDenyList = cloneStore(this.persistedAIDenyListSnapshot ?? previous);
                         }
-                        showMessage(this.i18n.storageWriteFail, 4000, "error");
+                        this.showStorageFail();
                     });
                 },
                 // BU-8：自定义敏感词（逗号分隔，仅本地）
@@ -2985,7 +2968,7 @@ export default class LvCardsPlugin extends Plugin {
             throw new Error(this.i18n.onboardingNoNotebook);
         }
         let job: AIJob | undefined = jobId ? this.aiJobs.jobs.find(j => j.id === jobId) : undefined;
-        const date = localDate(Date.now());
+        const date = todayDate();
         const docID = job?.targetDocID || await createDocWithMd(nb.id, `小驴闪卡/AI 制卡/${date}`, "");
         if (!docID) {
             throw new Error(this.i18n.quickCardFail);
@@ -3141,15 +3124,15 @@ export default class LvCardsPlugin extends Plugin {
             const normalized = normalizeNativeCardAction(event?.detail, Date.now());
             // 非法评分（5、-1、2.5）或缺卡 ID：丢弃并进诊断，不产生脏 revlog
             if (!normalized) {
-                lvLog("warn", "native rating dropped: invalid event shape");
+                lvLog("warn", "[native] dropped: bad shape");
                 return;
             }
             if (this.nativeDeduper.seen((event?.detail as any)?.eid, normalized.cardID, normalized.ts)) {
-                lvLog("info", "native rating deduped: " + normalized.cardID);
+                lvLog("info", "[native] deduped: " + normalized.cardID);
                 return;
             }
             if (normalized.timeEstimated) {
-                lvLog("info", "native rating time estimated (kernel did not provide ts)");
+                lvLog("info", "[native] time estimated");
             }
             this.appendRevlog({
                 ts: normalized.ts,
@@ -3166,10 +3149,10 @@ export default class LvCardsPlugin extends Plugin {
 
     private appendRevlog(entry: Omit<RevlogEntry, "ts"> & { ts?: number }) {
         if (!this.revlogPendingSnapshot) {
-            this.revlogPendingSnapshot = normalizeRevlog(JSON.parse(JSON.stringify(this.revlog)));
+            this.revlogPendingSnapshot = normalizeRevlog(cloneStore(this.revlog));
         }
         this.revlogMutationVersion += 1;
-        const today = localDate(Date.now());
+        const today = todayDate();
         const prevCount = this.revlog.days[today]?.review ?? 0;
         const streakBefore = calcStreak(this.revlog);
         appendRevlog(this.revlog, { ts: entry.ts ?? Date.now(), ...entry } as RevlogEntry);
@@ -3180,8 +3163,7 @@ export default class LvCardsPlugin extends Plugin {
         this.refreshDueBadge();
         // M8·FR1：目标跨越庆祝；M11·FR1：生态事件广播
         const target = this.settings.dailyReviewTarget;
-        const nowCount = this.revlog.days[today]?.review ?? 0;
-        if (target > 0 && prevCount < target && nowCount >= target && !this.inQuietHours()) {
+        if (target > 0 && prevCount < target && (this.revlog.days[today]?.review ?? 0) >= target && !this.inQuietHours()) {
             showMessage(this.i18n.dailyTargetReached, 3000, "info");
         }
         try {
@@ -3227,7 +3209,7 @@ export default class LvCardsPlugin extends Plugin {
             if (version === this.revlogMutationVersion) {
                 this.revlog = cloneStore(this.persistedRevlogSnapshot ?? snapshot ?? next);
                 this.refreshDueBadge();
-                showMessage(this.i18n.storageWriteFail, 4000, "error");
+                this.showStorageFail();
             }
         });
     }
@@ -3243,15 +3225,15 @@ export default class LvCardsPlugin extends Plugin {
 
     /** BJ-4：遗忘卡错误原因标注（旁路增强；persist 队列承担重试与失败记录） */
     tagErrorReason(cardID: string, reason: ErrorReason) {
-        const previous = cloneStore(this.persistedErrorTagsSnapshot ?? normalizeErrorTags(JSON.parse(JSON.stringify(this.errorTags))));
-        if (tagError(this.errorTags, cardID, reason, localDate(Date.now()))) {
+        const previous = cloneStore(this.persistedErrorTagsSnapshot ?? normalizeErrorTags(cloneStore(this.errorTags)));
+        if (tagError(this.errorTags, cardID, reason, todayDate())) {
             const version = ++this.errorTagMutationVersion;
             const next = cloneStore(this.errorTags);
             void this.persist.save(ERROR_TAGS_DATA, next).then(() => {
                 this.persistedErrorTagsSnapshot = cloneStore(next);
             }).catch(() => {
                 if (version === this.errorTagMutationVersion) this.errorTags = cloneStore(this.persistedErrorTagsSnapshot ?? previous);
-                showMessage(this.i18n.storageWriteFail, 4000, "error");
+                this.showStorageFail();
             });
         }
     }
@@ -3269,7 +3251,7 @@ export default class LvCardsPlugin extends Plugin {
         // Always roll back to the last confirmed disk snapshot. Using the
         // current in-memory value here would preserve an earlier failed
         // optimistic mutation after two writes overlap.
-        const previous = cloneStore(this.persistedInboxSnapshot ?? normalizeInbox(JSON.parse(JSON.stringify(this.inbox))));
+        const previous = cloneStore(this.persistedInboxSnapshot ?? normalizeInbox(cloneStore(this.inbox)));
         const changed = mutate(this.inbox);
         if (changed === false || changed === 0) return;
         const version = ++this.inboxMutationVersion;
@@ -3282,7 +3264,7 @@ export default class LvCardsPlugin extends Plugin {
                 this.inbox = previous;
                 this.notifyInboxChanged();
             }
-            showMessage(this.i18n.storageWriteFail, 4000, "error");
+            this.showStorageFail();
         });
     }
 
@@ -3508,8 +3490,7 @@ export default class LvCardsPlugin extends Plugin {
             },
         }, evt);
 
-        const today = localDate(Date.now());
-        const stat = this.revlog.days[today];
+        const stat = this.revlog.days[todayDate()];
         if (stat && this.settings.dailyReviewTarget > 0 && stat.review >= this.settings.dailyReviewTarget) {
             showMessage(this.i18n.dailyTargetReached, 3000, "info");
         }
@@ -3631,8 +3612,7 @@ export default class LvCardsPlugin extends Plugin {
                             await this.suspendTodayMutations.unsuspend(ids);
                             showMessage(this.i18n.settingsSaved, 2000, "info");
                         } catch {
-                            showMessage(this.i18n.storageWriteFail, 4000, "error");
-                            throw new Error(this.i18n.storageWriteFail);
+                            this.toastStorageFail();
                         }
                     },
                     testAnkiClient: (url?: string, key?: string) => this.testAnkiClient(url, key),
@@ -3662,7 +3642,7 @@ export default class LvCardsPlugin extends Plugin {
                     importRevlogCsv: async (fileText: string) => {
                         const imported = parseRevlogCsv(fileText);
                         const previous = this.revlog;
-                        const next = normalizeRevlog(JSON.parse(JSON.stringify(previous)));
+                        const next = normalizeRevlog(cloneStore(previous));
                         const result = mergeRevlog(next, imported);
                         const version = ++this.revlogMutationVersion;
                         this.revlog = next;
@@ -3681,7 +3661,7 @@ export default class LvCardsPlugin extends Plugin {
                     importRevlogMerge: async (fileText: string, onFork?: "skip" | "preferImport") => {
                         const imported = JSON.parse(fileText);
                         const previous = this.revlog;
-                        const next = normalizeRevlog(JSON.parse(JSON.stringify(previous)));
+                        const next = normalizeRevlog(cloneStore(previous));
                         const result = mergeRevlog(next, imported, { onFork });
                         const version = ++this.revlogMutationVersion;
                         this.revlog = next;
@@ -3708,19 +3688,17 @@ export default class LvCardsPlugin extends Plugin {
 
     /** 导出本地复习日志（M10·FR1） */
     private exportRevlog() {
-        const stamp = localDate(Date.now());
-        downloadFile(`lv-cards-revlog-${stamp}.json`, formatRevlogExportJson(this.revlog), "application/json");
+        downloadFile(`lv-cards-revlog-${todayDate()}.json`, JSON.stringify(this.revlog), "application/json");
     }
 
     /** 导出设置为 JSON 文件 */
     private exportSettings() {
-        downloadFile(`lv-cards-settings-${localDate(Date.now())}.json`, formatSettingsExportJson(this.settings), "application/json");
+        downloadFile(`lv-cards-settings-${todayDate()}.json`, JSON.stringify(this.settings), "application/json");
     }
 
     /** 导出 CSV（带 BOM，Excel 友好） */
     private exportRevlogCsv() {
-        const stamp = localDate(Date.now());
-        downloadFile(`lv-cards-revlog-${stamp}.csv`, formatRevlogExportCsv(this.revlog), "text/csv");
+        downloadFile(`lv-cards-revlog-${todayDate()}.csv`, formatRevlogExportCsv(this.revlog), "text/csv");
     }
 
     /** 清空本地复习日志（热力图与连击归零；不影响内核调度） */
@@ -3731,23 +3709,22 @@ export default class LvCardsPlugin extends Plugin {
         this.revlog = next;
         this.refreshDueBadge();
         try {
-            await this.persist.save(REVLOG_DATA, cloneStore(next));
-            if (version === this.revlogMutationVersion) this.persistedRevlogSnapshot = cloneStore(next);
+            await this.persist.save(REVLOG_DATA, next);
+            if (version === this.revlogMutationVersion) this.persistedRevlogSnapshot = next;
             showMessage(this.i18n.settingsSaved, 2000, "info");
         } catch {
             if (version === this.revlogMutationVersion) {
                 this.revlog = cloneStore(this.persistedRevlogSnapshot ?? previous);
                 this.refreshDueBadge();
             }
-            showMessage(this.i18n.storageWriteFail, 4000, "error");
-            throw new Error(this.i18n.storageWriteFail);
+            this.toastStorageFail();
         }
     }
 
     /** BU-25：导出 AI 用量账本（聚合视图 + 明细；不含 key 与原文） */
     private exportCostLedger() {
         const payload = buildCostLedgerExportPayload(this.costLedger);
-        downloadFile(`lv-cards-ai-cost-${localDate(Date.now())}.json`, JSON.stringify(payload, null, 2), "application/json");
+        downloadFile(`lv-cards-ai-cost-${todayDate()}.json`, JSON.stringify(payload), "application/json");
     }
 
     /** BU-25：清空 AI 用量账本（预算随之归零重计） */
@@ -3757,25 +3734,22 @@ export default class LvCardsPlugin extends Plugin {
         const version = ++this.costLedgerMutationVersion;
         this.costLedger = next;
         try {
-            await this.persist.save(AI_COST_LEDGER_DATA, cloneStore(next));
-            if (version === this.costLedgerMutationVersion) this.persistedCostLedgerSnapshot = cloneStore(next);
+            await this.persist.save(AI_COST_LEDGER_DATA, next);
+            if (version === this.costLedgerMutationVersion) this.persistedCostLedgerSnapshot = next;
             showMessage(this.i18n.settingsSaved, 2000, "info");
         } catch {
             if (version === this.costLedgerMutationVersion) {
                 this.costLedger = cloneStore(this.persistedCostLedgerSnapshot ?? previous);
             }
-            showMessage(this.i18n.storageWriteFail, 4000, "error");
-            throw new Error(this.i18n.storageWriteFail);
+            this.toastStorageFail();
         }
     }
 
     /** 备份与恢复中心：导出全部私有存储为单文件 bundle（manifest 含校验和；含用户内容，用户自管） */
     private exportBackup() {
-        void (async () => {
-            const files = await this.readAllStores();
-            const bundle = buildBackupBundle(files);
-            downloadFile(`lv-cards-backup-${localDate(Date.now())}.json`, JSON.stringify(bundle, null, 2), "application/json");
-        })();
+        this.readAllStores().then(files => {
+            downloadFile(`lv-cards-backup-${todayDate()}.json`, JSON.stringify(buildBackupBundle(files)), "application/json");
+        });
     }
 
     /** 备份与恢复中心：导入恢复——预览（校验+逐 key 对比）→ 确认 → 队列落盘 → 内存重载。
@@ -3802,9 +3776,9 @@ export default class LvCardsPlugin extends Plugin {
         const ok = await confirmDialogBool({
             title: dict.restoreTitle ?? "Restore backup",
             content: `<div class="b3-typography"><p>${(dict.restoreWarn ?? "").replace("${created}", created)
-                .replace("${r}", String(preview.summary.replace))
-                .replace("${a}", String(preview.summary.add))
-                .replace("${u}", String(preview.summary.unchanged))}</p><ul>${rows}</ul></div>`,
+                .replace("${r}", preview.summary.replace)
+                .replace("${a}", preview.summary.add)
+                .replace("${u}", preview.summary.unchanged)}</p><ul>${rows}</ul></div>`,
         });
         if (!ok) {
             return;
@@ -3819,7 +3793,7 @@ export default class LvCardsPlugin extends Plugin {
         await this.applyLoadedStores(await this.readAllStores());
         this.refreshDueBadge();
         showMessage(dict.restoreDone ?? "restored", 2500, "info");
-        lvLog("info", `[backup] restored ${Object.keys(preview.files).length} files (replace=${preview.summary.replace} add=${preview.summary.add})`);
+        lvLog("info", "[backup] restored " + Object.keys(preview.files).length + " files");
     }
 
     /** 学习报告写入思源文档（M5·FR6 深化） */
@@ -3828,7 +3802,7 @@ export default class LvCardsPlugin extends Plugin {
         if (!nb) {
             throw new Error(this.i18n.onboardingNoNotebook);
         }
-        const docID = await createDocWithMd(nb.id, `小驴闪卡/学习报告/${localDate(Date.now())}`, md);
+        const docID = await createDocWithMd(nb.id, `小驴闪卡/学习报告/${todayDate()}`, md);
         if (!docID) {
             throw new Error(this.i18n.quickCardFail);
         }

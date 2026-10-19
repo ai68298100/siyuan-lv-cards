@@ -29,29 +29,40 @@ export interface ModelCapability {
 /** 价格快照日期（诚实口径：注册表价会过期，估算仅供参考） */
 export const MODEL_PRICE_SNAPSHOT = "2026-10";
 
-export const MODEL_REGISTRY: ModelCapability[] = [
-    { id: "gpt-4o", label: "gpt-4o", provider: "openai", contextWindow: 128000, inputModalities: ["text", "image"], status: "active", pricePerM: { input: 2.5, output: 10 } },
-    { id: "gpt-4o-mini", label: "gpt-4o-mini", provider: "openai", contextWindow: 128000, inputModalities: ["text", "image"], status: "active", pricePerM: { input: 0.15, output: 0.6 } },
-    { id: "gpt-4.1", label: "gpt-4.1", provider: "openai", contextWindow: 1000000, inputModalities: ["text", "image"], status: "active", pricePerM: { input: 2, output: 8 } },
-    { id: "gpt-4.1-mini", label: "gpt-4.1-mini", provider: "openai", contextWindow: 1000000, inputModalities: ["text", "image"], status: "active", pricePerM: { input: 0.4, output: 1.6 } },
-    { id: "gpt-4.1-nano", label: "gpt-4.1-nano", provider: "openai", contextWindow: 1000000, inputModalities: ["text"], status: "active", pricePerM: { input: 0.1, output: 0.4 } },
-    // 推理系：拒绝 temperature 参数（chatCompletions 现发 0.4）——已知限制登记，UI 提示映射见 docs
-    { id: "o4-mini", label: "o4-mini", provider: "openai", contextWindow: 200000, inputModalities: ["text", "image"], status: "active", pricePerM: { input: 1.1, output: 4.4 }, limits: ["rejects-temperature", "reasoning-latency"] },
-    { id: "gpt-4-turbo", label: "gpt-4-turbo", provider: "openai", contextWindow: 128000, inputModalities: ["text", "image"], status: "deprecated", pricePerM: { input: 10, output: 30 }, limits: ["superseded"] },
-    { id: "gpt-3.5-turbo-0301", label: "gpt-3.5-turbo-0301", provider: "openai", contextWindow: 4096, inputModalities: ["text"], status: "retired", limits: ["sunset"] },
-    { id: "deepseek-chat", label: "deepseek-chat", provider: "deepseek", contextWindow: 64000, inputModalities: ["text"], status: "active", pricePerM: { input: 0.27, output: 1.1 } },
-    { id: "deepseek-reasoner", label: "deepseek-reasoner", provider: "deepseek", contextWindow: 64000, inputModalities: ["text"], status: "active", pricePerM: { input: 0.55, output: 2.19 }, limits: ["reasoning-latency"] },
-    { id: "moonshot-v1-8k", label: "moonshot-v1-8k", provider: "moonshot", contextWindow: 8192, inputModalities: ["text"], status: "active" },
-    { id: "moonshot-v1-128k", label: "moonshot-v1-128k", provider: "moonshot", contextWindow: 131072, inputModalities: ["text"], status: "active" },
-    { id: "glm-4-flash", label: "glm-4-flash", provider: "zhipu", contextWindow: 128000, inputModalities: ["text"], status: "active" },
-    { id: "gemini-2.0-flash", label: "gemini-2.0-flash", provider: "google", contextWindow: 1000000, inputModalities: ["text", "image"], status: "active", pricePerM: { input: 0.1, output: 0.4 } },
-    // 本地开源离线模型（Ollama / LM Studio，零成本、本地隐私优先）
-    { id: "qwen2.5:7b", label: "qwen2.5:7b", provider: "ollama", contextWindow: 32768, inputModalities: ["text"], status: "active", pricePerM: { input: 0, output: 0 }, limits: ["local-offline"] },
-    { id: "qwen2.5:14b", label: "qwen2.5:14b", provider: "ollama", contextWindow: 32768, inputModalities: ["text"], status: "active", pricePerM: { input: 0, output: 0 }, limits: ["local-offline"] },
-    { id: "deepseek-r1:7b", label: "deepseek-r1:7b", provider: "ollama", contextWindow: 64000, inputModalities: ["text"], status: "active", pricePerM: { input: 0, output: 0 }, limits: ["local-offline", "reasoning-latency"] },
-    { id: "deepseek-r1:8b", label: "deepseek-r1:8b", provider: "ollama", contextWindow: 64000, inputModalities: ["text"], status: "active", pricePerM: { input: 0, output: 0 }, limits: ["local-offline", "reasoning-latency"] },
-    { id: "llama3.1:8b", label: "llama3.1:8b", provider: "ollama", contextWindow: 128000, inputModalities: ["text"], status: "active", pricePerM: { input: 0, output: 0 }, limits: ["local-offline"] },
+const RAW_MODELS: [string, string, string, number, ModelModality[], ModelStatus, [number, number]?, string[]?][] = [
+    ["gpt-4o", "gpt-4o", "openai", 128000, ["text", "image"], "active", [2.5, 10]],
+    ["gpt-4o-mini", "gpt-4o-mini", "openai", 128000, ["text", "image"], "active", [0.15, 0.6]],
+    ["gpt-4.1", "gpt-4.1", "openai", 1000000, ["text", "image"], "active", [2, 8]],
+    ["gpt-4.1-mini", "gpt-4.1-mini", "openai", 1000000, ["text", "image"], "active", [0.4, 1.6]],
+    ["gpt-4.1-nano", "gpt-4.1-nano", "openai", 1000000, ["text"], "active", [0.1, 0.4]],
+    ["o4-mini", "o4-mini", "openai", 200000, ["text", "image"], "active", [1.1, 4.4], ["rejects-temperature", "reasoning-latency"]],
+    ["gpt-4-turbo", "gpt-4-turbo", "openai", 128000, ["text", "image"], "deprecated", [10, 30], ["superseded"]],
+    ["gpt-3.5-turbo-0301", "gpt-3.5-turbo-0301", "openai", 4096, ["text"], "retired", undefined, ["sunset"]],
+    ["deepseek-chat", "deepseek-chat", "deepseek", 64000, ["text"], "active", [0.27, 1.1]],
+    ["deepseek-reasoner", "deepseek-reasoner", "deepseek", 64000, ["text"], "active", [0.55, 2.19], ["reasoning-latency"]],
+    ["moonshot-v1-8k", "moonshot-v1-8k", "moonshot", 8192, ["text"], "active"],
+    ["moonshot-v1-128k", "moonshot-v1-128k", "moonshot", 131072, ["text"], "active"],
+    ["glm-4-flash", "glm-4-flash", "zhipu", 128000, ["text"], "active"],
+    ["gemini-2.0-flash", "gemini-2.0-flash", "google", 1000000, ["text", "image"], "active", [0.1, 0.4]],
+    ["qwen2.5:7b", "qwen2.5:7b", "ollama", 32768, ["text"], "active", [0, 0], ["local-offline"]],
+    ["qwen2.5:14b", "qwen2.5:14b", "ollama", 32768, ["text"], "active", [0, 0], ["local-offline"]],
+    ["deepseek-r1:7b", "deepseek-r1:7b", "ollama", 64000, ["text"], "active", [0, 0], ["local-offline", "reasoning-latency"]],
+    ["deepseek-r1:8b", "deepseek-r1:8b", "ollama", 64000, ["text"], "active", [0, 0], ["local-offline", "reasoning-latency"]],
+    ["llama3.1:8b", "llama3.1:8b", "ollama", 128000, ["text"], "active", [0, 0], ["local-offline"]],
 ];
+
+export const MODEL_REGISTRY: ModelCapability[] = RAW_MODELS.map(
+    ([id, label, provider, contextWindow, inputModalities, status, price, limits]) => ({
+        id,
+        label,
+        provider,
+        contextWindow,
+        inputModalities,
+        status,
+        ...(price ? { pricePerM: { input: price[0], output: price[1] } } : {}),
+        ...(limits ? { limits } : {}),
+    })
+);
 
 export interface EndpointPreset {
     id: string;
@@ -61,12 +72,12 @@ export interface EndpointPreset {
     isLocal: boolean;
 }
 
-export const ENDPOINT_PRESETS: EndpointPreset[] = [
-    { id: "openai", label: "OpenAI", apiBase: "https://api.openai.com/v1", defaultModel: "gpt-4o-mini", isLocal: false },
-    { id: "deepseek", label: "DeepSeek", apiBase: "https://api.deepseek.com/v1", defaultModel: "deepseek-chat", isLocal: false },
-    { id: "ollama", label: "Ollama (本地离线 localhost:11434)", apiBase: "http://localhost:11434/v1", defaultModel: "qwen2.5:7b", isLocal: true },
-    { id: "lmstudio", label: "LM Studio (本地 localhost:1234)", apiBase: "http://localhost:1234/v1", defaultModel: "qwen2.5-7b-instruct", isLocal: true },
-];
+export const ENDPOINT_PRESETS: EndpointPreset[] = ([
+    ["openai", "OpenAI", "https://api.openai.com/v1", "gpt-4o-mini", false],
+    ["deepseek", "DeepSeek", "https://api.deepseek.com/v1", "deepseek-chat", false],
+    ["ollama", "Ollama (本地离线 localhost:11434)", "http://localhost:11434/v1", "qwen2.5:7b", true],
+    ["lmstudio", "LM Studio (本地 localhost:1234)", "http://localhost:1234/v1", "qwen2.5-7b-instruct", true],
+] as const).map(([id, label, apiBase, defaultModel, isLocal]) => ({ id, label, apiBase, defaultModel, isLocal }));
 
 /** ID 归一：trim + 小写（匹配口径统一在此，调用方不做自有变换） */
 export function normalizeModelId(raw: string): string {

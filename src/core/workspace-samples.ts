@@ -7,7 +7,8 @@
 import { createRiffDeck, getRiffCards, getRiffDecks } from "../api/riff";
 import { addRiffCards } from "../api/due-shared";
 import { appendBlock, createDocWithMd, sqlQuery } from "../api/siyuan";
-import { sampleCards } from "../help";
+import { sampleCards } from "./sample-cards";
+export { sampleCards } from "./sample-cards";
 
 export interface SampleDocResult {
     docID: string;

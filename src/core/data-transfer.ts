@@ -12,22 +12,13 @@ import type { LvCardsSettings } from "./settings";
  * 触发浏览器文件下载
  */
 export function downloadFile(filename: string, content: string, mimeType: string): void {
-    if (typeof document === "undefined" || typeof URL === "undefined") {
-        return;
-    }
-    const blob = new Blob([content], { type: mimeType });
-    const url = URL.createObjectURL(blob);
+    if (typeof document === "undefined" || typeof URL === "undefined") return;
+    const url = URL.createObjectURL(new Blob([content], { type: mimeType }));
     const a = document.createElement("a");
     a.href = url;
     a.download = filename;
     a.click();
-    setTimeout(() => {
-        try {
-            URL.revokeObjectURL(url);
-        } catch {
-            // 旁路释放
-        }
-    }, 1000);
+    setTimeout(() => { try { URL.revokeObjectURL(url); } catch {} }, 1000);
 }
 
 /**

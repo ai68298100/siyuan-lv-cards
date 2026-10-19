@@ -158,49 +158,15 @@ export function groupByDeckHint(cards: ObsidianImportCard[]): ObsidianImportGrou
     return order.map(hint => map.get(hint)!);
 }
 
-/** 弱台账条目：指纹 → 落点（无 Obsidian 稳定 ID，指纹即幂等键；不含卡片原文） */
-export interface ObLedgerEntry {
-    fingerprint: string;
-    deckID: string;
-    blockID: string;
-    importedAt: number;
-}
+// ---------- 弱台账 ----------
 
-const OB_LEDGER_CAP = 50000;
-
-/** 台账清洗：fingerprint/blockID 必须非空、指纹去重（保留最新 importedAt）、限量 */
-export function normalizeObLedger(raw: unknown, cap = OB_LEDGER_CAP): ObLedgerEntry[] {
-    const list = Array.isArray(raw) ? raw : [];
-    const byFp = new Map<string, ObLedgerEntry>();
-    for (const item of list) {
-        const e = item as Partial<ObLedgerEntry>;
-        if (typeof e?.fingerprint !== "string" || !e.fingerprint || typeof e?.blockID !== "string" || !e.blockID) {
-            continue;
-        }
-        const prev = byFp.get(e.fingerprint);
-        const at = typeof e.importedAt === "number" && e.importedAt > 0 ? e.importedAt : 0;
-        if (!prev || (prev.importedAt <= at && at > 0)) {
-            byFp.set(e.fingerprint, {
-                fingerprint: e.fingerprint,
-                deckID: typeof e.deckID === "string" ? e.deckID : "",
-                blockID: e.blockID,
-                importedAt: at,
-            });
-        }
-    }
-    // Map insertion order is not an import-time ordering guarantee: a restored
-    // or hand-edited ledger can arrive out of order. Retain the newest entries
-    // by timestamp, then restore chronological order for stable persistence.
-    return [...byFp.values()]
-        .sort((a, b) => b.importedAt - a.importedAt)
-        .slice(0, Math.max(0, cap))
-        .sort((a, b) => a.importedAt - b.importedAt);
-}
-
-/** 台账合并：新条目覆盖同指纹旧条目（幂等重导更新落点） */
-export function mergeObLedger(current: ObLedgerEntry[], additions: ObLedgerEntry[], cap = OB_LEDGER_CAP): ObLedgerEntry[] {
-    return normalizeObLedger([...current, ...additions], cap);
-}
+export {
+    type ObLedgerEntry,
+    OB_LEDGER_CAP,
+    normalizeObLedger,
+    mergeObLedger,
+} from "./import-ledgers";
+import { type ObLedgerEntry } from "./import-ledgers";
 
 /** 计划分区：fresh=待导入；already=台账已有指纹（幂等跳过） */
 export function partitionByLedger(cards: ObsidianImportCard[], ledger: ObLedgerEntry[]): { fresh: ObsidianImportCard[]; already: ObsidianImportCard[] } {

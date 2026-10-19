@@ -41,6 +41,10 @@ vi.mock("../src/api/siyuan", () => ({
     appendBlock,
 }));
 
+vi.mock("../src/core/sample-cards", () => ({
+    sampleCards,
+}));
+
 vi.mock("../src/help", () => ({
     sampleCards,
 }));

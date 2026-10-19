@@ -62,34 +62,40 @@ export const LV_EVENTS = {
 } as const;
 
 /** 基础字段（plugin/v/ts）统一填充 */
-export function lvEventBase(now: () => number = Date.now): LvEventBase {
-    return { plugin: EVENT_SOURCE, v: EVENT_VERSION, ts: now() };
-}
+export const lvEventBase = (now: () => number = Date.now): LvEventBase => ({
+    plugin: EVENT_SOURCE,
+    v: EVENT_VERSION,
+    ts: now(),
+});
 
-export function reviewedEvent(p: ReviewedPayload, now: () => number = Date.now): LvEventBase & ReviewedPayload {
-    return { ...lvEventBase(now), ...p };
-}
+export const reviewedEvent = (p: ReviewedPayload, now: () => number = Date.now): LvEventBase & ReviewedPayload => ({
+    ...lvEventBase(now),
+    ...p,
+});
 
-export function streakChangedEvent(streak: number, now: () => number = Date.now): LvEventBase & { streak: number } {
-    return { ...lvEventBase(now), streak };
-}
+export const streakChangedEvent = (streak: number, now: () => number = Date.now): LvEventBase & { streak: number } => ({
+    ...lvEventBase(now),
+    streak,
+});
 
-export function cardsCreatedEvent(p: CardsCreatedPayload, now: () => number = Date.now): LvEventBase & CardsCreatedPayload {
-    return { ...lvEventBase(now), ...p };
-}
+export const cardsCreatedEvent = (p: CardsCreatedPayload, now: () => number = Date.now): LvEventBase & CardsCreatedPayload => ({
+    ...lvEventBase(now),
+    ...p,
+});
 
-export function sessionFinishedEvent(summary: SessionFinishedSummary, now: () => number = Date.now): LvEventBase & { summary: SessionFinishedSummary } {
-    return { ...lvEventBase(now), summary };
-}
+export const sessionFinishedEvent = (summary: SessionFinishedSummary, now: () => number = Date.now): LvEventBase & { summary: SessionFinishedSummary } => ({
+    ...lvEventBase(now),
+    summary,
+});
 
-export function settingsChangedEvent(now: () => number = Date.now): LvEventBase {
-    return lvEventBase(now);
-}
+export const settingsChangedEvent = (now: () => number = Date.now): LvEventBase => lvEventBase(now);
 
-export function gatewayChangedEvent(state: string, now: () => number = Date.now): LvEventBase & GatewayChangedPayload {
-    return { ...lvEventBase(now), state };
-}
+export const gatewayChangedEvent = (state: string, now: () => number = Date.now): LvEventBase & GatewayChangedPayload => ({
+    ...lvEventBase(now),
+    state,
+});
 
-export function storesChangedEvent(files?: string[], now: () => number = Date.now): LvEventBase & StoresChangedPayload {
-    return { ...lvEventBase(now), ...(files?.length ? { files: [...files] } : {}) };
-}
+export const storesChangedEvent = (files?: string[], now: () => number = Date.now): LvEventBase & StoresChangedPayload => ({
+    ...lvEventBase(now),
+    ...(files?.length ? { files: [...files] } : {}),
+});

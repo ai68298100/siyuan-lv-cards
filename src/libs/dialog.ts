@@ -8,7 +8,6 @@
  */
 import { Dialog } from "siyuan";
 import type { Component } from "svelte";
-import * as svelte from "svelte";
 import { trapFocus, type FocusTrap } from "./focus-trap";
 
 /**
@@ -35,8 +34,11 @@ function mountDialog(comp: Component<any>, target: HTMLElement, props: Record<st
     // Vite's DEV_MODE define removes this branch (and the Svelte runtime) from
     // the production shell bundle.
     if (process.env.DEV_MODE) {
-        const app = svelte.mount(comp, { target, props });
-        return { destroy: () => { void svelte.unmount(app); } };
+        const s = (globalThis as any).svelte ?? (typeof window !== "undefined" && (window as any).svelte);
+        if (typeof s?.mount === "function") {
+            const app = s.mount(comp, { target, props });
+            return { destroy: () => { void s.unmount(app); } };
+        }
     }
     throw new Error("dialogs chunk mounter is unavailable");
 }
