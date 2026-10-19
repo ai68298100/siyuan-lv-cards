@@ -607,7 +607,7 @@ import { confirmDialog } from "@/libs/dialog";
 
     // BI-17：视图变化即持久化（经 scheduleViewSave 防抖排队，避免高频输入与滚动瞬时写盘）
     $effect(() => {
-        const _ = [filterText, sortMode, leechOnly, statusFilter, page];
+        void [filterText, sortMode, leechOnly, statusFilter, page];
         if (viewReady) scheduleViewSave();
     });
 
