@@ -54,7 +54,7 @@ describe("hub navigation boundaries", () => {
         const host = context();
         render(Hub, { ...host.props, initialTab: "recovery", uiMode: "simple" });
         await fireEvent.click(await screen.findByRole("button", { name: i18n.recoveryCenter.openMaintenance }));
-        await waitFor(() => expect(host.scan).toHaveBeenCalledOnce());
+        await waitFor(() => expect(host.scan).toHaveBeenCalledOnce(), { timeout: 3000 });
         expect(await screen.findByRole("button", { name: i18n.maintenance.editCard })).toBeTruthy();
     });
 

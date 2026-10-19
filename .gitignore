@@ -18,3 +18,4 @@ dist-inline/
 
 # 本地视觉核对台与临时产物（design/preview.html、icon 候选、内核日志等）
 design/
+.jeikcode/codegraph/
