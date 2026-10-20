@@ -3158,5 +3158,26 @@
         "allowed": {
             "withinBudget": "Token and cost pre-flight estimation verified within hard ceiling quota"
         }
+    },
+    "aiPipeline": {
+        "error": {
+            "canceled": "Task canceled by caller before dispatch; zero network requests sent",
+            "assemblyFailed": "Prompt and context budget assembly failed; please review material settings",
+            "parseFailed": "Model response format could not be parsed into valid structured data; please retry"
+        },
+        "stage": {
+            "idle": "Idle",
+            "validating-eligibility": "Validating eligibility",
+            "checking-ceilings": "Checking token and cost ceilings",
+            "assembling-prompts": "Assembling prompts and context",
+            "dispatching": "Dispatching model request",
+            "validating-schema": "Validating response schema",
+            "completed": "Completed",
+            "aborted": "Safely aborted"
+        }
+    },
+    "reviewBreadcrumbs": {
+        "tooltip": "Click to jump back to source for complete hierarchical context",
+        "ellipsis": "Intermediate levels collapsed"
     }
 }

@@ -1112,9 +1112,9 @@
         }
       ],
       "summary": {
-        "total": 67,
+        "total": 68,
         "done": 32,
-        "pending": 35
+        "pending": 36
       },
       "blocks": [
         "WP-language-media-learning",
@@ -1129,7 +1129,8 @@
           "E-15"
         ],
         "additions": [
-          "BX-3"
+          "BX-3",
+          "BX-11"
         ]
       }
     },
@@ -1582,9 +1583,9 @@
       "revisitAt": "切片完成或宿主/模型/模板/schema/权限变化、用户反例出现时",
       "conditionalPrerequisites": [],
       "summary": {
-        "total": 22,
+        "total": 23,
         "done": 6,
-        "pending": 16
+        "pending": 17
       },
       "blocks": [
         "WP-author-sharing-pack"
@@ -15217,17 +15218,49 @@
       "phase": "W2",
       "specificationDocument": "",
       "acceptanceReferences": []
+    },
+    {
+      "id": "BX-11",
+      "status": "open",
+      "checkbox": " ",
+      "priority": "P2",
+      "group": "BX",
+      "groupName": "第八轮：产品体验、领域答案与页面任务优化（仅扩充规划）",
+      "title": "**复习来源层级面包屑（上下文感知）**：依据 RemNote 等竞品调研（docs/49），在专注复习卡面顶部展示轻量层级面包屑（笔记本 > 文档 > 所在章节/父列表），支持点击定位来源，并对超长路径自适应首尾折叠。验收：原子卡回忆时不丢失宏观上下文；面包屑标题紧凑截断且不抢占卡面空间；缺失笔记本或章节时优雅降级不误报。 owner=`WP-review-study-experience`。",
+      "backlogLine": 1345,
+      "primaryPackage": "WP-review-study-experience",
+      "linksTo": [],
+      "relatedLegacyIds": [],
+      "phase": "W2",
+      "specificationDocument": "",
+      "acceptanceReferences": []
+    },
+    {
+      "id": "BX-12",
+      "status": "open",
+      "checkbox": " ",
+      "priority": "P2",
+      "group": "BX",
+      "groupName": "第八轮：产品体验、领域答案与页面任务优化（仅扩充规划）",
+      "title": "**分享包导入差异比对（Diff Inspector）**：针对同名卡组的 `.lvcards` 导入冲突，复用 `field-diff` 引擎在导入预览步提供并排字段级差异对比与选择性合并，避免直接覆盖用户个人笔记或助记便签。验收：冲突卡片逐字段可选用原版或导入版，完全跳过不影响非冲突卡组。 owner=`WP-migration-interop`。",
+      "backlogLine": 1346,
+      "primaryPackage": "WP-migration-interop",
+      "linksTo": [],
+      "relatedLegacyIds": [],
+      "phase": "W2",
+      "specificationDocument": "",
+      "acceptanceReferences": []
     }
   ],
   "governanceDocument": "docs/30-待办治理与执行顺序.md",
   "governanceVersion": "1.2",
   "summary": {
     "packages": 38,
-    "total": 935,
+    "total": 937,
     "done": 202,
-    "open": 730,
+    "open": 732,
     "special": 3,
-    "pending": 733
+    "pending": 735
   },
   "experienceDocument": "docs/32-产品体验优化与页面蓝图.md",
   "experienceRefinements": [

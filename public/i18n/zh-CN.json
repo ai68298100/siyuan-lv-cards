@@ -3158,5 +3158,26 @@
         "allowed": {
             "withinBudget": "Token 与成本预算核算正常，在安全硬上限配额内"
         }
+    },
+    "aiPipeline": {
+        "error": {
+            "canceled": "任务已被调用方主动取消，未发起任何网络请求",
+            "assemblyFailed": "提示词与上下文预算组装失败，请检查材料配置",
+            "parseFailed": "模型响应格式无法解析为合法结构化数据，请重试"
+        },
+        "stage": {
+            "idle": "空闲",
+            "validating-eligibility": "校验准入权限",
+            "checking-ceilings": "核验 Token 与费用预算",
+            "assembling-prompts": "组装提示词与上下文",
+            "dispatching": "发送模型请求",
+            "validating-schema": "校验返回结果",
+            "completed": "处理完成",
+            "aborted": "已安全中止"
+        }
+    },
+    "reviewBreadcrumbs": {
+        "tooltip": "点击回源查看完整层级上下文",
+        "ellipsis": "中间层级已折叠"
     }
 }
