@@ -3049,5 +3049,51 @@
             "splitCardAndAddDistinction": "拆分复合题面并补充概念区分",
             "enrichSourceSummary": "在来源笔记中补充易错对比小结"
         }
+    },
+    "aiCapability": {
+        "extract": {
+            "name": "材料提炼与捕获辅助",
+            "desc": "辅助从选区或笔记提取关键事实片段，不主动扫描未授权私密内容",
+            "humanRole": "圈选范围与确认事实真实性"
+        },
+        "clarify": {
+            "name": "核心概念澄清与释义",
+            "desc": "针对难以理解的术语提供简明解释，绝不将臆测冒充客观事实",
+            "humanRole": "判别解释是否贴合自身认知与课程大纲"
+        },
+        "generate": {
+            "name": "问答与挖空闪卡草稿生成",
+            "desc": "由输入材料生成候选卡片，必须经质量门禁与人工确认方可落库",
+            "humanRole": "逐卡或抽样审阅、修改题面与答案"
+        },
+        "hint": {
+            "name": "复习作答线索提示",
+            "desc": "在作答卡顿时代推导局部线索或思维支架，绝不提前剧透完整答案",
+            "humanRole": "主动判断何时需要提示，独立做出回忆评分"
+        },
+        "counterExample": {
+            "name": "迁移应用与反例设计",
+            "desc": "构造概念辨析边界与应用反例，辅助深化理解",
+            "humanRole": "检验边界案例的专业准确性并决定是否加入练习"
+        },
+        "rewrite": {
+            "name": "易混淆烂卡改写重构",
+            "desc": "对高频遗忘卡片给出拆卡或题面优化建议，严格保持原意",
+            "humanRole": "确认改写差异并批准批量替换"
+        },
+        "schedulerTamper": {
+            "name": "内核调度伪造与篡改",
+            "desc": "严禁行为：AI 任何情况下均不得绕过思源内核直接修改到期日或评分",
+            "humanRole": "全权掌控复习行为事实源"
+        }
+    },
+    "aiRisk": {
+        "verdict": {
+            "readOnlyAllowed": "只读分析，允许无感执行",
+            "candidateReviewRequired": "候选生成，需人工审阅后方可采纳",
+            "writeExplicitConsentRequired": "内容写入，必须先预览变更并显式确认",
+            "batchDiffAndRollbackRequired": "批量改动，必须提供差异对照与撤销回滚机制",
+            "schedulingTamperStrictlyBlocked": "严禁越权！AI 严禁直接伪造或篡改 FSRS 调度数据"
+        }
     }
 }

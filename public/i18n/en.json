@@ -3049,5 +3049,51 @@
             "splitCardAndAddDistinction": "Split Composite Card and Clarify Distinctions",
             "enrichSourceSummary": "Enrich Source Document with Comparison Notes"
         }
+    },
+    "aiCapability": {
+        "extract": {
+            "name": "Material Extraction & Capture Assist",
+            "desc": "Assists extracting key factual snippets from notes without unauthorized scanning",
+            "humanRole": "Select target scope and verify factual authenticity"
+        },
+        "clarify": {
+            "name": "Core Concept Clarification",
+            "desc": "Provides concise explanations for difficult terms without hallucinating facts",
+            "humanRole": "Verify relevance and alignment with personal curriculum"
+        },
+        "generate": {
+            "name": "Flashcard Draft Generation",
+            "desc": "Generates candidate cards requiring quality gate checks and human approval",
+            "humanRole": "Review and edit questions/answers individually or via sampling"
+        },
+        "hint": {
+            "name": "Review Clue & Scaffolding Hints",
+            "desc": "Derives local hints when stuck without revealing the full answer prematurely",
+            "humanRole": "Decide when hints are needed and grade recall independently"
+        },
+        "counterExample": {
+            "name": "Application & Counter-Example Design",
+            "desc": "Constructs boundary discrimination scenarios and counter-examples",
+            "humanRole": "Verify domain validity of edge cases before committing"
+        },
+        "rewrite": {
+            "name": "Leech Flashcard Refactoring & Rewrite",
+            "desc": "Suggests card splitting or phrasing improvements while preserving meaning",
+            "humanRole": "Inspect diff comparisons and approve batch modifications"
+        },
+        "schedulerTamper": {
+            "name": "Kernel Scheduling Forgery",
+            "desc": "Prohibited: AI must never bypass SiYuan kernel to tamper with due dates or ratings",
+            "humanRole": "Retain absolute ownership over review execution truth"
+        }
+    },
+    "aiRisk": {
+        "verdict": {
+            "readOnlyAllowed": "Read-only analysis allowed seamlessly",
+            "candidateReviewRequired": "Candidate generation requires human review before acceptance",
+            "writeExplicitConsentRequired": "Content write requires pre-write preview and explicit consent",
+            "batchDiffAndRollbackRequired": "Batch modification requires diff comparison and rollback support",
+            "schedulingTamperStrictlyBlocked": "Strictly blocked! AI must never forge or tamper with FSRS scheduling data"
+        }
     }
 }
