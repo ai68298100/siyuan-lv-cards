@@ -3095,5 +3095,24 @@
             "batchDiffAndRollbackRequired": "Batch modification requires diff comparison and rollback support",
             "schedulingTamperStrictlyBlocked": "Strictly blocked! AI must never forge or tamper with FSRS scheduling data"
         }
+    },
+    "agentNegotiator": {
+        "reason": {
+            "aiNotConfigured": "AI provider unconfigured; downgraded to local manual workflow",
+            "versionTooLow": "Host version too low for Agent runtime (3.9.0+ required); downgraded to standard AI prompt mode",
+            "runtimeNotAvailable": "Host Agent runtime unavailable; downgraded to standard AI prompt mode",
+            "toolCallingUnsupported": "Host does not support tool calling; downgraded to standard AI prompt mode",
+            "ready": "Agent capabilities successfully negotiated and permitted tools mounted"
+        }
+    },
+    "agentGuard": {
+        "error": {
+            "alreadyTerminated": "Agent task guard has been tripped; subsequent calls rejected",
+            "unauthorizedParameter": "Unauthorized or injected parameter detected; call blocked",
+            "maxCallsExceeded": "Tool call count limit reached; execution halted",
+            "depthExceeded": "Agent tool recursion depth exceeded; call chain terminated",
+            "executionTimeout": "Agent task execution timeout exceeded; halted",
+            "loopDetected": "Repetitive identical tool calls detected; execution halted"
+        }
     }
 }

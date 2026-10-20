@@ -3095,5 +3095,24 @@
             "batchDiffAndRollbackRequired": "批量改动，必须提供差异对照与撤销回滚机制",
             "schedulingTamperStrictlyBlocked": "严禁越权！AI 严禁直接伪造或篡改 FSRS 调度数据"
         }
+    },
+    "agentNegotiator": {
+        "reason": {
+            "aiNotConfigured": "思源 AI 或自定义端点尚未配置，降级为纯本地手工流程",
+            "versionTooLow": "思源宿主内核版本过低（需 3.9.0 及以上），降级为标准 AI 提示词流程",
+            "runtimeNotAvailable": "宿主环境尚未开启或不具备 Agent 运行时，降级为标准 AI 流程",
+            "toolCallingUnsupported": "宿主不支持工具调用协议（Tool Calling），降级为标准 AI 流程",
+            "ready": "思源 Agent 能力协议协商成功，已按授权挂载可用工具"
+        }
+    },
+    "agentGuard": {
+        "error": {
+            "alreadyTerminated": "Agent 任务执行闸门已触发熔断，拒绝执行后续调用",
+            "unauthorizedParameter": "检测到越权或注入参数，调用已被拦截并熔断",
+            "maxCallsExceeded": "单次任务工具调用次数已达上限，已强制截断",
+            "depthExceeded": "Agent 工具递归嵌套深度超标，已终止调用链",
+            "executionTimeout": "Agent 任务执行总耗时超限，已超时熔断",
+            "loopDetected": "检测到相同参数的工具死循环重复调用，已强制中止"
+        }
     }
 }
