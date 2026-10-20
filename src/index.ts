@@ -332,6 +332,8 @@ function cloneStore<T>(value: T): T {
     }
 }
 
+const ICON_LV_CARDS_SVG = '<symbol id="iconLvCards" viewBox="0 0 32 32"><path d="M6 10h16v16H6zM10 6h16v16M11 16h6M11 20h10" fill="none" stroke="currentColor" stroke-width="2"/></symbol>';
+
 export default class LvCardsPlugin extends Plugin {
     declare i18n: Record<string, any>;
 
@@ -758,63 +760,21 @@ export default class LvCardsPlugin extends Plugin {
     private reloadQueued = false;
     private reloadTimer: ReturnType<typeof setTimeout> | null = null;
 
-    async onDataChanged(files?: unknown): Promise<void> {
+    onDataChanged(files?: unknown) {
         try {
-            // 兼容宿主各种形态：
-            // 1. "sync"（跨设备同步完成通知）
-            // 2. string[]（变动文件列表）
-            // 3. { files: string[] }
-            if (files === "sync") {
-                // 明确的跨设备同步，调度重载
-                this.scheduleReloadLocalStores([]);
-                return;
-            }
-
-            const raw = Array.isArray(files) ? files : (files as any)?.files;
-            if (!raw || !Array.isArray(raw)) {
-                // 无法识别的未知事件或普通笔记块保存，坚决不盲目全量重载，避免页面内容闪烁重刷
-                return;
-            }
-
-            const fileStrings: string[] = raw.filter((f): f is string => typeof f === "string");
-            if (fileStrings.length === 0) {
-                // 空列表表示非文件或无关变更，忽略
-                return;
-            }
-
-            // 检查变动中是否包含小驴闪卡私有目录
-            const related = fileStrings.filter(f => {
-                const normalized = f.replace(/\\/g, "/").toLowerCase();
-                return normalized.includes("/storage/petal/siyuan-lv-cards/")
-                    || normalized.includes("storage/petal/siyuan-lv-cards/");
-            });
-
-            if (related.length === 0) {
-                return; // 无关外部文件，直接忽略
-            }
-
-            // 本地回音抑制（Echo Suppression）：
-            // 如果所有相关文件都是在最近 3000ms 内由本地主动成功落盘的，说明纯属本地写文件的内核广播回音，
-            // 本地内存状态比磁盘更最新，绝不重复触发重载并打断正在复习/编辑的 Svelte 组件
+            if (files === "sync") return this.scheduleReloadLocalStores([]);
+            const list = (Array.isArray(files) ? files : (files as any)?.files) as unknown[];
+            if (!Array.isArray(list) || !list.length) return;
+            const related = list.filter((f): f is string => typeof f === "string" && f.toLowerCase().includes("storage/petal/siyuan-lv-cards/"));
+            if (!related.length) return;
             const now = Date.now();
-            const allEchoes = related.every(f => {
-                const filename = f.split("/").pop() ?? f;
-                const lastLocalWrite = this.storageLastWrite[filename] ?? 0;
-                return now - lastLocalWrite < 3000;
-            });
-
-            if (allEchoes) {
-                return;
-            }
-
+            if (related.every(f => now - (this.storageLastWrite[f.split(/[\\/]/).pop()!] ?? 0) < 3000)) return;
             this.scheduleReloadLocalStores(related);
         } catch { /* 协议差异不容阻断宿主 */ }
     }
 
     private scheduleReloadLocalStores(files: string[]) {
-        if (this.reloadTimer) {
-            clearTimeout(this.reloadTimer);
-        }
+        if (this.reloadTimer) clearTimeout(this.reloadTimer);
         this.reloadTimer = setTimeout(() => {
             this.reloadTimer = null;
             void this.reloadLocalStoresBounded(files);
@@ -969,7 +929,7 @@ export default class LvCardsPlugin extends Plugin {
         // AT-6：启动性能计时起点（onload 首行）
         this.perf.markStart();
         this.paletteState = null;
-        this.addIcons(`<symbol id="iconLvCards" viewBox="0 0 32 32"><path d="M6 10h16v16H6zM10 6h16v16M11 16h6M11 20h10" fill="none" stroke="currentColor" stroke-width="2"/></symbol>`);
+        this.addIcons(ICON_LV_CARDS_SVG);
 
         // AQ-1：批量加载以 keys 数组驱动并按位置配对，杜绝「6 项加载只解构 5 项」的错位回归
         // （AT-1：读取与装配抽成方法，同步/覆盖变更后的有界串行重载复用同一路径）
@@ -1921,33 +1881,15 @@ export default class LvCardsPlugin extends Plugin {
         }
     }
 
-    /** 确保全局 SVG 符号 iconLvCards 存在于 DOM 树，防止宿主重置图标容器后图标变透明/消失 */
-    private ensureIcons() {
-        if (!document.getElementById("iconLvCards")) {
-            this.addIcons(`<symbol id="iconLvCards" viewBox="0 0 32 32"><path d="M6 10h16v16H6zM10 6h16v16M11 16h6M11 20h10" fill="none" stroke="currentColor" stroke-width="2"/></symbol>`);
-        }
-    }
-
-    /**
-     * 顶栏条目自愈挂载控制器：
-     * 保证当宿主重新渲染顶栏、窗口自适应折叠、主题切换或多窗口重新布局导致原有 DOM 脱离时，
-     * 能够自动感知断连并重新注入注册，杜绝顶栏图标突然消失。
-     */
     public ensureTopBarElement(): HTMLElement | null {
-        this.ensureIcons();
-
-        // 检查现有节点是否依然有效且连接在页面 DOM 树中
+        if (!document.getElementById("iconLvCards")) this.addIcons(ICON_LV_CARDS_SVG);
         if (this.topBarElement && this.topBarElement.isConnected && document.contains(this.topBarElement)) {
             return this.topBarElement;
         }
-
         try {
             if (this.topBarElement && this.topBarContextMenuHandler) {
-                try {
-                    this.topBarElement.removeEventListener("contextmenu", this.topBarContextMenuHandler);
-                } catch { /* 忽略清理错误 */ }
+                try { this.topBarElement.removeEventListener("contextmenu", this.topBarContextMenuHandler); } catch {}
             }
-
             this.topBarElement = this.addTopBar({
                 id: LvCardsPlugin.TOPBAR_ICON_ID,
                 icon: "iconLvCards",
@@ -1960,16 +1902,7 @@ export default class LvCardsPlugin extends Plugin {
                         this.openTabOf(TAB_DASHBOARD);
                     }
                 },
-                contextMenu: () => {
-                    const rect = this.topBarElement?.getBoundingClientRect();
-                    this.showTopbarMenu({
-                        clientX: rect ? rect.left + rect.width / 2 : 0,
-                        clientY: rect ? rect.bottom : 0,
-                        preventDefault: () => {},
-                    } as any);
-                },
             });
-
             if (this.topBarElement) {
                 this.topBarElement.style.position = "relative";
                 this.topBarContextMenuHandler = (evt: MouseEvent) => {
@@ -1981,7 +1914,6 @@ export default class LvCardsPlugin extends Plugin {
         } catch (e) {
             lvLog("warn", "ensureTopBarElement failed: " + (e instanceof Error ? e.message : e));
         }
-
         return this.topBarElement;
     }
 
@@ -1989,15 +1921,10 @@ export default class LvCardsPlugin extends Plugin {
 
     private refreshDueBadge() {
         const topBar = this.ensureTopBarElement();
-        if (!topBar) {
-            return;
-        }
-        // 请求序号（536）：慢响应不覆盖新数据
+        if (!topBar) return;
         const seq = ++this.badgeSeq;
         cachedDueCount().then(count => {
-            if (seq !== this.badgeSeq) {
-                return;
-            }
+            if (seq !== this.badgeSeq) return;
             this.lastDue = count;
             const activePlan = this.examPlans.plans.find(p => p.enabled && p.examDate);
             const todayStat = this.revlog.days[todayDate()];
@@ -2009,19 +1936,18 @@ export default class LvCardsPlugin extends Plugin {
                 doneToday: todayStat?.review ?? 0,
                 i18n: this.i18n,
             });
-            this.renderBadge(descriptor, activePlan);
+            this.renderBadge(descriptor, activePlan, topBar);
         }).catch((e) => {
             lvLog("warn", "refreshDueBadge failed: " + (e instanceof Error ? e.message : e));
-            /* 旁路，静默 */
         });
     }
 
     private milestonesSeen = new Set<string>();
 
-    private renderBadge(desc: ReturnType<typeof computeBadgeDescriptor>, plan?: ExamPlan) {
-        const topBar = this.ensureTopBarElement();
-        if (!topBar) return;
-        let badge = topBar.querySelector<HTMLElement>(".lv-badge");
+    private renderBadge(desc: ReturnType<typeof computeBadgeDescriptor>, plan?: ExamPlan, topBar?: HTMLElement | null) {
+        const bar = topBar ?? this.ensureTopBarElement();
+        if (!bar) return;
+        let badge = bar.querySelector<HTMLElement>(".lv-badge");
         if (!desc.visible) {
             badge?.remove();
             return;
@@ -2029,7 +1955,7 @@ export default class LvCardsPlugin extends Plugin {
         if (!badge) {
             badge = document.createElement("span");
             badge.className = "lv-badge";
-            topBar.appendChild(badge);
+            bar.appendChild(badge);
         }
         badge.textContent = desc.text;
         badge.title = desc.title;
