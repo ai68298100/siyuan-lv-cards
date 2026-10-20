@@ -146,3 +146,47 @@ export function resolveReviewBreadcrumbs(params: ResolveBreadcrumbParams): Revie
         isTruncated,
     };
 }
+
+/**
+ * 将思源 hpath 路径直接解析为自适应面包屑链（纯函数）
+ */
+export function parseHPathToBreadcrumbs(
+    cardId: string,
+    hpath: string,
+    options: { maxDisplayChars?: number; maxDepth?: number } = {},
+): ReviewBreadcrumbChain {
+    const raw = String(hpath ?? "").trim().replace(/^\/+/, "").replace(/\/+$/, "");
+    if (!raw) {
+        return {
+            cardId,
+            nodes: [],
+            formattedText: "",
+            isTruncated: false,
+        };
+    }
+
+    const segments = raw.split("/").map(s => s.trim()).filter(Boolean);
+    if (segments.length === 0) {
+        return {
+            cardId,
+            nodes: [],
+            formattedText: "",
+            isTruncated: false,
+        };
+    }
+
+    const docTitle = segments[0];
+    const ancestorHeadings = segments.slice(1).map((title, idx) => ({
+        id: `heading-${idx + 1}`,
+        title,
+    }));
+
+    return resolveReviewBreadcrumbs({
+        cardId,
+        docTitle,
+        ancestorHeadings,
+        maxDisplayChars: options.maxDisplayChars ?? 14,
+        maxDepth: options.maxDepth ?? 3,
+    });
+}
+

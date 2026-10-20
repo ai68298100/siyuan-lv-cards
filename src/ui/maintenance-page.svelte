@@ -9,6 +9,8 @@
     import LvError from "./kit/LvError.svelte";
     import { groupDebts, detectDebts, DEBT_KINDS, type DebtItem, type DebtKind } from "@/core/maintenance-queue";
     import type { SourceHealthHistoryItem } from "@/core/source-health-store";
+    import MisconceptionPanel from "./misconception-panel.svelte";
+    import type { MisconceptionCluster } from "@/core/misconception-cluster";
 
     let {
         i18n,
@@ -44,6 +46,7 @@
             isSuspendedToday: (blockID: string) => boolean;
             openSource: (blockID: string) => Promise<void>;
             openCard: (blockID: string) => void;
+            getMisconceptionClusters?: () => Promise<MisconceptionCluster[]>;
         };
     } = $props();
 
@@ -62,6 +65,7 @@
     type SimilarDecision = { action: "keep"; blockID: string } | { action: "ignore" };
     const SIMILAR_DECISIONS_KEY = "lv-cards.maintenance.approximate-duplicates.v1";
     let similarDecisions = $state<Record<string, SimilarDecision>>({});
+    let misconceptionClusters = $state<MisconceptionCluster[]>([]);
 
     type LastRepair = NonNullable<ReturnType<NonNullable<typeof maintenance.getLastRepairRecord>>>;
     let lastRepair = $state<LastRepair | null>(null);
@@ -273,6 +277,13 @@
             approximateDuplicates = result.approximateDuplicates ?? [];
             suspended = new Set(scannedCards.filter(c => maintenance.isSuspendedToday(c.blockID)).map(c => c.blockID));
             errorMsg = result.error ? i18n.scanPartial.replace("${error}", result.error) : "";
+            if (maintenance.getMisconceptionClusters) {
+                try {
+                    misconceptionClusters = await maintenance.getMisconceptionClusters();
+                } catch {
+                    misconceptionClusters = [];
+                }
+            }
             live = t.scanned;
         } catch (e: any) {
             if (seq === scanSeq) errorMsg = e?.message ?? String(e);
@@ -655,6 +666,12 @@
                 {/each}
             </section>
         {/if}
+        <!-- BT-3 误解簇交互地图 -->
+        <MisconceptionPanel
+            clusters={misconceptionClusters}
+            i18n={i18n}
+            onOpenCard={(id) => maintenance.openCard(id)}
+        />
     {/if}
 </LvPage>
 

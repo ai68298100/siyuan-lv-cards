@@ -47,6 +47,7 @@
     import { triggerHaptic } from "@/core/haptic";
     import { lvLog } from "@/libs/log";
     import { trapFocus } from "@/libs/focus-trap";
+    import { parseHPathToBreadcrumbs, type ReviewBreadcrumbChain } from "@/core/review-breadcrumbs";
 
     export interface ReviewSettings {
         ratingStyle: "four" | "three";
@@ -566,8 +567,9 @@
     let markedIssueCardIDs = $state<Set<string>>(new Set());
     // 专注复习顶栏：折叠收纳二级操作气泡
     let showMoreToolbar = $state(false);
-    // 汲取自闪卡小助手 ZY 与 RemNote：卡片所属文档上下文路径
+    // 汲取自闪卡小助手 ZY 与 RemNote：卡片所属文档上下文路径与结构化面包屑
     let currentHPath = $state("");
+    let currentBreadcrumbs = $state<ReviewBreadcrumbChain | null>(null);
     // 汲取自渐进学习插件：给未来的自己留助记线索
     let cardMemo = $state("");
     let showMemoEditor = $state(false);
@@ -694,11 +696,13 @@
                     const rows = await siyuanApi.sqlQuery(`SELECT hpath FROM blocks WHERE id = '${blockID.replace(/'/g, "''")}' LIMIT 1`);
                     if (seq === loadSeq && rows?.[0]?.hpath) {
                         currentHPath = String(rows[0].hpath).replace(/^\//, "").replace(/\//g, " › ");
+                        currentBreadcrumbs = parseHPathToBreadcrumbs(blockID, String(rows[0].hpath));
                     }
                 }
             } catch {
                 if (seq === loadSeq) {
                     currentHPath = "";
+                    currentBreadcrumbs = null;
                 }
             }
         } catch (e) {
@@ -1040,6 +1044,7 @@
         retryReschedule = null;
         showMoreToolbar = false;
         currentHPath = "";
+        currentBreadcrumbs = null;
         cardMemo = "";
         showMemoEditor = false;
         memoDraft = "";
@@ -2248,7 +2253,24 @@
             </div>
         </div>
         <div class="lv-card b3-typography" class:lv-anim-glow={showAnswer} bind:this={cardEl} style={`max-width:${eff().cardMaxWidth}px; width:100%; margin:0 auto;`}>
-            {#if currentHPath}
+            {#if currentBreadcrumbs && currentBreadcrumbs.nodes.length > 0}
+                <!-- 汲取自闪卡小助手 ZY 与 RemNote：卡面来源文档知识语境层级面包屑 -->
+                <button
+                    type="button"
+                    class="lv-card-source-breadcrumb"
+                    title={(currentBreadcrumbs.formattedText || currentHPath) + " · " + (t.review.breadcrumbHint ?? "点击查阅来源文档上下文")}
+                    onclick={toggleContext}
+                    data-testid="review-breadcrumbs-btn"
+                >
+                    <span class="lv-breadcrumb-icon"><LvIcon name="book" size={16} /></span>
+                    <span class="lv-breadcrumb-text">
+                        {#each currentBreadcrumbs.nodes as node, idx}
+                            {#if idx > 0}<span class="lv-breadcrumb-sep" aria-hidden="true">›</span>{/if}
+                            <span class="lv-breadcrumb-node" title={node.fullTitle}>{node.displayTitle}</span>
+                        {/each}
+                    </span>
+                </button>
+            {:else if currentHPath}
                 <!-- 汲取自闪卡小助手 ZY 与 RemNote：卡面来源文档知识语境面包屑 -->
                 <button
                     type="button"

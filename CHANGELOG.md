@@ -7,7 +7,10 @@
 - **AI 能力总地图与行为风险分级矩阵（BU-1 / BU-2）**：在 `ai-capability-map.ts` 中建立捕获/澄清/制卡/练习/应用/维护六大模式完备能力登记、角色职责划分与不可篡改调度契约（`effectsKernel: false` 恒真）；实现五级行为风险分层（只读/候选/单写/批改/调度篡改阻断）与预览/确认/撤销策略矩阵。
 - **思源 Agent 能力协商适配器与循环调用闸门（BU-3 / BU-4）**：在 `ai-agent-negotiator.ts` 中实现宿主内核版本（>=3.9.0）与 Agent 运行时多维探测，提供诚实降级至普通 AI 或纯手工流程机制，严格实行降级不注册虚假工具契约；在 `ai-agent-guard.ts` 中建立任务级工具循环闸门与安全状态机，拦截注入越权参数，实施最大调用深度、调用总次数、执行超时、连续死循环及写入实体配额熔断。
 - **AI 数据边界保留策略与 Grounded 输出契约（BU-9 / BU-10）**：在 `ai-data-boundary.ts` 中登记提炼/挖空/问答/诊断/嵌入五类请求的数据类型、传输目的地、0 天瞬态保留与逐项退出回退机制，提供敏感数据最小化过滤；在 `ai-grounded-contract.ts` 中建立原子断言与来源块引用绑定机制，强制对无直接依据内容打上 `inferredTag` 演绎推测标识，提供严防伪装成笔记事实的契约合规审计门禁。
-- **全量测试与门禁验证**：全库扩展至 227 个测试文件、1832 项测试 100% 通过；TypeScript 与 Svelte-check 0 错误 0 警告；生产打包与 smoke-dist 烟雾门禁全绿。
+- **Token 估算与费用硬上限引擎（BU-12 / BU-24）**：在 `ai-token-cost.ts` 中实现发送前输入与输出 Token 估算、模型定价矩阵与推理耗时计算，支持对本地 Ollama 模型标记零费用，建立单次请求 Token 上限、单日 Token 上限与单日费用 USD 上限的前置熔断拦截与无 AI 本地等价替代。
+- **统一 AI 流水线运行时与复习面包屑（BU-11 / BX-11）**：在 `ai-pipeline-runtime.ts` 中建立统一 AI 调用流水线状态机（eligibility → ceilings → assembly → dispatch → schema），统一管理 AbortSignal 主动取消、超时控制与分层降级，支持主端点故障重试与备用端点自动路由；在 `review-breadcrumbs.ts` 与 `review.svelte` 中根据调研 docs/49 落地复习来源层级面包屑（笔记本 > 文档 > 章节），支持标题 Markdown/HTML 格式清洗、紧凑截断与多深度自适应中间折叠。
+- **分享包差异比对引擎与误解簇交互面板（BX-12 / BT-3 UI）**：在 `lvcards-diff-inspector.ts` 中实现同名卡组 .lvcards 导入的字段级差异比对（`inspectLvCardsImportDiff`），精准识别全新卡、完全相同卡、正文变动卡与仅便签标签变动，并建立 4 种细粒度冲突处理决策（keep-local / overwrite / fork-new / merge-memo），优先保护用户本地私有便签；在 `misconception-panel.svelte` 与 `maintenance-page.svelte` 中落地误解簇地图交互面板，展示混淆概念对、严重度徽标与三大干预建议（对比辨析、反例构建、来源拆卡），支持一键出题与 Markdown 诊断报告脱敏导出。
+- **全量测试与门禁验证**：全库扩展至 233 个测试文件、1871 项测试 100% 通过；TypeScript 与 Svelte-check 0 错误 0 警告；生产打包与 smoke-dist 烟雾门禁全绿。
 
 ## v0.210.5 2026-10-19 · 跨插件对外生态窗口桥、高对比度无障碍加固与对话框/生命周期闭环
 
