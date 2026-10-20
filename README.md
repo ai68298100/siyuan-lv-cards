@@ -21,11 +21,20 @@
 
 小驴闪卡（内测版）的定位是**思源笔记里的全生命周期记忆引擎**：让笔记里每一段值得记的内容，都能可回源地变成卡片，用内核原生 FSRS 排期，用可审计的 AI 提效；数据本地优先，方便带走。
 
-当前版本为 **v0.210.5（2026-10-17）**，落地原生分享包（.lvcards）、移动端触感微震动与自定义卡面 CSS。安装包与发布状态见 [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.5)。
+当前版本为 **v0.210.6（2026-10-20）**，落地顶栏自愈保活、数据回音抑制与 AI 全局治理（能力地图/Agent闸门/数据边界/Grounded契约）。安装包与发布状态见 [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.6)。
 
 [下载最新版](https://github.com/ai68298100/siyuan-lv-cards/releases/latest) · [提交问题](https://github.com/ai68298100/siyuan-lv-cards/issues/new/choose) · [贡献指南](./CONTRIBUTING.md)
 
-## 本次更新（v0.210.5）
+## 本次更新（v0.210.6）
+
+- **顶栏条目自愈挂载控制器（连通性与图标保活）**：为顶栏条目指定唯一标识 `id: "topbar-lv-cards"`，实现 `ensureTopBarElement()` 连通性自愈控制器，当宿主重构顶栏、窗口缩放或自适应折叠导致原有 DOM 断连（`!isConnected`）时，自动感知并即时重新注册挂载；在 `onload`、`onLayoutReady`、`refreshDueBadge` 与 `renderBadge` 中全链路保护，彻底解决顶栏图标偶发突然消失的问题。
+- **数据重载回音抑制（Echo Suppression 消除全页反复重绘）**：全面收紧 `onDataChanged` 判定边界，过滤无关外部文档事件；建立本地主动写文件的 3000ms 时间戳回音抑制窗口，彻底消除数据写盘后触发错误全量重载导致的页面内容频繁闪烁与正在复习的组件被强制重刷。
+- **AI 能力总地图与行为风险分级矩阵（BU-1 / BU-2）**：在 `ai-capability-map.ts` 中建立捕获/澄清/制卡/练习/应用/维护六大模式完备能力登记、角色职责划分与不可篡改调度契约（`effectsKernel: false` 恒真）；实现五级行为风险分层（只读/候选/单写/批改/调度篡改阻断）与预览/确认/撤销策略矩阵。
+- **思源 Agent 能力协商适配器与循环调用闸门（BU-3 / BU-4）**：在 `ai-agent-negotiator.ts` 中实现宿主内核版本（>=3.9.0）与 Agent 运行时多维探测，提供诚实降级至普通 AI 或纯手工流程机制，严格实行降级不注册虚假工具契约；在 `ai-agent-guard.ts` 中建立任务级工具循环闸门与安全状态机，拦截注入越权参数，实施最大调用深度、调用总次数、执行超时、连续死循环及写入实体配额熔断。
+- **AI 数据边界保留策略与 Grounded 输出契约（BU-9 / BU-10）**：在 `ai-data-boundary.ts` 中登记提炼/挖空/问答/诊断/嵌入五类请求的数据类型、传输目的地、0 天瞬态保留与逐项退出回退机制，提供敏感数据最小化过滤；在 `ai-grounded-contract.ts` 中建立原子断言与来源块引用绑定机制，强制对无直接依据内容打上 `inferredTag` 演绎推测标识，提供严防伪装成笔记事实的契约合规审计门禁。
+- **全量测试与门禁验证**：全库扩展至 227 个测试文件、1832 项测试 100% 通过；TypeScript 与 Svelte-check 0 错误 0 警告；生产打包与 smoke-dist 烟雾门禁全绿。
+
+## 上一版本（v0.210.5）
 
 - 全面升级并适配思源官方 SDK `siyuan@1.2.9`，修复新版 SDK 下 `i18n` 声明类型收紧导致的赋值兼容性与 `Custom` 标签上下文。
 - 合入依赖链升级：`vite@8.3.4`、`@types/node@26.6.5`、`happy-dom@21.0.3`、`npm-run-all2@9.0.3` 及 CI `actions/setup-node@7.1.0`。

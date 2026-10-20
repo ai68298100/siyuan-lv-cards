@@ -19,9 +19,18 @@ The full-lifecycle flashcard learning platform for SiYuan — local-first, nativ
 
 > **Note**: The primary README and all design docs are in Chinese. This page covers the essentials; see [docs/](./docs/README.md) for full design material.
 
-Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.5** (2026-10-17), delivering native .lvcards sharing package export/import, touch haptic feedback, and custom card CSS. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.5) for the package and publishing status.
+Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.6** (2026-10-20), delivering topbar self-healing persistence, data reload echo suppression, and full-lifecycle AI governance (capability map, Agent loop guard, data boundary, and grounded contract). See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.6) for the package and publishing status.
 
-## What's New in v0.210.5
+## What's New in v0.210.6
+
+- **Topbar Item Self-Healing & Resilience (`ensureTopBarElement`)**: Registered fixed unique ID `id: "topbar-lv-cards"`. Implemented a self-healing controller that detects DOM disconnection when SiYuan redraws or reorganizes the toolbar during window resizing, automatically restoring the topbar button and preventing vanishing icons.
+- **Data Reload Echo Suppression**: Strictly scoped `onDataChanged` file change events to private plugin storage; introduced a 3000ms timestamp window that filters out local self-write echoes, eliminating unexpected page re-renders and review UI flickering.
+- **AI Capability Map & Risk Classification Matrix (BU-1 / BU-2)**: Established comprehensive capability registrations across 6 learning modes with non-tamperable scheduling assertions (`effectsKernel: false`), accompanied by a 5-tier action risk matrix.
+- **SiYuan Agent Capability Negotiator & Loop Guard (BU-3 / BU-4)**: Implemented host kernel version and runtime probing with honest fallback, zero fake tool registrations, and an execution guard enforcing call limits, recursion depth caps, and unauthorized parameter blocking.
+- **AI Data Boundary Retention Policy & Grounded Output Contract (BU-9 / BU-10)**: Bound AI assertions to source document blocks with mandatory `inferredTag` for ungrounded claims, ensuring AI deductions never masquerade as user facts.
+- **Verification**: 1832 automated tests across 227 test suites passing; zero TypeScript/Svelte errors and warnings; production build and smoke-dist green.
+
+## Previous Update: v0.210.5
 
 - Fully upgrade and adapt to official SiYuan SDK `siyuan@1.2.9`, fixing `i18n` declaration typing conflicts with `JSONValue` assignments and `Custom` tab model contexts.
 - Merge core dependency upgrades: `vite@8.3.4`, `@types/node@26.6.5`, `happy-dom@21.0.3`, `npm-run-all2@9.0.3`, and CI workflow `actions/setup-node@7.1.0`.
