@@ -28,6 +28,7 @@
     import { validateCardEntry } from "@/core/card-entry-gate";
     import { parseLvCardsPackage, previewLvCardsImport } from "@/core/lvcards-package";
     import { LvCardsImportError, pairLvCardsBlocks, readLvCardsDeckIDs, readLvCardsExisting, sqlString, applyPackageCardMetadata } from "@/core/lvcards-import";
+    import { inspectLvCardsImportDiff, buildImportExecutionPlan } from "@/core/lvcards-diff-inspector";
     // Obsidian SR 导入（v0.202.0）：块级解析 → 计划（去重/剥 tag）→ 一卡一段落落库 → 按序对位
     import { planObsidianImport, composeObsidianImportMarkdown, deckNameFor, groupByDeckHint, partitionByLedger, normalizeObLedger, mergeObLedger, type ObLedgerEntry } from "@/core/obsidian-import";
 
@@ -259,23 +260,52 @@
                 catch { throw new LvCardsImportError("incomplete-deck"); }
             }
             const preview = previewLvCardsImport(pkg, existingCards);
-            // Identity conflicts never overwrite existing cards or masquerade as duplicate-only imports.
-            if (preview.updatedCards.length) {
-                lvcardsStatus = { kind: "warn", text: t.settings.lvcardsImportConflict.replace("${n}", String(preview.updatedCards.length)) };
-                return;
+            let toImportCards = preview.newCards;
+            let retainedLocalMemo = 0;
+
+            // BX-12：冲突卡片差异比对与保护性合并
+            if (preview.updatedCards.length > 0) {
+                const diffSummary = inspectLvCardsImportDiff({
+                    deckName: pkg.deck.name,
+                    packageCards: pkg.cards,
+                    existingCards,
+                });
+
+                const confirmDiff = await confirmDialogBool({
+                    title: t.settings.lvcardsConflictTitle ?? "发现卡片内容冲突",
+                    content: `<div class="b3-typography">
+                        <p>分享包中有 <strong>${diffSummary.modifiedContentCount + diffSummary.modifiedMetadataCount}</strong> 张卡片在本地已存在修改。</p>
+                        <p style="color: var(--b3-theme-on-surface-light); font-size: 12px;">默认执行【安全合并】：优先保留您本地的卡片正文与私有便签，仅导入 ${diffSummary.newCount} 张全新卡片。是否继续？</p>
+                    </div>`,
+                });
+
+                if (!confirmDiff) {
+                    lvcardsStatus = { kind: "warn", text: t.settings.lvcardsImportConflict.replace("${n}", String(preview.updatedCards.length)) };
+                    return;
+                }
+
+                const plan = buildImportExecutionPlan({
+                    reports: diffSummary.reports,
+                    defaultAction: "keep-local",
+                });
+                toImportCards = plan.toCreate;
+                retainedLocalMemo = plan.retainedLocalMemoCount;
             }
-            if (preview.newCards.length === 0) {
+
+            if (toImportCards.length === 0) {
                 lvcardsStatus = {
                     kind: "info",
-                    text: t.settings.lvcardsImportDuplicate.replace("${n}", String(preview.total)).replace("${deck}", pkg.deck.name),
+                    text: (t.settings.lvcardsImportDuplicate ?? "全部 ${n} 张卡片在「${deck}」中均已存在。")
+                        .replace("${n}", String(preview.total)).replace("${deck}", pkg.deck.name)
+                        + (retainedLocalMemo > 0 ? ` 已保护 ${retainedLocalMemo} 条本地私有便签。` : ""),
                 };
                 return;
             }
-            if (preview.newCards.some(card => !validateCardEntry({ blockID: card.id, markdown: card.markdown }).ok)) {
+            if (toImportCards.some(card => !validateCardEntry({ blockID: card.id, markdown: card.markdown }).ok)) {
                 lvcardsStatus = { kind: "warn", text: t.settings.lvcardsImportInvalid };
                 return;
             }
-            const values = { deck: pkg.deck.name, total: preview.total, n: preview.newCards.length, dup: preview.duplicateCards.length };
+            const values = { deck: pkg.deck.name, total: preview.total, n: toImportCards.length, dup: preview.duplicateCards.length };
             const summary = t.settings.lvcardsImportConfirm.replace(/\$\{(deck|total|n|dup)\}/g, (_match: string, key: keyof typeof values) => String(values[key]));
             const confirmed = await confirmDialogBool({
                 title: t.settings.lvcardsImportLabel ?? "导入小驴闪卡分享包",
@@ -291,15 +321,15 @@
             if (!nbId?.trim()) throw new Error(t.settings.lvcardsImportNoTarget);
 
             // 生成 Markdown 文档
-            const docMarkdown = preview.newCards.map(c => c.markdown).join("\n\n");
+            const docMarkdown = toImportCards.map(c => c.markdown).join("\n\n");
             docRequested = true;
             const docID = await createDocWithMd(nbId, `${pkg.deck.name} ${new Date().toISOString().slice(0, 10)}`, docMarkdown);
             if (!docID?.trim()) throw new Error(t.settings.lvcardsImportNoTarget);
             retainedDocID = docID;
 
             // One extra row detects a multi-block card instead of silently admitting only a prefix.
-            const blockRows = await sqlQuery(`SELECT id, markdown, root_id, parent_id, type FROM blocks WHERE root_id=${sqlString(docID)} AND parent_id=${sqlString(docID)} AND type != 'd' ORDER BY sort LIMIT ${preview.newCards.length + 1}`);
-            const blockIDs = pairLvCardsBlocks(preview.newCards, blockRows, docID);
+            const blockRows = await sqlQuery(`SELECT id, markdown, root_id, parent_id, type FROM blocks WHERE root_id=${sqlString(docID)} AND parent_id=${sqlString(docID)} AND type != 'd' ORDER BY sort LIMIT ${toImportCards.length + 1}`);
+            const blockIDs = pairLvCardsBlocks(toImportCards, blockRows, docID);
 
             if (!deckID) {
                 const newDeck = await createRiffDeck(pkg.deck.name) as any;
