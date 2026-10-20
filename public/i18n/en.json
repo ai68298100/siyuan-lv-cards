@@ -3114,5 +3114,39 @@
             "executionTimeout": "Agent task execution timeout exceeded; halted",
             "loopDetected": "Repetitive identical tool calls detected; execution halted"
         }
+    },
+    "aiPrivacy": {
+        "extract": {
+            "name": "Material Extraction & Fact Distillation",
+            "desc": "Sends selected blocks to AI for structured extraction; ephemeral session retention"
+        },
+        "cloze": {
+            "name": "Cloze Question Generation",
+            "desc": "Generates cloze candidates based on context; only plain context text is uploaded"
+        },
+        "qa": {
+            "name": "Q&A Flashcard Draft Generation",
+            "desc": "Constructs Q&A card candidates from selections; supports user highlights"
+        },
+        "diagnosis": {
+            "name": "Misconception Cause Diagnosis",
+            "desc": "Sends error card questions and anonymized reps history to AI without private blocks"
+        },
+        "embedding": {
+            "name": "Vector Embedding & Semantic Search",
+            "desc": "Generates question vector features using local models without cloud upload"
+        },
+        "blocked": {
+            "consentRevoked": "Consent center has revoked AI generation permission; request blocked",
+            "userOptedOut": "User has opted out of this AI request kind in privacy settings; fallback applied"
+        },
+        "allowed": {
+            "ready": "Privacy boundary check passed; safe for dispatch"
+        }
+    },
+    "aiGrounded": {
+        "warning": {
+            "containsSpeculativeClaims": "Contains speculative AI inferences without direct source anchors; please verify"
+        }
     }
 }
