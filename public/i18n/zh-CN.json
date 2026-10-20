@@ -3148,5 +3148,15 @@
         "warning": {
             "containsSpeculativeClaims": "部分内容属于 AI 演绎推测，原笔记中未找到精准对应依据，请注意核实"
         }
+    },
+    "aiTokenCost": {
+        "error": {
+            "singleCapExceeded": "单次调用 Token 预估超标，已触发防失控硬上限前置阻断",
+            "dailyTokensExceeded": "今日累计消耗 Token 已达设定的硬上限，已停止外发以控制成本",
+            "dailyCostExceeded": "今日累计费用已达设定的美元硬上限，请求已安全拦截"
+        },
+        "allowed": {
+            "withinBudget": "Token 与成本预算核算正常，在安全硬上限配额内"
+        }
     }
 }

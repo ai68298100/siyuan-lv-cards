@@ -3148,5 +3148,15 @@
         "warning": {
             "containsSpeculativeClaims": "Contains speculative AI inferences without direct source anchors; please verify"
         }
+    },
+    "aiTokenCost": {
+        "error": {
+            "singleCapExceeded": "Single request token estimate exceeds configured hard ceiling; blocked pre-flight",
+            "dailyTokensExceeded": "Daily accumulated token quota reached configured hard ceiling; halted to prevent cost overrun",
+            "dailyCostExceeded": "Daily accumulated USD cost ceiling reached; request safely intercepted"
+        },
+        "allowed": {
+            "withinBudget": "Token and cost pre-flight estimation verified within hard ceiling quota"
+        }
     }
 }
