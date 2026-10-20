@@ -340,6 +340,7 @@ export default class LvCardsPlugin extends Plugin {
     private saveRevlogTimer: ReturnType<typeof setTimeout> | null = null;
     /** 内核闪卡 V2 状态（null = 当前内核 < 3.9.0，无 V2 API） */
     private flashcardV2: MigrationStatus | null = null;
+    public static readonly TOPBAR_ICON_ID = "topbar-lv-cards";
     private topBarElement: HTMLElement | null = null;
     /** 生命周期清理：保存顶栏右键监听，避免禁用/重载后重复菜单。 */
     private topBarContextMenuHandler: ((evt: MouseEvent) => void) | null = null;
@@ -757,32 +758,67 @@ export default class LvCardsPlugin extends Plugin {
     private reloadQueued = false;
     private reloadTimer: ReturnType<typeof setTimeout> | null = null;
 
-    onDataChanged(files?: unknown) {
+    async onDataChanged(files?: unknown): Promise<void> {
         try {
-            // 兼容两种形态：string[] / { files: string[] }（宿主版本契约有差异）
+            // 兼容宿主各种形态：
+            // 1. "sync"（跨设备同步完成通知）
+            // 2. string[]（变动文件列表）
+            // 3. { files: string[] }
+            if (files === "sync") {
+                // 明确的跨设备同步，调度重载
+                this.scheduleReloadLocalStores([]);
+                return;
+            }
+
             const raw = Array.isArray(files) ? files : (files as any)?.files;
-            const list = Array.isArray(raw) ? raw : [];
-            // 宿主有两个契约：旧版无参数（表示插件数据变化），新版传变更文件列表。
-            // 无法解析列表时按插件级变更处理，保证多窗口/多前端同步不会静默漏掉。
-            const ours = list.length === 0 || list.some(f => {
-                const p = typeof f === "string"
-                    ? f
-                    : (typeof (f as any)?.path === "string" ? (f as any).path : "");
-                const normalized = p.replaceAll("\\", "/").toLowerCase();
+            if (!raw || !Array.isArray(raw)) {
+                // 无法识别的未知事件或普通笔记块保存，坚决不盲目全量重载，避免页面内容闪烁重刷
+                return;
+            }
+
+            const fileStrings: string[] = raw.filter((f): f is string => typeof f === "string");
+            if (fileStrings.length === 0) {
+                // 空列表表示非文件或无关变更，忽略
+                return;
+            }
+
+            // 检查变动中是否包含小驴闪卡私有目录
+            const related = fileStrings.filter(f => {
+                const normalized = f.replace(/\\/g, "/").toLowerCase();
                 return normalized.includes("/storage/petal/siyuan-lv-cards/")
                     || normalized.includes("storage/petal/siyuan-lv-cards/");
             });
-            if (!ours) {
+
+            if (related.length === 0) {
+                return; // 无关外部文件，直接忽略
+            }
+
+            // 本地回音抑制（Echo Suppression）：
+            // 如果所有相关文件都是在最近 3000ms 内由本地主动成功落盘的，说明纯属本地写文件的内核广播回音，
+            // 本地内存状态比磁盘更最新，绝不重复触发重载并打断正在复习/编辑的 Svelte 组件
+            const now = Date.now();
+            const allEchoes = related.every(f => {
+                const filename = f.split("/").pop() ?? f;
+                const lastLocalWrite = this.storageLastWrite[filename] ?? 0;
+                return now - lastLocalWrite < 3000;
+            });
+
+            if (allEchoes) {
                 return;
             }
-            if (this.reloadTimer) {
-                clearTimeout(this.reloadTimer);
-            }
-            this.reloadTimer = setTimeout(() => {
-                this.reloadTimer = null;
-                void this.reloadLocalStoresBounded(list.filter((f): f is string => typeof f === "string"));
-            }, 2000);
+
+            this.scheduleReloadLocalStores(related);
         } catch { /* 协议差异不容阻断宿主 */ }
+    }
+
+    private scheduleReloadLocalStores(files: string[]) {
+        if (this.reloadTimer) {
+            clearTimeout(this.reloadTimer);
+        }
+        this.reloadTimer = setTimeout(() => {
+            this.reloadTimer = null;
+            void this.reloadLocalStoresBounded(files);
+        }, 2000);
     }
 
     private onExamPlansChanged = (notice: unknown) => {
@@ -1712,24 +1748,7 @@ export default class LvCardsPlugin extends Plugin {
         });
 
         // 入口矩阵：左键点击顶栏图标，默认打开闪卡主页面（TAB_DASHBOARD）；若开启直接复习且有到期卡，才直接开复习
-        this.topBarElement = this.addTopBar({
-            icon: "iconLvCards",
-            title: this.i18n.topbarTitle,
-            position: "right",
-            callback: () => {
-                if (this.settings.topbarDirectReview && this.settings.modules.review && this.lastDue > 0) {
-                    this.openTabOf(TAB_REVIEW);
-                } else {
-                    this.openTabOf(TAB_DASHBOARD);
-                }
-            },
-        });
-        this.topBarElement.style.position = "relative";
-        this.topBarContextMenuHandler = (evt: MouseEvent) => {
-            evt.preventDefault();
-            this.showTopbarMenu(evt);
-        };
-        this.topBarElement.addEventListener("contextmenu", this.topBarContextMenuHandler);
+        this.ensureTopBarElement();
         // 面包屑「复习本文档」按钮（M2·FR2，官方 API 3.8.2+；旧版静默跳过）
         if (typeof (this as any).addBreadcrumbButton === "function" && this.settings.modules.review) {
             (this as any).addBreadcrumbButton({
@@ -1748,6 +1767,7 @@ export default class LvCardsPlugin extends Plugin {
     }
 
     onLayoutReady() {
+        this.ensureTopBarElement();
         this.refreshDueBadge();
         this.setupBadgeTimer();
         // Onboarding 首启自动弹出（M12：!onboarded 时延迟 2s 弹出，避免与布局渲染竞争）
@@ -1860,9 +1880,17 @@ export default class LvCardsPlugin extends Plugin {
         this.unbindExamPlansSync();
         this.eventBus.off("click-flashcard-action", this.onNativeCardAction);
         this.eventBus.off("click-blockicon", this.onBlockIcon);
-        if (this.topBarElement && this.topBarContextMenuHandler) {
-            this.topBarElement.removeEventListener("contextmenu", this.topBarContextMenuHandler);
-            this.topBarContextMenuHandler = null;
+        if (this.topBarElement) {
+            if (this.topBarContextMenuHandler) {
+                this.topBarElement.removeEventListener("contextmenu", this.topBarContextMenuHandler);
+                this.topBarContextMenuHandler = null;
+            }
+            if (typeof (this as any).removeTopBar === "function") {
+                try {
+                    (this as any).removeTopBar(LvCardsPlugin.TOPBAR_ICON_ID);
+                } catch { /* 忽略卸载错误 */ }
+            }
+            this.topBarElement = null;
         }
         if (this.onboardingTimer) {
             clearTimeout(this.onboardingTimer);
@@ -1893,10 +1921,75 @@ export default class LvCardsPlugin extends Plugin {
         }
     }
 
+    /** 确保全局 SVG 符号 iconLvCards 存在于 DOM 树，防止宿主重置图标容器后图标变透明/消失 */
+    private ensureIcons() {
+        if (!document.getElementById("iconLvCards")) {
+            this.addIcons(`<symbol id="iconLvCards" viewBox="0 0 32 32"><path d="M6 10h16v16H6zM10 6h16v16M11 16h6M11 20h10" fill="none" stroke="currentColor" stroke-width="2"/></symbol>`);
+        }
+    }
+
+    /**
+     * 顶栏条目自愈挂载控制器：
+     * 保证当宿主重新渲染顶栏、窗口自适应折叠、主题切换或多窗口重新布局导致原有 DOM 脱离时，
+     * 能够自动感知断连并重新注入注册，杜绝顶栏图标突然消失。
+     */
+    public ensureTopBarElement(): HTMLElement | null {
+        this.ensureIcons();
+
+        // 检查现有节点是否依然有效且连接在页面 DOM 树中
+        if (this.topBarElement && this.topBarElement.isConnected && document.contains(this.topBarElement)) {
+            return this.topBarElement;
+        }
+
+        try {
+            if (this.topBarElement && this.topBarContextMenuHandler) {
+                try {
+                    this.topBarElement.removeEventListener("contextmenu", this.topBarContextMenuHandler);
+                } catch { /* 忽略清理错误 */ }
+            }
+
+            this.topBarElement = this.addTopBar({
+                id: LvCardsPlugin.TOPBAR_ICON_ID,
+                icon: "iconLvCards",
+                title: this.i18n.topbarTitle,
+                position: "right",
+                callback: () => {
+                    if (this.settings.topbarDirectReview && this.settings.modules.review && this.lastDue > 0) {
+                        this.openTabOf(TAB_REVIEW);
+                    } else {
+                        this.openTabOf(TAB_DASHBOARD);
+                    }
+                },
+                contextMenu: () => {
+                    const rect = this.topBarElement?.getBoundingClientRect();
+                    this.showTopbarMenu({
+                        clientX: rect ? rect.left + rect.width / 2 : 0,
+                        clientY: rect ? rect.bottom : 0,
+                        preventDefault: () => {},
+                    } as any);
+                },
+            });
+
+            if (this.topBarElement) {
+                this.topBarElement.style.position = "relative";
+                this.topBarContextMenuHandler = (evt: MouseEvent) => {
+                    evt.preventDefault();
+                    this.showTopbarMenu(evt);
+                };
+                this.topBarElement.addEventListener("contextmenu", this.topBarContextMenuHandler);
+            }
+        } catch (e) {
+            lvLog("warn", "ensureTopBarElement failed: " + (e instanceof Error ? e.message : e));
+        }
+
+        return this.topBarElement;
+    }
+
     private badgeSeq = 0;
 
     private refreshDueBadge() {
-        if (!this.topBarElement) {
+        const topBar = this.ensureTopBarElement();
+        if (!topBar) {
             return;
         }
         // 请求序号（536）：慢响应不覆盖新数据
@@ -1926,8 +2019,9 @@ export default class LvCardsPlugin extends Plugin {
     private milestonesSeen = new Set<string>();
 
     private renderBadge(desc: ReturnType<typeof computeBadgeDescriptor>, plan?: ExamPlan) {
-        if (!this.topBarElement) return;
-        let badge = this.topBarElement.querySelector<HTMLElement>(".lv-badge");
+        const topBar = this.ensureTopBarElement();
+        if (!topBar) return;
+        let badge = topBar.querySelector<HTMLElement>(".lv-badge");
         if (!desc.visible) {
             badge?.remove();
             return;
@@ -1935,7 +2029,7 @@ export default class LvCardsPlugin extends Plugin {
         if (!badge) {
             badge = document.createElement("span");
             badge.className = "lv-badge";
-            this.topBarElement.appendChild(badge);
+            topBar.appendChild(badge);
         }
         badge.textContent = desc.text;
         badge.title = desc.title;
