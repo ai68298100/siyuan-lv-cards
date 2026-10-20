@@ -72,6 +72,7 @@ import {
 import { scanAllMaintenanceCardIds } from "./core/maintenance-scan";
 import { registerPluginCommands } from "./bootstrap/commands";
 import { showPluginTopbarMenu } from "./bootstrap/topbar-menu";
+import { createPresentationPrivacyController } from "./core/presentation-privacy";
 import { createFullSampleWorkspace, createOnboardingSampleCards } from "./core/workspace-samples";
 import {
     downloadFile,
@@ -344,6 +345,7 @@ export default class LvCardsPlugin extends Plugin {
     private flashcardV2: MigrationStatus | null = null;
     public static readonly TOPBAR_ICON_ID = "topbar-lv-cards";
     private topBarElement: HTMLElement | null = null;
+    public presentationPrivacyController = createPresentationPrivacyController();
     /** 生命周期清理：保存顶栏右键监听，避免禁用/重载后重复菜单。 */
     private topBarContextMenuHandler: ((evt: MouseEvent) => void) | null = null;
     private badgeTimer: ReturnType<typeof setInterval> | null = null;
@@ -1705,6 +1707,7 @@ export default class LvCardsPlugin extends Plugin {
             openPairing: () => this.openPairing(),
             openHelpDoc: () => this.openHelpDoc(),
             createSampleWorkspace: () => this.createSampleWorkspace(),
+            togglePresentationPrivacy: () => this.togglePresentationPrivacy(),
         });
 
         // 入口矩阵：左键点击顶栏图标，默认打开闪卡主页面（TAB_DASHBOARD）；若开启直接复习且有到期卡，才直接开复习
@@ -3511,10 +3514,25 @@ export default class LvCardsPlugin extends Plugin {
         });
     }
 
+    public togglePresentationPrivacy() {
+        const state = this.presentationPrivacyController.getState();
+        if (state.enabled) {
+            this.presentationPrivacyController.exit();
+            showMessage(this.i18n.presentationPrivacyTipExited ?? "已退出演示模式，恢复正常显示", 2500, "info");
+        } else {
+            this.presentationPrivacyController.enter("screen-sharing");
+            showMessage(this.i18n.presentationPrivacyTipActive ?? "私密演示模式已启用：敏感文档路径、块ID与用户名已安全遮蔽", 3500, "info");
+        }
+    }
+
     private showTopbarMenu(evt: MouseEvent) {
         showPluginTopbarMenu({
             v2State: this.flashcardV2 ? this.flashcardV2.state : null,
             modules: this.settings.modules,
+            presentationPrivacy: {
+                enabled: this.presentationPrivacyController.getState().enabled,
+                profile: this.presentationPrivacyController.getState().profile,
+            },
             i18n: this.i18n,
             actions: {
                 openDashboard: () => this.openTabOf(TAB_DASHBOARD),
@@ -3524,6 +3542,7 @@ export default class LvCardsPlugin extends Plugin {
                 openOnboarding: () => this.openOnboarding(),
                 openAIWizard: () => this.openAIWizard(),
                 openSettingsDialog: () => this.openSettingsDialog(),
+                togglePresentationPrivacy: () => this.togglePresentationPrivacy(),
             },
         }, evt);
 

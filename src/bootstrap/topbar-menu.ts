@@ -23,6 +23,10 @@ export interface TopbarMenuConfig {
         manager?: boolean;
         create?: boolean;
     };
+    presentationPrivacy?: {
+        enabled: boolean;
+        profile?: string;
+    };
     i18n: Record<string, any>;
     actions: {
         openDashboard: () => void;
@@ -32,6 +36,7 @@ export interface TopbarMenuConfig {
         openOnboarding: () => void;
         openAIWizard: () => void;
         openSettingsDialog: () => void;
+        togglePresentationPrivacy?: () => void;
     };
 }
 
@@ -108,6 +113,18 @@ export function computeTopbarMenuItems(config: TopbarMenuConfig): TopbarMenuItem
         label: config.i18n.menuSettings,
         click: config.actions.openSettingsDialog,
     });
+
+    if (config.actions.togglePresentationPrivacy) {
+        const isEnabled = config.presentationPrivacy?.enabled;
+        items.push({
+            id: "presentation-privacy",
+            icon: isEnabled ? "iconEyeoff" : "iconEye",
+            label: isEnabled
+                ? (config.i18n.menuPresentationPrivacyActive ?? "演示私密模式（已开启）")
+                : (config.i18n.menuPresentationPrivacy ?? "演示私密模式"),
+            click: config.actions.togglePresentationPrivacy,
+        });
+    }
 
     return items;
 }

@@ -23,6 +23,7 @@ export interface CommandHost {
     openPairing: () => Promise<void>;
     openHelpDoc: () => void;
     createSampleWorkspace: () => Promise<void>;
+    togglePresentationPrivacy?: () => void;
 }
 
 export const REGISTERED_COMMAND_KEYS = [
@@ -127,4 +128,13 @@ export function registerPluginCommands(host: CommandHost): void {
         hotkey: "",
         callback: () => host.createSampleWorkspace(),
     });
+
+    if (typeof host.togglePresentationPrivacy === "function") {
+        host.addCommand({
+            langKey: "presentationPrivacy",
+            langText: host.i18n.menuPresentationPrivacy ?? "演示私密模式",
+            hotkey: "",
+            callback: () => host.togglePresentationPrivacy!(),
+        });
+    }
 }
