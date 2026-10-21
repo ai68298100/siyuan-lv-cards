@@ -137,6 +137,31 @@ describe("统一卡面渲染管线（renderUnifiedCardFace & formatMarkdownToSaf
         expect(card.cardType).toBe("qa");
     });
 
+    it("存量闪卡支持 :: 双冒号概念分隔与思源块备注作为答案", () => {
+        // :: 概念卡自适应
+        const colonCard = renderUnifiedCardFace({
+            markdown: "HTTP 200 :: 请求已成功被服务器处理",
+        });
+        expect(colonCard.extractedAnswers).toEqual(["请求已成功被服务器处理"]);
+        expect(colonCard.questionHtml).toContain("HTTP 200");
+        expect(colonCard.questionHtml).not.toContain("请求已成功被服务器处理");
+        expect(colonCard.answerHtml).toContain("HTTP 200");
+        expect(colonCard.answerHtml).toContain("请求已成功被服务器处理");
+        expect(colonCard.answerHtml).toContain("概念释义");
+
+        // 块备注 memo 自适应
+        const memoCard = renderUnifiedCardFace({
+            markdown: "什么是闭包？",
+            memo: "有权访问外部作用域变量的函数",
+        });
+        expect(memoCard.extractedAnswers).toEqual(["有权访问外部作用域变量的函数"]);
+        expect(memoCard.questionHtml).toContain("什么是闭包？");
+        expect(memoCard.questionHtml).not.toContain("有权访问外部作用域变量的函数");
+        expect(memoCard.answerHtml).toContain("什么是闭包？");
+        expect(memoCard.answerHtml).toContain("有权访问外部作用域变量的函数");
+        expect(memoCard.answerHtml).toContain("思源块备注答案");
+    });
+
     it("正确处理普通问答题的题干与参考答案分区", () => {
         const card = renderUnifiedCardFace({
             question: "什么是 TCP 三次握手？",

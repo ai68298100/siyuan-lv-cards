@@ -23,6 +23,7 @@ export function partitionReviewCardsByQuality<T extends ReviewQualityCard>(
     cards: T[],
     rows: ReviewQualityRow[],
     validOcclusionBlockIDs: ReadonlySet<string> = new Set(),
+    options: { allowLegacyFormat?: boolean } = {},
 ): ReviewQualityResult<T> {
     const markdownByID = new Map(rows.map(row => [String(row.id), String(row.markdown ?? "")]));
     const valid: T[] = [];
@@ -35,6 +36,7 @@ export function partitionReviewCardsByQuality<T extends ReviewQualityCard>(
             markdown: markdownByID.get(blockID) ?? "",
             occlusionValid: validOcclusionBlockIDs.has(blockID),
             exists,
+            allowLegacyFormat: options.allowLegacyFormat,
         });
         if (decision.ok) valid.push(card);
         else invalid.push({ blockID, cardID: String(card.cardID ?? ""), issue: decision.issue ?? "missing-block" });

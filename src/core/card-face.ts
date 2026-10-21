@@ -7,6 +7,8 @@
  * CSS 掩码（lv-masked），并提供问题态 HTML 副本，避免读屏和复制时直接读到答案。
  */
 
+import { parseDelimitedQa } from "./delimited-qa";
+
 export interface FaceRichness {
     /** 公式（KaTeX/MathJax 渲染产物） */
     formula: boolean;
@@ -179,6 +181,7 @@ export function renderUnifiedCardFace(input: {
     markdown?: string;
     question?: string;
     answer?: string;
+    memo?: string;
     template?: "qa" | "cloze";
     /** 参考答案标题，用于国际化；缺省为 "参考答案" */
     answerLabel?: string;
@@ -249,10 +252,27 @@ export function renderUnifiedCardFace(input: {
                 .replace(/@@REVEALED_START@@/g, `<mark class="lv-revealed" data-type="mark"><span class="lv-revealed-text">`)
                 .replace(/@@REVEALED_END@@/g, `</span></mark>`);
     } else {
-        // 普通问答模式（支持双向卡逆向回忆模式）
+        // 普通问答模式（支持存量格式 :: 与 Q/A 前缀智能拆分、块备注答案与双向卡模式）
         let displayQ = q || md;
         let displayA = a;
         let label = input.answerLabel ?? "参考答案";
+
+        // 存量卡格式自适应：若未显式传 a 且未带挖空，尝试从 md 中智能解析 :: 或 Q/A
+        if (!displayA && !q && md) {
+            const delimited = parseDelimitedQa(md);
+            if (delimited) {
+                displayQ = delimited.question;
+                displayA = delimited.answer;
+                label = input.answerLabel ?? (delimited.format === "double-colon" ? "概念释义" : "参考答案");
+            } else if (input.memo?.trim()) {
+                // 存量块备注作为答案
+                displayA = input.memo.trim();
+                label = input.answerLabel ?? "思源块备注答案";
+            }
+        } else if (!displayA && input.memo?.trim()) {
+            displayA = input.memo.trim();
+            label = input.answerLabel ?? "思源块备注答案";
+        }
 
         if (input.reversed && a) {
             displayQ = a;

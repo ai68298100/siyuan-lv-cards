@@ -13,6 +13,8 @@ export interface ScanCard {
     blockID: string;
     /** 块 markdown（含 ==挖空== 标记） */
     md: string;
+    /** 块备注（思源 memo 属性，可作为存量问答答案） */
+    memo?: string;
     /** BI-5 生命周期状态（可空——原生卡无档案） */
     state?: string;
     /** 宿主已验证的图片遮挡数据；门禁仍需核对可见题面图片和 Markdown 标记。 */

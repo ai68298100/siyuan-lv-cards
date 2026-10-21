@@ -899,7 +899,7 @@
                 for (const [id, attrs] of attrsByChunk.flat() as Array<[string, Record<string, string>]>) {
                     if (parseOcclusion(attrs)?.rects.length) validOcclusionIDs.add(String(id));
                 }
-                const quality = partitionReviewCardsByQuality(cards, rows, validOcclusionIDs);
+                const quality = partitionReviewCardsByQuality(cards, rows, validOcclusionIDs, { allowLegacyFormat: true });
                 cards = quality.valid;
                 if (quality.invalid.length > 0) {
                     qualityExcludedCardIDs = [...new Set([...qualityExcludedCardIDs, ...quality.invalid.map(item => item.cardID).filter(Boolean)])];

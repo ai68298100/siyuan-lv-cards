@@ -86,7 +86,7 @@
         };
         /** BI-25 维护债务通道（只读扫描 + 今日暂缓可逆 + 回来源） */
         maintenance: {
-            scan: () => Promise<{ items: { blockID: string; md: string; state?: string; rootID?: string; occlusion?: boolean; exists?: boolean; mediaRefs?: string[]; mediaBroken?: string[]; mediaUnknown?: string[]; sourceHealthIssues?: { kind: string; detail: string }[] }[]; sourceHealthHistory?: import("@/core/source-health-store").SourceHealthHistoryItem[]; error?: string }>;
+            scan: () => Promise<{ items: { blockID: string; md: string; memo?: string; state?: string; rootID?: string; occlusion?: boolean; exists?: boolean; mediaRefs?: string[]; mediaBroken?: string[]; mediaUnknown?: string[]; sourceHealthIssues?: { kind: string; detail: string }[] }[]; sourceHealthHistory?: import("@/core/source-health-store").SourceHealthHistoryItem[]; error?: string }>;
             previewRepair: (proposals: { blockID: string; afterMarkdown: string; expectedMarkdown?: string; reason?: string }[]) => Promise<{
                 previewID: string;
                 ok: boolean;

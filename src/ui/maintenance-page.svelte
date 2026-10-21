@@ -7,10 +7,12 @@
     import LvSkeleton from "./kit/LvSkeleton.svelte";
     import LvEmpty from "./kit/LvEmpty.svelte";
     import LvError from "./kit/LvError.svelte";
+    import LvIcon from "./kit/LvIcon.svelte";
     import { groupDebts, detectDebts, DEBT_KINDS, type DebtItem, type DebtKind } from "@/core/maintenance-queue";
     import type { SourceHealthHistoryItem } from "@/core/source-health-store";
     import MisconceptionPanel from "./misconception-panel.svelte";
     import type { MisconceptionCluster } from "@/core/misconception-cluster";
+    import { proposeLegacyCardUpgrades } from "@/core/delimited-qa";
 
     let {
         i18n,
@@ -19,7 +21,7 @@
         i18n: any;
         maintenance: {
             scan: () => Promise<{
-                items: { blockID: string; md: string; state?: string; rootID?: string; occlusion?: boolean; exists?: boolean; mediaRefs?: string[]; mediaBroken?: string[]; mediaUnknown?: string[]; sourceHealthIssues?: { kind: string; detail: string }[] }[];
+                items: { blockID: string; md: string; memo?: string; state?: string; rootID?: string; occlusion?: boolean; exists?: boolean; mediaRefs?: string[]; mediaBroken?: string[]; mediaUnknown?: string[]; sourceHealthIssues?: { kind: string; detail: string }[] }[];
                 sourceHealthHistory?: SourceHealthHistoryItem[];
                 approximateDuplicates?: { blockIDs: [string, string]; similarity: number; method: "containment" | "ngram" }[];
                 error?: string;
@@ -272,7 +274,7 @@
             const scannedCards = result.items;
             groups = groupDebts(detectDebts(scannedCards));
             excerpts = new Map(scannedCards.map(c => [c.blockID, excerpt(c.md)]));
-            cardMap = new Map(scannedCards.map(c => [c.blockID, { md: c.md, rootID: c.rootID, mediaRefs: c.mediaRefs, mediaBroken: c.mediaBroken, mediaUnknown: c.mediaUnknown, sourceHealthIssues: c.sourceHealthIssues }]));
+            cardMap = new Map(scannedCards.map(c => [c.blockID, { md: c.md, memo: (c as any).memo, rootID: c.rootID, mediaRefs: c.mediaRefs, mediaBroken: c.mediaBroken, mediaUnknown: c.mediaUnknown, sourceHealthIssues: c.sourceHealthIssues }]));
             sourceHistories = [...(result.sourceHealthHistory ?? [])].sort((left, right) => lastHealthEvent(right) - lastHealthEvent(left));
             approximateDuplicates = result.approximateDuplicates ?? [];
             suspended = new Set(scannedCards.filter(c => maintenance.isSuspendedToday(c.blockID)).map(c => c.blockID));
@@ -386,6 +388,26 @@
         }
     }
 
+    let legacyUpgradeStatus = $state("");
+    async function upgradeLegacyCards() {
+        if (repairBusy || rollbackBusy || scanning) return;
+        legacyUpgradeStatus = "";
+        const candidates: Array<{ blockID: string; md: string; memo?: string }> = [];
+        for (const [id, c] of cardMap.entries()) {
+            candidates.push({ blockID: id, md: c.md, memo: (c as any).memo });
+        }
+        const proposals = proposeLegacyCardUpgrades(candidates);
+        if (proposals.length === 0) {
+            legacyUpgradeStatus = "未发现待升级的存量卡片（所有闪卡均已符合标准挖空格式）";
+            return;
+        }
+        legacyUpgradeStatus = `已找到 ${proposals.length} 张可规范化的存量闪卡，正在生成修复差异预览…`;
+        for (const p of proposals) {
+            repairDrafts[p.blockID] = p.afterMarkdown;
+        }
+        await previewRepairs();
+    }
+
     function total(): number {
         return DEBT_KINDS.reduce((sum, k) => sum + groups[k].length, 0);
     }
@@ -400,8 +422,17 @@
 
 <LvPage eyebrow="WORKSPACE / RECOVER" title={t.title} subtitle={t.queueCount.replace("${n}", String(total()))}>
     {#snippet actions()}
+        <button class="b3-button b3-button--small lv-btn-primary" disabled={scanning || !!pendingAction || !!sourceHealthPendingId || repairBusy || rollbackBusy} onclick={upgradeLegacyCards}>
+            <LvIcon name="zap" size={14} /> 存量闪卡一键升级
+        </button>
         <button class="b3-button b3-button--small b3-button--outline" disabled={scanning || !!pendingAction || !!sourceHealthPendingId || repairBusy || rollbackBusy} onclick={runScan}>{scanning ? t.scanning : t.scan}</button>
     {/snippet}
+
+    {#if legacyUpgradeStatus}
+        <div class="lv-notice lv-notice--good" role="status" style="margin-bottom: var(--lv-sp-2)">
+            {legacyUpgradeStatus}
+        </div>
+    {/if}
 
     <div class="lv-maint-note ft__smaller ft__on-surface">{t.impactNote}</div>
 

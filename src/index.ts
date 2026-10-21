@@ -1390,7 +1390,7 @@ export default class LvCardsPlugin extends Plugin {
                         maintenance: {
                             scan: async () => {
                                 const { findApproximateDuplicateCandidates } = await loadHubServices();
-                                const out: { blockID: string; md: string; state?: string; rootID?: string; occlusion?: boolean; exists?: boolean; mediaRefs?: string[]; mediaBroken?: string[]; mediaUnknown?: string[]; sourceHealthIssues?: { kind: string; detail: string }[] }[] = [];
+                                const out: { blockID: string; md: string; memo?: string; state?: string; rootID?: string; occlusion?: boolean; exists?: boolean; mediaRefs?: string[]; mediaBroken?: string[]; mediaUnknown?: string[]; sourceHealthIssues?: { kind: string; detail: string }[] }[] = [];
                                 let error = "";
                                 try {
                                     // 按内核 pageCount/total 完整分页；异常时保留已扫描 ID 并告知 UI。
@@ -1400,11 +1400,11 @@ export default class LvCardsPlugin extends Plugin {
                                         ? ((plugin.i18n as any).maintenance[scan.issue.kind === "empty-page" ? "scanEmptyPage" : "scanRepeatedPage"] as string)
                                             .replace("${page}", String(scan.issue.page))
                                         : "");
-                                    const info = new Map<string, { md: string; root: string; ial: string }>();
+                                    const info = new Map<string, { md: string; root: string; ial: string; memo: string }>();
                                     for (let i = 0; i < ids.length; i += 50) {
                                         const chunk = ids.slice(i, i + 50);
-                                        const rows = await sqlQuery(`SELECT id, markdown, root_id, ial FROM blocks WHERE id IN (${chunk.map(id => `'${id.replace(/'/g, "''")}'`).join(",")})`);
-                                        for (const r of rows) info.set(String(r.id), { md: String(r.markdown ?? ""), root: String(r.root_id ?? ""), ial: String(r.ial ?? "") });
+                                        const rows = await sqlQuery(`SELECT id, markdown, root_id, ial, memo FROM blocks WHERE id IN (${chunk.map(id => `'${id.replace(/'/g, "''")}'`).join(",")})`);
+                                        for (const r of rows) info.set(String(r.id), { md: String(r.markdown ?? ""), root: String(r.root_id ?? ""), ial: String(r.ial ?? ""), memo: String(r.memo ?? "") });
                                     }
                                     const occlusionIds = new Set<string>();
                                     const occlusionCandidates = [...info.entries()].filter(([, meta]) => meta.ial.includes("lv-occlusion") && hasImageContent(meta.md));
@@ -1418,6 +1418,7 @@ export default class LvCardsPlugin extends Plugin {
                                         out.push({
                                             blockID: id,
                                             md,
+                                            memo: meta?.memo,
                                             rootID: meta?.root ?? "",
                                             state: states.get(id),
                                             occlusion: occlusionIds.has(id),

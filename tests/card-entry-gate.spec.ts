@@ -83,6 +83,18 @@ describe("card-entry-gate", () => {
         ]);
     });
 
+    it("supports legacy cards with block memos or delimited QA syntax", () => {
+        expect(validateCardEntries([
+            { blockID: "colon", markdown: "TCP 三次握手 :: 确认连接" },
+            { blockID: "qa-prefix", markdown: "Q: 什么是闭包？\nA: 访问外部作用域的函数" },
+            { blockID: "memo", markdown: "光合作用的产物", attrs: { memo: "葡萄糖和氧气" } },
+        ])).toEqual([
+            { blockID: "colon", ok: true, kind: "markdown" },
+            { blockID: "qa-prefix", ok: true, kind: "markdown" },
+            { blockID: "memo", ok: true, kind: "memo-qa" },
+        ]);
+    });
+
     it("filters invalid legacy cards without changing the original card objects", () => {
         const cards = [{ blockID: "good", cardID: "c1" }, { blockID: "bad", cardID: "c2" }, { blockID: "lost", cardID: "c3" }];
         const result = partitionReviewCardsByQuality(cards, [
@@ -95,5 +107,17 @@ describe("card-entry-gate", () => {
             { blockID: "lost", cardID: "c3", issue: "missing-block" },
         ]);
         expect(cards).toHaveLength(3);
+    });
+
+    it("admits plain legacy cards in review when allowLegacyFormat is active", () => {
+        const cards = [{ blockID: "good", cardID: "c1" }, { blockID: "legacy", cardID: "c2" }, { blockID: "lost", cardID: "c3" }];
+        const result = partitionReviewCardsByQuality(cards, [
+            { id: "good", markdown: "Question ==Answer==" },
+            { id: "legacy", markdown: "plain concept prompt for free recall" },
+        ], new Set(), { allowLegacyFormat: true });
+        expect(result.valid).toEqual([cards[0], cards[1]]);
+        expect(result.invalid).toEqual([
+            { blockID: "lost", cardID: "c3", issue: "missing-block" },
+        ]);
     });
 });
