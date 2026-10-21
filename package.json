@@ -51,7 +51,7 @@
     "fast-glob": "^3.3.3",
     "glob": "^13.0.6",
     "happy-dom": "^21.0.1",
-    "js-yaml": "^5.4.3",
+    "js-yaml": "^5.5.0",
     "livereload": "^0.10.3",
     "minimist": "^1.2.8",
     "npm-run-all2": "9.0.3",
