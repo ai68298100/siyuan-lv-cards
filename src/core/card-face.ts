@@ -7,7 +7,7 @@
  * CSS 掩码（lv-masked），并提供问题态 HTML 副本，避免读屏和复制时直接读到答案。
  */
 
-import { parseDelimitedQa } from "./delimited-qa";
+import { parseDelimitedQa, maskDelimitedQaInHtml } from "./delimited-qa";
 
 export interface FaceRichness {
     /** 公式（KaTeX/MathJax 渲染产物） */
@@ -75,11 +75,18 @@ export function maskMarkedAnswersForQuestion(html: string): string {
     if (typeof document === "undefined") return String(html ?? "");
     const template = document.createElement("template");
     template.innerHTML = String(html ?? "");
-    for (const mark of Array.from(template.content.querySelectorAll(MARK_SELECTOR))) {
-        const length = Math.max(1, Array.from(mark.textContent ?? "").length);
-        mark.textContent = "\u00a0".repeat(length);
-        mark.setAttribute("aria-hidden", "true");
+    const marks = Array.from(template.content.querySelectorAll(MARK_SELECTOR));
+    if (marks.length > 0) {
+        for (const mark of marks) {
+            const length = Math.max(1, Array.from(mark.textContent ?? "").length);
+            mark.textContent = "\u00a0".repeat(length);
+            mark.setAttribute("aria-hidden", "true");
+        }
+        return template.innerHTML;
     }
+
+    // 存量闪卡无损遮罩自适应：若无 == 标记，检查是否存在 :: 概念分隔或 Q/A 问答
+    maskDelimitedQaInHtml(template.content);
     return template.innerHTML;
 }
 

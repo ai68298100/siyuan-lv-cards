@@ -8,14 +8,16 @@
  * 4. 纯文本卡（自由回忆/自评卡）
  */
 
+export type DelimitedQaFormat = "triple-colon" | "double-colon" | "qa-prefix" | "qa-chinese";
+
 export interface DelimitedQaResult {
     question: string;
     answer: string;
-    format: "double-colon" | "qa-prefix" | "qa-chinese";
+    format: DelimitedQaFormat;
 }
 
 /**
- * 尝试解析带分隔符的问答文本（:: 或 Q/A 前缀）
+ * 尝试解析带分隔符的问答文本（::: 或 :: 或 Q/A 前缀）
  */
 export function parseDelimitedQa(markdown: string): DelimitedQaResult | null {
     const raw = String(markdown ?? "").trim();
@@ -24,7 +26,19 @@ export function parseDelimitedQa(markdown: string): DelimitedQaResult | null {
     // 已包含标准 ==答案== 的优先交由挖空/问答门禁处理
     if (raw.includes("==")) return null;
 
-    // 1. 双冒号分隔符 :: (概念 :: 定义)
+    // 1. 三冒号分隔符 ::: (RemNote 描述卡)
+    if (raw.includes(":::")) {
+        const parts = raw.split(/\s*:::\s*/);
+        if (parts.length >= 2) {
+            const question = parts[0]?.trim();
+            const answer = parts.slice(1).join(" ::: ").trim();
+            if (question && answer) {
+                return { question, answer, format: "triple-colon" };
+            }
+        }
+    }
+
+    // 2. 双冒号分隔符 :: (概念 :: 定义)
     if (raw.includes("::")) {
         const parts = raw.split(/\s*::\s*/);
         if (parts.length >= 2) {
@@ -36,8 +50,8 @@ export function parseDelimitedQa(markdown: string): DelimitedQaResult | null {
         }
     }
 
-    // 2. Q: ... \nA: ... (英文标记，允许中英文冒号，跨行)
-    const qaMatch = raw.match(/(?:^|\n)\s*(?:Q|q|Question)[:：]\s*([\s\S]+?)\n\s*(?:A|a|Answer)[:：]\s*([\s\S]+)$/i);
+    // 3. Q: ... \nA: ... (英文标记，允许中英文冒号，跨行或同行)
+    const qaMatch = raw.match(/(?:^|\n)\s*(?:Q|q|Question)[:：]\s*([\s\S]+?)(?:\n|\s{2,})(?:A|a|Answer)[:：]\s*([\s\S]+)$/i);
     if (qaMatch && qaMatch[1]?.trim() && qaMatch[2]?.trim()) {
         return {
             question: qaMatch[1].trim(),
@@ -46,8 +60,8 @@ export function parseDelimitedQa(markdown: string): DelimitedQaResult | null {
         };
     }
 
-    // 3. 问: ... \n答: ... (中文标记，允许 问题 / 答案)
-    const zhMatch = raw.match(/(?:^|\n)\s*(?:问|问题)[:：]\s*([\s\S]+?)\n\s*(?:答|答案)[:：]\s*([\s\S]+)$/);
+    // 4. 问: ... \n答: ... (中文标记，允许 问题 / 答案)
+    const zhMatch = raw.match(/(?:^|\n)\s*(?:问|问题)[:：]\s*([\s\S]+?)(?:\n|\s{2,})(?:答|答案)[:：]\s*([\s\S]+)$/);
     if (zhMatch && zhMatch[1]?.trim() && zhMatch[2]?.trim()) {
         return {
             question: zhMatch[1].trim(),
@@ -64,6 +78,67 @@ export function parseDelimitedQa(markdown: string): DelimitedQaResult | null {
  */
 export function hasDelimitedQa(markdown: string): boolean {
     return parseDelimitedQa(markdown) !== null;
+}
+
+/**
+ * 在内存 DOM 树中为未带 ==挖空== 标记的存量问答卡（::、::: 或 Q/A）就地生成遮罩。
+ * 纯运行时呈现转换，绝不修改用户原笔记 Markdown，保证零破坏与原笔记纯净。
+ */
+export function maskDelimitedQaInHtml(root: Node): boolean {
+    if (typeof document === "undefined") return false;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    let node: Text | null = null;
+
+    while ((node = walker.nextNode() as Text | null)) {
+        const text = node.nodeValue ?? "";
+
+        // 1. 匹配 ::: 或 ::
+        const colonMatch = text.match(/\s*(:{2,3})\s*/);
+        if (colonMatch && colonMatch.index !== undefined) {
+            const sep = colonMatch[1];
+            const before = text.slice(0, colonMatch.index).trim();
+            const after = text.slice(colonMatch.index + colonMatch[0].length).trim();
+            if (before && after) {
+                const parent = node.parentNode;
+                if (!parent) continue;
+
+                const slot = document.createElement("mark");
+                slot.className = "lv-masked";
+                slot.setAttribute("data-type", "mark");
+                slot.setAttribute("aria-hidden", "true");
+                slot.title = sep === ":::" ? "属性描述遮蔽" : "概念释义遮蔽";
+                slot.innerHTML = `<span class="lv-mask-slot">［ ${sep === ":::" ? "属性描述" : "概念释义"} ］</span>`;
+
+                node.nodeValue = text.slice(0, colonMatch.index + colonMatch[0].length);
+                parent.insertBefore(slot, node.nextSibling);
+                return true;
+            }
+        }
+
+        // 2. 匹配 A: / Answer: / 答: / 答案:
+        const ansMatch = text.match(/(?:^|\n)\s*(?:A|a|Answer|答|答案)[:：]\s*/);
+        if (ansMatch && ansMatch.index !== undefined) {
+            const prefix = text.slice(0, ansMatch.index + ansMatch[0].length);
+            const after = text.slice(ansMatch.index + ansMatch[0].length).trim();
+            if (after) {
+                const parent = node.parentNode;
+                if (!parent) continue;
+
+                const slot = document.createElement("mark");
+                slot.className = "lv-masked";
+                slot.setAttribute("data-type", "mark");
+                slot.setAttribute("aria-hidden", "true");
+                slot.title = "参考答案遮蔽";
+                slot.innerHTML = `<span class="lv-mask-slot">［ 参考答案 ］</span>`;
+
+                node.nodeValue = prefix;
+                parent.insertBefore(slot, node.nextSibling);
+                return true;
+            }
+        }
+    }
+
+    return false;
 }
 
 /**

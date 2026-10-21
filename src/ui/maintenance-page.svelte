@@ -422,10 +422,10 @@
 
 <LvPage eyebrow="WORKSPACE / RECOVER" title={t.title} subtitle={t.queueCount.replace("${n}", String(total()))}>
     {#snippet actions()}
-        <button class="b3-button b3-button--small lv-btn-primary" disabled={scanning || !!pendingAction || !!sourceHealthPendingId || repairBusy || rollbackBusy} onclick={upgradeLegacyCards}>
-            <LvIcon name="zap" size={14} /> 存量闪卡一键升级
+        <button class="b3-button b3-button--small b3-button--outline" disabled={scanning || !!pendingAction || !!sourceHealthPendingId || repairBusy || rollbackBusy} onclick={upgradeLegacyCards}>
+            <LvIcon name="zap" size={14} /> 存量格式规范化 (可选)
         </button>
-        <button class="b3-button b3-button--small b3-button--outline" disabled={scanning || !!pendingAction || !!sourceHealthPendingId || repairBusy || rollbackBusy} onclick={runScan}>{scanning ? t.scanning : t.scan}</button>
+        <button class="b3-button b3-button--small lv-btn-primary" disabled={scanning || !!pendingAction || !!sourceHealthPendingId || repairBusy || rollbackBusy} onclick={runScan}>{scanning ? t.scanning : t.scan}</button>
     {/snippet}
 
     {#if legacyUpgradeStatus}
@@ -433,6 +433,11 @@
             {legacyUpgradeStatus}
         </div>
     {/if}
+
+    <div class="lv-notice" style="margin-bottom: var(--lv-sp-3); display: flex; align-items: center; gap: 8px">
+        <LvIcon name="lightbulb" size={16} />
+        <span><strong>无损兼容保障</strong>：小驴闪卡已全面支持直接复习思源原生闪卡、块备注及第三方插件语法（::、Q/A），<strong>无需修改原笔记即可直接复习</strong>。</span>
+    </div>
 
     <div class="lv-maint-note ft__smaller ft__on-surface">{t.impactNote}</div>
 

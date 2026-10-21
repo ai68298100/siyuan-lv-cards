@@ -59,6 +59,18 @@ describe("问题态答案副本", () => {
         expect(mark.querySelector("img")).toBeNull();
         expect(holder.textContent).not.toContain("产生 ATP");
     });
+
+    it("为无 == 标记的存量问答卡就地生成无损遮罩（:: 与 Q/A，绝不修改原笔记）", () => {
+        const colonHtml = maskMarkedAnswersForQuestion("<p>光合作用的主要产物 :: 葡萄糖与氧气</p>");
+        expect(colonHtml).toContain("光合作用的主要产物 :: ");
+        expect(colonHtml).toContain("［ 概念释义 ］");
+        expect(colonHtml).not.toContain("葡萄糖与氧气");
+
+        const qaHtml = maskMarkedAnswersForQuestion("<p>Q: 什么是闭包？\nA: 有权访问外部作用域的函数</p>");
+        expect(qaHtml).toContain("Q: 什么是闭包？");
+        expect(qaHtml).toContain("［ 参考答案 ］");
+        expect(qaHtml).not.toContain("有权访问外部作用域的函数");
+    });
 });
 
 describe("统一卡面渲染管线（renderUnifiedCardFace & formatMarkdownToSafeHtml）", () => {
