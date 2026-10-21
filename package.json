@@ -58,7 +58,7 @@
     "sass": "^1.105.1",
     "siyuan": "1.2.9",
     "svelte": "^5.57.2",
-    "svelte-check": "^4.7.6",
+    "svelte-check": "^4.7.7",
     "ts-node": "^10.9.2",
     "typescript": "^6.0.3",
     "vite": "^8.3.4",
