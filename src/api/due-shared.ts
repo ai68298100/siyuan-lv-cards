@@ -63,15 +63,44 @@ export const formatRiffCardEntryError = (error: unknown, i18n: Record<string, an
 async function validateRiffCardEntries(blockIDs: string[]): Promise<CardEntryDecision[]> {
     const uniqueIDs = [...new Set(blockIDs.map(id => String(id ?? "")))];
     const queryIDs = uniqueIDs.filter(Boolean);
-    const chunks = Array.from({ length: Math.ceil(queryIDs.length / SQL_QUERY_CHUNK_SIZE) }, (_, index) =>
-        queryIDs.slice(index * SQL_QUERY_CHUNK_SIZE, (index + 1) * SQL_QUERY_CHUNK_SIZE),
-    );
-    const rowsByChunk = await mapChunksOrdered(chunks, ids => {
-        const safeIDs = ids.map(id => `'${id.replace(/'/g, "''")}'`).join(",");
-        return sqlQuery(`SELECT id, markdown FROM blocks WHERE id IN (${safeIDs})`);
-    }, SQL_QUERY_CONCURRENCY);
-    const rows = rowsByChunk.flat();
-    const markdownByID = new Map(rows.map(row => [String(row.id), String(row.markdown ?? "")]));
+    const markdownByID = new Map<string, string>();
+    let remainingIDs = [...queryIDs];
+
+    // 新块插入思源后，SQLite 可能存在毫秒级异步写入/索引延迟；
+    // 若首轮未查齐所有 ID，自动带退避重试（最高 3 次），避免将刚落盘的新块误判为 missing-block。
+    for (let attempt = 0; attempt < 3; attempt++) {
+        const chunks = Array.from({ length: Math.ceil(remainingIDs.length / SQL_QUERY_CHUNK_SIZE) }, (_, index) =>
+            remainingIDs.slice(index * SQL_QUERY_CHUNK_SIZE, (index + 1) * SQL_QUERY_CHUNK_SIZE),
+        );
+        const rowsByChunk = await mapChunksOrdered(chunks, ids => {
+            const safeIDs = ids.map(id => `'${id.replace(/'/g, "''")}'`).join(",");
+            return sqlQuery(`SELECT id, markdown FROM blocks WHERE id IN (${safeIDs})`);
+        }, SQL_QUERY_CONCURRENCY);
+        const rows = rowsByChunk.flat();
+        for (const row of rows) {
+            if (row?.id) markdownByID.set(String(row.id), String(row.markdown ?? ""));
+        }
+        remainingIDs = queryIDs.filter(id => !markdownByID.has(id));
+        if (remainingIDs.length === 0) break;
+        if (attempt < 2) {
+            await new Promise(r => setTimeout(r, 100 * (attempt + 1)));
+        }
+    }
+
+    // 若极罕见情况下 SQLite 索引极慢，通过在线块属性兜底验证块的存在性
+    if (remainingIDs.length > 0) {
+        for (const id of remainingIDs) {
+            try {
+                const attrs = await getBlockAttrs(id);
+                if (attrs && typeof attrs === "object" && Object.keys(attrs).length > 0) {
+                    markdownByID.set(id, attrs.markdown ?? attrs.memo ?? "");
+                }
+            } catch {
+                // 忽略异常
+            }
+        }
+    }
+
     const occlusionCandidates = uniqueIDs.filter(id => {
         const markdown = markdownByID.get(id);
         return Boolean(markdown && validateFlashcardMarkdown(markdown) === "missing-answer" && hasQuestionMediaContent(markdown));

@@ -5,6 +5,7 @@
     import LvRow from "./kit/LvRow.svelte";
     import LvKbd from "./kit/LvKbd.svelte";
     import LvIcon from "./kit/LvIcon.svelte";
+    import { formatRiffCardEntryError } from "@/api/due-shared";
 
     let { i18n, applyPersona, createSampleCards, openReview, openHelp, openSampleDoc, onClose }: {
         i18n: any;
@@ -73,7 +74,7 @@
             sampleDocId = (await createSampleCards(nbId)) ?? "";
             step = 3;
         } catch (e: any) {
-            errorMsg = e?.message ?? String(e);
+            errorMsg = formatRiffCardEntryError(e, t, e?.message ?? String(e));
         } finally {
             busy = false;
         }
@@ -133,7 +134,7 @@
             <div class="lv-ob-callout">{t.onboardingSampleNotice}</div>
             <LvRow label={t.onboardingNotebook}>
                 {#snippet children()}
-                    <select class="b3-select fn__size-200" bind:value={nbId} disabled={notebookLoading || notebooks.length === 0}>
+                    <select class="b3-select" style="min-width: 220px; flex: 1" bind:value={nbId} disabled={notebookLoading || notebooks.length === 0}>
                         {#each notebooks as n (n.id)}
                             <option value={n.id}>{n.name}</option>
                         {/each}
@@ -141,15 +142,15 @@
                 {/snippet}
             </LvRow>
             {#if notebookLoading}
-                <div class="ft__smaller ft__on-surface" role="status">{t.dashboard.loading}</div>
+                <div class="ft__smaller ft__on-surface" role="status" style="margin-top: var(--lv-sp-2)">{t.dashboard.loading}</div>
             {:else if notebookError}
-                <div class="ft__smaller" style="color: var(--lv-color-danger)" role="alert">{notebookError}</div>
+                <div class="lv-notice lv-notice--warn" role="alert" style="margin-top: var(--lv-sp-2)">{notebookError}</div>
                 <div class="fn__flex" style="justify-content: flex-end; margin-top: var(--lv-sp-1)">
                     <button class="b3-button b3-button--small" disabled={busy} onclick={loadNotebooks}>{t.dashboard.refresh}</button>
                 </div>
             {/if}
             {#if errorMsg}
-                <div class="ft__smaller" style="color: var(--lv-color-danger)" role="alert">{errorMsg}</div>
+                <div class="lv-notice lv-notice--warn" role="alert" style="margin-top: var(--lv-sp-2); border-color: var(--lv-danger-border); background: var(--lv-danger-soft); color: var(--lv-color-danger)">{errorMsg}</div>
             {/if}
             <div class="fn__flex" style="justify-content: flex-end; gap: var(--lv-sp-2); margin-top: var(--lv-sp-2)">
                 <button class="b3-button b3-button--outline" onclick={() => (step = 1)}>{t.onboardingBack}</button>

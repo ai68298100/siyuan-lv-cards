@@ -354,33 +354,37 @@
     .lv-studio-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: var(--lv-sp-3); }
     .lv-studio-modes {
         display: inline-flex;
-        gap: 4px;
-        padding: calc(var(--lv-space-unit) * 2);
-        border-radius: var(--lv-r-m);
-        background: var(--lv-color-canvas);
+        gap: 3px;
+        padding: 3px;
+        border-radius: var(--lv-r-pill);
+        background: color-mix(in srgb, var(--lv-color-text) 7%, transparent);
         border: 1px solid var(--lv-border);
-        box-shadow: inset 0 1px 2px color-mix(in srgb, black 3%, transparent);
     }
     .lv-studio-modes .b3-button {
-        min-height: 38px;
-        padding: 0 var(--lv-sp-4);
-        border: 1px solid transparent;
-        border-radius: var(--lv-r-control);
+        min-height: 36px;
+        padding: 0 18px;
+        border: none;
+        border-radius: var(--lv-r-pill);
         background: transparent;
         color: var(--lv-color-text-muted);
-        font-size: var(--lv-type-body-size);
-        font-weight: var(--lv-fw-medium);
-        transition: color var(--lv-dur-1) var(--lv-ease), background var(--lv-dur-1) var(--lv-ease), border-color var(--lv-dur-1) var(--lv-ease), box-shadow var(--lv-dur-1) var(--lv-ease);
+        font-size: var(--lv-type-control-size);
+        font-weight: var(--lv-fw-emphasis);
+        cursor: pointer;
+        transition: color var(--lv-dur-1) var(--lv-ease), background var(--lv-dur-1) var(--lv-ease), box-shadow var(--lv-dur-1) var(--lv-ease);
+    }
+    .lv-studio-modes .b3-button:hover:not(:disabled) {
+        color: var(--lv-color-text);
+        background: color-mix(in srgb, var(--lv-color-text) 4%, transparent);
     }
     .lv-studio-modes .lv-studio-mode-active {
-        border-color: var(--lv-border);
         background: var(--lv-color-surface);
         color: var(--lv-color-brand);
-        font-weight: var(--lv-fw-semibold);
-        box-shadow: var(--lv-shadow-card), var(--lv-inset-shine);
+        font-weight: var(--lv-fw-bold);
+        box-shadow: 0 2px 8px color-mix(in srgb, black 6%, transparent), var(--lv-inset-shine);
     }
-    .lv-studio-tools { display: flex; align-items: center; gap: calc(var(--lv-space-unit) * 2); }
-    .lv-studio-onboarding { min-height: 44px; }
+    .lv-studio-tools { display: flex; align-items: center; gap: var(--lv-sp-2); }
+    .lv-studio-tools .b3-button { min-height: 34px; border-radius: var(--lv-r-pill); padding: 4px 12px; }
+    .lv-studio-onboarding { min-height: 34px; }
     .lv-studio-replace {
         display: flex;
         align-items: center;

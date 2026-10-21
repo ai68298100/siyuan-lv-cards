@@ -146,21 +146,23 @@
 <div class="lv-quickcard b3-typography" bind:this={editorRoot}>
     <div class="lv-qc-toolbar">
         <div class="lv-qc-template" role="group" aria-label={t.quickCardTemplateLabel}>
-            <button type="button" class:lv-qc-template-active={template === "qa"} aria-pressed={template === "qa"} disabled={busy} onclick={() => setTemplate("qa")}>
-                <strong><LvIcon name="message" size={15} /> {t.quickCardTemplateQA}</strong><span>{t.quickCardTemplateQADesc}</span>
+            <button type="button" class="lv-qc-tpl-btn" class:lv-qc-template-active={template === "qa"} aria-pressed={template === "qa"} disabled={busy} onclick={() => setTemplate("qa")}>
+                <LvIcon name="message" size={15} /> <strong>{t.quickCardTemplateQA}</strong>
             </button>
-            <button type="button" class:lv-qc-template-active={template === "cloze"} aria-pressed={template === "cloze"} disabled={busy} onclick={() => setTemplate("cloze")}>
-                <strong><LvIcon name="edit" size={15} /> {t.quickCardTemplateCloze}</strong><span>{t.quickCardTemplateClozeDesc}</span>
+            <button type="button" class="lv-qc-tpl-btn" class:lv-qc-template-active={template === "cloze"} aria-pressed={template === "cloze"} disabled={busy} onclick={() => setTemplate("cloze")}>
+                <LvIcon name="edit" size={15} /> <strong>{t.quickCardTemplateCloze}</strong>
             </button>
         </div>
-        <div class="lv-qc-field lv-qc-deck">
+        <div class="lv-qc-deck">
             <div class="lv-qc-label">{t.deckPickerTitle}</div>
-            <select class="b3-select fn__block" aria-label={t.deckPickerTitle} bind:value={selected} disabled={busy || decks.length === 0}>
-                {#each decks as d (d.id)}
-                    <option value={d.id}>{d.name}</option>
-                {/each}
-            </select>
-            <input class="b3-text-field fn__block lv-qc-new" aria-label={t.deckNewName} placeholder={t.deckNewName} bind:value={newName} disabled={busy} />
+            <div class="lv-qc-deck-inputs">
+                <select class="b3-select" aria-label={t.deckPickerTitle} bind:value={selected} disabled={busy || decks.length === 0}>
+                    {#each decks as d (d.id)}
+                        <option value={d.id}>{d.name}</option>
+                    {/each}
+                </select>
+                <input class="b3-text-field lv-qc-new" aria-label={t.deckNewName} placeholder={t.deckNewName} bind:value={newName} disabled={busy} />
+            </div>
             {#if deckLoadBusy}
                 <div class="ft__smaller ft__on-surface" role="status" aria-busy="true">{t.quickCardDeckLoading ?? "正在读取卡组…"}</div>
             {:else if deckLoadError}
@@ -204,8 +206,11 @@
                         {/if}
                     </span>
                 </div>
-                <span>{t.quickCardPreviewNote}</span>
+                <button type="button" class="b3-button b3-button--small b3-button--outline lv-qc-reveal" aria-expanded={previewAnswer} aria-controls="lv-qc-preview-face" onclick={() => (previewAnswer = !previewAnswer)}>
+                    <LvIcon name="eye" size={13} /> {previewAnswer ? t.quickCardHideAnswer : t.quickCardShowAnswer}
+                </button>
             </div>
+            <div class="ft__smaller ft__on-surface lv-qc-preview-sub">{t.quickCardPreviewNote}</div>
             <div class="lv-qc-preview-face lv-unified-face" id="lv-qc-preview-face">
                 <span class="lv-qc-preview-label">{t.quickCardPreviewFront}</span>
                 {#if q.trim()}
@@ -230,9 +235,6 @@
                     </div>
                 {/if}
             </div>
-            <button type="button" class="b3-button b3-button--outline lv-qc-reveal" aria-expanded={previewAnswer} aria-controls="lv-qc-preview-face" onclick={() => (previewAnswer = !previewAnswer)}>
-                {previewAnswer ? t.quickCardHideAnswer : t.quickCardShowAnswer}
-            </button>
         </section>
     </div>
     {#if createdNotice}<div class="lv-qc-success" role="status">{createdNotice}</div>{/if}
@@ -252,21 +254,42 @@
         padding: var(--lv-sp-4);
         container: lv-quickcard / inline-size;
     }
-    .lv-qc-toolbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin-bottom: var(--lv-sp-4); }
-    .lv-qc-template { display: flex; flex: 0 0 auto; gap: calc(var(--lv-space-unit) * 3); }
+    .lv-qc-toolbar {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 20px;
+        margin-bottom: var(--lv-sp-4);
+        padding-bottom: var(--lv-sp-3);
+        border-bottom: 1px solid var(--lv-border);
+    }
+    .lv-qc-template {
+        display: inline-flex;
+        padding: 3px;
+        border-radius: var(--lv-r-pill);
+        background: color-mix(in srgb, var(--lv-color-text) 6%, transparent);
+        border: 1px solid var(--lv-border);
+        gap: 3px;
+    }
     .lv-qc-template button {
-        display: flex; min-width: 132px; min-height: 68px; flex: 1 1 132px; align-items: flex-start; justify-content: center; flex-direction: column; gap: 3px;
-        padding: calc(var(--lv-space-unit) * 4 + var(--lv-space-hairline)) calc(var(--lv-space-unit) * 6 + var(--lv-space-hairline)); border: 1px solid var(--lv-border); border-radius: var(--lv-r-control);
-        background: var(--lv-color-surface); color: var(--lv-color-text-muted); text-align: left; cursor: pointer;
-        box-shadow: var(--lv-shadow-card), var(--lv-inset-shine);
-        transition: transform var(--lv-dur-1) var(--lv-ease), border-color var(--lv-dur-1) var(--lv-ease), background var(--lv-dur-1) var(--lv-ease), box-shadow var(--lv-dur-1) var(--lv-ease);
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        min-height: 38px;
+        padding: 0 16px;
+        border: none;
+        border-radius: var(--lv-r-pill);
+        background: transparent;
+        color: var(--lv-color-text-muted);
+        font-size: var(--lv-type-control-size);
+        font-weight: var(--lv-fw-emphasis);
+        cursor: pointer;
+        transition: all var(--lv-dur-1) var(--lv-ease);
     }
     .lv-qc-template button:hover:not(:disabled) {
-        border-color: var(--lv-border-strong);
-        transform: translateY(-1px);
-        box-shadow: var(--lv-shadow-card-hover), var(--lv-inset-shine);
+        color: var(--lv-color-text);
+        background: color-mix(in srgb, var(--lv-color-text) 4%, transparent);
     }
-    .lv-qc-template button span { color: var(--lv-color-text-muted); font-size: 11px; font-weight: var(--lv-fw-normal); line-height: 1.4; }
     .lv-qc-template button:focus-visible,
     .lv-qc-reveal:focus-visible,
     .lv-qc-toolbar :global(input:focus-visible),
@@ -274,14 +297,21 @@
     .lv-qc-editor :global(textarea:focus-visible) { outline: 2px solid var(--lv-color-brand); outline-offset: 2px; }
     .lv-qc-template button:disabled { cursor: not-allowed; opacity: .55; }
     .lv-qc-template button.lv-qc-template-active {
-        border-color: var(--lv-color-brand);
+        background: var(--lv-color-surface);
         color: var(--lv-color-brand);
-        background: var(--lv-primary-soft);
-        box-shadow: 0 0 0 1px var(--lv-color-brand), var(--lv-shadow-card);
+        font-weight: var(--lv-fw-bold);
+        box-shadow: 0 2px 8px color-mix(in srgb, black 6%, transparent), var(--lv-inset-shine);
     }
     .lv-qc-content { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--lv-sp-4); align-items: start; }
     .lv-qc-editor { min-width: 0; }
-    .lv-qc-deck { flex: 1 1 300px; max-width: 480px; margin: 0; }
+    .lv-qc-deck { flex: 1 1 320px; max-width: 520px; margin: 0; }
+    .lv-qc-deck-inputs {
+        display: flex;
+        align-items: center;
+        gap: var(--lv-sp-2);
+        select { flex: 1 1 180px; }
+        .lv-qc-new { flex: 1 1 200px; margin: 0; }
+    }
     /* R53：表单控件撑满面板宽度（宿主 .b3-text-field 默认定宽） */
     .lv-quickcard :global(.b3-text-field),
     .lv-quickcard :global(.b3-select) {
@@ -305,15 +335,23 @@
         color: var(--lv-color-text-muted);
         margin-bottom: var(--lv-sp-1);
     }
-    .lv-quickcard .lv-qc-new { margin-top: var(--lv-sp-2); }
+    .lv-quickcard .lv-qc-new { margin-top: 0; }
     .lv-quickcard .lv-qc-deck-hint { margin-top: var(--lv-sp-1); }
     .lv-qc-deck-error { display: flex; align-items: center; gap: var(--lv-sp-2); margin-top: var(--lv-sp-1); color: var(--lv-color-danger); font-size: 12px; overflow-wrap: anywhere; }
     .lv-quickcard .lv-qc-help { margin-top: calc(var(--lv-space-unit) * 2 + var(--lv-space-hairline)); }
     .lv-qc-guidance { margin: 0; color: var(--lv-color-text-muted); font-size: var(--lv-type-control-size); line-height: 1.65; }
-    .lv-qc-preview { display: flex; min-width: 0; flex-direction: column; gap: var(--lv-sp-3); margin: 0; }
-    .lv-qc-preview-heading { display: flex; justify-content: space-between; align-items: center; gap: calc(var(--lv-space-unit) * 5); font-size: 13px; font-weight: var(--lv-fw-semibold); }
+    .lv-qc-preview { display: flex; min-width: 0; flex-direction: column; gap: var(--lv-sp-2); margin: 0; }
+    .lv-qc-preview-heading { display: flex; justify-content: space-between; align-items: center; gap: calc(var(--lv-space-unit) * 4); font-size: 13px; font-weight: var(--lv-fw-semibold); }
     .lv-qc-preview-tags { display: inline-flex; align-items: center; gap: var(--lv-sp-2); }
-    .lv-qc-preview-heading span + span { color: var(--lv-color-text-muted); font-size: 11px; font-weight: var(--lv-fw-normal); }
+    .lv-qc-preview-sub { margin-bottom: 2px; color: var(--lv-color-text-muted); font-size: 11px; }
+    .lv-qc-reveal {
+        border-radius: var(--lv-r-pill);
+        padding: 4px 12px;
+        font-size: 12px;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+    }
     .lv-qc-preview-face {
         min-width: 0;
         min-height: 258px;
