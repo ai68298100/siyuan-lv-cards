@@ -2975,27 +2975,57 @@
                 .lv-entry-from { color: var(--lv-color-text-muted); white-space: nowrap; }
             }
             .lv-progress {
-                font-size: var(--lv-type-control-size); color: var(--lv-color-text-muted);
-                background: var(--lv-primary-softer);
+                font-size: var(--lv-type-control-size);
+                color: var(--lv-color-text);
+                background: color-mix(in srgb, var(--lv-color-brand) 10%, var(--lv-color-surface));
+                border: 1px solid var(--lv-primary-border);
                 border-radius: var(--lv-r-pill);
-                padding: calc(var(--lv-space-unit) * 1) calc(var(--lv-space-unit) * 5);
+                padding: 3px 12px;
+                font-weight: 600;
                 font-variant-numeric: tabular-nums;
                 white-space: nowrap;
+                box-shadow: 0 1px 3px color-mix(in srgb, black 3%, transparent);
             }
             .lv-progress-bar {
-                width: 100%; height: 3px; border-radius: var(--lv-r-track);
+                width: 100%;
+                height: 6px;
+                border-radius: var(--lv-r-pill);
                 background: color-mix(in srgb, var(--lv-color-text) 8%, transparent);
+                box-shadow: inset 0 1px 2px color-mix(in srgb, black 6%, transparent);
                 overflow: hidden;
                 display: flex;
+                margin: 4px 0 8px;
                 .lv-progress-seg {
                     height: 100%;
-                    background: var(--lv-color-brand);
+                    border-radius: var(--lv-r-pill);
+                    background: linear-gradient(90deg, var(--lv-color-brand), color-mix(in srgb, var(--lv-color-brand) 75%, var(--lv-color-success)));
                     transition: width var(--lv-dur-3) var(--lv-ease);
+                    box-shadow: 0 1px 3px color-mix(in srgb, var(--lv-color-brand) 30%, transparent);
                 }
-                .lv-progress-seg--forget { background: var(--lv-color-danger); }
+                .lv-progress-seg--forget {
+                    background: var(--lv-color-danger);
+                    box-shadow: 0 1px 3px color-mix(in srgb, var(--lv-color-danger) 30%, transparent);
+                }
             }
-            .lv-timeout { font-size: var(--lv-type-control-size); color: var(--lv-color-text-muted); font-variant-numeric: tabular-nums; }
-            .lv-timeout-low { color: var(--lv-color-danger); font-weight: 700; }
+            .lv-timeout {
+                display: inline-flex;
+                align-items: center;
+                gap: 5px;
+                font-size: var(--lv-type-control-size);
+                color: var(--lv-color-text);
+                background: color-mix(in srgb, var(--lv-color-text) 6%, transparent);
+                border: 1px solid var(--lv-border);
+                border-radius: var(--lv-r-pill);
+                padding: 3px 10px;
+                font-variant-numeric: tabular-nums;
+                font-weight: 600;
+            }
+            .lv-timeout-low {
+                background: var(--lv-danger-soft);
+                color: var(--lv-color-danger);
+                border-color: var(--lv-danger-border);
+                font-weight: 700;
+            }
             .lv-tags { display: flex; gap: var(--lv-sp-1); }
         }
 

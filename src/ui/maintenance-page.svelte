@@ -693,7 +693,7 @@
         align-items: center;
         gap: var(--lv-sp-2);
         margin-bottom: var(--lv-sp-2);
-        padding: calc(var(--lv-space-unit) * 3) calc(var(--lv-space-unit) * 4);
+        padding: calc(var(--lv-space-unit) * 4) calc(var(--lv-space-unit) * 5);
         border: 1px solid var(--lv-border);
         border-radius: var(--lv-r-m);
         background: var(--lv-color-surface);
@@ -703,8 +703,8 @@
             box-shadow var(--lv-dur-2) var(--lv-ease);
 
         &:hover {
-            transform: translateY(-1px);
-            border-color: var(--lv-border-strong);
+            transform: translateY(-2px);
+            border-color: var(--lv-primary-border);
             box-shadow: var(--lv-shadow-card-hover), var(--lv-inset-shine);
         }
     }
@@ -741,7 +741,7 @@
         align-items: center;
         gap: var(--lv-sp-2);
         margin-bottom: var(--lv-sp-2);
-        padding: calc(var(--lv-space-unit) * 3) calc(var(--lv-space-unit) * 4);
+        padding: calc(var(--lv-space-unit) * 4) calc(var(--lv-space-unit) * 5);
         border: 1px solid var(--lv-border);
         border-radius: var(--lv-r-m);
         background: var(--lv-color-surface);
@@ -751,8 +751,8 @@
             box-shadow var(--lv-dur-2) var(--lv-ease);
 
         &:hover {
-            transform: translateY(-1px);
-            border-color: var(--lv-border-strong);
+            transform: translateY(-2px);
+            border-color: var(--lv-primary-border);
             box-shadow: var(--lv-shadow-card-hover), var(--lv-inset-shine);
         }
     }

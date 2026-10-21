@@ -150,7 +150,7 @@
     .lv-cal-day {
         aspect-ratio: 1.35;
         border: 1px solid var(--lv-border);
-        border-radius: var(--lv-r-s);
+        border-radius: var(--lv-r-m);
         padding: calc(var(--lv-space-unit) * 2 + var(--lv-space-hairline)) calc(var(--lv-space-unit) * 3 + var(--lv-space-hairline));
         font-size: var(--lv-type-meta-size);
         color: var(--lv-color-text-muted);
@@ -163,13 +163,14 @@
         text-align: left;
         min-height: 44px;
         box-sizing: border-box;
-        transition: transform var(--lv-dur-1) var(--lv-ease),
+        box-shadow: 0 1px 2px color-mix(in srgb, black 3%, transparent);
+        transition: transform var(--lv-dur-2) var(--lv-ease),
             border-color var(--lv-dur-1) var(--lv-ease),
-            box-shadow var(--lv-dur-1) var(--lv-ease);
+            box-shadow var(--lv-dur-2) var(--lv-ease);
 
         &:not(.lv-cal-off):hover {
-            transform: scale(1.08);
-            border-color: var(--lv-border-strong);
+            transform: translateY(-2px) scale(1.04);
+            border-color: var(--lv-primary-border);
             box-shadow: var(--lv-shadow-card-hover), var(--lv-inset-shine);
             z-index: 1;
         }
@@ -184,7 +185,9 @@
         z-index: 2;
     }
     button.lv-cal-day[aria-pressed="true"] {
-        box-shadow: inset 0 0 0 2px var(--lv-color-brand), var(--lv-inset-shine);
+        border-color: var(--lv-color-brand);
+        background: color-mix(in srgb, var(--lv-color-brand) 18%, var(--lv-color-surface));
+        box-shadow: inset 0 0 0 2px var(--lv-color-brand), 0 4px 12px color-mix(in srgb, var(--lv-color-brand) 20%, transparent);
     }
     .lv-cal-day b { font-size: var(--lv-type-control-size); color: var(--lv-color-text); font-weight: var(--lv-fw-semibold); }
     .lv-cal-off { border-color: transparent; background: transparent; }
@@ -192,7 +195,10 @@
     .lv-cal-day.past2 { background: color-mix(in srgb, var(--lv-color-brand) 26%, var(--lv-color-surface)); }
     .lv-cal-day.past3 { background: color-mix(in srgb, var(--lv-color-brand) 42%, var(--lv-color-surface)); }
     .lv-cal-day.past2 b, .lv-cal-day.past3 b { color: var(--lv-color-brand); }
-    .lv-cal-day.today { border: 2px solid var(--lv-color-brand); }
+    .lv-cal-day.today {
+        border: 2px solid var(--lv-color-brand);
+        box-shadow: 0 0 0 2px color-mix(in srgb, var(--lv-color-brand) 25%, transparent), var(--lv-inset-shine);
+    }
     .lv-cal-day.future1 { background: color-mix(in srgb, var(--lv-color-warning) 14%, var(--lv-color-surface)); }
     .lv-cal-day.future2 { background: color-mix(in srgb, var(--lv-color-warning) 26%, var(--lv-color-surface)); }
     .lv-cal-day.future3 { background: color-mix(in srgb, var(--lv-color-warning) 40%, var(--lv-color-surface)); }
@@ -225,14 +231,15 @@
         flex: 1;
         background: color-mix(in srgb, var(--lv-color-warning) 22%, var(--lv-color-surface));
         border-top: 2px solid var(--lv-color-warning);
-        border-radius: var(--lv-r-xs) var(--lv-r-xs) 0 0;
+        border-radius: var(--lv-r-pill) var(--lv-r-pill) 0 0;
         min-height: 6px;
-        transition: transform var(--lv-dur-1) var(--lv-ease), background var(--lv-dur-1) var(--lv-ease);
+        transition: transform var(--lv-dur-2) var(--lv-ease), background var(--lv-dur-1) var(--lv-ease), filter var(--lv-dur-2) var(--lv-ease);
         cursor: pointer;
 
         &:hover {
             transform: scaleY(1.08);
-            background: color-mix(in srgb, var(--lv-color-warning) 45%, var(--lv-color-surface));
+            background: color-mix(in srgb, var(--lv-color-warning) 50%, var(--lv-color-surface));
+            filter: drop-shadow(0 2px 6px color-mix(in srgb, var(--lv-color-warning) 40%, transparent));
         }
     }
     .lv-forecast i.lv-forecast-hi {

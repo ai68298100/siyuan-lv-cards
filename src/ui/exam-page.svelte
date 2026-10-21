@@ -434,22 +434,28 @@
 <style>
     .lv-exam { display: flex; flex-direction: column; gap: var(--lv-sp-3); }
     .lv-plan {
+        position: relative;
+        padding: calc(var(--lv-space-unit) * 9) calc(var(--lv-space-unit) * 10);
+        margin-bottom: var(--lv-sp-3);
+        border-radius: var(--lv-r-l);
+        box-shadow: var(--lv-shadow-card), var(--lv-inset-shine);
         transition: transform var(--lv-dur-2) var(--lv-ease),
             border-color var(--lv-dur-1) var(--lv-ease),
             box-shadow var(--lv-dur-2) var(--lv-ease);
 
         &:hover {
-            transform: translateY(-1px);
+            transform: translateY(-2px);
             border-color: var(--lv-border-strong);
             box-shadow: var(--lv-shadow-card-hover), var(--lv-inset-shine);
         }
     }
     .lv-plan-cram {
-        border-color: var(--lv-danger-border);
-        background: color-mix(in srgb, var(--lv-color-danger) 4%, var(--lv-color-surface));
+        border-color: color-mix(in srgb, var(--lv-color-danger) 45%, transparent);
+        background: linear-gradient(135deg, color-mix(in srgb, var(--lv-color-danger) 7%, var(--lv-color-surface)), var(--lv-color-surface));
+        box-shadow: 0 6px 20px -3px color-mix(in srgb, var(--lv-color-danger) 22%, transparent), var(--lv-inset-shine);
     }
-    .lv-plan-head { align-items: center; gap: var(--lv-sp-2); }
-    .lv-plan-name { font-weight: var(--lv-fw-bold); }
+    .lv-plan-head { align-items: center; gap: var(--lv-sp-2); margin-bottom: 6px; }
+    .lv-plan-name { font-weight: var(--lv-fw-bold); font-size: var(--lv-type-label-size); letter-spacing: -0.01em; }
     .lv-plan-meta { margin: var(--lv-sp-1) 0; }
     .lv-plan-pacing {
         display: flex; align-items: center; gap: var(--lv-sp-3);

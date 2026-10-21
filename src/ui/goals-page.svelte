@@ -337,47 +337,58 @@
         /* T06 步骤链（docs/13 §8） */
         .lv-goal-steps {
             display: flex;
-            flex-direction: column;
-            gap: calc(var(--lv-space-unit) * 2);
-            margin-top: var(--lv-sp-2);
+            flex-wrap: wrap;
+            align-items: center;
+            gap: var(--lv-sp-2);
+            margin-top: calc(var(--lv-space-unit) * 3);
         }
         .lv-step {
-            display: flex;
+            display: inline-flex;
             align-items: center;
-            gap: calc(var(--lv-space-unit) * 4);
-            font-size: var(--lv-type-control-size);
+            gap: 6px;
+            font-size: var(--lv-type-caption-size);
             color: var(--lv-color-text-muted);
+            padding: 3px 10px;
+            border-radius: var(--lv-r-pill);
+            background: color-mix(in srgb, var(--lv-color-text) 5%, transparent);
+            border: 1px solid var(--lv-border);
         }
         .lv-step-num {
             flex: none;
-            width: 22px;
-            height: 22px;
+            width: 19px;
+            height: 19px;
             border-radius: var(--lv-r-circle);
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            border: 1px solid var(--lv-border-strong);
-            font-size: var(--lv-type-caption-size);
+            border: 1px solid var(--lv-border);
+            background: color-mix(in srgb, var(--lv-color-text) 8%, transparent);
+            color: var(--lv-color-text-muted);
+            font-size: 10px;
             font-weight: var(--lv-fw-bold);
         }
-        .lv-step-done { color: var(--lv-color-brand); }
+        .lv-step-done { color: var(--lv-color-brand); font-weight: 500; }
         .lv-step-num.lv-step-done {
-            background: var(--lv-primary-soft);
-            border-color: var(--lv-primary-border);
-            color: var(--lv-color-brand);
+            background: var(--lv-color-brand);
+            border-color: var(--lv-color-brand);
+            color: #FFFFFF;
+            box-shadow: 0 1px 3px color-mix(in srgb, var(--lv-color-brand) 30%, transparent);
         }
     }
     .lv-goal-row {
         display: flex;
         align-items: center;
         gap: var(--lv-sp-3);
+        padding: var(--lv-sp-4);
+        border-radius: var(--lv-r-l);
+        box-shadow: var(--lv-shadow-card), var(--lv-inset-shine);
         transition: transform var(--lv-dur-2) var(--lv-ease),
             border-color var(--lv-dur-1) var(--lv-ease),
             box-shadow var(--lv-dur-2) var(--lv-ease);
 
         &:hover {
-            transform: translateY(-1px);
-            border-color: var(--lv-border-strong);
+            transform: translateY(-2px);
+            border-color: var(--lv-primary-border);
             box-shadow: var(--lv-shadow-card-hover), var(--lv-inset-shine);
         }
     }
