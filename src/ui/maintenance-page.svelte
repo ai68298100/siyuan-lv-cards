@@ -391,6 +391,18 @@
     let legacyUpgradeStatus = $state("");
     async function upgradeLegacyCards() {
         if (repairBusy || rollbackBusy || scanning) return;
+
+        // 转化卡片前严肃警示用户：完全可以不转换，原笔记直接兼容复习
+        const warnText = [
+            "【重要提示：您可以不进行任何转换】",
+            "小驴闪卡已经完全支持直接复习思源原生闪卡、块备注及第三方插件语法（::、Q/A），在不转换的情况下也能直接正常复习！",
+            "",
+            "如果您希望保留笔记原本的纯净格式与排版习惯，请直接点击【取消】，无需修改任何笔记。",
+            "",
+            "若点击【确定】，插件将仅为您生成可审计的修改预览，在您后续二次核对并明确点击“确认写入”前，绝不会修改您的任何笔记。确定要生成预览吗？",
+        ].join("\n");
+        if (typeof window !== "undefined" && typeof window.confirm === "function" && !window.confirm(warnText)) return;
+
         legacyUpgradeStatus = "";
         const candidates: Array<{ blockID: string; md: string; memo?: string }> = [];
         for (const [id, c] of cardMap.entries()) {
@@ -398,10 +410,10 @@
         }
         const proposals = proposeLegacyCardUpgrades(candidates);
         if (proposals.length === 0) {
-            legacyUpgradeStatus = "未发现待升级的存量卡片（所有闪卡均已符合标准挖空格式）";
+            legacyUpgradeStatus = "未发现待规范化的存量卡片（所有闪卡均已符合标准挖空格式）";
             return;
         }
-        legacyUpgradeStatus = `已找到 ${proposals.length} 张可规范化的存量闪卡，正在生成修复差异预览…`;
+        legacyUpgradeStatus = `已找到 ${proposals.length} 张可规范化的存量闪卡，正在生成修复差异预览（核对无误前不会写入笔记）…`;
         for (const p of proposals) {
             repairDrafts[p.blockID] = p.afterMarkdown;
         }

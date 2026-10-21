@@ -43,6 +43,20 @@ describe("delimited-qa & legacy card upgrade engine", () => {
         expect(parseDelimitedQa("已有的 ==挖空答案==")).toBeNull();
     });
 
+    it("strictly excludes C++ namespaces like std::vector from being falsely recognized as concept cards", () => {
+        // C++ 命名空间不应被识别为概念卡
+        expect(parseDelimitedQa("在 C++ 中使用 std::vector<int> 存储动态数组")).toBeNull();
+        expect(hasDelimitedQa("std::cout << x;")).toBe(false);
+        expect(parseDelimitedQa("chrono::duration<int>")).toBeNull();
+
+        // 但真正的概念卡依然能被正确识别
+        expect(parseDelimitedQa("std::vector :: C++ 标准库中的动态数组容器")).toEqual({
+            question: "std::vector",
+            answer: "C++ 标准库中的动态数组容器",
+            format: "double-colon",
+        });
+    });
+
     it("upgrades legacy cards to standard Little Donkey flashcards with == markers", () => {
         expect(upgradeLegacyCardToStandard("线粒体 :: 细胞的动力工厂")).toEqual({
             markdown: "线粒体 ==细胞的动力工厂==",

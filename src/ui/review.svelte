@@ -15,6 +15,7 @@
     import { isCardNew, calcStreak, type RevlogData } from "@/core/revlog";
     import { gradeTyping, type Rating1to4 } from "@/core/card-types";
     import { parseOcclusion, type OcclusionData } from "@/core/occlusion";
+    import { parseDelimitedQa } from "@/core/delimited-qa";
     import { hasQuestionMediaContent, validateFlashcardMarkdown } from "@/core/flashcard-quality";
     import { partitionReviewCardsByQuality } from "@/core/review-queue-quality";
     import { mapChunksOrdered } from "@/core/query-chunks";
@@ -667,23 +668,34 @@
                 choiceLoading = false;
                 choiceFallbackMode = "none";
                 typingGrade = null;
+                answerCache.delete(blockID);
             }
             cardHtml = dom;
             faceError = "";
-            // 打字题期望答案 = 挖空（mark）文本合集；无挖空则退化为全文
+            // 打字题期望答案 = 挖空（mark）文本合集；无挖空时自适应存量 ::、Q/A
             const holder = document.createElement("div");
             holder.innerHTML = cardHtml;
             const marks = extractMarkTexts(holder);
-            expectedText = marks.length > 0 ? marks.join(" / ") : (holder.textContent ?? "").trim();
+            if (marks.length > 0) {
+                expectedText = marks.join(" / ");
+            } else {
+                const rawText = (holder.textContent ?? "").trim();
+                const delimited = parseDelimitedQa(rawText);
+                expectedText = delimited?.answer ? delimited.answer : rawText;
+            }
             answerCache.set(blockID, expectedText);
-            // 遮挡数据（宽容解析，无属性即为普通卡）
+            // 遮挡数据与块备注（宽容解析，无属性即为普通卡）
             try {
                 const attrs = await getBlockAttrs(blockID);
                 if (seq === loadSeq) {
                     occl = parseOcclusion(attrs);
                     occlHidden = [];
-                    cardMemo = String(attrs.memo || attrs["custom-card-memo"] || "").trim();
+                    cardMemo = String(attrs.memo || attrs["custom-card-memo"] || attrs["custom-memo"] || "").trim();
                     memoDraft = cardMemo;
+                    if (marks.length === 0 && !expectedText && cardMemo) {
+                        expectedText = cardMemo;
+                        answerCache.set(blockID, expectedText);
+                    }
                 }
             } catch {
                 if (seq === loadSeq) {
@@ -757,7 +769,7 @@
         return out;
     }
 
-    /** 从块 DOM 提取答案文本（mark 合集优先），带缓存（M4·FR3 干扰项采样用） */
+    /** 从块 DOM 提取答案文本（mark 合集优先，自适应存量问答语法与备注），带缓存（M4·FR3 干扰项采样用） */
     async function answerOf(blockID: string): Promise<string> {
         const cached = answerCache.get(blockID);
         if (cached !== undefined) {
@@ -768,7 +780,18 @@
             const holder = document.createElement("div");
             holder.innerHTML = dom;
             const marks = extractMarkTexts(holder);
-            const text = marks.length > 0 ? marks.join(" / ") : (holder.textContent ?? "").trim();
+            let text = "";
+            if (marks.length > 0) {
+                text = marks.join(" / ");
+            } else {
+                const rawText = (holder.textContent ?? "").trim();
+                const delimited = parseDelimitedQa(rawText);
+                if (delimited?.answer) {
+                    text = delimited.answer;
+                } else {
+                    text = rawText;
+                }
+            }
             // 当前卡面可能在采样请求期间已刷新，优先保留新卡面的权威答案。
             const answer = answerCache.get(blockID) ?? text;
             answerCache.set(blockID, answer);
@@ -1526,6 +1549,7 @@
     /** 刷新当前卡内容（编辑返回后手动/自动触发） */
     async function refreshCard() {
         if (!current) return;
+        answerCache.delete(current.blockID);
         await loadBlockDOM(current.blockID);
     }
 

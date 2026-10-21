@@ -191,6 +191,7 @@ export function detectDebts(cards: ScanCard[]): DebtItem[] {
         else qualityIssue = validateCardEntry({
             blockID: c.blockID,
             markdown: c.md,
+            attrs: c.memo ? { memo: c.memo } : undefined,
             exists: c.exists,
             occlusionValid: c.occlusion === true,
         }).issue;

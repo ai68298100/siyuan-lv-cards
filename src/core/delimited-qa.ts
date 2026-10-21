@@ -16,8 +16,12 @@ export interface DelimitedQaResult {
     format: DelimitedQaFormat;
 }
 
+const INLINE_OR_BLOCK_CODE = /```[\s\S]*?```|`[^`\n]+`/g;
+const LATEX_MATH = /\$\$[\s\S]*?\$\$|\$[^$\n]+?\$/g;
+
 /**
  * 尝试解析带分隔符的问答文本（::: 或 :: 或 Q/A 前缀）
+ * 严格排除 C++ std::cout 命名空间及代码块中的混淆
  */
 export function parseDelimitedQa(markdown: string): DelimitedQaResult | null {
     const raw = String(markdown ?? "").trim();
@@ -25,6 +29,13 @@ export function parseDelimitedQa(markdown: string): DelimitedQaResult | null {
 
     // 已包含标准 ==答案== 的优先交由挖空/问答门禁处理
     if (raw.includes("==")) return null;
+
+    // 排除纯代码或公式段落
+    const strippedCodeAndMath = raw
+        .replace(INLINE_OR_BLOCK_CODE, " ")
+        .replace(LATEX_MATH, " ")
+        .trim();
+    if (!strippedCodeAndMath) return null;
 
     // 1. 三冒号分隔符 ::: (RemNote 描述卡)
     if (raw.includes(":::")) {
@@ -39,13 +50,18 @@ export function parseDelimitedQa(markdown: string): DelimitedQaResult | null {
     }
 
     // 2. 双冒号分隔符 :: (概念 :: 定义)
+    // 保护 C++ / Rust 等命名空间：:: 前后不能同时紧贴单词字符（如 std::vector 必须排除）
     if (raw.includes("::")) {
-        const parts = raw.split(/\s*::\s*/);
-        if (parts.length >= 2) {
-            const question = parts[0]?.trim();
-            const answer = parts.slice(1).join(" :: ").trim();
-            if (question && answer) {
-                return { question, answer, format: "double-colon" };
+        // 要求 :: 至少一侧有空格，或者至少一侧不是字母/数字/下划线（例如汉字或标点）
+        const colonRegex = /(?<![a-zA-Z0-9_])::(?![a-zA-Z0-9_])|\s+::\s+/;
+        if (colonRegex.test(raw)) {
+            const parts = raw.split(colonRegex);
+            if (parts.length >= 2) {
+                const question = parts[0]?.trim();
+                const answer = parts.slice(1).join(" :: ").trim();
+                if (question && answer) {
+                    return { question, answer, format: "double-colon" };
+                }
             }
         }
     }
@@ -90,18 +106,23 @@ export function maskDelimitedQaInHtml(root: Node): boolean {
     let node: Text | null = null;
 
     while ((node = walker.nextNode() as Text | null)) {
+        const parent = node.parentElement;
+        if (!parent) continue;
+
+        // 严格排除代码块、行内代码、公式及 SVG 内的文本节点
+        if (parent.closest("pre, code, kbd, svg, .language-math, .katex, .MathJax")) {
+            continue;
+        }
+
         const text = node.nodeValue ?? "";
 
-        // 1. 匹配 ::: 或 ::
-        const colonMatch = text.match(/\s*(:{2,3})\s*/);
+        // 1. 匹配 ::: 或 ::（排除命名空间如 std::vector）
+        const colonMatch = text.match(/(?<![a-zA-Z0-9_])(:{2,3})(?![a-zA-Z0-9_])|\s+(:{2,3})\s+/);
         if (colonMatch && colonMatch.index !== undefined) {
-            const sep = colonMatch[1];
+            const sep = colonMatch[1] ?? colonMatch[2];
             const before = text.slice(0, colonMatch.index).trim();
             const after = text.slice(colonMatch.index + colonMatch[0].length).trim();
             if (before && after) {
-                const parent = node.parentNode;
-                if (!parent) continue;
-
                 const slot = document.createElement("mark");
                 slot.className = "lv-masked";
                 slot.setAttribute("data-type", "mark");
