@@ -52,10 +52,11 @@
 <style>
     .lv-seg {
         display: inline-flex;
-        padding: calc(var(--lv-space-unit) * 1);
-        border-radius: var(--lv-r-s, var(--lv-r-s));
-        background: color-mix(in srgb, var(--lv-color-text) 6%, transparent);
-        gap: calc(var(--lv-space-unit) * 1);
+        padding: 3px;
+        border-radius: var(--lv-r-pill);
+        background: color-mix(in srgb, var(--lv-color-text) 7%, transparent);
+        border: 1px solid var(--lv-border);
+        gap: 3px;
     }
     .lv-seg--disabled { opacity: 0.5; pointer-events: none; }
     .lv-seg-item {
@@ -64,16 +65,23 @@
         color: var(--lv-color-text-muted);
         font-size: var(--lv-type-control-size);
         line-height: var(--lv-lh-tight);
-        padding: calc(var(--lv-space-unit) * 3) calc(var(--lv-space-unit) * 5);
-        border-radius: calc(var(--lv-r-s, var(--lv-r-s)) - var(--lv-r-track));
+        padding: 6px 14px;
+        border-radius: var(--lv-r-pill);
         cursor: pointer;
-        transition: background var(--lv-dur-1, 120ms) var(--lv-ease, ease-out), color var(--lv-dur-1, 120ms) var(--lv-ease, ease-out);
+        font-weight: var(--lv-fw-emphasis);
+        transition: background var(--lv-dur-1, 120ms) var(--lv-ease, ease-out),
+            color var(--lv-dur-1, 120ms) var(--lv-ease, ease-out),
+            box-shadow var(--lv-dur-1, 120ms) var(--lv-ease, ease-out),
+            transform var(--lv-dur-1, 120ms) var(--lv-ease, ease-out);
     }
-    .lv-seg-item:hover { color: var(--lv-color-text); }
+    .lv-seg-item:hover:not(:disabled) {
+        color: var(--lv-color-text);
+        background: color-mix(in srgb, var(--lv-color-text) 4%, transparent);
+    }
     .lv-seg-item--on {
         background: var(--lv-color-surface);
         color: var(--lv-color-brand);
-        font-weight: var(--lv-fw-semibold);
-        box-shadow: var(--lv-shadow-1, 0 1px 2px rgba(0, 0, 0, 0.06));
+        font-weight: var(--lv-fw-bold);
+        box-shadow: 0 2px 8px color-mix(in srgb, black 6%, transparent), var(--lv-inset-shine);
     }
 </style>

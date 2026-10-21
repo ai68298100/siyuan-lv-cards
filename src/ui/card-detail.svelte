@@ -458,35 +458,38 @@
     .lv-detail-preview-error { color: var(--lv-color-danger); }
     .lv-detail-meta div { padding: calc(var(--lv-space-unit) * 1) 0; }
 
-    /* T05 分面导航（R52 segmented 同构） */
+    /* T05 分面导航（R52 segmented 同构，现代圆润胶囊排） */
     .lv-facets {
         display: flex;
-        gap: calc(var(--lv-space-unit) * 1);
-        padding: calc(var(--lv-space-unit) * 1 + var(--lv-space-hairline));
+        gap: 3px;
+        padding: 3px;
         border: 1px solid var(--lv-border);
-        border-radius: var(--lv-r-m);
-        background: var(--lv-color-canvas);
+        border-radius: var(--lv-r-pill);
+        background: color-mix(in srgb, var(--lv-color-text) 7%, transparent);
         box-shadow: inset 0 1px 2px color-mix(in srgb, black 3%, transparent);
         margin-bottom: var(--lv-sp-4);
     }
     .lv-facet {
         flex: 1;
-        border: 1px solid transparent;
+        border: none;
         background: transparent;
         color: var(--lv-color-text-muted);
         font-size: var(--lv-type-control-size);
-        font-weight: var(--lv-fw-medium);
-        padding: calc(var(--lv-space-unit) * 2) calc(var(--lv-space-unit) * 4);
-        border-radius: var(--lv-r-control);
+        font-weight: var(--lv-fw-emphasis);
+        padding: 6px 12px;
+        border-radius: var(--lv-r-pill);
         cursor: pointer;
-        transition: background var(--lv-dur-1) var(--lv-ease), color var(--lv-dur-1) var(--lv-ease), border-color var(--lv-dur-1) var(--lv-ease);
+        transition: background var(--lv-dur-1) var(--lv-ease), color var(--lv-dur-1) var(--lv-ease), box-shadow var(--lv-dur-1) var(--lv-ease);
+    }
+    .lv-facet:hover:not(.lv-facet-active) {
+        color: var(--lv-color-text);
+        background: color-mix(in srgb, var(--lv-color-text) 4%, transparent);
     }
     .lv-facet-active {
         background: var(--lv-color-surface);
         color: var(--lv-color-brand);
-        font-weight: var(--lv-fw-semibold);
-        border-color: var(--lv-border);
-        box-shadow: var(--lv-shadow-card), var(--lv-inset-shine);
+        font-weight: var(--lv-fw-bold);
+        box-shadow: 0 2px 8px color-mix(in srgb, black 6%, transparent), var(--lv-inset-shine);
     }
     .lv-hist-list { max-height: 320px; overflow: auto; }
 

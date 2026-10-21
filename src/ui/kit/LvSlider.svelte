@@ -43,8 +43,13 @@
     .lv-slider-val {
         font-size: var(--lv-type-control-size);
         font-variant-numeric: tabular-nums;
-        color: var(--lv-color-text-muted);
-        min-width: 34px;
-        text-align: right;
+        color: var(--lv-color-brand);
+        background: var(--lv-primary-soft);
+        border: 1px solid var(--lv-primary-border);
+        padding: 2px 8px;
+        border-radius: var(--lv-r-pill);
+        min-width: 36px;
+        text-align: center;
+        font-weight: 600;
     }
 </style>

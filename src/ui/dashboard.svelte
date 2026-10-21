@@ -824,14 +824,30 @@
         <section class="lv-today-week lv-card2" aria-labelledby="lv-today-week-title">
             <div class="lv-today-week-head">
                 <h2 id="lv-today-week-title">{t.dashboard.weekTitle}</h2>
-                <span aria-hidden="true">⌁</span>
+                <span class="lv-today-week-range">{weekDateLabel}</span>
             </div>
-            <p class="lv-today-week-range">{weekDateLabel}</p>
+
+            <!-- 汲取自参考图：暖橙连击卡片（Streak Card） -->
+            <div class="lv-streak-card" aria-label={`连续学习 ${streak} 天`}>
+                <div class="lv-streak-icon-box" aria-hidden="true">
+                    <LvIcon name="flame" size={22} />
+                </div>
+                <div class="lv-streak-details">
+                    <span class="lv-streak-eyebrow">{t.dashboard.streak ?? "连续学习"}</span>
+                    <strong class="lv-streak-count">{streak} <span class="lv-streak-unit">{t.dashboard.streakUnit ?? "天"}</span></strong>
+                </div>
+                {#if streak >= 3}
+                    <span class="lv-streak-badge">🔥 {streak} Days</span>
+                {:else if streak > 0}
+                    <span class="lv-streak-badge">☀️ 良好起步</span>
+                {/if}
+            </div>
+
             <div class="lv-today-week-grid" role="list" aria-label={t.dashboard.weekDaysLabel}>
                 {#each currentWeek.days as day (day.index)}
                     {@const label = t.dashboard.weekdays[day.index]}
                     <div class="lv-today-week-day" class:lv-today-week-day-active={day.active} class:lv-today-week-day-today={day.today} class:lv-today-week-day-future={day.future} role="listitem" aria-label={t.dashboard.weekDayAria.replace("${weekday}", label).replace("${date}", String(day.date.getDate())).replace("${state}", day.active ? t.dashboard.weekDayActivity.replace("${review}", String(day.reviews)).replace("${new}", String(day.newCards)) : day.future ? t.dashboard.weekFuture : t.dashboard.weekDayEmpty)}>
-                        <span>{label}</span>
+                        <span class="lv-week-day-label">{label}</span>
                         <i aria-hidden="true">{day.active ? "✓" : day.today ? day.date.getDate() : "·"}</i>
                     </div>
                 {/each}
@@ -856,7 +872,10 @@
                 <div class="lv-today-decks-list">
                     {#each [...decks].sort((a, b) => (b.size ?? 0) - (a.size ?? 0)).slice(0, 4) as deck (deck.id)}
                         <button class="lv-today-deck" aria-label={`${deck.name}, ${t.dashboard.deckCardCount.replace("${n}", String(deck.size ?? 0))}`} onclick={() => ctx.openManagerDeck?.(deck.id, deck.name)}>
-                            <span class="lv-today-deck-name">{deck.name}</span>
+                            <div class="lv-today-deck-main">
+                                <span class="lv-deck-icon-badge" aria-hidden="true"><LvIcon name="book" size={15} /></span>
+                                <span class="lv-today-deck-name">{deck.name}</span>
+                            </div>
                             <span class="lv-today-deck-count">{t.dashboard.deckCardCount.replace("${n}", String(deck.size ?? 0))}</span>
                         </button>
                     {/each}
@@ -1135,12 +1154,28 @@
                 {/if}
             {/snippet}
             {#if curve.length >= 2}
+                {@const pts = curvePoints(curve)}
+                {@const ptList = pts.trim().split(/\s+/)}
+                {@const firstX = ptList[0]?.split(",")[0] ?? "10"}
+                {@const lastX = ptList[ptList.length - 1]?.split(",")[0] ?? "300"}
+                {@const areaPoints = `${firstX},90 ${pts} ${lastX},90`}
                 <svg viewBox="0 0 320 100" class="lv-curve" bind:this={curveEl}>
+                    <defs>
+                        <linearGradient id="lv-curve-gradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stop-color="var(--lv-color-brand)" stop-opacity="0.22" />
+                            <stop offset="100%" stop-color="var(--lv-color-brand)" stop-opacity="0.0" />
+                        </linearGradient>
+                    </defs>
+                    <!-- 参考虚线网格 -->
+                    <line x1="8" y1="30" x2="312" y2="30" stroke="var(--lv-border)" stroke-dasharray="3 3" opacity="0.35" />
+                    <line x1="8" y1="60" x2="312" y2="60" stroke="var(--lv-border)" stroke-dasharray="3 3" opacity="0.35" />
                     <line x1="8" y1="90" x2="312" y2="90" class="lv-curve-axis" />
-                    <polyline fill="none" stroke="var(--lv-color-text-muted)" stroke-width="1" stroke-dasharray="4 3" opacity="0.5" points={theoryPoints(curve)} />
-                    <polyline fill="none" stroke="var(--lv-color-brand)" stroke-width="2" points={curvePoints(curve)} />
+                    <!-- 面积渐变阴影面（汲取自参考图） -->
+                    <polygon points={areaPoints} fill="url(#lv-curve-gradient)" stroke="none" />
+                    <polyline fill="none" stroke="var(--lv-color-text-muted)" stroke-width="1.2" stroke-dasharray="4 3" opacity="0.5" points={theoryPoints(curve)} />
+                    <polyline fill="none" stroke="var(--lv-color-brand)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" points={pts} />
                     {#each curve as p (p.days)}
-                        <circle cx={10 + (p.days / Math.max(...curve.map(q => q.days), 1)) * 290} cy={90 - p.rate * 80} r="2.5" class="lv-curve-dot">
+                        <circle cx={10 + (p.days / Math.max(...curve.map(q => q.days), 1)) * 290} cy={90 - p.rate * 80} r="3.5" class="lv-curve-dot">
                             <title>{p.days}天 · {Math.round(p.rate * 100)}% (n={p.n})</title>
                         </circle>
                     {/each}
@@ -1300,30 +1335,163 @@
             border-color: var(--lv-border-strong);
         }
     }
-    .lv-today-week-head { display: flex; align-items: center; justify-content: space-between; gap: var(--lv-sp-2); }
-    .lv-today-week-head h2 { font-size: var(--lv-type-label-size); line-height: 1.5; font-weight: var(--lv-fw-heading); }
-    .lv-today-week-head > span { color: var(--lv-color-text-muted); }
-    .lv-today-week-range { margin-top: calc(var(--lv-space-unit) * 2 + var(--lv-space-hairline)); color: var(--lv-color-text-muted); font-size: var(--lv-type-meta-size); }
-    .lv-today-week-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: calc(var(--lv-space-unit) * 2 + var(--lv-space-hairline)); margin: 19px 0 16px; }
+    .lv-today-week-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--lv-sp-2); margin-bottom: 2px; }
+    .lv-today-week-head h2 { font-size: var(--lv-type-label-size); line-height: 1.5; font-weight: var(--lv-fw-heading); margin: 0; }
+    .lv-today-week-range { color: var(--lv-color-text-muted); font-size: var(--lv-type-caption-size); font-variant-numeric: tabular-nums; }
+    
+    // 汲取自参考图：暖橙连击高光卡片
+    .lv-streak-card {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--lv-sp-2);
+        padding: 12px 15px;
+        margin: 10px 0 14px;
+        border-radius: var(--lv-r-m);
+        background: linear-gradient(135deg, #FF9431 0%, #FFA83E 50%, #FFB954 100%);
+        color: #FFFFFF;
+        box-shadow: 0 6px 18px -3px rgba(255, 148, 49, 0.38), 0 2px 6px rgba(255, 148, 49, 0.18);
+        position: relative;
+        overflow: hidden;
+        transition: transform var(--lv-dur-2) var(--lv-ease), box-shadow var(--lv-dur-2) var(--lv-ease);
+
+        &:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 24px -4px rgba(255, 148, 49, 0.48);
+        }
+
+        .lv-streak-icon-box {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.25);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            display: grid;
+            place-items: center;
+            color: #FFFFFF;
+            flex-shrink: 0;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+        }
+
+        .lv-streak-details {
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+            margin-right: auto;
+            margin-left: 10px;
+        }
+
+        .lv-streak-eyebrow {
+            font-size: 11px;
+            font-weight: 500;
+            opacity: 0.92;
+            letter-spacing: 0.04em;
+        }
+
+        .lv-streak-count {
+            font-size: 18px;
+            font-weight: 800;
+            line-height: 1.2;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: -0.02em;
+        }
+
+        .lv-streak-unit {
+            font-size: 12px;
+            font-weight: 500;
+            opacity: 0.9;
+        }
+
+        .lv-streak-badge {
+            background: rgba(255, 255, 255, 0.28);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            color: #FFFFFF;
+            white-space: nowrap;
+        }
+    }
+
+    // 汲取自参考图：Days Logged In 纵向圆润签到胶囊排
+    .lv-today-week-grid {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: 5px;
+        margin: 4px 0 14px;
+    }
     .lv-today-week-day {
         display: flex;
         min-width: 0;
         align-items: center;
         flex-direction: column;
-        gap: calc(var(--lv-space-unit) * 4 + var(--lv-space-hairline));
+        gap: 6px;
+        padding: 7px 2px 8px;
+        border-radius: 12px;
+        background: color-mix(in srgb, var(--lv-color-canvas) 60%, var(--lv-color-surface));
+        border: 1px solid var(--lv-border);
         color: var(--lv-color-text-muted);
         font-size: var(--lv-type-caption-size);
         cursor: default;
+        transition: transform var(--lv-dur-2) var(--lv-ease),
+            border-color var(--lv-dur-1) var(--lv-ease),
+            box-shadow var(--lv-dur-2) var(--lv-ease),
+            background var(--lv-dur-1) var(--lv-ease);
 
-        &:hover i {
-            transform: scale(1.12);
-            box-shadow: 0 2px 6px color-mix(in srgb, var(--lv-color-brand) 22%, transparent);
+        &:hover {
+            transform: translateY(-1.5px);
+            border-color: var(--lv-primary-border);
+            box-shadow: 0 4px 10px color-mix(in srgb, var(--lv-color-brand) 12%, transparent);
+            background: var(--lv-color-surface);
+        }
+
+        .lv-week-day-label {
+            font-size: 11px;
+            font-weight: var(--lv-fw-semibold);
+            letter-spacing: 0.02em;
+        }
+
+        i {
+            display: grid;
+            width: 26px;
+            height: 26px;
+            place-items: center;
+            border-radius: var(--lv-r-circle);
+            background: color-mix(in srgb, var(--lv-color-text) 6%, transparent);
+            font-size: var(--lv-type-meta-size);
+            font-style: normal;
+            transition: all var(--lv-dur-1) var(--lv-ease);
+        }
+
+        &.lv-today-week-day-active i {
+            background: var(--lv-color-brand);
+            color: #FFFFFF;
+            font-weight: 700;
+            box-shadow: 0 2px 6px color-mix(in srgb, var(--lv-color-brand) 36%, transparent);
+        }
+
+        &.lv-today-week-day-today {
+            border-color: var(--lv-color-brand);
+            background: color-mix(in srgb, var(--lv-color-brand) 8%, var(--lv-color-surface));
+            box-shadow: 0 0 0 1px var(--lv-primary-border);
+            i {
+                outline: 2px solid var(--lv-color-brand);
+                outline-offset: 1px;
+                background: var(--lv-primary-soft);
+                color: var(--lv-color-brand);
+                font-weight: 700;
+            }
+        }
+
+        &.lv-today-week-day-future {
+            opacity: 0.55;
         }
     }
-    .lv-today-week-day i { display: grid; width: 26px; height: 26px; place-items: center; border-radius: var(--lv-r-circle); background: var(--lv-primary-softer); font-size: var(--lv-type-meta-size); font-style: normal; transition: all var(--lv-dur-1) var(--lv-ease); }
-    .lv-today-week-day-active i { background: var(--lv-primary-soft); color: var(--lv-color-brand); font-weight: 600; box-shadow: 0 1px 3px color-mix(in srgb, var(--lv-color-brand) 20%, transparent); }
-    .lv-today-week-day-today i { outline: 2px solid var(--lv-color-brand); outline-offset: 1px; }
-    .lv-today-week-day-future { opacity: .62; }
     .lv-today-week-summary { display: flex; align-items: center; justify-content: space-between; gap: var(--lv-sp-2); font-size: var(--lv-type-control-size); }
     .lv-today-week-summary strong { font-variant-numeric: tabular-nums; white-space: nowrap; }
     .lv-today-week-summary small { color: var(--lv-color-text-muted); font-size: 10px; font-weight: var(--lv-fw-normal); }
@@ -1440,7 +1608,7 @@
         align-items: center;
         justify-content: space-between;
         gap: var(--lv-sp-2);
-        padding: calc(var(--lv-space-unit) * 5) calc(var(--lv-space-unit) * 6 + var(--lv-space-hairline));
+        padding: calc(var(--lv-space-unit) * 4) calc(var(--lv-space-unit) * 5);
         border: 1px solid var(--lv-border);
         border-radius: var(--lv-r-m);
         background: var(--lv-color-surface);
@@ -1453,13 +1621,42 @@
             background var(--lv-dur-1) var(--lv-ease);
 
         &:hover {
-            transform: translateY(-1px);
-            border-color: var(--lv-color-brand);
+            transform: translateY(-2px);
+            border-color: var(--lv-primary-border);
             background: color-mix(in srgb, var(--lv-primary-soft) 40%, var(--lv-color-surface));
             box-shadow: var(--lv-shadow-card-hover), var(--lv-inset-shine);
         }
         &:active {
-            transform: translateY(1px);
+            transform: translateY(0.5px);
+        }
+
+        .lv-today-deck-main {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+            flex: 1;
+        }
+        .lv-deck-icon-badge {
+            width: 32px;
+            height: 32px;
+            border-radius: 9px;
+            background: var(--lv-primary-soft);
+            color: var(--lv-color-brand);
+            display: grid;
+            place-items: center;
+            flex-shrink: 0;
+            box-shadow: 0 1px 3px color-mix(in srgb, var(--lv-color-brand) 16%, transparent);
+        }
+        .lv-today-deck-count {
+            font-size: var(--lv-type-caption-size);
+            color: var(--lv-color-text-muted);
+            background: color-mix(in srgb, var(--lv-color-text) 6%, transparent);
+            padding: 3px 8px;
+            border-radius: var(--lv-r-pill);
+            font-variant-numeric: tabular-nums;
+            font-weight: 500;
+            white-space: nowrap;
         }
     }
     .lv-today-deck:focus-visible { outline: 2px solid var(--lv-color-brand); outline-offset: 2px; }
@@ -1624,8 +1821,27 @@
     .lv-ms-grid {
         display: grid;
         grid-template-columns: repeat(4, 1fr);
-        gap: var(--lv-sp-2);
+        gap: var(--lv-sp-3);
         text-align: center;
+        @media (max-width: 740px) {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+    .lv-ms-cell {
+        padding: 16px 12px;
+        border-radius: var(--lv-r-m);
+        background: color-mix(in srgb, var(--lv-color-brand) 4%, var(--lv-color-surface));
+        border: 1px solid var(--lv-border);
+        box-shadow: var(--lv-shadow-card), var(--lv-inset-shine);
+        transition: transform var(--lv-dur-2) var(--lv-ease),
+            border-color var(--lv-dur-1) var(--lv-ease),
+            box-shadow var(--lv-dur-2) var(--lv-ease);
+
+        &:hover {
+            transform: translateY(-2px);
+            border-color: var(--lv-primary-border);
+            box-shadow: var(--lv-shadow-card-hover), var(--lv-inset-shine);
+        }
     }
     .lv-ms-num {
         font-size: var(--lv-type-heading-size);
@@ -1650,8 +1866,19 @@
 
     .lv-curve {
         width: 100%;
-        max-width: 420px;
-        .lv-curve-axis { stroke: var(--lv-border-strong); stroke-width: 1; }
-        .lv-curve-dot { fill: var(--lv-color-brand); }
+        max-width: 480px;
+        overflow: visible;
+        .lv-curve-axis { stroke: var(--lv-border-strong); stroke-width: 1.5; }
+        .lv-curve-dot {
+            fill: var(--lv-color-brand);
+            stroke: var(--lv-color-surface);
+            stroke-width: 2px;
+            transition: transform var(--lv-dur-1) var(--lv-ease), r var(--lv-dur-1) var(--lv-ease);
+            cursor: pointer;
+            &:hover {
+                r: 5.5;
+                filter: drop-shadow(0 2px 6px color-mix(in srgb, var(--lv-color-brand) 50%, transparent));
+            }
+        }
     }
 </style>
