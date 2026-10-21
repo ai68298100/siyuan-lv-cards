@@ -25,8 +25,8 @@
         color: var(--lv-color-text-muted);
     }
     .lv-empty-icon {
-        width: 44px;
-        height: 44px;
+        width: 48px;
+        height: 48px;
         border-radius: var(--lv-r-circle);
         display: flex;
         align-items: center;
@@ -34,6 +34,8 @@
         background: var(--lv-primary-soft);
         color: var(--lv-color-brand);
         font-size: var(--lv-type-section-size);
+        box-shadow: 0 2px 8px color-mix(in srgb, var(--lv-color-brand) 16%, transparent);
+        border: 1px solid var(--lv-primary-border);
     }
     .lv-empty-text { font-size: var(--lv-type-body-size); }
 </style>

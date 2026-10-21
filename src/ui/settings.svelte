@@ -1487,6 +1487,19 @@
         margin: 0 auto;
 
         .b3-dialog__action { justify-content: flex-end; }
+        .lv-searchbar {
+            margin-bottom: var(--lv-sp-4);
+            .b3-text-field {
+                border-radius: var(--lv-r-pill);
+                padding: 8px 16px;
+                box-shadow: inset 0 1px 2px color-mix(in srgb, black 3%, transparent);
+                transition: border-color var(--lv-dur-1) var(--lv-ease), box-shadow var(--lv-dur-2) var(--lv-ease);
+                &:focus {
+                    border-color: var(--lv-color-brand);
+                    box-shadow: 0 0 0 3px color-mix(in srgb, var(--lv-color-brand) 22%, transparent);
+                }
+            }
+        }
         .lv-import-scope { display: flex; flex-wrap: wrap; align-items: center; gap: var(--lv-sp-2); }
         .lv-import-scope > span { flex: 1 1 220px; }
         :global(.lv-row2-control) { min-width: 0; flex-wrap: wrap; }

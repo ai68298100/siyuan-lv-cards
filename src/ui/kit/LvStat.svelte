@@ -100,7 +100,7 @@
             border-color var(--lv-dur-1) var(--lv-ease);
     }
     :global(.lv-stat:hover) {
-        transform: translateY(-1px);
+        transform: translateY(-2px);
         box-shadow: var(--lv-shadow-card-hover), var(--lv-inset-shine);
         border-color: var(--lv-border-strong);
     }
@@ -112,7 +112,13 @@
         color: var(--lv-color-text-muted);
         margin-bottom: var(--lv-sp-1);
     }
-    .lv-stat .lv-stat-dot { width: 8px; height: 8px; border-radius: var(--lv-r-circle); display: inline-block; }
+    .lv-stat .lv-stat-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: var(--lv-r-circle);
+        display: inline-block;
+        box-shadow: 0 0 0 2px color-mix(in srgb, currentColor 18%, transparent);
+    }
     .lv-stat .lv-stat-denom {
         font-size: var(--lv-type-body-size);
         font-weight: var(--lv-fw-semibold);

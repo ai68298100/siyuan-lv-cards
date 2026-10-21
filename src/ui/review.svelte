@@ -3214,7 +3214,7 @@
                 align-items: center;
                 gap: calc(var(--lv-space-unit) * 2);
                 max-width: 100%;
-                padding: 3px 10px;
+                padding: 4px 12px;
                 border: 1px solid var(--lv-border);
                 border-radius: var(--lv-r-pill);
                 background: color-mix(in srgb, var(--lv-color-canvas) 85%, transparent);
@@ -3222,28 +3222,41 @@
                 font-size: 11px;
                 margin-bottom: var(--lv-sp-3);
                 cursor: pointer;
+                box-shadow: 0 1px 2px color-mix(in srgb, black 3%, transparent);
                 transition: background var(--lv-dur-1) var(--lv-ease),
                     color var(--lv-dur-1) var(--lv-ease),
                     border-color var(--lv-dur-1) var(--lv-ease),
-                    transform var(--lv-dur-1) var(--lv-ease);
+                    transform var(--lv-dur-1) var(--lv-ease),
+                    box-shadow var(--lv-dur-2) var(--lv-ease);
 
                 &:hover {
                     background: var(--lv-surface-hover);
                     color: var(--lv-color-brand);
                     border-color: var(--lv-primary-border);
-                    transform: translateY(-1px);
+                    transform: translateY(-1.5px);
+                    box-shadow: 0 2px 6px color-mix(in srgb, var(--lv-color-brand) 12%, transparent);
                 }
                 &:active {
-                    transform: translateY(1px);
+                    transform: translateY(0.5px);
                 }
                 .lv-breadcrumb-icon {
-                    font-size: 11px;
+                    font-size: 12px;
                     flex-shrink: 0;
+                    color: var(--lv-color-brand);
+                    opacity: 0.85;
                 }
                 .lv-breadcrumb-text {
                     overflow: hidden;
                     text-overflow: ellipsis;
                     white-space: nowrap;
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 3px;
+                }
+                .lv-breadcrumb-sep {
+                    opacity: 0.4;
+                    font-weight: 300;
+                    padding: 0 1px;
                 }
             }
         }
@@ -3519,38 +3532,54 @@
                 grid-template-columns: 1fr 1fr;
                 .lv-btn-rate { max-width: none; }
             }
-            // R54 .rating button：白面 1px 描边、ink 标签、muted 间隔，hover 细微语义反馈
+            // R54 .rating button：白面微投影、ink 标签、muted 间隔，色相顶标线与语义微反馈
             .lv-b1, .lv-b2, .lv-b3, .lv-b4 {
                 background: var(--lv-color-surface);
                 color: var(--lv-color-text);
             }
-            .lv-b1:hover {
-                border-color: var(--lv-danger-border);
-                background: color-mix(in srgb, var(--lv-color-danger) 6%, var(--lv-color-surface));
+            .lv-b1 {
+                box-shadow: inset 0 2.5px 0 0 color-mix(in srgb, var(--lv-color-danger) 70%, transparent), var(--lv-shadow-card);
+                &:hover {
+                    border-color: var(--lv-danger-border);
+                    background: color-mix(in srgb, var(--lv-color-danger) 6%, var(--lv-color-surface));
+                    box-shadow: inset 0 3px 0 0 var(--lv-color-danger), var(--lv-shadow-card-hover);
+                }
+                &:active {
+                    background: color-mix(in srgb, var(--lv-color-danger) 14%, var(--lv-color-surface));
+                }
             }
-            .lv-b1:active {
-                background: color-mix(in srgb, var(--lv-color-danger) 14%, var(--lv-color-surface));
+            .lv-b2 {
+                box-shadow: inset 0 2.5px 0 0 color-mix(in srgb, var(--lv-color-warning) 70%, transparent), var(--lv-shadow-card);
+                &:hover {
+                    border-color: color-mix(in srgb, var(--lv-color-warning) 35%, transparent);
+                    background: color-mix(in srgb, var(--lv-color-warning) 6%, var(--lv-color-surface));
+                    box-shadow: inset 0 3px 0 0 var(--lv-color-warning), var(--lv-shadow-card-hover);
+                }
+                &:active {
+                    background: color-mix(in srgb, var(--lv-color-warning) 14%, var(--lv-color-surface));
+                }
             }
-            .lv-b2:hover {
-                border-color: color-mix(in srgb, var(--lv-color-warning) 35%, transparent);
-                background: color-mix(in srgb, var(--lv-color-warning) 6%, var(--lv-color-surface));
+            .lv-b3 {
+                box-shadow: inset 0 2.5px 0 0 color-mix(in srgb, var(--lv-color-brand) 70%, transparent), var(--lv-shadow-card);
+                &:hover {
+                    border-color: var(--lv-primary-border);
+                    background: color-mix(in srgb, var(--lv-color-brand) 6%, var(--lv-color-surface));
+                    box-shadow: inset 0 3px 0 0 var(--lv-color-brand), var(--lv-shadow-card-hover);
+                }
+                &:active {
+                    background: color-mix(in srgb, var(--lv-color-brand) 14%, var(--lv-color-surface));
+                }
             }
-            .lv-b2:active {
-                background: color-mix(in srgb, var(--lv-color-warning) 14%, var(--lv-color-surface));
-            }
-            .lv-b3:hover {
-                border-color: var(--lv-primary-border);
-                background: color-mix(in srgb, var(--lv-color-brand) 6%, var(--lv-color-surface));
-            }
-            .lv-b3:active {
-                background: color-mix(in srgb, var(--lv-color-brand) 14%, var(--lv-color-surface));
-            }
-            .lv-b4:hover {
-                border-color: color-mix(in srgb, var(--lv-color-success) 35%, transparent);
-                background: color-mix(in srgb, var(--lv-color-success) 6%, var(--lv-color-surface));
-            }
-            .lv-b4:active {
-                background: color-mix(in srgb, var(--lv-color-success) 14%, var(--lv-color-surface));
+            .lv-b4 {
+                box-shadow: inset 0 2.5px 0 0 color-mix(in srgb, var(--lv-color-success) 70%, transparent), var(--lv-shadow-card);
+                &:hover {
+                    border-color: color-mix(in srgb, var(--lv-color-success) 35%, transparent);
+                    background: color-mix(in srgb, var(--lv-color-success) 6%, var(--lv-color-surface));
+                    box-shadow: inset 0 3px 0 0 var(--lv-color-success), var(--lv-shadow-card-hover);
+                }
+                &:active {
+                    background: color-mix(in srgb, var(--lv-color-success) 14%, var(--lv-color-surface));
+                }
             }
         }
 
@@ -3570,7 +3599,9 @@
             right: 0;
             z-index: 101;
             min-width: 180px;
-            background: var(--lv-color-surface);
+            background: color-mix(in srgb, var(--lv-color-surface) 92%, transparent);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
             border: 1px solid var(--lv-border);
             border-radius: var(--lv-r-m);
             box-shadow: var(--lv-shadow-float), var(--lv-inset-shine);

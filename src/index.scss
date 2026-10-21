@@ -155,23 +155,24 @@
     --lv-border: color-mix(in srgb, var(--lv-color-text) 8%, transparent);
     --lv-border-strong: color-mix(in srgb, var(--lv-color-text) 14%, transparent);
 
-    // 表面与海拔
+    // 表面与海拔（微环境光渐变多层投影，亮暗主题通用）
     --lv-shadow-1: 0 1px 2px color-mix(in srgb, black 4%, transparent),
         0 2px 8px color-mix(in srgb, black 3%, transparent);
     --lv-shadow-2: 0 2px 6px color-mix(in srgb, black 5%, transparent),
         0 14px 36px color-mix(in srgb, black 7%, transparent);
-    --lv-shadow-card: 0 1px 3px color-mix(in srgb, black 4%, transparent),
-        0 4px 14px -2px color-mix(in srgb, black 4%, transparent);
-    --lv-shadow-card-hover: 0 2px 6px color-mix(in srgb, black 5%, transparent),
-        0 12px 28px -4px color-mix(in srgb, black 8%, transparent);
-    --lv-shadow-float: 0 16px 40px -8px color-mix(in srgb, black 12%, transparent),
+    --lv-shadow-card: 0 1px 3px color-mix(in srgb, black 5%, transparent),
+        0 4px 16px -2px color-mix(in srgb, black 4%, transparent);
+    --lv-shadow-card-hover: 0 4px 12px color-mix(in srgb, black 6%, transparent),
+        0 16px 32px -4px color-mix(in srgb, black 8%, transparent);
+    --lv-shadow-float: 0 16px 40px -8px color-mix(in srgb, black 14%, transparent),
         0 4px 12px color-mix(in srgb, black 6%, transparent);
-    --lv-inset-shine: inset 0 1px 0 color-mix(in srgb, white 45%, transparent);
-    --lv-glass: color-mix(in srgb, var(--lv-color-canvas) 76%, transparent);
+    --lv-inset-shine: inset 0 1px 0 color-mix(in srgb, white 40%, transparent),
+        inset 0 0 0 1px color-mix(in srgb, white 6%, transparent);
+    --lv-glass: color-mix(in srgb, var(--lv-color-canvas) 80%, transparent);
     --lv-focus-ring: 0 0 0 3px color-mix(in srgb, var(--lv-color-brand) 32%, transparent);
-    --lv-shadow-review-card: 0 2px 6px color-mix(in srgb, black 3%, transparent),
-        0 12px 32px -4px color-mix(in srgb, black 6%, transparent);
-    --lv-shadow-dialog-scrim: 0 16px 60px color-mix(in srgb, black 12%, transparent);
+    --lv-shadow-review-card: 0 2px 8px color-mix(in srgb, black 4%, transparent),
+        0 16px 40px -6px color-mix(in srgb, black 8%, transparent);
+    --lv-shadow-dialog-scrim: 0 16px 60px color-mix(in srgb, black 14%, transparent);
 
     // 层级按宿主遮罩、复习局部面板和抽屉三个上下文命名。
     --lv-z-base: 0;
@@ -447,15 +448,20 @@
     background: var(--lv-color-brand);
     color: var(--lv-color-on-brand);
     font-weight: var(--lv-fw-emphasis);
+    border-radius: var(--lv-r-control);
+    box-shadow: 0 2px 6px color-mix(in srgb, var(--lv-color-brand) 28%, transparent);
     transition: transform var(--lv-dur-1) var(--lv-ease),
         box-shadow var(--lv-dur-2) var(--lv-ease), filter var(--lv-dur-1) var(--lv-ease);
 
-    &:hover {
-        transform: translateY(-1px);
-        box-shadow: var(--lv-shadow-1);
+    &:hover:not(:disabled) {
+        transform: translateY(-1.5px);
+        box-shadow: 0 4px 14px color-mix(in srgb, var(--lv-color-brand) 36%, transparent);
         filter: brightness(1.06);
     }
-    &:active { transform: scale(0.98); }
+    &:active:not(:disabled) {
+        transform: translateY(0.5px) scale(0.985);
+        box-shadow: 0 1px 3px color-mix(in srgb, var(--lv-color-brand) 20%, transparent);
+    }
 }
 
 // ghost 按钮（R52 button.ghost）：无底无框 muted，悬浮软底——中性次要动作（思源 .b3-button 基类是实心主色，必须显式中性化）
@@ -668,12 +674,15 @@
         color: var(--lv-color-text-muted);
         font-size: var(--lv-type-body-size);
         padding: calc(var(--lv-space-unit) * 4 + var(--lv-space-hairline)) calc(var(--lv-space-unit) * 8);
-        border-radius: 0;
+        border-radius: var(--lv-r-s) var(--lv-r-s) 0 0;
         position: relative;
         cursor: pointer;
-        transition: color var(--lv-dur-2) var(--lv-ease);
+        transition: color var(--lv-dur-2) var(--lv-ease), background-color var(--lv-dur-2) var(--lv-ease);
 
-        &:hover { color: var(--lv-color-text); }
+        &:hover {
+            color: var(--lv-color-text);
+            background: color-mix(in srgb, var(--lv-color-brand) 4%, transparent);
+        }
 
         &.lv-tab-active { color: var(--lv-color-text); font-weight: 650; }
 
@@ -681,11 +690,13 @@
         &.lv-tab-active::after {
             content: "";
             position: absolute;
-            height: 2px;
+            height: 2.5px;
             background: var(--lv-color-brand);
             bottom: -1px;
-            left: 16px;
-            right: 16px;
+            left: 14px;
+            right: 14px;
+            border-radius: 2px;
+            box-shadow: 0 1px 4px color-mix(in srgb, var(--lv-color-brand) 36%, transparent);
         }
     }
 }
@@ -700,11 +711,12 @@
     line-height: var(--lv-lh-tight);
     padding: calc(var(--lv-space-unit) * 2) calc(var(--lv-space-unit) * 5);
     border-radius: var(--lv-r-pill);
+    border: 1px solid transparent;
 
-    &.lv-chip2--primary { background: var(--lv-primary-soft); color: var(--lv-color-brand); }
-    &.lv-chip2--warn { background: var(--lv-warn-soft); color: var(--lv-color-warning); }
-    &.lv-chip2--error { background: var(--lv-danger-soft); color: var(--lv-color-danger); }
-    &.lv-chip2--default { background: var(--lv-border); color: var(--lv-color-text-muted); }
+    &.lv-chip2--primary { background: var(--lv-primary-soft); color: var(--lv-color-brand); border-color: var(--lv-primary-border); }
+    &.lv-chip2--warn { background: var(--lv-warn-soft); color: var(--lv-color-warning); border-color: color-mix(in srgb, var(--lv-color-warning) 30%, transparent); }
+    &.lv-chip2--error { background: var(--lv-danger-soft); color: var(--lv-color-danger); border-color: var(--lv-danger-border); }
+    &.lv-chip2--default { background: color-mix(in srgb, var(--lv-color-text) 6%, transparent); color: var(--lv-color-text-muted); border-color: var(--lv-border); }
 }
 
 // ---- 工具行（R53 .flex.between 口径：筛选 chips + 结果 caption，两端对齐） ----

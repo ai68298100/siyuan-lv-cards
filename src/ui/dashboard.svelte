@@ -1394,25 +1394,25 @@
         min-width: 0;
         align-items: center;
         gap: var(--lv-sp-3);
-        padding: calc(var(--lv-space-unit) * 4) calc(var(--lv-space-unit) * 5);
+        padding: calc(var(--lv-space-unit) * 5) calc(var(--lv-space-unit) * 6);
         border: 1px solid var(--lv-border);
         border-radius: var(--lv-r-m);
         background: var(--lv-color-surface);
         box-shadow: var(--lv-shadow-card), var(--lv-inset-shine);
-        transition: transform var(--lv-dur-1) var(--lv-ease),
+        transition: transform var(--lv-dur-2) var(--lv-ease),
             border-color var(--lv-dur-1) var(--lv-ease),
-            box-shadow var(--lv-dur-1) var(--lv-ease);
+            box-shadow var(--lv-dur-2) var(--lv-ease);
 
         &:hover {
-            transform: translateY(-1px);
-            border-color: var(--lv-border-strong);
+            transform: translateY(-2px);
+            border-color: var(--lv-primary-border);
             box-shadow: var(--lv-shadow-card-hover), var(--lv-inset-shine);
         }
     }
     .lv-first-use-steps span {
         display: grid;
-        width: 28px;
-        height: 28px;
+        width: 32px;
+        height: 32px;
         flex: none;
         place-items: center;
         border-radius: 50%;
@@ -1420,6 +1420,7 @@
         color: var(--lv-color-brand);
         font-size: var(--lv-type-control-size);
         font-weight: 700;
+        box-shadow: 0 2px 6px color-mix(in srgb, var(--lv-color-brand) 18%, transparent);
     }
     .lv-first-use-steps p {
         margin: 0;

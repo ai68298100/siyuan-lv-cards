@@ -61,7 +61,8 @@
         position: fixed;
         inset: 0;
         background: color-mix(in srgb, black 32%, transparent);
-        backdrop-filter: blur(2px);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
         z-index: var(--lv-z-drawer, 300);
     }
     .lv-drawer {
