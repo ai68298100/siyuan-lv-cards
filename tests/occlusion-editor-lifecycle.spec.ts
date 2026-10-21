@@ -110,4 +110,25 @@ describe("occlusion editor pointer lifecycle", () => {
         await waitFor(() => expect(onSave).toHaveBeenCalledOnce());
         expect(onClose).toHaveBeenCalledOnce();
     });
+
+    it("supports drawing occlusions on SVG canvas such as Excalidraw (Issue #14)", async () => {
+        getBlockDOM.mockResolvedValueOnce('<svg class="excalidraw-svg" viewBox="0 0 800 600"><rect width="800" height="600" /></svg>');
+        const { container } = mountEditor();
+        const svg = await waitFor(() => {
+            const element = container.querySelector("svg.excalidraw-svg");
+            expect(element).toBeTruthy();
+            return element as SVGSVGElement;
+        });
+        expect(svg).toBeTruthy();
+        const overlay = container.querySelector("svg.lv-occed-overlay") as SVGSVGElement;
+        expect(overlay).toBeTruthy();
+        vi.spyOn(overlay, "getBoundingClientRect").mockReturnValue({
+            x: 0, y: 0, left: 0, top: 0, right: 200, bottom: 200, width: 200, height: 200, toJSON: () => ({}),
+        });
+
+        await fireEvent.pointerDown(overlay, { pointerId: 3, clientX: 10, clientY: 10 });
+        await fireEvent.pointerMove(window, { pointerId: 3, clientX: 80, clientY: 80 });
+        await fireEvent.pointerUp(window, { pointerId: 3, clientX: 80, clientY: 80 });
+        expect(overlay.querySelectorAll("rect")).toHaveLength(1);
+    });
 });

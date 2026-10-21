@@ -25,21 +25,23 @@
     let busy = $state(false);
     let disposed = false;
     let loadSeq = 0;
-    let image: HTMLImageElement | null = null;
+    let image: HTMLElement | SVGElement | null = null;
     let activePointerId: number | null = null;
     let cachedOverlayBox: DOMRect | null = null;
 
     function positionOverlay() {
-        if (disposed || !preview || !overlay) return;
-        const img = content?.querySelector("img");
+        if (disposed || !preview || !overlay || !content) return;
+        const img = content.querySelector<HTMLElement | SVGElement>("img, svg:not(.lv-occed-overlay), canvas");
         if (!img) return;
+        const previewRect = preview.getBoundingClientRect();
+        const targetRect = img.getBoundingClientRect();
         const box = {
-            left: img.offsetLeft,
-            top: img.offsetTop,
-            width: img.offsetWidth,
-            height: img.offsetHeight,
+            left: targetRect.left - previewRect.left + preview.scrollLeft,
+            top: targetRect.top - previewRect.top + preview.scrollTop,
+            width: targetRect.width,
+            height: targetRect.height,
         };
-        // 坐标相对图片包围盒：覆盖层精确贴在图片上
+        // 坐标相对图片/画布包围盒：覆盖层精确贴在目标上
         overlay.style.left = `${box.left}px`;
         overlay.style.top = `${box.top}px`;
         overlay.style.width = `${box.width}px`;
@@ -119,7 +121,7 @@
             if (disposed || seq !== loadSeq) return;
             if (content) {
                 content.innerHTML = dom;
-                image = content.querySelector("img");
+                image = content.querySelector<HTMLElement | SVGElement>("img, svg:not(.lv-occed-overlay), canvas");
                 if (!image) {
                     errorMsg = t.occlusion?.noImage ?? t.occlusionNoImage ?? "块内没有图片";
                     loading = false;
@@ -127,20 +129,22 @@
                 }
                 // 宿主块 HTML 通常只有源尺寸，没有宽高属性；读取后先声明固有比例，
                 // 避免图片解码前占位高度为 0 导致遮挡画布跳动。
-                if (image.complete && image.naturalWidth > 0 && image.naturalHeight > 0) {
-                    image.width = image.naturalWidth;
-                    image.height = image.naturalHeight;
-                } else {
-                    image.addEventListener("load", () => {
-                        if (image?.naturalWidth && image.naturalHeight) {
-                            image.width = image.naturalWidth;
-                            image.height = image.naturalHeight;
-                            positionOverlay();
-                        }
-                    }, { once: true });
+                if (image instanceof HTMLImageElement) {
+                    if (image.complete && image.naturalWidth > 0 && image.naturalHeight > 0) {
+                        image.width = image.naturalWidth;
+                        image.height = image.naturalHeight;
+                    } else {
+                        image.addEventListener("load", () => {
+                            if (image instanceof HTMLImageElement && image.naturalWidth && image.naturalHeight) {
+                                image.width = image.naturalWidth;
+                                image.height = image.naturalHeight;
+                                positionOverlay();
+                            }
+                        }, { once: true });
+                    }
                 }
                 positionOverlay();
-                // 图片加载完成后尺寸才稳定，再校一次；窗口缩放经帧率节流同步
+                // 图片/画布加载完成后尺寸才稳定，再校一次；窗口缩放经帧率节流同步
                 image.addEventListener("load", throttledPositionOverlay);
                 window.addEventListener("resize", throttledPositionOverlay);
             }

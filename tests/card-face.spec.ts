@@ -30,6 +30,10 @@ describe("card-face（AS-3 富内容分析）", () => {
         const r = analyzeFaceRichness(html);
         expect(r).toEqual({ formula: true, image: true, embed: true, code: true, table: true, longLink: true });
         expect(hasRichContent(r)).toBe(true);
+
+        // SVG 矢量画布识别为图像特征（Issue #14）
+        const svgRich = analyzeFaceRichness('<svg class="excalidraw-svg" viewBox="0 0 100 100"></svg>');
+        expect(svgRich.image).toBe(true);
     });
 
     it("普通短链接不触发 longLink；MathJax/language-math 亦识别为公式", () => {
@@ -72,6 +76,16 @@ describe("统一卡面渲染管线（renderUnifiedCardFace & formatMarkdownToSaf
         expect(html).toContain('<span class="language-math katex-inline">E=mc^2</span>');
         expect(html).toContain("<code>let x = 1;</code>");
         expect(html).toContain('<pre><code class="language-ts">const y = 2;</code></pre>');
+    });
+
+    it("正确保护与渲染内联 SVG 矢量画布并清洗脚本（Issue #14）", () => {
+        const svgMd = '流程图：<svg viewBox="0 0 100 100"><script>alert(1)</script><circle cx="50" cy="50" r="40" /></svg>';
+        const html = formatMarkdownToSafeHtml(svgMd);
+        expect(html).toContain("<svg");
+        expect(html).toContain('class="lv-card-svg"');
+        expect(html).toContain('<circle cx="50" cy="50" r="40" />');
+        expect(html).not.toContain("<script>");
+        expect(html).not.toContain("&lt;svg");
     });
 
     it("正确处理多挖空卡片的问题态遮蔽与答案态揭晓", () => {

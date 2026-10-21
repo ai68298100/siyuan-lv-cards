@@ -67,6 +67,19 @@ describe("flashcard-quality", () => {
         expect(hasImageContent("plain text without images")).toBe(false);
     });
 
+    it("recognizes Excalidraw SVG canvas and inline SVG as valid media (Issue #14)", () => {
+        // 内联 SVG
+        expect(hasImageContent('<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" /></svg>')).toBe(true);
+        expect(hasImageContent('<svg class="excalidraw-svg" xmlns="http://www.w3.org/2000/svg"></svg>')).toBe(true);
+        // Excalidraw 资源引用
+        expect(hasImageContent("![excalidraw drawing](assets/draw-1.excalidraw.svg)")).toBe(true);
+        expect(hasImageContent('<img src="assets/diagram.svg">')).toBe(true);
+        // 挂件形式
+        expect(hasImageContent('<div data-type="NodeWidget" data-subtype="widget" data-content="excalidraw"></div>')).toBe(true);
+        // SVG 作为题面内容
+        expect(hasQuestionContent('<svg viewBox="0 0 100 100"><rect width="100" height="100"/></svg> ==正方形==')).toBe(true);
+    });
+
     it("distinguishes meaningful question content from placeholders and punctuation", () => {
         // Bad cards: punctuation only, whitespace or empty media
         expect(hasQuestionContent("??? ==答案==")).toBe(false);

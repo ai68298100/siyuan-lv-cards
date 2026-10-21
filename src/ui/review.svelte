@@ -733,7 +733,7 @@
             occlBox = null;
             return;
         }
-        const img = cardEl.querySelector("img");
+        const img = cardEl.querySelector<HTMLElement | SVGElement>("img, svg:not(.lv-occl-overlay), canvas");
         if (!img) {
             occlBox = null;
             return;
@@ -1826,7 +1826,7 @@
         const html = cardHtml;
         positionOcclusion();
         if (!activeOcclusion || !target || !html) return;
-        const image = target.querySelector("img");
+        const image = target.querySelector<HTMLElement | SVGElement>("img, svg:not(.lv-occl-overlay), canvas");
         if (!image) return;
         const throttledRemeasure = rafThrottle(() => {
             if (isDisposed) return;

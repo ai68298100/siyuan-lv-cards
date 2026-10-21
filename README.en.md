@@ -19,9 +19,33 @@ The full-lifecycle flashcard learning platform for SiYuan — local-first, nativ
 
 > **Note**: The primary README and all design docs are in Chinese. This page covers the essentials; see [docs/](./docs/README.md) for full design material.
 
-Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.6** (2026-10-20), delivering topbar self-healing persistence, data reload echo suppression, and full-lifecycle AI governance (capability map, Agent loop guard, data boundary, and grounded contract). See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.6) for the package and publishing status.
+Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.7** (2026-10-21), delivering Excalidraw SVG canvas recognition and image occlusion support, scalar numeric tolerance evaluation, presentation privacy mode, review context breadcrumbs, import diff inspection, and misconception cluster maps. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.7) for the package and publishing status.
 
-## What's New in v0.210.6
+## What's New in v0.210.7
+
+- **Excalidraw SVG Canvas Recognition & Image Occlusion Support (Issue #14)**:
+  - Extended flashcard quality gate (`flashcard-quality.ts`) to recognize inline `<svg>` elements, Excalidraw file references (`.excalidraw.svg`), and SiYuan widget blocks as valid flashcard materials.
+  - Sanitized and protected inline SVG vector rendering in `card-face.ts`, preventing SVG tags from being escaped as plaintext.
+  - Supported SVG elements alongside `<img>` in `occlusion-editor.svelte` and `review.svelte`, enabling precise occlusion mask drawing and review placement over SVG diagrams.
+- **Scalar Numeric Answer Policy Engine (BX-1)**:
+  - Implemented high-precision numeric evaluation in `scalar-numeric-policy.ts` with SI unit conversions, derived prefixes, absolute/relative tolerance, zero-boundary guards, significant figures, and percent conversions.
+- **Presentation & Screen Sharing Privacy Mode (BX-6)**:
+  - Added privacy masking controller (`presentation-privacy.ts`) with topbar menu and command palette toggles, redacting block IDs, file paths, deck names, and sensitive personal data.
+- **Review Context Breadcrumbs (BX-11 UI)**:
+  - Displayed hierarchical source paths ("Notebook > Document > Section") at the top of flashcard review faces, reducing atomized card disorientation.
+- **Package Diff Inspector & Conflict Resolution (BX-12)**:
+  - Added field-level `.lvcards` import diff comparison with 4 resolution strategies (keep-local, overwrite, fork-new, merge-memo), protecting local private notes.
+- **Misconception Cluster Map UI (BT-3 UI)**:
+  - Visualized confusable concept pairs with severity badges and intervention suggestions (contrast, counterexamples, card splitting) in the maintenance tab.
+- **Monotonic Clock Review Timeout (M3·FR8)**:
+  - Upgraded review countdown timer (`review-countdown.ts`) to use monotonic wall clock timings, preventing drift during system sleep or tab throttling.
+- **Dependency Upgrades & Issue Governance**:
+  - Upgraded `vitest@5.0.5`, `js-yaml@5.5.0`, `svelte-check@4.7.7`, and `sass@1.105.2`.
+  - Contained plugin menu icon sizing (16px isolation, Issues #12/#13).
+- **Verification**:
+  - 1914+ tests across 239 suites 100% passing; zero TypeScript/Svelte errors and warnings; production build and smoke tests green.
+
+## Previous Update: v0.210.6
 
 - **Topbar Item Self-Healing & Resilience (`ensureTopBarElement`)**: Registered fixed unique ID `id: "topbar-lv-cards"`. Implemented a self-healing controller that detects DOM disconnection when SiYuan redraws or reorganizes the toolbar during window resizing, automatically restoring the topbar button and preventing vanishing icons.
 - **Data Reload Echo Suppression**: Strictly scoped `onDataChanged` file change events to private plugin storage; introduced a 3000ms timestamp window that filters out local self-write echoes, eliminating unexpected page re-renders and review UI flickering.

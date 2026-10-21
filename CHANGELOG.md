@@ -1,5 +1,29 @@
 # Changelog
 
+## v0.210.7 2026-10-21 · Excalidraw SVG 画布识别与遮挡制卡、标量数值答案政策引擎与演示私密模式
+
+- **Excalidraw SVG 画布识别与图片遮挡制卡全链路支持（Issue #14）**：
+  - 在闪卡质量门禁（`flashcard-quality.ts`）中扩展对 `<svg>` 矢量画布、Excalidraw 资源引用（`.excalidraw.svg`）及思源挂件块的识别，支持直接将矢量画布制卡；
+  - 在统一卡面渲染管线（`card-face.ts`）中建立 SVG 矢量的安全清洗与内联渲染保护，彻底消除 SVG 标签被转义为明文代码的问题；
+  - 在图片遮挡编辑器（`occlusion-editor.svelte`）与复习遮挡定位（`review.svelte`）中全面扩展支持 `svg` 画布元素的精确定位与遮挡绘制，兼容 `<img>` 与 `<svg>` 混合场景。
+- **标量数值答案政策引擎（BX-1）**：
+  - 实现高精度标量数值答案判定引擎（`scalar-numeric-policy.ts`），支持物理量国际单位与派生单位前缀自动换算、绝对误差/相对误差/组合容差模式、零值防除零自动降级、有效数字校验与百分数小数互换，不可判定时原答留痕退回人工裁决。
+- **临时演示与投屏私密展示模式（BX-6）**：
+  - 实现投屏/录屏/教学三大场景的演示私密展示模式控制器与脱敏过滤器（`presentation-privacy.ts`），在顶栏菜单与快捷命令中完成一键切换闭环，对敏感块 ID、笔记路径、卡包名及个人信息实时脱敏。
+- **复习卡面来源层级面包屑（BX-11 UI）**：
+  - 在复习页面卡面顶部根据调研 docs/49 落地来源层级面包屑（笔记本 > 文档 > 章节，`review-breadcrumbs.ts`），支持标题 Markdown/HTML 格式清洗、紧凑截断与多深度自适应中间折叠，彻底消除原子卡片复习时的“孤岛感”。
+- **分享包差异比对引擎与冲突解决（BX-12）**：
+  - 在 `lvcards-diff-inspector.ts` 中实现同名卡组 .lvcards 导入的字段级差异比对（`inspectLvCardsImportDiff`），精准识别全新卡、完全相同卡、正文变动卡与仅便签标签变动，并建立 4 种细粒度冲突处理决策（keep-local / overwrite / fork-new / merge-memo），优先保护用户本地私有便签。
+- **误解簇地图交互面板（BT-3 UI）**：
+  - 在闪卡中心维护页落地误解簇地图交互面板（`misconception-panel.svelte`），展示混淆概念对、严重度徽标与三大干预建议（对比辨析、反例构建、来源拆卡），支持一键出题与 Markdown 诊断报告脱敏导出。
+- **复习超时单调时钟防漂移（M3·FR8）**：
+  - 升级复习倒计时状态机（`review-countdown.ts`），基于单调时钟彻底防止系统休眠与后台节流掉帧漂移，支持 pause/resume 零时差挂起与紧急预警状态机。
+- **依赖链全线安全升级与 Issue 治理闭环**：
+  - 升级 `vitest@5.0.5`、`js-yaml@5.5.0`、`svelte-check@4.7.7`、`sass@1.105.2`；
+  - 修复并验证菜单图标隔离规则（Issue #12/#13），关闭重复工单 #13。
+- **全量测试与门禁验证**：
+  - 全库扩展至 239 个测试文件、1914+ 项测试 100% 通过；TypeScript 与 Svelte-check 0 错误 0 警告；构建与烟雾测试全绿。
+
 ## v0.210.6 2026-10-20 · 顶栏自愈保活、数据回音抑制与 AI 全局治理（能力地图/Agent闸门/数据边界/Grounded契约）
 
 - **顶栏条目自愈挂载控制器（连通性与图标保活）**：为顶栏条目指定唯一标识 `id: "topbar-lv-cards"`，实现 `ensureTopBarElement()` 连通性自愈控制器，当宿主重构顶栏、窗口缩放或自适应折叠导致原有 DOM 断连（`!isConnected`）时，自动感知并即时重新注册挂载；在 `onload`、`onLayoutReady`、`refreshDueBadge` 与 `renderBadge` 中全链路保护，彻底解决顶栏图标偶发突然消失的问题。

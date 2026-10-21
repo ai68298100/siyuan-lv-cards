@@ -126,5 +126,22 @@ export function hasImageContent(markdown: string): boolean {
         if (src && src !== "#" && !/^javascript:/i.test(src)) return true;
     }
 
+    // SVG 矢量画布与 Excalidraw 画布（Issue #14）
+    if (/<svg\b[^>]*>/i.test(text) || /<\/svg>/i.test(text) || /class=["'][^"']*excalidraw[^"']*["']/i.test(text)) {
+        return true;
+    }
+
+    // 嵌入式矢量/挂件元素（embed / object / iframe）
+    const embedMatches = [...text.matchAll(/<(?:embed|object|iframe)\b[^>]*\b(?:src|data)\s*=\s*["']([^"'\s]+)["'][^>]*>/gi)];
+    for (const m of embedMatches) {
+        const src = m[1]?.trim();
+        if (src && src !== "#" && !/^javascript:/i.test(src)) return true;
+    }
+
+    // 思源挂件块中的 Excalidraw 画布
+    if (/data-type=["']NodeWidget["']|data-subtype=["']widget["']/i.test(text) && /excalidraw/i.test(text)) {
+        return true;
+    }
+
     return false;
 }

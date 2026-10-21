@@ -21,7 +21,7 @@ export interface FaceRichness {
 
 const RICHNESS_RULES: { key: keyof FaceRichness; pattern: RegExp }[] = [
     { key: "formula", pattern: /class="katex"|class="MathJax"|language-math/i },
-    { key: "image", pattern: /<img\b/i },
+    { key: "image", pattern: /<img\b|<svg\b/i },
     { key: "embed", pattern: /NodeBlockQueryEmbed|<iframe\b/i },
     { key: "code", pattern: /<pre\b|<code\b/i },
     { key: "table", pattern: /<table\b/i },
@@ -118,6 +118,21 @@ export function formatMarkdownToSafeHtml(markdown: string): string {
     let tokenPrefix = "@@LV_CARD_TOKEN_";
     while (text.includes(tokenPrefix)) tokenPrefix += "_";
     const protectedHtml: string[] = [];
+
+    // 1. 保护并安全清洗内联 SVG 矢量画布与 Excalidraw 画布（Issue #14）
+    text = text.replace(/<svg\b[^>]*>[\s\S]*?<\/svg>/gi, (svgRaw) => {
+        let cleanSvg = svgRaw
+            .replace(/<script\b[\s\S]*?<\/script>/gi, "")
+            .replace(/\son[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+            .replace(/javascript:/gi, "");
+        if (!/class\s*=/i.test(cleanSvg)) {
+            cleanSvg = cleanSvg.replace(/<svg\b/i, '<svg class="lv-card-svg"');
+        } else if (!cleanSvg.includes("lv-card-svg")) {
+            cleanSvg = cleanSvg.replace(/class=["']([^"']*)["']/i, (_match, cls) => `class="${cls} lv-card-svg"`);
+        }
+        return `${tokenPrefix}${protectedHtml.push(cleanSvg) - 1}@@`;
+    });
+
     text = text.replace(/```([a-zA-Z0-9_-]*)\r?\n([\s\S]*?)```|`([^`\n]+?)`|!\[([^\]]*)\]\(([^)\s]+)\)|\$\$([\s\S]+?)\$\$|\$([^$\n]+?)\$/g,
         (_m, lang, blockCode, inlineCode, alt, url, blockMath, math) => {
             let html: string;
