@@ -19,9 +19,20 @@ The full-lifecycle flashcard learning platform for SiYuan — local-first, nativ
 
 > **Note**: The primary README and all design docs are in Chinese. This page covers the essentials; see [docs/](./docs/README.md) for full design material.
 
-Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.25** (2026-10-22), delivering audio/haptic feedback on quiz answers, autofocus inputs, and analysis animations. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.25) for the package and publishing status.
+Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.26** (2026-10-23), delivering quiz accuracy recap badges, WAI-ARIA accessibility states, and tactile keyboard hints. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.26) for the package and publishing status.
 
-## What's New in v0.210.25
+## What's New in v0.210.26
+
+- **Done Panel Quiz Accuracy Badge**:
+  - Automatically tallies interactive quiz attempts and accuracy percentage (e.g. 80% 4/5) with a glowing status bubble (`.lv-done-quiz-bubble`).
+- **Complete WAI-ARIA Screen Reader Protection**:
+  - Injected `role="radiogroup"`, `role="radio"`, `role="group"`, and `role="checkbox"` with synchronized `aria-checked` attributes for full screen reader accessibility.
+- **Visual Keyboard Hint Badges on Choice Cards**:
+  - Rendered subtle monospace shortcut badges (`[A]`, `[B]`, `[C]`, `[D]`) on cards that highlight on hover/focus.
+- **Verification**:
+  - 1936 tests across 241 test suites 100% passing; zero TypeScript/Svelte errors and warnings; production build and smoke tests green.
+
+## Previous Update: v0.210.25
 
 - **Multimodal Audio & Haptic Feedback on Quiz Responses**:
   - Plays uplifting Web Audio synthesizer chimes and subtle haptics on correct answers; low gentle tones on errors.

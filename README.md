@@ -21,11 +21,24 @@
 
 小驴闪卡（内测版）的定位是**思源笔记里的全生命周期记忆引擎**：让笔记里每一段值得记的内容，都能可回源地变成卡片，用内核原生 FSRS 排期，用可审计的 AI 提效；数据本地优先，方便带走。
 
-当前版本为 **v0.210.25（2026-10-22）**，落地答题听觉触觉多维反馈、填空自动聚焦与解析卡片展开微动效。安装包与发布状态见 [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.25)。
+当前版本为 **v0.210.26（2026-10-23）**，落地完成面板实战命中率勋章、全流程无障碍读屏保护与键盘视觉导引。安装包与发布状态见 [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.26)。
 
 [下载最新版](https://github.com/ai68298100/siyuan-lv-cards/releases/latest) · [提交问题](https://github.com/ai68298100/siyuan-lv-cards/issues/new/choose) · [贡献指南](./CONTRIBUTING.md)
 
-## 本次更新（v0.210.25）
+## 本次更新（v0.210.26）
+
+- **完成面板实战答题战报勋章（Quiz Accuracy Badge）**：
+  - 复习完成屏（Done Panel）自动汇总本场交互作答总数与正确数，计算**实战命中率（例如：80% 4/5）**并赋予多维柔和微光勋章（`.lv-done-quiz-bubble`）；
+  - 让用户在完成记忆调度的同时，直观审视自己的实战做题准确度，获得极大的正向成就反馈。
+- **全流程 WAI-ARIA 读屏无障碍保护（Accessibility Alignment）**：
+  - 单选题绑定 `role="radiogroup"` 与 `role="radio"`，多选题绑定 `role="group"` 与 `role="checkbox"`，判断题绑定 `role="radiogroup"` 与 `role="radio"`，完备注入 `aria-checked` 状态；
+  - 保证视障读屏软件用户能够清晰流畅地收听选项选中状态与正误播报。
+- **选项卡片键盘快捷键提示徽章（Keyboard Hints）**：
+  - 选项卡片右侧呈现淡雅等宽字体快捷键小微标（`[A]`、`[B]`、`[C]`、`[D]`），鼠标悬浮或聚焦时自动高亮品牌色，指引用户无缝键盘作答。
+- **全量门禁与质量验证**：
+  - 全库扩展至 241 个测试文件、1936 项测试 100% 通过；TypeScript 与 Svelte-check 0 错误 0 警告；构建与烟雾测试全绿。
+
+## 上一版本（v0.210.25）
 
 - **答题听觉与触觉多维正负反馈（Haptic & Web Audio Feedback）**：
   - 选择题、判断题和填空题交互作答时，答对即时触发清脆上扬和弦音（Web Audio 合成）与愉悦轻震；

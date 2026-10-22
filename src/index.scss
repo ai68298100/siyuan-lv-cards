@@ -1579,6 +1579,25 @@
         word-break: break-word;
     }
 
+    .lv-choice-kbd-badge {
+        font-size: 10px;
+        font-family: var(--lv-font-mono, monospace);
+        padding: 1px 5px;
+        border-radius: var(--lv-r-tag);
+        background: color-mix(in srgb, var(--lv-color-text) 5%, transparent);
+        border: 1px solid var(--lv-border);
+        color: var(--lv-color-text-muted);
+        opacity: 0.6;
+        transition: all var(--lv-dur-1) var(--lv-ease);
+        margin-left: auto;
+    }
+    &:hover:not(:disabled) .lv-choice-kbd-badge {
+        opacity: 1;
+        border-color: var(--lv-primary-border);
+        color: var(--lv-color-brand);
+        background: var(--lv-primary-soft);
+    }
+
     .lv-choice-result-pill {
         padding: 3px 8px;
         border-radius: var(--lv-r-pill);
@@ -1824,6 +1843,32 @@
     color: var(--lv-color-danger) !important;
     background: var(--lv-danger-soft) !important;
     animation: lv-pulse-suggest 1.2s infinite ease-in-out;
+}
+
+.lv-done-quiz-bubble {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    border-radius: var(--lv-r-pill);
+    font-size: 11px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    background: color-mix(in srgb, var(--lv-color-warning) 12%, var(--lv-color-surface));
+    border: 1px solid color-mix(in srgb, var(--lv-color-warning) 35%, transparent);
+    color: var(--lv-color-warning);
+    margin-left: var(--lv-sp-2);
+
+    &.lv-quiz-high {
+        background: color-mix(in srgb, var(--lv-color-success, #22c55e) 12%, var(--lv-color-surface));
+        border-color: color-mix(in srgb, var(--lv-color-success, #22c55e) 35%, transparent);
+        color: var(--lv-color-success, #22c55e);
+    }
+    &.lv-quiz-mid {
+        background: color-mix(in srgb, var(--lv-color-brand) 12%, var(--lv-color-surface));
+        border-color: color-mix(in srgb, var(--lv-color-brand) 35%, transparent);
+        color: var(--lv-color-brand);
+    }
 }
 
 .lv-btn-rate.lv-btn-suggested {

@@ -205,6 +205,8 @@
     let sessionReview = $state(0);
     let sessionForget = $state(0);
     let sessionSkip = $state(0);
+    let sessionQuizTotal = $state(0);
+    let sessionQuizCorrect = $state(0);
     let sessionDone = $state(false);
     // T07 结果页（docs/13 §9）：真实剩余到期（共享缓存，完成时读取；null=未取到不显示）
     let remainingDue = $state<number | null>(null);
@@ -2003,6 +2005,7 @@
 
     function submitChoiceAnswer() {
         if (!interactiveQuiz || selectedChoiceKeys.length === 0) return;
+        sessionQuizTotal++;
         const correctOptions = interactiveQuiz.options.filter(o => o.isAnswer);
         const correctKeys = correctOptions.map(o => o.key);
         if (correctKeys.length > 0) {
@@ -2011,6 +2014,7 @@
             if (allMatch) {
                 isAnswerCorrect = true;
                 suggestedRating = 3;
+                sessionQuizCorrect++;
                 playSfx(3);
                 triggerHaptic(15);
                 showMessage(interactiveQuiz.isMultiple ? "多选全部正确！" : "回答正确！", 1800, "info");
@@ -2034,9 +2038,11 @@
     function handleJudgePick(val: boolean) {
         if (!faceReady || showAnswer || !interactiveQuiz) return;
         userJudgeChoice = val;
+        sessionQuizTotal++;
         if (interactiveQuiz.judgeAnswer !== null) {
             isAnswerCorrect = val === interactiveQuiz.judgeAnswer;
             suggestedRating = isAnswerCorrect ? 3 : 1;
+            if (isAnswerCorrect) sessionQuizCorrect++;
             playSfx(isAnswerCorrect ? 3 : 1);
             triggerHaptic(isAnswerCorrect ? 15 : 25);
             showMessage(isAnswerCorrect ? "判断正确！" : "判断错误，已标出正确答案", 1800, isAnswerCorrect ? "info" : "error");
@@ -2052,6 +2058,8 @@
             typingGrade = g;
             isAnswerCorrect = g.suggested >= 3;
             suggestedRating = g.suggested;
+            sessionQuizTotal++;
+            if (isAnswerCorrect) sessionQuizCorrect++;
             playSfx(g.suggested as any);
             triggerHaptic(isAnswerCorrect ? 15 : 25);
             showMessage(isAnswerCorrect ? "填空正确！" : "填空已对比，查看答案", 1800, isAnswerCorrect ? "info" : "error");
@@ -2440,6 +2448,13 @@
                             <span>{t.review.doneRetention ?? "留存率"} {ret}%</span>
                         </div>
                     {/if}
+                    {#if sessionQuizTotal > 0}
+                        {@const acc = Math.round(sessionQuizCorrect / sessionQuizTotal * 100)}
+                        <div class="lv-done-quiz-bubble" class:lv-quiz-high={acc >= 80} class:lv-quiz-mid={acc >= 60 && acc < 80}>
+                            <LvIcon name="check" size={13} />
+                            <span>实战命中率 {acc}% ({sessionQuizCorrect}/{sessionQuizTotal})</span>
+                        </div>
+                    {/if}
                 </div>
                 <div class="lv-done-stats">
                     <div class="lv-done-stat">
@@ -2723,7 +2738,7 @@
 
                     <!-- 交互式选择题选项矩阵（点击或按 A/B/C/D 作答） -->
                     {#if interactiveQuiz?.kind === "choice" && interactiveQuiz.options.length >= 2}
-                        <div class="lv-interactive-choice-container">
+                        <div class="lv-interactive-choice-container" role={interactiveQuiz.isMultiple ? "group" : "radiogroup"} aria-label={interactiveQuiz.isMultiple ? "多选题选项列表" : "单选题选项列表"}>
                             <div class="lv-interactive-choice-prompt">
                                 <LvIcon name="check" size={14} />
                                 <span>{interactiveQuiz.isMultiple ? "多选作答（点击选项）" : "选择作答（点击或敲键盘 A/B/C/D）"}</span>
@@ -2732,6 +2747,8 @@
                                 {#each interactiveQuiz.options as opt (opt.key)}
                                     <button
                                         type="button"
+                                        role={interactiveQuiz.isMultiple ? "checkbox" : "radio"}
+                                        aria-checked={selectedChoiceKeys.includes(opt.key)}
                                         class="lv-interactive-choice-card"
                                         class:lv-choice-selected={selectedChoiceKeys.includes(opt.key)}
                                         class:lv-choice-correct={showAnswer && opt.isAnswer}
@@ -2741,6 +2758,7 @@
                                     >
                                         <span class="lv-choice-key-badge">{opt.key}</span>
                                         <span class="lv-choice-text-body">{opt.text}</span>
+                                        <span class="lv-choice-kbd-badge" aria-hidden="true">{opt.key}</span>
                                         {#if showAnswer}
                                             {#if opt.isAnswer}
                                                 <span class="lv-choice-result-pill lv-result-correct">✓ 正确答案</span>
@@ -2768,7 +2786,7 @@
 
                     <!-- 交互式判断题按钮组（点击或按 T/F 作答） -->
                     {#if interactiveQuiz?.kind === "judge"}
-                        <div class="lv-interactive-judge-container">
+                        <div class="lv-interactive-judge-container" role="radiogroup" aria-label="判断题正误判定">
                             <div class="lv-interactive-choice-prompt">
                                 <LvIcon name="target" size={14} />
                                 <span>判断作答（点击判定或敲键盘 T/F）</span>
@@ -2776,6 +2794,8 @@
                             <div class="lv-interactive-judge-grid">
                                 <button
                                     type="button"
+                                    role="radio"
+                                    aria-checked={userJudgeChoice === true}
                                     class="lv-interactive-judge-btn lv-judge-btn--true"
                                     class:lv-judge-selected={userJudgeChoice === true}
                                     class:lv-judge-correct={showAnswer && interactiveQuiz.judgeAnswer === true}
@@ -2794,6 +2814,8 @@
                                 </button>
                                 <button
                                     type="button"
+                                    role="radio"
+                                    aria-checked={userJudgeChoice === false}
                                     class="lv-interactive-judge-btn lv-judge-btn--false"
                                     class:lv-judge-selected={userJudgeChoice === false}
                                     class:lv-judge-correct={showAnswer && interactiveQuiz.judgeAnswer === false}
