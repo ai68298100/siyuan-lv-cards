@@ -19,9 +19,24 @@ The full-lifecycle flashcard learning platform for SiYuan — local-first, nativ
 
 > **Note**: The primary README and all design docs are in Chinese. This page covers the essentials; see [docs/](./docs/README.md) for full design material.
 
-Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.11** (2026-10-22), delivering retention rate indicators on review completion, mistake reinforcement, and visual polish. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.11) for the package and publishing status.
+Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.12** (2026-10-22), delivering step-by-step cloze progressive reveal, professional zoom/pan lightbox, and on-the-fly reverse recall. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.12) for the package and publishing status.
 
-## What's New in v0.210.11
+## What's New in v0.210.12
+
+- **Step-by-Step Progressive Cloze Recall**:
+  - Independent cloze slot reveal: click any masked slot (`[ 1: Recall Here ]`) to reveal it individually without spoiling subsequent slots.
+  - Keyboard workflow: press Space to progressively reveal the next slot, or `Shift+Space` to reveal all. Rating buttons automatically expand once all slots are uncovered.
+- **Professional Interactive Zoom & Pan Lightbox**:
+  - Smooth wheel zoom (0.5x to 4x) with click-and-drag panning for detailed diagrams and anatomy illustrations.
+  - Double-click toggles between 1:1 pixel scale and viewport fit, with a floating zoom percentage pill.
+- **On-the-fly Reverse Q&A Recall (R)**:
+  - Added **`[ ⇄ Reverse Q&A (R) ]`** in review toolbar to instantly test bidirectional recall without touching source notes.
+- **Visual Physical Key Feedback**:
+  - Instant tactile-style spring depression animation on ratings buttons when pressing keys `1`, `2`, `3`, `4`, or `Space`.
+- **Verification**:
+  - 1928 tests across 240 test suites 100% passing; zero TypeScript/Svelte errors and warnings; production build and smoke tests green.
+
+## Previous Update: v0.210.11
 
 - **Review Completion Elevation & Retention Indicator**:
   - Added an illuminated retention rate bubble on session completion with visual performance badges;

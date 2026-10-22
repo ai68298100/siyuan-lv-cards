@@ -77,10 +77,16 @@ export function maskMarkedAnswersForQuestion(html: string): string {
     template.innerHTML = String(html ?? "");
     const marks = Array.from(template.content.querySelectorAll(MARK_SELECTOR));
     if (marks.length > 0) {
+        let idx = 0;
         for (const mark of marks) {
+            idx++;
+            const originalText = (mark.textContent ?? "").trim();
             const length = Math.max(1, Array.from(mark.textContent ?? "").length);
             mark.textContent = "\u00a0".repeat(length);
             mark.setAttribute("aria-hidden", "true");
+            mark.setAttribute("data-cloze-idx", String(idx));
+            mark.setAttribute("data-real-answer", originalText);
+            mark.setAttribute("title", marks.length > 1 ? `第 ${idx} 空（点击揭晓）` : "答案遮蔽（点击揭晓）");
         }
         return template.innerHTML;
     }

@@ -578,6 +578,15 @@
     let memoSaving = $state(false);
     // 卡面大图全屏原图聚焦预览（Lightroom Zoom）
     let zoomedImage = $state<{ src: string; alt?: string } | null>(null);
+    let imgScale = $state(1);
+    let imgPanX = $state(0);
+    let imgPanY = $state(0);
+    let isDraggingImg = $state(false);
+    let dragStartX = 0;
+    let dragStartY = 0;
+    let reversedRecall = $state(false);
+    let stepRevealedCount = $state(0);
+    let pressedKeyFeedback = $state<string | null>(null);
     let lightboxEl: HTMLDivElement | null = $state(null);
 
     // 汲取自番茄插件：复习端就地移出卡组
@@ -1079,6 +1088,12 @@
         showRetireModal = false;
         retireBusy = false;
         zoomedImage = null;
+        imgScale = 1;
+        imgPanX = 0;
+        imgPanY = 0;
+        isDraggingImg = false;
+        reversedRecall = false;
+        stepRevealedCount = 0;
         ctxOpen = false;
         ctxBlocks = [];
         ctxLoading = false;
@@ -1152,8 +1167,106 @@
         if (target.tagName.toLowerCase() === "img") {
             e.stopPropagation();
             const img = target as HTMLImageElement;
-            zoomedImage = { src: img.src, alt: img.alt };
+            openZoomedImage(img.src, img.alt);
+            return;
         }
+
+        // 问题态下点击遮罩：支持逐步单独揭晓该空（Progressive Cloze Recall）
+        if (!showAnswer) {
+            const mark = target.closest("span[data-type='mark'], mark.lv-masked, [data-cloze-idx]") as HTMLElement | null;
+            if (mark) {
+                e.stopPropagation();
+                revealSingleClozeElement(mark);
+                return;
+            }
+        }
+    }
+
+    function openZoomedImage(src: string, alt?: string) {
+        zoomedImage = { src, alt };
+        imgScale = 1;
+        imgPanX = 0;
+        imgPanY = 0;
+    }
+
+    function onLightboxWheel(e: WheelEvent) {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? -0.15 : 0.15;
+        imgScale = Math.min(4, Math.max(0.5, Math.round((imgScale + delta) * 100) / 100));
+    }
+
+    function onLightboxPointerDown(e: PointerEvent) {
+        if (e.button !== 0) return;
+        isDraggingImg = true;
+        dragStartX = e.clientX - imgPanX;
+        dragStartY = e.clientY - imgPanY;
+        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    }
+
+    function onLightboxPointerMove(e: PointerEvent) {
+        if (!isDraggingImg) return;
+        imgPanX = e.clientX - dragStartX;
+        imgPanY = e.clientY - dragStartY;
+    }
+
+    function onLightboxPointerUp(_e?: PointerEvent) {
+        isDraggingImg = false;
+    }
+
+    function onImageDblClick() {
+        if (imgScale !== 1) {
+            imgScale = 1;
+            imgPanX = 0;
+            imgPanY = 0;
+        } else {
+            imgScale = 2;
+        }
+    }
+
+    function revealSingleClozeElement(mark: HTMLElement) {
+        if (mark.classList.contains("lv-step-revealed")) return;
+        const answer = mark.getAttribute("data-real-answer");
+        if (answer) {
+            mark.textContent = answer;
+            mark.removeAttribute("aria-hidden");
+            mark.classList.add("lv-step-revealed");
+            mark.setAttribute("title", "已揭晓");
+        } else {
+            mark.classList.add("lv-step-revealed");
+        }
+        stepRevealedCount++;
+        checkAllClozeRevealed();
+    }
+
+    function checkAllClozeRevealed() {
+        if (!cardEl) return;
+        const allMarks = cardEl.querySelectorAll("span[data-type='mark'][data-cloze-idx], mark.lv-masked[data-cloze-idx]");
+        if (allMarks.length === 0) return;
+        const unrevealed = Array.from(allMarks).filter(m => !m.classList.contains("lv-step-revealed"));
+        if (unrevealed.length === 0) {
+            revealAnswer();
+        }
+    }
+
+    function revealNextClozeOrAll(forceAll = false): boolean {
+        if (!cardEl) return false;
+        const allMarks = Array.from(cardEl.querySelectorAll("span[data-type='mark'][data-cloze-idx], mark.lv-masked[data-cloze-idx]")) as HTMLElement[];
+        if (allMarks.length <= 1 || forceAll) {
+            return false;
+        }
+        const nextUnrevealed = allMarks.find(m => !m.classList.contains("lv-step-revealed"));
+        if (nextUnrevealed) {
+            revealSingleClozeElement(nextUnrevealed);
+            return true;
+        }
+        return false;
+    }
+
+    function triggerKeyFeedback(key: string) {
+        pressedKeyFeedback = key;
+        setTimeout(() => {
+            if (pressedKeyFeedback === key) pressedKeyFeedback = null;
+        }, 180);
     }
 
     function closeZoomedImage() {
@@ -1670,6 +1783,12 @@
 
         if (!action) return;
 
+        if ((e.key === "r" || e.key === "R") && !showAnswer && current && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) {
+            e.preventDefault();
+            reversedRecall = !reversedRecall;
+            return;
+        }
+
         switch (action) {
             case "close-peek":
                 peek = null;
@@ -1683,9 +1802,13 @@
                 returnFocus();
                 break;
             case "reveal":
-                revealAnswer();
+                triggerKeyFeedback(" ");
+                if (e.shiftKey || !revealNextClozeOrAll(false)) {
+                    revealAnswer();
+                }
                 break;
             case "rate-default":
+                triggerKeyFeedback("3");
                 rate(3);
                 break;
             case "advance-hint":
@@ -1707,15 +1830,19 @@
                 showMemoEditor = !showMemoEditor;
                 break;
             case "rate-1":
+                triggerKeyFeedback("1");
                 rate(1);
                 break;
             case "rate-2":
+                triggerKeyFeedback("2");
                 rate(2);
                 break;
             case "rate-3":
+                triggerKeyFeedback("3");
                 rate(3);
                 break;
             case "rate-4":
+                triggerKeyFeedback("4");
                 rate(4);
                 break;
             case "undo":
@@ -2356,6 +2483,9 @@
                     {#if showMoreToolbar}
                         <div class="lv-toolbar-more-scrim" onclick={() => (showMoreToolbar = false)}></div>
                         <div class="lv-toolbar-more-menu" role="menu">
+                            <button type="button" class="lv-toolbar-menu-item" class:lv-active={reversedRecall} title={t.review.enableReversed ?? "翻转问答自测 (R)"} onclick={() => { reversedRecall = !reversedRecall; showMoreToolbar = false; }}>
+                                <span class="lv-menu-icon"><LvIcon name="refresh" size={16} /></span><span>{reversedRecall ? (t.review.cancelReversed ?? "恢复正常顺序") : (t.review.enableReversed ?? "翻转问答自测 (R)")}</span>
+                            </button>
                             <button type="button" class="lv-toolbar-menu-item" class:lv-active={ctxOpen} title={t.review.ctxToggle} onclick={() => { toggleContext(); showMoreToolbar = false; }}>
                                 <span class="lv-menu-icon"><LvIcon name="book" size={16} /></span><span>{t.review.tbCtx}</span>
                             </button>
@@ -2730,16 +2860,28 @@
             {/if}
             <div class="lv-actions" class:lv-actions-compact={eff().ratingDensity === "compact"}>
             {#if !showAnswer}
-                <button class="b3-button lv-btn-primary lv-btn-wide" disabled={!faceReady} onclick={revealAnswer}>{t.review.showAnswer}<span class="lv-btn-wide-kbd">Space</span></button>
+                {#if stepRevealedCount > 0}
+                    <div class="fn__flex" style="width: 100%; gap: var(--lv-sp-2)">
+                        <button class="b3-button lv-btn-primary fn__flex-1 lv-btn-wide" class:lv-btn-pressed={pressedKeyFeedback === " "} disabled={!faceReady} onclick={() => { if (!revealNextClozeOrAll(false)) revealAnswer(); }}>
+                            {t.review.clozeRevealNext ?? "揭晓下一空"}
+                            <span class="lv-btn-wide-kbd">Space</span>
+                        </button>
+                        <button class="b3-button b3-button--outline lv-btn-small-pill" title="全部揭晓（Shift+Space）" onclick={() => revealAnswer()}>
+                            {t.review.clozeRevealAll ?? "全部揭晓"}
+                        </button>
+                    </div>
+                {:else}
+                    <button class="b3-button lv-btn-primary lv-btn-wide" class:lv-btn-pressed={pressedKeyFeedback === " "} disabled={!faceReady} onclick={revealAnswer}>{t.review.showAnswer}<span class="lv-btn-wide-kbd">Space</span></button>
+                {/if}
             {:else if eff().ratingStyle === "three"}
-                <button class="b3-button lv-btn-rate lv-b1" disabled={actionBusy} onclick={() => rate(1)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.unknown}</span><LvKbd k="1" /></span><small>{dueText("1")}</small></button>
-                <button class="b3-button lv-btn-rate lv-b2" disabled={actionBusy} onclick={() => rate(2)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.vague}</span><LvKbd k="2" /></span><small>{dueText("2")}</small></button>
-                <button class="b3-button lv-btn-rate lv-b3" disabled={actionBusy} onclick={() => rate(3)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.know}</span><LvKbd k="3" /></span><small>{dueText("3")}</small></button>
+                <button class="b3-button lv-btn-rate lv-b1" class:lv-btn-pressed={pressedKeyFeedback === "1"} disabled={actionBusy} onclick={() => rate(1)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.unknown}</span><LvKbd k="1" /></span><small>{dueText("1")}</small></button>
+                <button class="b3-button lv-btn-rate lv-b2" class:lv-btn-pressed={pressedKeyFeedback === "2"} disabled={actionBusy} onclick={() => rate(2)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.vague}</span><LvKbd k="2" /></span><small>{dueText("2")}</small></button>
+                <button class="b3-button lv-btn-rate lv-b3" class:lv-btn-pressed={pressedKeyFeedback === "3"} disabled={actionBusy} onclick={() => rate(3)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.know}</span><LvKbd k="3" /></span><small>{dueText("3")}</small></button>
             {:else}
-                <button class="b3-button lv-btn-rate lv-b1" disabled={actionBusy} onclick={() => rate(1)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.againBtn}</span><LvKbd k="1" /></span><small>{dueText("1")}</small></button>
-                <button class="b3-button lv-btn-rate lv-b2" disabled={actionBusy} onclick={() => rate(2)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.hard}</span><LvKbd k="2" /></span><small>{dueText("2")}</small></button>
-                <button class="b3-button lv-btn-rate lv-b3" disabled={actionBusy} onclick={() => rate(3)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.good}</span><LvKbd k="3" /></span><small>{dueText("3")}</small></button>
-                <button class="b3-button lv-btn-rate lv-b4" disabled={actionBusy} onclick={() => rate(4)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.easy}</span><LvKbd k="4" /></span><small>{dueText("4")}</small></button>
+                <button class="b3-button lv-btn-rate lv-b1" class:lv-btn-pressed={pressedKeyFeedback === "1"} disabled={actionBusy} onclick={() => rate(1)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.againBtn}</span><LvKbd k="1" /></span><small>{dueText("1")}</small></button>
+                <button class="b3-button lv-btn-rate lv-b2" class:lv-btn-pressed={pressedKeyFeedback === "2"} disabled={actionBusy} onclick={() => rate(2)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.hard}</span><LvKbd k="2" /></span><small>{dueText("2")}</small></button>
+                <button class="b3-button lv-btn-rate lv-b3" class:lv-btn-pressed={pressedKeyFeedback === "3"} disabled={actionBusy} onclick={() => rate(3)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.good}</span><LvKbd k="3" /></span><small>{dueText("3")}</small></button>
+                <button class="b3-button lv-btn-rate lv-b4" class:lv-btn-pressed={pressedKeyFeedback === "4"} disabled={actionBusy} onclick={() => rate(4)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.easy}</span><LvKbd k="4" /></span><small>{dueText("4")}</small></button>
             {/if}
         </div>
     {/if}
@@ -2922,16 +3064,28 @@
             tabindex="-1"
             bind:this={lightboxEl}
             onclick={closeZoomedImage}
+            onwheel={onLightboxWheel}
         >
+            <div class="lv-lightbox-toolbar" onclick={(e) => e.stopPropagation()} tabindex="-1">
+                <button type="button" tabindex="-1" class="b3-button b3-button--small b3-button--text" title="缩小" onclick={() => (imgScale = Math.max(0.5, Math.round((imgScale - 0.2) * 100) / 100))}>−</button>
+                <span class="lv-lightbox-scale-num" title="双击图片还原">{Math.round(imgScale * 100)}%</span>
+                <button type="button" tabindex="-1" class="b3-button b3-button--small b3-button--text" title="放大" onclick={() => (imgScale = Math.min(4, Math.round((imgScale + 0.2) * 100) / 100))}>+</button>
+                <button type="button" tabindex="-1" class="b3-button b3-button--small b3-button--outline lv-lightbox-reset" onclick={() => { imgScale = 1; imgPanX = 0; imgPanY = 0; }}>1:1</button>
+                <button type="button" class="b3-button b3-button--small lv-img-lightbox-close" aria-label={window.siyuan.languages.cancel ?? "关闭"} onclick={closeZoomedImage}>✕</button>
+            </div>
+
             <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-            <div class="lv-img-lightbox-content" onclick={(e) => e.stopPropagation()}>
-                <img src={zoomedImage.src} alt={zoomedImage.alt ?? "Flashcard image preview"} />
-                <button
-                    type="button"
-                    class="b3-button b3-button--small lv-img-lightbox-close"
-                    aria-label={window.siyuan.languages.cancel ?? "关闭"}
-                    onclick={closeZoomedImage}
-                >✕</button>
+            <div
+                class="lv-img-lightbox-content"
+                style={`transform: translate(${imgPanX}px, ${imgPanY}px) scale(${imgScale}); cursor: ${imgScale > 1 ? (isDraggingImg ? 'grabbing' : 'grab') : 'zoom-in'};`}
+                onclick={(e) => e.stopPropagation()}
+                ondblclick={onImageDblClick}
+                onpointerdown={onLightboxPointerDown}
+                onpointermove={onLightboxPointerMove}
+                onpointerup={onLightboxPointerUp}
+                onpointercancel={onLightboxPointerUp}
+            >
+                <img src={zoomedImage.src} alt={zoomedImage.alt ?? "Flashcard image preview"} draggable="false" />
             </div>
         </div>
     {/if}
@@ -3828,6 +3982,55 @@
             }
         }
 
+        :global(.lv-step-revealed) {
+            background: color-mix(in srgb, var(--lv-color-brand) 14%, transparent) !important;
+            color: var(--lv-color-text) !important;
+            border-bottom: 2px solid var(--lv-color-brand) !important;
+            border-radius: var(--lv-r-track);
+            padding: 0 4px;
+            box-shadow: 0 2px 8px color-mix(in srgb, var(--lv-color-brand) 20%, transparent);
+            animation: lv-pulse-glow 0.3s var(--lv-ease);
+        }
+
+        .lv-btn-pressed {
+            transform: scale(0.94) !important;
+            border-color: var(--lv-color-brand) !important;
+            box-shadow: 0 0 0 3px color-mix(in srgb, var(--lv-color-brand) 35%, transparent) !important;
+            transition: all 0.1s var(--lv-ease) !important;
+        }
+
+        .lv-lightbox-toolbar {
+            position: absolute;
+            top: 20px;
+            right: 24px;
+            z-index: 1002;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            background: color-mix(in srgb, var(--lv-color-surface) 88%, black 12%);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid var(--lv-border);
+            border-radius: var(--lv-r-pill);
+            box-shadow: var(--lv-shadow-float);
+
+            .lv-lightbox-scale-num {
+                font-size: 12px;
+                font-weight: var(--lv-fw-semibold);
+                color: var(--lv-color-text);
+                min-width: 44px;
+                text-align: center;
+                user-select: none;
+            }
+
+            .lv-lightbox-reset {
+                font-size: 11px;
+                padding: 2px 7px;
+                border-radius: var(--lv-r-pill);
+            }
+        }
+
         .lv-img-lightbox {
             position: fixed;
             inset: 0;
@@ -3859,25 +4062,21 @@
                     box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
                     user-select: none;
                 }
+            }
 
-                .lv-img-lightbox-close {
-                    position: absolute;
-                    top: -14px;
-                    right: -14px;
-                    width: 32px;
-                    height: 32px;
-                    border-radius: var(--lv-r-circle);
-                    background: var(--lv-color-surface);
-                    color: var(--lv-color-text);
-                    display: grid;
-                    place-items: center;
-                    cursor: pointer;
-                    box-shadow: var(--lv-shadow-card);
-                    border: 1px solid var(--lv-border);
-                    &:hover {
-                        background: var(--lv-surface-hover);
-                        color: var(--lv-color-brand);
-                    }
+            .lv-img-lightbox-close {
+                width: 28px;
+                height: 28px;
+                border-radius: var(--lv-r-circle);
+                background: var(--lv-color-surface);
+                color: var(--lv-color-text);
+                display: grid;
+                place-items: center;
+                cursor: pointer;
+                border: 1px solid var(--lv-border);
+                &:hover {
+                    background: var(--lv-surface-hover);
+                    color: var(--lv-color-brand);
                 }
             }
         }
