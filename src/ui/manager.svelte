@@ -1,8 +1,8 @@
 <script lang="ts">
     import { onMount, tick } from "svelte";
     import { openTab, showMessage } from "siyuan";
-    import { getRiffCards, getRiffCardsByBlockIDs, removeRiffCards, resetRiffCards, type SearchBlock } from "@/api/riff";
-    import { invalidateDueCache } from "@/api/due-shared";
+    import { getRiffCards, getRiffCardsByBlockIDs, getRiffDecks, createRiffDeck, removeRiffCards, resetRiffCards, type SearchBlock, type RiffDeck } from "@/api/riff";
+    import { addRiffCards, invalidateDueCache } from "@/api/due-shared";
     import { friendlyError } from "@/api/errors";
 import { confirmDialog } from "@/libs/dialog";
     import { parseManagerView } from "@/core/settings";
@@ -457,6 +457,80 @@ import { confirmDialog } from "@/libs/dialog";
         });
     }
 
+    let showDeckModal = $state(false);
+    let modalMode = $state<"add" | "move">("add");
+    let availableDecks = $state<RiffDeck[]>([]);
+    let selectedDeckId = $state("");
+    let newDeckNameInput = $state("");
+    let deckActionBusy = $state(false);
+
+    async function openBatchDeckModal(mode: "add" | "move") {
+        if (selected.length === 0 || batchBusy !== null) return;
+        modalMode = mode;
+        selectedDeckId = "";
+        newDeckNameInput = "";
+        try {
+            availableDecks = (await getRiffDecks?.()) ?? [];
+            if (availableDecks.length > 0) {
+                const firstOther = availableDecks.find(d => d.id !== deckScope?.id) ?? availableDecks[0];
+                selectedDeckId = firstOther.id;
+            }
+            showDeckModal = true;
+        } catch (e: any) {
+            showMessage(friendlyError(e, t), 3000, "error");
+        }
+    }
+
+    async function submitBatchDeckAction() {
+        if (deckActionBusy || selected.length === 0) return;
+        let targetDeckId = selectedDeckId;
+        let targetDeckName = "";
+
+        if (newDeckNameInput.trim()) {
+            try {
+                deckActionBusy = true;
+                const created = (await createRiffDeck?.(newDeckNameInput.trim())) as any;
+                targetDeckId = created?.id ?? created?.deck?.id ?? "";
+                targetDeckName = newDeckNameInput.trim();
+            } catch (e: any) {
+                deckActionBusy = false;
+                showMessage(friendlyError(e, t), 3500, "error");
+                return;
+            }
+        } else {
+            const found = availableDecks.find(d => d.id === targetDeckId);
+            targetDeckName = found?.name ?? targetDeckId;
+        }
+
+        if (!targetDeckId) {
+            showMessage(t.deckPickerNeedDeck ?? "请选择或新建目标卡组", 2500, "info");
+            return;
+        }
+
+        deckActionBusy = true;
+        batchError = "";
+        const blockIDs = [...selected];
+        try {
+            await addRiffCards(targetDeckId, blockIDs);
+            if (modalMode === "move" && deckScope?.id && deckScope.id !== targetDeckId) {
+                await removeRiffCards(deckScope.id, blockIDs);
+            }
+            invalidateDueCache();
+            const doneMsg = modalMode === "move"
+                ? (t.manager.batchMoveDone ?? "已将 ${n} 张卡片移动至卡组「${deck}」").replace("${n}", String(blockIDs.length)).replace("${deck}", targetDeckName)
+                : (t.manager.batchAddDone ?? "已将 ${n} 张卡片加入卡组「${deck}」").replace("${n}", String(blockIDs.length)).replace("${deck}", targetDeckName);
+            showMessage(doneMsg, 2500, "info");
+            selected = [];
+            showDeckModal = false;
+            await load();
+        } catch (e: any) {
+            batchError = friendlyError(e, t);
+            showMessage(batchError, 3500, "error");
+        } finally {
+            deckActionBusy = false;
+        }
+    }
+
     /** 键盘快捷删除当前焦点卡片；删除后把焦点留在相邻卡片，避免回到页面顶部。 */
     function removeOne(b: SearchBlock, rowIndex: number) {
         if (batchBusy) return;
@@ -717,6 +791,14 @@ import { confirmDialog } from "@/libs/dialog";
             {#if batchError}<span class="lv-batch-error" role="alert">{batchError}</span>{/if}
             <div class="fn__flex-1"></div>
             {#if ctx.uiMode !== "simple"}
+                <button class="b3-button b3-button--outline" disabled={batchBusy !== null} onclick={() => openBatchDeckModal("add")}>
+                    <LvIcon name="plus" size={14} /> {t.manager.batchAddDeck ?? "加入卡组"}
+                </button>
+                {#if deckScope}
+                    <button class="b3-button b3-button--outline" disabled={batchBusy !== null} onclick={() => openBatchDeckModal("move")}>
+                        <LvIcon name="book" size={14} /> {t.manager.batchMoveDeck ?? "移动到卡组"}
+                    </button>
+                {/if}
                 <button class="b3-button b3-button--outline" disabled={batchBusy !== null} onclick={exportSelected}>{t.manager.exportCsv}</button>
                 <!-- W3：导出 Obsidian SR markdown（qa/挖空自动分型；可用我们的导入器回导） -->
                 <button class="b3-button b3-button--outline" disabled={batchBusy !== null} title={t.manager.obExportHint} onclick={exportObsidianSr}>{t.manager.obExport}</button>
@@ -724,6 +806,42 @@ import { confirmDialog } from "@/libs/dialog";
             {/if}
             <button class="b3-button b3-button--outline" disabled={batchBusy !== null} onclick={batchRemove}>{batchBusy === "remove" ? t.dashboard.loading : t.manager.batchRemove}</button>
             <button class="b3-button b3-button--small" disabled={batchBusy !== null} onclick={() => (selected = [])}>{t.manager.batchCancel}</button>
+        </div>
+    {/if}
+
+    {#if showDeckModal}
+        <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+        <div class="lv-modal-mask" onclick={() => (showDeckModal = false)} role="presentation"></div>
+        <div class="lv-deck-modal lv-card2 b3-typography" role="dialog" aria-modal="true" aria-labelledby="lv-deck-modal-title">
+            <div class="lv-deck-modal-head">
+                <span id="lv-deck-modal-title" style="font-weight: var(--lv-fw-bold); font-size: var(--lv-type-label-size)">
+                    {modalMode === "move" ? (t.manager.batchMoveDeck ?? "移动卡片至目标卡组") : (t.manager.batchAddDeck ?? "添加卡片至目标卡组")}
+                </span>
+                <button type="button" class="b3-button b3-button--small" onclick={() => (showDeckModal = false)}>✕</button>
+            </div>
+            <p class="ft__smaller ft__on-surface" style="margin: var(--lv-sp-2) 0">
+                {modalMode === "move"
+                    ? (t.manager.batchMovePrompt ?? `将已选的 ${selected.length} 张卡片从当前卡组移出，并加入新卡组：`)
+                    : (t.manager.batchAddPrompt ?? `将已选的 ${selected.length} 张卡片加入目标卡组：`)}
+            </p>
+            <div style="margin-bottom: var(--lv-sp-2)">
+                <div class="ft__smaller" style="margin-bottom: 4px; color: var(--lv-color-text-muted)">{t.deckPickerTitle ?? "选择已有卡组"}</div>
+                <select class="b3-select fn__block" bind:value={selectedDeckId} disabled={deckActionBusy || availableDecks.length === 0}>
+                    {#each availableDecks as d (d.id)}
+                        <option value={d.id}>{d.name}</option>
+                    {/each}
+                </select>
+            </div>
+            <div style="margin-bottom: var(--lv-sp-4)">
+                <div class="ft__smaller" style="margin-bottom: 4px; color: var(--lv-color-text-muted)">{t.deckNewName ?? "或新建卡组"}</div>
+                <input class="b3-text-field fn__block" placeholder={t.deckNewName ?? "输入新卡组名称"} bind:value={newDeckNameInput} disabled={deckActionBusy} />
+            </div>
+            <div class="fn__flex" style="justify-content: flex-end; gap: var(--lv-sp-2)">
+                <button class="b3-button b3-button--cancel" disabled={deckActionBusy} onclick={() => (showDeckModal = false)}>{window.siyuan.languages.cancel}</button>
+                <button class="b3-button lv-btn-primary" disabled={deckActionBusy} onclick={submitBatchDeckAction}>
+                    {deckActionBusy ? "…" : (window.siyuan.languages.confirm ?? "确认")}
+                </button>
+            </div>
         </div>
     {/if}
 
@@ -972,6 +1090,37 @@ import { confirmDialog } from "@/libs/dialog";
         display: flex;
         flex-direction: column;
         gap: var(--lv-sp-2);
+    }
+
+    .lv-modal-mask {
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+        background: color-mix(in srgb, black 32%, transparent);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+    }
+    .lv-deck-modal {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 1001;
+        width: min(440px, 92vw);
+        padding: var(--lv-sp-4);
+        border-radius: var(--lv-r-dialog);
+        box-shadow: var(--lv-shadow-float), var(--lv-inset-shine);
+        background: var(--lv-color-surface);
+        border: 1px solid var(--lv-border);
+        animation: lv-modal-pop var(--lv-dur-2) var(--lv-ease);
+    }
+    .lv-deck-modal-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--lv-sp-2);
+        padding-bottom: var(--lv-sp-2);
+        border-bottom: 1px solid var(--lv-border);
     }
 
     .lv-batchbar {

@@ -19,9 +19,25 @@ The full-lifecycle flashcard learning platform for SiYuan — local-first, nativ
 
 > **Note**: The primary README and all design docs are in Chinese. This page covers the essentials; see [docs/](./docs/README.md) for full design material.
 
-Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.8** (2026-10-22), delivering zero-mutation legacy flashcard compatibility, native SiYuan card support, ecosystem plugin interoperability, and comprehensive UI aesthetic overhaul. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.8) for the package and publishing status.
+Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.9** (2026-10-22), delivering native card non-destructive presentation, batch deck organization, and quick cloze wrapping in card editing. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.9) for the package and publishing status.
 
-## What's New in v0.210.8
+## What's New in v0.210.9
+
+- **Native & Ecosystem Card Review Presentation Elevation**:
+  - Enhanced review interface for native SiYuan prompt cards, block memo answers, third-party plugin attributes, and delimited syntax.
+  - Dynamic card badges: `[ 📖 Native Card ]`, `[ 💡 Memo Answer ]`, `[ 💡 Plugin Answer ]`, `[ 💬 QA ]`, `[ ✏️ Cloze ]`, `[ 💻 Code ]`, `[ 🖼️ Occlusion ]`.
+  - Native self-rating prompt banner: gently informs users that their note blocks remain completely unmodified and guides self-assessment.
+  - Illuminated answer callout: displays block memo and plugin attributes (`custom-card-answer`, etc.) with refined styling.
+- **Card Package & Batch Deck Organization**:
+  - Added **`[ 📁 Add to Deck ]`** and **`[ 📦 Move to Deck ]`** in the Card Manager batch action bar.
+  - Supports choosing existing decks or creating new decks on the fly; seamlessly moves cards between decks.
+- **Quick Cloze Wrapping & Keyboard Shortcut**:
+  - Added dedicated **`[ == Cloze == ]`** button in the Card Editor header.
+  - Supports `Ctrl+H` / `⌘H` shortcut to wrap selections with `==...==` or insert a blank placeholder instantly.
+- **Verification**:
+  - 1928 tests across 240 test suites 100% passing; zero TypeScript/Svelte errors and warnings; production build and smoke tests green.
+
+## Previous Update: v0.210.8
 
 - **Zero-Mutation Legacy & Native Flashcard In-Place Compatibility**:
   - Established a strict zero-mutation guarantee that leaves user notes 100% untouched while enabling seamless flashcard review across all existing formats.

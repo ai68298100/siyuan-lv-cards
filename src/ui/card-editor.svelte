@@ -17,6 +17,27 @@
     let text = $state(original);
     let saving = $state(false);
     let errMsg = $state("");
+    let textareaEl = $state<HTMLTextAreaElement | null>(null);
+
+    function wrapSelectionWithCloze() {
+        if (!textareaEl) return;
+        const start = textareaEl.selectionStart;
+        const end = textareaEl.selectionEnd;
+        const selected = text.slice(start, end);
+        if (selected) {
+            text = text.slice(0, start) + `==${selected}==` + text.slice(end);
+            setTimeout(() => {
+                textareaEl?.focus();
+                textareaEl?.setSelectionRange(start + 2, end + 2);
+            }, 0);
+        } else {
+            text = text.slice(0, start) + `==答案==` + text.slice(end);
+            setTimeout(() => {
+                textareaEl?.focus();
+                textareaEl?.setSelectionRange(start + 2, start + 4);
+            }, 0);
+        }
+    }
     // 差异重算防抖（AQ-548 同款 200ms）：长文输入不逐键跑 diff
     // svelte-ignore state_referenced_locally -- 同上：diff 基准=打开时原文
     let deferred = $state(original);
@@ -50,15 +71,29 @@
 </script>
 
 <section class="lv-editor" aria-label={t.editor.title}>
-    <div class="lv-editor-head ft__smaller ft__on-surface">{t.editor.title}</div>
+    <div class="lv-editor-head ft__smaller ft__on-surface">
+        <span>{t.editor.title}</span>
+        <button
+            type="button"
+            class="b3-button b3-button--small b3-button--outline lv-editor-cloze-btn"
+            title="为选中内容快速添加 ==答案== 挖空（快捷键：Ctrl+H）"
+            onclick={wrapSelectionWithCloze}
+        >
+            == 挖空 ==
+        </button>
+    </div>
     <textarea
+        bind:this={textareaEl}
         class="b3-text-field lv-editor-input"
         bind:value={text}
         aria-label={t.editor.inputLabel}
         rows={4}
         disabled={saving}
         onkeydown={(e: KeyboardEvent) => {
-            if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && changed && !saving) {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "h") {
+                e.preventDefault();
+                wrapSelectionWithCloze();
+            } else if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && changed && !saving) {
                 e.preventDefault();
                 save();
             } else if (e.key === "Escape" && !saving) {
@@ -96,8 +131,25 @@
         gap: var(--lv-sp-2);
         margin-bottom: var(--lv-sp-4);
         padding: var(--lv-sp-3);
-        border: 1px solid var(--b3-border-color);
+        border: 1px solid var(--lv-border);
         border-radius: var(--lv-r-m);
+        background: var(--lv-color-surface);
+        box-shadow: var(--lv-shadow-card), var(--lv-inset-shine);
+    }
+    .lv-editor-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--lv-sp-2);
+    }
+    .lv-editor-cloze-btn {
+        border-radius: var(--lv-r-pill);
+        padding: 2px 10px;
+        font-size: 11px;
+        font-weight: var(--lv-fw-semibold);
+        color: var(--lv-color-brand);
+        border-color: var(--lv-primary-border);
+        background: var(--lv-primary-soft);
     }
     .lv-editor-input {
         width: 100%;
