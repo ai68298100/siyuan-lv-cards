@@ -1159,7 +1159,8 @@
 }
 
 // 统一卡面排版与遮蔽槽样式（R54 原型规范，统一候选、编辑与复习卡面）
-.lv-unified-face {
+.lv-unified-face,
+.lv-card-content {
     font-size: var(--lv-type-body-size, 14px);
     line-height: var(--lv-lh-reading-loose, 1.8);
     overflow-wrap: anywhere;

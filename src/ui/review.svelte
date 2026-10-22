@@ -2575,7 +2575,7 @@
             {:else}
                 {#key current?.cardID}
                     <!-- 灵动感（R53 纪律内）：切卡 140ms 单次淡入，只动 opacity；翻面淡入由 lv-anim-glow 承担 -->
-                    <div class="lv-card-content" class:lv-masked={!showAnswer} onclick={onCardContentClick} style={`font-size: ${eff().cardFontScale || 1}em`} in:fade={{ duration: getMotionDuration("standard") }}>
+                    <div class="lv-card-content lv-unified-face" class:lv-masked={!showAnswer} onclick={onCardContentClick} style={`font-size: ${eff().cardFontScale || 1}em`} in:fade={{ duration: getMotionDuration("standard") }}>
                         {#if eff().customCardCss}
                             {@html `<style>${eff().customCardCss}</style>`}
                         {/if}
@@ -3297,10 +3297,10 @@
         }
         .lv-ready-grid {
             display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
             gap: var(--lv-sp-3);
 
-            @media (max-width: 720px) {
+            @media (max-width: 600px) {
                 grid-template-columns: 1fr;
             }
 

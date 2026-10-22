@@ -1791,7 +1791,7 @@
     }
     @container lv-hub (max-width: 780px) {
         .lv-today-overview { grid-template-columns: minmax(0, 1fr); }
-        .lv-today-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+        .lv-today-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         .lv-today-week { min-height: 230px; }
     }
     @container lv-hub (max-width: 560px) {

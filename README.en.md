@@ -19,9 +19,21 @@ The full-lifecycle flashcard learning platform for SiYuan — local-first, nativ
 
 > **Note**: The primary README and all design docs are in Chinese. This page covers the essentials; see [docs/](./docs/README.md) for full design material.
 
-Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.20** (2026-10-22), delivering fill-in-the-blank underscore recognition, quote analysis spoiler protection, and single-line review toolbars. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.20) for the package and publishing status.
+Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.21** (2026-10-22), delivering universal rich card scopes, mid-viewport stat grid hardening, and bento grid elasticity. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.21) for the package and publishing status.
 
-## What's New in v0.210.20
+## What's New in v0.210.21
+
+- **Unified Rich Card Scopes (`.lv-unified-face` & `.lv-card-content`)**:
+  - Unified review faces, detail drawer previews, and card authoring components under both scope classes;
+  - Guaranteed strict element sizing for list bullets, task checkboxes, Excalidraw canvases, and code blocks across all themes.
+- **Mid-Viewport Grid Hardening (560px–780px)**:
+  - Corrected stat grid container queries to maintain a clean 2x2 grid without squeezing into four columns on split screens.
+- **Bento Ready Grid Elasticity**:
+  - Enhanced empty-queue action cards with `minmax(220px, 1fr)` auto-wrapping for fluid responsive scaling.
+- **Verification**:
+  - 1929 tests across 240 test suites 100% passing; zero TypeScript/Svelte errors and warnings; production build and smoke tests green.
+
+## Previous Update: v0.210.20
 
 - **Fill-in-the-Blank Underscore Masking (`_{3,}`)**:
   - Automatically maps consecutive underscores (e.g. `_____`) into click-to-reveal blank slots in question mode.
