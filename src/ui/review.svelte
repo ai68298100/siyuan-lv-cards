@@ -50,12 +50,14 @@
     import { trapFocus } from "@/libs/focus-trap";
     import { parseHPathToBreadcrumbs, type ReviewBreadcrumbChain } from "@/core/review-breadcrumbs";
     import { parseInteractiveQuiz, type InteractiveQuizData } from "@/core/quiz-interactive";
+    import { filterBurySiblings } from "@/core/sibling-cards";
 
     export interface ReviewSettings {
         ratingStyle: "four" | "three";
         timeoutMode: "off" | "reveal" | "forget";
         timeoutSeconds: number;
         randomOrder: boolean;
+        burySiblings: boolean;
         cardMaxWidth: number;
         typingEnabled: boolean;
         typingStrict: boolean;
@@ -975,6 +977,11 @@
             const bl = eff().batchLimit;
             if (bl > 0) {
                 cards = cards.slice(0, bl);
+            }
+            if (!cramActive && eff().burySiblings) {
+                // 同源兄弟卡防剧透推迟（Anki Bury Siblings）：每笔记块同一会话优先考 1 空，杜绝即时互为提示
+                const buryRes = filterBurySiblings(cards);
+                cards = buryRes.retained;
             }
             if (cramActive) {
                 // 考前 cram：遗忘多的卡优先（M7·FR4）

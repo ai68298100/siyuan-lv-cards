@@ -20,6 +20,8 @@ export interface LvCardsSettings {
     timeoutSeconds: number;
     /** 随机顺序 */
     randomOrder: boolean;
+    /** 同源兄弟卡防剧透推迟（Bury Siblings，对标 Anki 核心机制） */
+    burySiblings: boolean;
     /** 每批拉取数量（0=跟随内核上限） */
     batchLimit: number;
     /** 打字模式：所有卡作答输入后判分（M4·FR2 全局练习模式） */
@@ -160,7 +162,7 @@ export function parseManagerView(raw: string | undefined): ManagerViewState | nu
         const scrollTop = typeof v.scrollTop === "number" && Number.isFinite(v.scrollTop) && v.scrollTop >= 0 ? Math.min(v.scrollTop, 5_000_000) : 0;
         const focusId = typeof v.focusId === "string" ? v.focusId.slice(0, 256) : "";
         const res: ManagerViewState = { filter, sort, leechOnly, status, page, scrollTop, focusId };
-        if (v.starredOnly === true) res.starredOnly = true;
+        if (starredOnly) res.starredOnly = true;
         return res;
     } catch {
         return null;
@@ -184,6 +186,7 @@ export function defaultSettings(): LvCardsSettings {
         timeoutMode: "off",
         timeoutSeconds: 60,
         randomOrder: false,
+        burySiblings: true,
         batchLimit: 0,
         typingEnabled: false,
         typingStrict: true,
@@ -274,7 +277,7 @@ const ENUM_FIELDS: [keyof LvCardsSettings, readonly string[], string][] = [
 ];
 const BOOL_FIELDS: (keyof LvCardsSettings)[] = [
     "deepStatsOpen",
-    "randomOrder", "typingEnabled", "typingStrict", "dictationEnabled", "choiceEnabled", "mixedRotation", "requeueAgain",
+    "randomOrder", "burySiblings", "typingEnabled", "typingStrict", "dictationEnabled", "choiceEnabled", "mixedRotation", "requeueAgain",
     "xpEnabled", "markerEnabled", "hideMetaUntilAnswer", "reverseOrder", "ttsEnabled", "reminderEnabled",
     "sfxEnabled", "examEnabled", "dailyTipEnabled", "onboarded", "aiCostBudgetEnabled", "weeklyReportEnabled",
 ];

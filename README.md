@@ -21,11 +21,21 @@
 
 小驴闪卡（内测版）的定位是**思源笔记里的全生命周期记忆引擎**：让笔记里每一段值得记的内容，都能可回源地变成卡片，用内核原生 FSRS 排期，用可审计的 AI 提效；数据本地优先，方便带走。
 
-当前版本为 **v0.210.27（2026-10-23）**，落地智能拼写容错判定、卡库星标筛选过滤与专注复习模式。安装包与发布状态见 [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.27)。
+当前版本为 **v0.210.28（2026-10-23）**，落地同源兄弟卡防剧透推迟（Anki Bury Siblings）与卡库深度加固。安装包与发布状态见 [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.28)。
 
 [下载最新版](https://github.com/ai68298100/siyuan-lv-cards/releases/latest) · [提交问题](https://github.com/ai68298100/siyuan-lv-cards/issues/new/choose) · [贡献指南](./CONTRIBUTING.md)
 
-## 本次更新（v0.210.27）
+## 本次更新（v0.210.28）
+
+- **落地同源兄弟卡防剧透推迟机制（Anki Bury Siblings）**：
+  - 深度引入科学记忆体系中的兄弟卡埋藏算法（`filterBurySiblings` & `disperseSiblings`）；
+  - 同一复习会话中，当同一个笔记块（相同 `blockID`）派生了多个挖空或正反面时，自动仅出首张卡片，将其余兄弟卡推迟到次日/后续复习；
+  - 彻底杜绝连续出现同一段笔记上下文产生的虚假熟练感（False Mastery），捍卫真实提取努力（Desirable Difficulty）；
+  - 考前冲刺突击模式（Cram）智能放行全部卡片，满足考前地毯式刷题需求。
+- **全量门禁与质量验证**：
+  - 全库扩展至 242 个测试文件、1941 项测试 100% 通过；TypeScript 与 Svelte-check 0 错误 0 警告；构建与烟雾测试全绿。
+
+## 上一版本（v0.210.27）
 
 - **融合主流产品智能拼写容错（Typo Tolerance，支持 1 字笔误微瑕放行）**：
   - 引入 Levenshtein 动态编辑距离算法，在打字与填空题非严格模式下，仅有 1 字符笔误（如错别字、漏打字母且长度 >= 3）时，判定为“拼写微瑕”，智能放行建议 3 良好；
