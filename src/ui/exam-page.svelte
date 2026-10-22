@@ -466,7 +466,13 @@
         display: flex; flex-wrap: wrap; gap: calc(var(--lv-space-unit) * 2); align-items: baseline;
         margin: var(--lv-sp-1) 0 0;
     }
-    .lv-plan-actions { gap: var(--lv-sp-1); flex-wrap: wrap; }
+    .lv-plan-actions {
+        gap: var(--lv-sp-1);
+        flex-wrap: wrap;
+        border-top: 1px solid var(--lv-border);
+        padding-top: var(--lv-sp-2);
+        margin-top: var(--lv-sp-3);
+    }
     .lv-plan-advice-warn { color: var(--lv-color-warning); }
     .lv-editmask {
         position: fixed; inset: 0; z-index: var(--lv-z-host-overlay);

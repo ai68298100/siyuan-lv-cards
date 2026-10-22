@@ -56,6 +56,14 @@
         editing = true;
     }
 
+    function startEdit(g: LearningGoal) {
+        criteriaDraft = currentCriteria(g) ?? "";
+        form = { ...g };
+        editBaseline = JSON.stringify({ ...form, criteria: criteriaDraft });
+        formError = "";
+        editing = true;
+    }
+
     function cancelEdit() {
         const current = JSON.stringify({ ...form, criteria: criteriaDraft });
         if (current !== editBaseline && !window.confirm(t.discardConfirm ?? "当前填写内容尚未保存，确定退出吗？")) return;
@@ -287,6 +295,7 @@
                         {/if}
                     </div>
                     <div class="lv-goal-side">
+                        <button class="b3-button b3-button--small b3-button--outline" disabled={actionBusy} title={t.edit ?? "编辑"} onclick={() => startEdit(g)}>{t.edit ?? "编辑"}</button>
                         <button class="lv-chipbtn" disabled={actionBusy} title={t.priorityTitle} onclick={() => cyclePriority(g)}>{priorityText(g)}</button>
                         <button class="b3-button b3-button--small lv-btn-danger" disabled={actionBusy} title={t.delete} onclick={() => remove(g.id)}>{t.delete}</button>
                     </div>

@@ -180,12 +180,26 @@
         <section class="lv-qc-editor" aria-label={t.quickCardEditorLabel}>
             <label class="lv-qc-field">
                 <div class="lv-qc-label">{t.quickCardQ}</div>
-                <textarea class="b3-text-field fn__block" aria-label={t.quickCardQ} rows="4" bind:value={q} placeholder={template === "cloze" ? t.quickCardClozeHint : t.quickCardQ} disabled={busy}></textarea>
+                <textarea
+                    class="b3-text-field fn__block"
+                    aria-label={t.quickCardQ}
+                    rows="4"
+                    bind:value={q}
+                    placeholder={template === "cloze" ? t.quickCardClozeHint : t.quickCardQ}
+                    disabled={busy}
+                ></textarea>
                 {#if template === "cloze"}<div class="ft__smaller ft__on-surface lv-qc-help">{t.quickCardClozeHint}</div>{/if}
             </label>
             <label class="lv-qc-field">
                 <div class="lv-qc-label">{t.quickCardA}</div>
-                <textarea class="b3-text-field fn__block" aria-label={t.quickCardA} rows="4" bind:value={a} placeholder={t.quickCardA} disabled={busy}></textarea>
+                <textarea
+                    class="b3-text-field fn__block"
+                    aria-label={t.quickCardA}
+                    rows="4"
+                    bind:value={a}
+                    placeholder={t.quickCardA}
+                    disabled={busy}
+                ></textarea>
             </label>
             {#if template === "qa"}
                 <label class="lv-qc-bidi-toggle">
