@@ -1639,7 +1639,7 @@
         background: var(--lv-color-surface);
         box-shadow: var(--lv-shadow-card), var(--lv-inset-shine);
         text-align: left;
-        cursor: pointer;
+        cursor: default;
         transition: transform var(--lv-dur-2) var(--lv-ease),
             box-shadow var(--lv-dur-2) var(--lv-ease),
             border-color var(--lv-dur-1) var(--lv-ease),
@@ -1648,11 +1648,7 @@
         &:hover {
             transform: translateY(-2px);
             border-color: var(--lv-primary-border);
-            background: color-mix(in srgb, var(--lv-primary-soft) 40%, var(--lv-color-surface));
             box-shadow: var(--lv-shadow-card-hover), var(--lv-inset-shine);
-        }
-        &:active {
-            transform: translateY(0.5px);
         }
 
         .lv-today-deck-main-btn {
@@ -1667,6 +1663,9 @@
             cursor: pointer;
             text-align: left;
             color: inherit;
+            &:hover .lv-today-deck-name {
+                color: var(--lv-color-brand);
+            }
         }
         .lv-today-deck-actions {
             display: flex;

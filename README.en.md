@@ -19,9 +19,19 @@ The full-lifecycle flashcard learning platform for SiYuan — local-first, nativ
 
 > **Note**: The primary README and all design docs are in Chinese. This page covers the essentials; see [docs/](./docs/README.md) for full design material.
 
-Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.15** (2026-10-22), delivering search hit highlighting in manager, in-review live font zoom, and instant undo toasts. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.15) for the package and publishing status.
+Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.16** (2026-10-22), delivering manager responsive toolbar alignments, accessible names, and decoupled deck card interactions. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.16) for the package and publishing status.
 
-## What's New in v0.210.15
+## What's New in v0.210.16
+
+- **Manager Toolbar Responsive Alignment**:
+  - Encapsulated page total counter and select-all pill inside `.lv-toolbar-right` to eliminate line wrapping misalignment on compact displays;
+  - Fully aligned list item accessibility labels (`aria-label`) to preserve screen reader fidelity alongside search highlights.
+- **Decoupled Deck Card Action Targets**:
+  - Upgraded deck items from a single button into cleanly separated touch targets: title click for manager filtering, and dedicated pill button for quick review.
+- **Verification**:
+  - 1928 tests across 240 test suites 100% passing; zero TypeScript/Svelte errors and warnings; production build and smoke tests green.
+
+## Previous Update: v0.210.15
 
 - **Search Keyword Highlighting in Manager**:
   - Matched search terms in card excerpts are highlighted with a gentle amber pill marker (`<mark class="lv-search-hit">`);

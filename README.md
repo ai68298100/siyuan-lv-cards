@@ -21,11 +21,22 @@
 
 小驴闪卡（内测版）的定位是**思源笔记里的全生命周期记忆引擎**：让笔记里每一段值得记的内容，都能可回源地变成卡片，用内核原生 FSRS 排期，用可审计的 AI 提效；数据本地优先，方便带走。
 
-当前版本为 **v0.210.15（2026-10-22）**，落地管理器搜索高亮匹配、复习卡面实时字号调节与撤销即时反馈。安装包与发布状态见 [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.15)。
+当前版本为 **v0.210.16（2026-10-22）**，落地管理器工具行响应式对齐与首页卡包交互细节全面精修。安装包与发布状态见 [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.16)。
 
 [下载最新版](https://github.com/ai68298100/siyuan-lv-cards/releases/latest) · [提交问题](https://github.com/ai68298100/siyuan-lv-cards/issues/new/choose) · [贡献指南](./CONTRIBUTING.md)
 
-## 本次更新（v0.210.15）
+## 本次更新（v0.210.16）
+
+- **闪卡管理器（Manager）工具栏响应式与对齐精修**：
+  - 引入 `.lv-toolbar-right` 容器包装卡片总数指示与全选药丸按钮，彻底消除窄屏或窗口拉伸时的垂直错位与断行溢出；
+  - 列表行无障碍 accessible name 严格对齐（`aria-label` 完整保留文本原句，兼顾视障读屏与视觉高光）；
+- **首页「我的卡组」交互独立与微动效防误触**：
+  - 卡组容器升级为中性卡片底座，消除整卡点击态与右侧快捷复习按钮的事件冒泡与视觉冲突；
+  - 鼠标 hover 卡组标题平滑高亮品牌色，右侧高光药丸 `[ 🗂️ 复习 ]` 独立响应快速启动；
+- **全量门禁与质量验证**：
+  - 全库扩展至 240 个测试文件、1928 项测试 100% 通过；TypeScript 与 Svelte-check 0 错误 0 警告；构建与烟雾测试全绿。
+
+## 上一版本（v0.210.15）
 
 - **闪卡管理器（Manager）搜索关键词实时高亮（Search Highlighting）**：
   - 搜索筛选卡片时，内容摘要中匹配的关键词自动呈现温润暖黄微圆角高光标记（`<mark class="lv-search-hit">`）；

@@ -809,17 +809,19 @@ import { confirmDialog } from "@/libs/dialog";
                 onclick={toggleLeechFilter}
             >{t.manager.leechFilter}</button>
         {/if}
-        <span class="lv-toolbar-caption">{t.manager.total}: {total}</span>
-        {#if filteredBlocks.length > 0}
-            <button
-                type="button"
-                class="b3-button b3-button--small b3-button--outline lv-select-all-btn"
-                onclick={toggleSelectAll}
-                title={isAllSelected ? (t.manager.unselectAll ?? "取消全选") : (t.manager.selectAll ?? "全选本页")}
-            >
-                {isAllSelected ? (t.manager.unselectAll ?? "取消全选") : (t.manager.selectAll ?? "全选本页")}
-            </button>
-        {/if}
+        <div class="lv-toolbar-right">
+            <span class="lv-toolbar-caption">{t.manager.total}: {total}</span>
+            {#if filteredBlocks.length > 0}
+                <button
+                    type="button"
+                    class="b3-button b3-button--small b3-button--outline lv-select-all-btn"
+                    onclick={toggleSelectAll}
+                    title={isAllSelected ? (t.manager.unselectAll ?? "取消全选") : (t.manager.selectAll ?? "全选本页")}
+                >
+                    {isAllSelected ? (t.manager.unselectAll ?? "取消全选") : (t.manager.selectAll ?? "全选本页")}
+                </button>
+            {/if}
+        </div>
     </div>
     {#if deckScope}
         <div class="lv-mgr-deck-scope" role="status">
@@ -1069,6 +1071,13 @@ import { confirmDialog } from "@/libs/dialog";
 {/if}
 
 <style lang="scss">
+    .lv-toolbar-right {
+        margin-left: auto;
+        display: inline-flex;
+        align-items: center;
+        gap: var(--lv-sp-2);
+        flex-shrink: 0;
+    }
     .lv-select-all-btn {
         border-radius: var(--lv-r-pill);
         padding: 2px 10px;
