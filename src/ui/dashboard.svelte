@@ -33,6 +33,8 @@
         getV2Status: () => MigrationStatus | null;
         getDailyTargets: () => { new: number; review: number };
         openReview: () => void;
+        /** 启动指定卡包/范围复习 */
+        openReviewScope?: (scopeKey: string) => void;
         /** 空库时的直接制卡入口；与上手引导并列，避免新用户只能先看说明。 */
         openQuickCard?: () => void;
         openManagerDeck?: (deckID: string, deckName: string) => void;
@@ -281,6 +283,14 @@
     function heroActionLabel(): string {
         if (totalCards === 0 && ctx.openQuickCard) return t.cmdQuickCard ?? "快速制卡";
         return todayDecision.primaryActionLabel;
+    }
+
+    function startReviewDeck(deckID: string) {
+        if (ctx.openReviewScope) {
+            ctx.openReviewScope(`deck:${deckID}`);
+        } else {
+            ctx.openReview();
+        }
     }
 
     function heroAction(): void {
@@ -870,14 +880,29 @@
                     <button class="b3-button b3-button--text" onclick={() => ctx.openManager()}>{t.dashboard.decksViewAll ?? t.hubTabManage}</button>
                 </div>
                 <div class="lv-today-decks-list">
-                    {#each [...decks].sort((a, b) => (b.size ?? 0) - (a.size ?? 0)).slice(0, 4) as deck (deck.id)}
-                        <button class="lv-today-deck" aria-label={`${deck.name}, ${t.dashboard.deckCardCount.replace("${n}", String(deck.size ?? 0))}`} onclick={() => ctx.openManagerDeck?.(deck.id, deck.name)}>
-                            <div class="lv-today-deck-main">
+                    {#each [...decks].sort((a, b) => (b.size ?? 0) - (a.size ?? 0)).slice(0, 6) as deck (deck.id)}
+                        <div class="lv-today-deck">
+                            <button
+                                type="button"
+                                class="lv-today-deck-main-btn"
+                                aria-label={`${deck.name}, ${t.dashboard.deckCardCount.replace("${n}", String(deck.size ?? 0))}`}
+                                onclick={() => ctx.openManagerDeck?.(deck.id, deck.name)}
+                            >
                                 <span class="lv-deck-icon-badge" aria-hidden="true"><LvIcon name="book" size={15} /></span>
                                 <span class="lv-today-deck-name">{deck.name}</span>
+                            </button>
+                            <div class="lv-today-deck-actions">
+                                <span class="lv-today-deck-count">{t.dashboard.deckCardCount.replace("${n}", String(deck.size ?? 0))}</span>
+                                <button
+                                    type="button"
+                                    class="b3-button b3-button--small b3-button--outline lv-deck-quick-btn"
+                                    title={`开始复习卡组「${deck.name}」`}
+                                    onclick={() => startReviewDeck(deck.id)}
+                                >
+                                    <LvIcon name="cards" size={13} /> {t.dashboard.openReview ?? "复习"}
+                                </button>
                             </div>
-                            <span class="lv-today-deck-count">{t.dashboard.deckCardCount.replace("${n}", String(deck.size ?? 0))}</span>
-                        </button>
+                        </div>
                     {/each}
                 </div>
             </section>
@@ -1630,12 +1655,35 @@
             transform: translateY(0.5px);
         }
 
-        .lv-today-deck-main {
+        .lv-today-deck-main-btn {
             display: flex;
             align-items: center;
             gap: 10px;
             min-width: 0;
             flex: 1;
+            background: transparent;
+            border: none;
+            padding: 0;
+            cursor: pointer;
+            text-align: left;
+            color: inherit;
+        }
+        .lv-today-deck-actions {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+        .lv-deck-quick-btn {
+            border-radius: var(--lv-r-pill);
+            padding: 2px 8px;
+            font-size: 11px;
+            font-weight: var(--lv-fw-semibold);
+            color: var(--lv-color-brand);
+            border-color: var(--lv-primary-border);
+            &:hover {
+                background: var(--lv-primary-soft);
+            }
         }
         .lv-deck-icon-badge {
             width: 32px;

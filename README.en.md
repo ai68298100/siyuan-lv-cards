@@ -19,9 +19,19 @@ The full-lifecycle flashcard learning platform for SiYuan — local-first, nativ
 
 > **Note**: The primary README and all design docs are in Chinese. This page covers the essentials; see [docs/](./docs/README.md) for full design material.
 
-Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.12** (2026-10-22), delivering step-by-step cloze progressive reveal, professional zoom/pan lightbox, and on-the-fly reverse recall. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.12) for the package and publishing status.
+Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.13** (2026-10-22), delivering one-click deck review from the dashboard and enhanced deck ecosystem integration. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.13) for the package and publishing status.
 
-## What's New in v0.210.12
+## What's New in v0.210.13
+
+- **Dashboard One-Click Deck Review Action**:
+  - Added dedicated **`[ 🗂️ Review ]`** action pill directly beside each deck card in the "My Decks" dashboard section;
+  - Instantly launches review locked to the chosen deck (`scope=deck:<id>`) without extra configuration;
+  - Preserves deck title click for manager browsing, providing dual pathways for exploration and learning;
+  - Expanded deck preview capacity from 4 to 6 decks.
+- **Verification**:
+  - 1928 tests across 240 test suites 100% passing; zero TypeScript/Svelte errors and warnings; production build and smoke tests green.
+
+## Previous Update: v0.210.12
 
 - **Step-by-Step Progressive Cloze Recall**:
   - Independent cloze slot reveal: click any masked slot (`[ 1: Recall Here ]`) to reveal it individually without spoiling subsequent slots.

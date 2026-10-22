@@ -1070,7 +1070,8 @@ export default class LvCardsPlugin extends Plugin {
                                 await plugin.suspendTodayMutations.unsuspend(ids);
                                 return plugin.suspendToday.cardIDs.length;
                             },
-                            openReview: () => plugin.openTabOf(TAB_REVIEW),
+                            openReview: (options?: { scope?: string }) => plugin.openTabOf(TAB_REVIEW, options),
+                            openReviewScope: (scopeKey: string) => plugin.openTabOf(TAB_REVIEW, { scope: scopeKey }),
                             openOnboarding: () => plugin.openOnboarding(),
                             getAIBatches: () => plugin.aiBatches.batches,
                             getLeechCards: () => {
