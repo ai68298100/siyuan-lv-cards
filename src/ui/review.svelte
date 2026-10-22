@@ -15,7 +15,7 @@
     import { isCardNew, calcStreak, type RevlogData } from "@/core/revlog";
     import { gradeTyping, type Rating1to4 } from "@/core/card-types";
     import { parseOcclusion, type OcclusionData } from "@/core/occlusion";
-    import { parseDelimitedQa } from "@/core/delimited-qa";
+    import { parseDelimitedQa, hasDelimitedQa } from "@/core/delimited-qa";
     import { hasQuestionMediaContent, validateFlashcardMarkdown } from "@/core/flashcard-quality";
     import { partitionReviewCardsByQuality } from "@/core/review-queue-quality";
     import { mapChunksOrdered } from "@/core/query-chunks";
@@ -645,6 +645,7 @@
     let occl = $state<OcclusionData | null>(null);
     let occlBox = $state<{ l: number; t: number; w: number; h: number } | null>(null);
     let occlHidden = $state<number[]>([]);
+    let isCustomPluginAnswer = $state(false);
     // 选择题模式（M4·FR3，干扰项取自同队列后续卡）
     let answerCache = new Map<string, string>();
     let choiceRequestSeq = 0;
@@ -690,9 +691,12 @@
                 if (seq === loadSeq) {
                     occl = parseOcclusion(attrs);
                     occlHidden = [];
-                    cardMemo = String(attrs.memo || attrs["custom-card-memo"] || attrs["custom-memo"] || "").trim();
+                    const customAns = String(attrs["custom-card-answer"] || attrs["custom-flashcard-answer"] || "").trim();
+                    const memo = String(attrs.memo || attrs["custom-card-memo"] || attrs["custom-memo"] || "").trim();
+                    isCustomPluginAnswer = Boolean(customAns);
+                    cardMemo = customAns || memo;
                     memoDraft = cardMemo;
-                    if (marks.length === 0 && !expectedText && cardMemo) {
+                    if (marks.length === 0 && (!expectedText || expectedText === (holder.textContent ?? "").trim()) && cardMemo) {
                         expectedText = cardMemo;
                         answerCache.set(blockID, expectedText);
                     }
@@ -2172,8 +2176,10 @@
                     <span class="lv-chip2 lv-chip2--default">
                         {#if occl}<LvIcon name="image" size={14} /> {t.cardTypeBadgeOcclusion ?? "遮挡"}
                         {:else if cardHtml?.includes("language-")}<LvIcon name="code" size={14} /> {t.cardTypeBadgeCode ?? "代码"}
-                        {:else if cardHtml?.includes("lv-masked")}<LvIcon name="edit" size={14} /> {t.cardTypeBadgeCloze ?? "挖空"}
-                        {:else}<LvIcon name="message" size={14} /> {t.cardTypeBadgeQA ?? "问答"}
+                        {:else if cardHtml?.includes("lv-masked") || cardHtml?.includes("data-type=\"mark\"")}<LvIcon name="edit" size={14} /> {t.cardTypeBadgeCloze ?? "挖空"}
+                        {:else if cardMemo}<LvIcon name="lightbulb" size={14} /> {isCustomPluginAnswer ? (t.cardTypeBadgePlugin ?? "插件答") : (t.cardTypeBadgeMemo ?? "备注答")}
+                        {:else if hasDelimitedQa(cardHtml)}<LvIcon name="message" size={14} /> {t.cardTypeBadgeQA ?? "问答"}
+                        {:else}<LvIcon name="book" size={14} /> {t.cardTypeBadgeNative ?? "原生闪卡"}
                         {/if}
                     </span>
                     {#if current.lapses >= (eff().leechThreshold ?? 4)}
@@ -2330,11 +2336,11 @@
             {/if}
             {#if showAnswer}
                 {#if cardMemo}
-                    <!-- 汲取自渐进学习插件：给未来的自己留助记线索 -->
+                    <!-- 汲取自渐进学习与闪卡小助手插件：展示备注与生态插件答案 -->
                     <div class="lv-card-memo-callout">
                         <span class="lv-memo-icon"><LvIcon name="lightbulb" size={18} /></span>
                         <div class="lv-memo-body">
-                            <strong>{t.review.memoTitle ?? "助记线索"}</strong>
+                            <strong>{isCustomPluginAnswer ? (t.review.customAnswerTitle ?? "参考答案（来自生态插件）") : !cardHtml?.includes("data-type=\"mark\"") ? (t.review.memoAnswerTitle ?? "参考答案（来自思源块备注）") : (t.review.memoTitle ?? "助记线索")}</strong>
                             <p>{cardMemo}</p>
                         </div>
                         <button
@@ -2343,6 +2349,15 @@
                             title={t.review.memoEdit ?? "修改助记线索"}
                             onclick={() => (showMemoEditor = true)}
                         >✎</button>
+                    </div>
+                {:else if !occl && !cardHtml?.includes("data-type=\"mark\"") && !hasDelimitedQa(cardHtml)}
+                    <!-- 思源原生整块闪卡无损自评引导 -->
+                    <div class="lv-native-recall-guidance">
+                        <span class="lv-native-recall-icon"><LvIcon name="target" size={16} /></span>
+                        <div class="lv-native-recall-body">
+                            <strong>{t.review.nativeRecallTitle ?? "思源原生自由回忆"}</strong>
+                            <p>{t.review.nativeRecallDesc ?? "该卡为原生笔记闪卡；原笔记未做任何修改。请对照上方内容，在下方直接自评打分。"}</p>
+                        </div>
                     </div>
                 {:else if cardHtml && !faceError}
                     <!-- 翻面后轻量静默入口：随时为该卡记录口诀与线索 -->
@@ -3337,6 +3352,43 @@
                 display: flex;
                 gap: var(--lv-sp-2);
                 flex-wrap: wrap;
+            }
+        }
+
+        .lv-native-recall-guidance {
+            display: flex;
+            align-items: flex-start;
+            gap: calc(var(--lv-space-unit) * 3);
+            padding: 12px 16px;
+            margin-top: var(--lv-sp-3);
+            border: 1px solid var(--lv-primary-border);
+            border-radius: var(--lv-r-m);
+            background: color-mix(in srgb, var(--lv-color-brand) 6%, var(--lv-color-surface));
+            font-size: var(--lv-type-control-size);
+            box-shadow: 0 2px 8px color-mix(in srgb, var(--lv-color-brand) 8%, transparent);
+            animation: lv-modal-pop var(--lv-dur-2) var(--lv-ease);
+
+            .lv-native-recall-icon {
+                color: var(--lv-color-brand);
+                flex: none;
+                margin-top: 1px;
+            }
+            .lv-native-recall-body {
+                flex: 1;
+                strong {
+                    display: block;
+                    font-weight: var(--lv-fw-semibold);
+                    color: var(--lv-color-brand);
+                    font-size: 11px;
+                    letter-spacing: 0.04em;
+                    margin-bottom: 2px;
+                }
+                p {
+                    margin: 0;
+                    color: var(--lv-color-text-muted);
+                    line-height: 1.45;
+                    font-size: 12px;
+                }
             }
         }
 

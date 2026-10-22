@@ -1187,21 +1187,34 @@
 
     .lv-card-answer-divider {
         height: 1px;
-        background: var(--lv-border);
+        background: linear-gradient(90deg, transparent, var(--lv-primary-border), transparent);
         margin: var(--lv-sp-4) 0 var(--lv-sp-3);
     }
 
+    .lv-card-a-section {
+        padding: 12px 16px;
+        border-radius: var(--lv-r-m);
+        background: color-mix(in srgb, var(--lv-color-brand) 5%, var(--lv-color-surface));
+        border: 1px solid color-mix(in srgb, var(--lv-color-brand) 20%, transparent);
+        box-shadow: 0 2px 8px color-mix(in srgb, black 3%, transparent), var(--lv-inset-shine);
+    }
+
     .lv-card-a-label {
-        font-size: var(--lv-type-caption-size);
-        color: var(--lv-color-text-muted);
-        letter-spacing: 0.1em;
+        font-size: 11px;
+        color: var(--lv-color-brand);
+        font-weight: var(--lv-fw-semibold);
+        letter-spacing: 0.08em;
         text-transform: uppercase;
-        margin-bottom: var(--lv-sp-1);
+        margin-bottom: 4px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
     }
 
     .lv-card-a-body {
         color: var(--lv-color-text);
         font-size: 15px;
+        line-height: var(--lv-lh-reading);
     }
 
     .lv-card-img,

@@ -1,6 +1,6 @@
 # 集市 PR 材料（提交前核对单与文案模板）
 
-> 状态：当前为 v0.210.7（发布基线，GitHub 状态以 Release 为准），GitHub 发布状态以 Release 为准。[bazaar PR #2329](https://github.com/siyuan-note/bazaar/pull/2329) 已于 2026-10-10 合并且 PR Check 成功；后续版本通过 GitHub Release 更新，无需重复提交集市 PR。索引按官方周期部署，不能据 PR 合并认定本次新版本已同步；真机与素材验收项仍未全部完成。PR 状态于 2026-10-16 实时核验。
+> 状态：当前为 v0.210.8（发布基线，GitHub 状态以 Release 为准），GitHub 发布状态以 Release 为准。[bazaar PR #2329](https://github.com/siyuan-note/bazaar/pull/2329) 已于 2026-10-10 合并且 PR Check 成功；后续版本通过 GitHub Release 更新，无需重复提交集市 PR。索引按官方周期部署，不能据 PR 合并认定本次新版本已同步；真机与素材验收项仍未全部完成。PR 状态于 2026-10-16 实时核验。
 
 ## 一、官方提交流程
 

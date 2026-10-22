@@ -19,9 +19,27 @@ The full-lifecycle flashcard learning platform for SiYuan — local-first, nativ
 
 > **Note**: The primary README and all design docs are in Chinese. This page covers the essentials; see [docs/](./docs/README.md) for full design material.
 
-Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.7** (2026-10-21), delivering Excalidraw SVG canvas recognition and image occlusion support, scalar numeric tolerance evaluation, presentation privacy mode, review context breadcrumbs, import diff inspection, and misconception cluster maps. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.7) for the package and publishing status.
+Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.8** (2026-10-22), delivering zero-mutation legacy flashcard compatibility, native SiYuan card support, ecosystem plugin interoperability, and comprehensive UI aesthetic overhaul. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.8) for the package and publishing status.
 
-## What's New in v0.210.7
+## What's New in v0.210.8
+
+- **Zero-Mutation Legacy & Native Flashcard In-Place Compatibility**:
+  - Established a strict zero-mutation guarantee that leaves user notes 100% untouched while enabling seamless flashcard review across all existing formats.
+  - Native SiYuan prompt cards (`free-recall`): review cards directly with an elegant `[ 📖 Native Card ]` badge and answer self-rating guidance.
+  - Block memo & plugin answer attributes: automatically displays `memo`, `custom-card-answer`, `custom-flashcard-answer`, and `custom-card-memo` as illuminated answer callouts.
+  - Delimited QA syntax (`::`, `:::`, `Q: / A:`, `问：/ 答：`): dynamically masks answers in memory during the question phase and reveals them on flip without modifying source markdown files.
+  - Syntax safety guards: excluded C++ / Rust namespaces (`std::vector`, `std::cout`) and code/math blocks from delimiter parsing.
+- **Maintenance Health & User-Controlled Normalization**:
+  - Native and legacy cards are treated as healthy cards in maintenance health scans.
+  - Optional normalization tool with explicit warning dialog stating that note conversion is completely optional and existing cards are already 100% reviewable.
+- **Full-Spectrum UI & Visual Elevation (Inspired by Modern Reference Aesthetics)**:
+  - Dashboard: warm amber streak hero card, 7-day pill habit strip, smooth spline retention curve with gradient area shading, and Bento card layout.
+  - Review: 6px pill progress bar, alarm clock timer badge, pill context breadcrumbs, and 4-tier rating top color bars.
+  - Kits: fully rounded pill segmented controls, pill facet tabs, and ambient micro-shadow elevations.
+- **Verification**:
+  - 1928 tests across 240 test suites 100% passing; zero TypeScript/Svelte errors and warnings; production build and smoke tests green.
+
+## Previous Update: v0.210.7
 
 - **Excalidraw SVG Canvas Recognition & Image Occlusion Support (Issue #14)**:
   - Extended flashcard quality gate (`flashcard-quality.ts`) to recognize inline `<svg>` elements, Excalidraw file references (`.excalidraw.svg`), and SiYuan widget blocks as valid flashcard materials.
