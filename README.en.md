@@ -19,9 +19,22 @@ The full-lifecycle flashcard learning platform for SiYuan — local-first, nativ
 
 > **Note**: The primary README and all design docs are in Chinese. This page covers the essentials; see [docs/](./docs/README.md) for full design material.
 
-Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.19** (2026-10-22), delivering fixes for list bullet oversized circles, deck card width squeezing, and friendly AI 404 troubleshooting. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.19) for the package and publishing status.
+Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.20** (2026-10-22), delivering fill-in-the-blank underscore recognition, quote analysis spoiler protection, and single-line review toolbars. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.20) for the package and publishing status.
 
-## What's New in v0.210.19
+## What's New in v0.210.20
+
+- **Fill-in-the-Blank Underscore Masking (`_{3,}`)**:
+  - Automatically maps consecutive underscores (e.g. `_____`) into click-to-reveal blank slots in question mode.
+- **Quote Block (`blockquote`) Analysis Spoiler Prevention**:
+  - Safely masks secondary explanation quotes behind `[ Explanation (revealed with answer) ]` during question mode, preventing immediate spoilers.
+  - Seamlessly integrates with Little Donkey Exam attributes (`custom-exam-answer`, `custom-exam-analysis`).
+- **Single-Line Equal-Height Review Toolbar**:
+  - Locked toolbar row layout with `flex-wrap: nowrap` to prevent the `··· More` button from dropping into a lonely second row;
+  - Unified all selects, pills, and buttons to a clean 28px height with responsive icon-only collapsing on narrow viewports.
+- **Verification**:
+  - 1929 tests across 240 test suites 100% passing; zero TypeScript/Svelte errors and warnings; production build and smoke tests green.
+
+## Previous Update: v0.210.19
 
 - **Fixed Giant Black Circles in Multiple-Choice / Fill-in-the-Blank Cards**:
   - Excluded `#iconDot` list bullets and `.protyle-action` SVG elements from vector canvas expansion;

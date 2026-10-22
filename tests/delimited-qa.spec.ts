@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
     hasDelimitedQa,
+    maskDelimitedQaInHtml,
     parseDelimitedQa,
     proposeLegacyCardUpgrades,
     upgradeLegacyCardToStandard,
@@ -100,5 +101,17 @@ describe("delimited-qa & legacy card upgrade engine", () => {
                 reason: "将思源块备注合并为标准卡片答案标记",
             },
         ]);
+    });
+
+    it("masks blockquote analysis and underscore blanks in DOM tree", () => {
+        const div = document.createElement("div");
+        div.innerHTML = `
+            <p>【填空示例】增长率=(本期值－基期值)÷_____。</p>
+            <blockquote data-type="NodeBlockquote"><p>此处应填「基期值」</p></blockquote>
+        `;
+        const masked = maskDelimitedQaInHtml(div);
+        expect(masked).toBe(true);
+        expect(div.innerHTML).toContain("［ 填空 ］");
+        expect(div.innerHTML).toContain("［ 参考解析·查看答案时揭晓 ］");
     });
 });

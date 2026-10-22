@@ -708,8 +708,8 @@
                 if (seq === loadSeq) {
                     occl = parseOcclusion(attrs);
                     occlHidden = [];
-                    const customAns = String(attrs["custom-card-answer"] || attrs["custom-flashcard-answer"] || "").trim();
-                    const memo = String(attrs.memo || attrs["custom-card-memo"] || attrs["custom-memo"] || "").trim();
+                    const customAns = String(attrs["custom-card-answer"] || attrs["custom-flashcard-answer"] || attrs["custom-exam-answer"] || "").trim();
+                    const memo = String(attrs.memo || attrs["custom-card-memo"] || attrs["custom-memo"] || attrs["custom-exam-analysis"] || "").trim();
                     isCustomPluginAnswer = Boolean(customAns);
                     cardMemo = customAns || memo;
                     memoDraft = cardMemo;
@@ -2475,15 +2475,15 @@
                     <button type="button" class="b3-button b3-button--small lv-btn-ghost lv-font-btn" title="缩小卡面字号" onclick={() => adjustFontScale(-0.1)}>A−</button>
                     <button type="button" class="b3-button b3-button--small lv-btn-ghost lv-font-btn" title="放大卡面字号" onclick={() => adjustFontScale(0.1)}>A+</button>
                 </div>
-                <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.sessionOptionsTitle} aria-label={t.review.sessionOptionsTitle} onclick={openSessionOptions}><LvIcon name="zap" size={15} /> {t.review.sessionOptionsTitle.slice(0, 4)}</button>
-                <button class="b3-button b3-button--small lv-btn-ghost" class:lv-btn-primary={markedIssueCardIDs.has(current?.cardID ?? '')} title={markedIssueCardIDs.has(current?.cardID ?? '') ? t.review.issueMarked : t.review.tbMarkIssue} aria-label={t.review.tbMarkIssue} aria-pressed={markedIssueCardIDs.has(current?.cardID ?? '')} disabled={!current || actionBusy || markedIssueCardIDs.has(current?.cardID ?? '')} onclick={toggleMarkIssue}><LvIcon name="flag" size={15} /> {markedIssueCardIDs.has(current?.cardID ?? '') ? t.review.issueChip : t.review.tbMarkIssue}</button>
-                <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.pauseTitle} aria-label={t.review.pauseTitle} disabled={actionBusy} onclick={() => (showPauseModal = true)}><LvIcon name="moon" size={15} /> {t.review.tbPause}</button>
-                <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.undoTitle} aria-label={t.review.undoTitle} disabled={actionBusy || history.length === 0} onclick={undoHistory}>{t.review.tbUndo}</button>
-                <button class="b3-button b3-button--small lv-btn-ghost" disabled={actionBusy} onclick={skip}>{t.review.skip}</button>
+                <button class="b3-button b3-button--small lv-btn-ghost lv-tool-btn" title={t.review.sessionOptionsTitle} aria-label={t.review.sessionOptionsTitle} onclick={openSessionOptions}><LvIcon name="zap" size={14} /><span class="lv-tool-btn-label"> {t.review.sessionOptionsTitle.slice(0, 4)}</span></button>
+                <button class="b3-button b3-button--small lv-btn-ghost lv-tool-btn" class:lv-btn-primary={markedIssueCardIDs.has(current?.cardID ?? '')} title={markedIssueCardIDs.has(current?.cardID ?? '') ? t.review.issueMarked : t.review.tbMarkIssue} aria-label={t.review.tbMarkIssue} aria-pressed={markedIssueCardIDs.has(current?.cardID ?? '')} disabled={!current || actionBusy || markedIssueCardIDs.has(current?.cardID ?? '')} onclick={toggleMarkIssue}><LvIcon name="flag" size={14} /><span class="lv-tool-btn-label"> {markedIssueCardIDs.has(current?.cardID ?? '') ? t.review.issueChip : t.review.tbMarkIssue}</span></button>
+                <button class="b3-button b3-button--small lv-btn-ghost lv-tool-btn" title={t.review.pauseTitle} aria-label={t.review.pauseTitle} disabled={actionBusy} onclick={() => (showPauseModal = true)}><LvIcon name="moon" size={14} /><span class="lv-tool-btn-label"> {t.review.tbPause}</span></button>
+                <button class="b3-button b3-button--small lv-btn-ghost lv-tool-btn" title={t.review.undoTitle} aria-label={t.review.undoTitle} disabled={actionBusy || history.length === 0} onclick={undoHistory}>{t.review.tbUndo}</button>
+                <button class="b3-button b3-button--small lv-btn-ghost lv-tool-btn" disabled={actionBusy} onclick={skip}>{t.review.skip}</button>
                 <div class="lv-toolbar-more-wrap">
                     <button
                         type="button"
-                        class="b3-button b3-button--small lv-btn-ghost"
+                        class="b3-button b3-button--small lv-btn-ghost lv-tool-btn"
                         class:lv-btn-primary={showMoreToolbar}
                         title={t.review.tbMoreDesc ?? t.review.tbMore}
                         aria-label={t.review.tbMoreDesc ?? t.review.tbMore}
@@ -3549,6 +3549,55 @@
                 display: flex; align-items: center; gap: var(--lv-sp-2);
                 min-width: 0; flex-wrap: wrap;
             }
+            .lv-head-tools {
+                flex-wrap: nowrap !important;
+                gap: 5px;
+                min-width: 0;
+
+                .lv-scope {
+                    height: 28px;
+                    min-width: 6em;
+                    max-width: 125px;
+                    padding: 2px 6px;
+                    font-size: var(--lv-type-control-size);
+                    flex-shrink: 1;
+                }
+
+                .lv-purpose-end-chip {
+                    height: 28px;
+                    box-sizing: border-box;
+                    padding: 0 8px;
+                    font-size: 11px;
+                    font-weight: 500;
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 4px;
+                    white-space: nowrap;
+                    flex-shrink: 0;
+                }
+
+                .lv-font-scale-group {
+                    height: 28px;
+                    box-sizing: border-box;
+                    flex-shrink: 0;
+                }
+
+                .lv-tool-btn {
+                    height: 28px;
+                    box-sizing: border-box;
+                    padding: 0 7px;
+                    white-space: nowrap;
+                    flex-shrink: 0;
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 4px;
+                }
+
+                .lv-toolbar-more-wrap {
+                    flex-shrink: 0;
+                }
+            }
+
             .lv-scope { min-width: 8.5em; max-width: 200px; font-size: var(--lv-type-control-size); padding: 4px 8px; }
             /* BI-3：入口上下文条（窄屏换行不挤压进度） */
             .lv-entry {
@@ -3610,6 +3659,13 @@
                 font-weight: 700;
             }
             .lv-tags { display: flex; gap: var(--lv-sp-1); }
+        }
+
+        @media (max-width: 740px) {
+            .lv-head-tools {
+                .lv-tool-btn-label { display: none; }
+                .lv-tool-btn { padding: 0 5px; }
+            }
         }
 
         .lv-purpose-end-chip {

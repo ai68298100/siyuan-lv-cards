@@ -102,6 +102,26 @@ export function hasDelimitedQa(markdown: string): boolean {
  */
 export function maskDelimitedQaInHtml(root: Node): boolean {
     if (typeof document === "undefined") return false;
+    let modified = false;
+
+    // 0. 如果卡片包含引述块（blockquote 或 data-type="NodeBlockquote"），在问题态将其内容遮蔽，防止解题思路提前剧透
+    const elementRoot = root instanceof Element ? root : (root as any).firstElementChild || root;
+    if (elementRoot && typeof elementRoot.querySelectorAll === "function") {
+        const quotes: Element[] = Array.from(elementRoot.querySelectorAll("blockquote, [data-type='NodeBlockquote']"));
+        for (const q of quotes) {
+            if (q.closest("pre, code, svg")) continue;
+            const slot = document.createElement("div");
+            slot.className = "lv-masked lv-analysis-slot";
+            slot.setAttribute("data-type", "mark");
+            slot.setAttribute("aria-hidden", "true");
+            slot.title = "参考解析将在翻面或查看答案后揭晓";
+            slot.innerHTML = `<span class="lv-mask-slot">［ 参考解析·查看答案时揭晓 ］</span>`;
+            q.innerHTML = "";
+            q.appendChild(slot);
+            modified = true;
+        }
+    }
+
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
     let node: Text | null = null;
 
@@ -115,6 +135,26 @@ export function maskDelimitedQaInHtml(root: Node): boolean {
         }
 
         const text = node.nodeValue ?? "";
+
+        // 0.5 匹配填空题中连续下划线填空槽，如 _____ 或 ____（3 个及以上下划线）
+        const blankMatch = text.match(/_{3,}/);
+        if (blankMatch && blankMatch.index !== undefined) {
+            const before = text.slice(0, blankMatch.index);
+            const after = text.slice(blankMatch.index + blankMatch[0].length);
+            const slot = document.createElement("mark");
+            slot.className = "lv-masked";
+            slot.setAttribute("data-type", "mark");
+            slot.setAttribute("aria-hidden", "true");
+            slot.title = "填空遮蔽（点击揭晓）";
+            slot.innerHTML = `<span class="lv-mask-slot">［ 填空 ］</span>`;
+
+            node.nodeValue = before;
+            const afterNode = document.createTextNode(after);
+            parent.insertBefore(slot, node.nextSibling);
+            parent.insertBefore(afterNode, slot.nextSibling);
+            modified = true;
+            continue;
+        }
 
         // 1. 匹配 ::: 或 ::（排除命名空间如 std::vector）
         const colonMatch = text.match(/(?<![a-zA-Z0-9_])(:{2,3})(?![a-zA-Z0-9_])|\s+(:{2,3})\s+/);
@@ -159,7 +199,7 @@ export function maskDelimitedQaInHtml(root: Node): boolean {
         }
     }
 
-    return false;
+    return modified;
 }
 
 /**

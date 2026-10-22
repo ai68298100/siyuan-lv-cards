@@ -887,6 +887,28 @@
     color: transparent !important;
 }
 
+// 问题态遮罩：引述块参考解析（未翻面前优雅遮蔽）
+.lv-masked-analysis {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--lv-sp-3) var(--lv-sp-4);
+    border-radius: var(--lv-r-m);
+    background: color-mix(in srgb, var(--lv-color-brand) 6%, var(--lv-color-surface));
+    border: 1px dashed var(--lv-primary-border);
+    color: var(--lv-color-text-muted);
+    font-size: var(--lv-type-control-size);
+    font-weight: 500;
+    user-select: none;
+    margin: var(--lv-sp-2) 0;
+
+    .lv-mask-slot {
+        color: var(--lv-color-brand);
+        font-weight: 600;
+        opacity: 0.85;
+    }
+}
+
 // 焦点环
 :focus-visible {
     outline: none;
