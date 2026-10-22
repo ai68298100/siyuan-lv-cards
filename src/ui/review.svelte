@@ -673,7 +673,7 @@
     let choiceFallbackMode = $state<"none" | "free-recall">("none");
     // 交互式题型模型与作答状态（支持选择题选项卡片、判断题、填空打字与解析）
     let interactiveQuiz = $state<InteractiveQuizData | null>(null);
-    let selectedChoiceKey = $state<string | null>(null);
+    let selectedChoiceKeys = $state<string[]>([]);
     let userJudgeChoice = $state<boolean | null>(null);
     let isAnswerCorrect = $state<boolean | null>(null);
     let suggestedRating = $state<number | null>(null);
@@ -1106,7 +1106,7 @@
         showMemoEditor = false;
         memoDraft = "";
         interactiveQuiz = null;
-        selectedChoiceKey = null;
+        selectedChoiceKeys = [];
         userJudgeChoice = null;
         isAnswerCorrect = null;
         suggestedRating = null;
@@ -1809,8 +1809,13 @@
 
         if (!action) return;
 
-        // 交互式选择题键盘快捷键（A/B/C/D 或 1/2/3/4）
+        // 交互式选择题键盘快捷键（A/B/C/D 或 1/2/3/4 或多选提交 Enter）
         if (!showAnswer && interactiveQuiz?.kind === "choice" && interactiveQuiz.options.length >= 2) {
+            if (interactiveQuiz.isMultiple && (e.key === "Enter" || e.key === " ") && selectedChoiceKeys.length > 0) {
+                e.preventDefault();
+                submitChoiceAnswer();
+                return;
+            }
             const keyUpper = e.key.toUpperCase();
             const matchedOpt = interactiveQuiz.options.find(o => o.key === keyUpper)
                 || (Number(e.key) >= 1 && Number(e.key) <= interactiveQuiz.options.length ? interactiveQuiz.options[Number(e.key) - 1] : null);
@@ -1974,13 +1979,39 @@
 
     function handleOptionPick(key: string) {
         if (!faceReady || showAnswer || !interactiveQuiz) return;
-        selectedChoiceKey = key;
-        const option = interactiveQuiz.options.find(o => o.key === key);
-        const hasCorrect = interactiveQuiz.options.some(o => o.isAnswer);
-        if (hasCorrect) {
-            isAnswerCorrect = option?.isAnswer ?? false;
-            suggestedRating = isAnswerCorrect ? 3 : 1;
-            showMessage(isAnswerCorrect ? "回答正确！" : "回答错误，已标出正确答案", 1800, isAnswerCorrect ? "info" : "error");
+        if (interactiveQuiz.isMultiple) {
+            if (selectedChoiceKeys.includes(key)) {
+                selectedChoiceKeys = selectedChoiceKeys.filter(k => k !== key);
+            } else {
+                selectedChoiceKeys = [...selectedChoiceKeys, key];
+            }
+            triggerHaptic(5);
+        } else {
+            selectedChoiceKeys = [key];
+            submitChoiceAnswer();
+        }
+    }
+
+    function submitChoiceAnswer() {
+        if (!interactiveQuiz || selectedChoiceKeys.length === 0) return;
+        const correctOptions = interactiveQuiz.options.filter(o => o.isAnswer);
+        const correctKeys = correctOptions.map(o => o.key);
+        if (correctKeys.length > 0) {
+            const allMatch = correctKeys.length === selectedChoiceKeys.length && selectedChoiceKeys.every(k => correctKeys.includes(k));
+            const hasWrong = selectedChoiceKeys.some(k => !correctKeys.includes(k));
+            if (allMatch) {
+                isAnswerCorrect = true;
+                suggestedRating = 3;
+                showMessage(interactiveQuiz.isMultiple ? "多选全部正确！" : "回答正确！", 1800, "info");
+            } else if (!hasWrong && selectedChoiceKeys.length < correctKeys.length) {
+                isAnswerCorrect = false;
+                suggestedRating = 2;
+                showMessage("回答部分正确（多选漏选），已标出全部答案", 2000, "info");
+            } else {
+                isAnswerCorrect = false;
+                suggestedRating = 1;
+                showMessage("回答错误，已标出正确选项", 1800, "error");
+            }
         }
         revealAnswer();
     }
@@ -2683,9 +2714,9 @@
                                     <button
                                         type="button"
                                         class="lv-interactive-choice-card"
-                                        class:lv-choice-selected={selectedChoiceKey === opt.key}
+                                        class:lv-choice-selected={selectedChoiceKeys.includes(opt.key)}
                                         class:lv-choice-correct={showAnswer && opt.isAnswer}
-                                        class:lv-choice-wrong={showAnswer && selectedChoiceKey === opt.key && !opt.isAnswer}
+                                        class:lv-choice-wrong={showAnswer && selectedChoiceKeys.includes(opt.key) && !opt.isAnswer}
                                         disabled={showAnswer}
                                         onclick={() => handleOptionPick(opt.key)}
                                     >
@@ -2694,13 +2725,25 @@
                                         {#if showAnswer}
                                             {#if opt.isAnswer}
                                                 <span class="lv-choice-result-pill lv-result-correct">✓ 正确答案</span>
-                                            {:else if selectedChoiceKey === opt.key}
+                                            {:else if selectedChoiceKeys.includes(opt.key)}
                                                 <span class="lv-choice-result-pill lv-result-wrong">✗ 你的选择</span>
                                             {/if}
                                         {/if}
                                     </button>
                                 {/each}
                             </div>
+                            {#if interactiveQuiz.isMultiple && !showAnswer}
+                                <div class="lv-choice-submit-row">
+                                    <button
+                                        type="button"
+                                        class="b3-button lv-btn-primary lv-choice-submit-btn"
+                                        disabled={selectedChoiceKeys.length === 0}
+                                        onclick={submitChoiceAnswer}
+                                    >
+                                        <LvIcon name="check" size={14} /> 确认提交多选 ({selectedChoiceKeys.length} 项) · Enter
+                                    </button>
+                                </div>
+                            {/if}
                         </div>
                     {/if}
 
@@ -3127,6 +3170,8 @@
                 {#each [
                     { k: "Space / Enter", d: t.review.helpFlipRate },
                     { k: "Shift+Space", d: t.review.helpRevealAll ?? "全部揭晓（跳过逐步回忆）" },
+                    { k: "A / B / C / D", d: "选择题选项点击或快捷作答" },
+                    { k: "T / F (1 / 2)", d: "判断题正确 / 错误判定" },
                     { k: "1-4", d: t.review.helpRate },
                     { k: "r", d: t.review.helpReverse ?? "翻转问答自测" },
                     { k: "z / p / u", d: t.review.helpUndo },

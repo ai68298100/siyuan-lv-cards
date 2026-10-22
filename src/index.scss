@@ -1588,6 +1588,17 @@
         flex-shrink: 0;
     }
 
+    &.lv-choice-selected {
+        border-color: var(--lv-color-brand) !important;
+        background: color-mix(in srgb, var(--lv-color-brand) 12%, var(--lv-color-surface)) !important;
+        box-shadow: 0 0 0 1.5px var(--lv-color-brand), var(--lv-shadow-card) !important;
+
+        .lv-choice-key-badge {
+            background: var(--lv-color-brand) !important;
+            color: #fff !important;
+        }
+    }
+
     &.lv-choice-correct {
         border-color: var(--lv-color-success, #22c55e) !important;
         background: color-mix(in srgb, var(--lv-color-success, #22c55e) 12%, var(--lv-color-surface)) !important;
@@ -1616,6 +1627,18 @@
             background: var(--lv-color-danger, #ef4444);
             color: #fff;
         }
+    }
+}
+
+.lv-choice-submit-row {
+    display: flex;
+    justify-content: center;
+    margin-top: var(--lv-sp-3);
+    .lv-choice-submit-btn {
+        border-radius: var(--lv-r-pill);
+        padding: 8px 24px;
+        font-weight: 600;
+        box-shadow: 0 4px 14px color-mix(in srgb, var(--lv-color-brand) 28%, transparent);
     }
 }
 

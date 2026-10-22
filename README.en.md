@@ -19,9 +19,19 @@ The full-lifecycle flashcard learning platform for SiYuan — local-first, nativ
 
 > **Note**: The primary README and all design docs are in Chinese. This page covers the essentials; see [docs/](./docs/README.md) for full design material.
 
-Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.23** (2026-10-22), delivering one-key space speed flow, explicit dual-clock timer chips, and redundant option filtering. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.23) for the package and publishing status.
+Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.24** (2026-10-22), delivering complete multiple-choice submission flows, partial-credit hints, and keyboard shortcut help overlays. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.24) for the package and publishing status.
 
-## What's New in v0.210.23
+## What's New in v0.210.24
+
+- **Full Multiple-Choice Submission Flow**:
+  - Interactive multi-selection toggles with visual checkmark states and an inline `[ Submit Answers (Enter) ]` action.
+  - Granular feedback: completely correct (3 Good), partial credit with omission alerts (2 Hard), and incorrect (1 Again).
+- **Shortcut Guide Overlay Updates**:
+  - Added explicit instructions for `A / B / C / D` options and `T / F` true/false keys in the `?` help modal.
+- **Verification**:
+  - 1936 tests across 241 test suites 100% passing; zero TypeScript/Svelte errors and warnings; production build and smoke tests green.
+
+## Previous Update: v0.210.23
 
 - **One-Key Speed Flow (Space / Enter Instant Rating)**:
   - Once revealed, pressing `Space` or `Enter` automatically submits the recommended rating (e.g. Good 3) and advances immediately to the next card.
