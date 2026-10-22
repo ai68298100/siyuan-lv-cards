@@ -225,6 +225,7 @@
     // AQ-13：题面呈现时刻（monotonic 按壁钟差），评分时按设置封顶后记入 revlog.dur
     let cardShownAt = 0;
     let sessionSkipped = $state<string[]>([]); // 本场跳过排除集（AJ9：跳过的卡不再被下一批拉回）
+    let starredCardIDs = $state<Set<string>>(new Set()); // 星标重点卡片集合（对标 Anki Flag / Quizlet Starred）
     let qualityExcludedCardIDs = $state<string[]>([]); // 结构无效/未能验证的存量卡：仅本场排除，不改内核 due
     let lastAnswered = $state<{ html: string; card: RiffDueCard; revealed: boolean } | null>(null); // 回看数据源（AJ2：不再自动打开）
 
@@ -393,7 +394,7 @@
     let lastTimeoutSeconds = 60;
     // 打字模式（M4·FR2，全局练习模式）
     let typingInput = $state("");
-    let typingGrade = $state<{ chars: { ch: string; ok: boolean }[]; suggested: Rating1to4 } | null>(null);
+    let typingGrade = $state<{ chars: { ch: string; ok: boolean }[]; suggested: Rating1to4; isTypo?: boolean } | null>(null);
     let expectedText = $state("");
     // 评分音效（M 组 P2，Web Audio 合成）
     let audioCtx: AudioContext | null = null;
@@ -679,6 +680,7 @@
     let userJudgeChoice = $state<boolean | null>(null);
     let isAnswerCorrect = $state<boolean | null>(null);
     let suggestedRating = $state<number | null>(null);
+    let zenMode = $state(false);
 
     async function loadBlockDOM(blockID: string) {
         const seq = ++loadSeq;
@@ -1856,6 +1858,19 @@
             return;
         }
 
+        if ((e.key === "z" || e.key === "Z") && !e.ctrlKey && !e.metaKey && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) {
+            e.preventDefault();
+            zenMode = !zenMode;
+            showMessage(zenMode ? "已开启沉浸专注模式 (按 z 退出)" : "已退出专注模式", 1500, "info");
+            return;
+        }
+
+        if (e.key === "*" && current) {
+            e.preventDefault();
+            toggleStarCurrent();
+            return;
+        }
+
         switch (action) {
             case "close-peek":
                 peek = null;
@@ -1979,6 +1994,21 @@
         triggerHaptic(10);
     }
 
+    function toggleStarCurrent() {
+        if (!current) return;
+        const cid = current.cardID;
+        const next = new Set(starredCardIDs);
+        if (next.has(cid)) {
+            next.delete(cid);
+            showMessage("已取消星标", 1500, "info");
+        } else {
+            next.add(cid);
+            showMessage("⭐ 已加入重点星标卡片", 1800, "info");
+            triggerHaptic(15);
+        }
+        starredCardIDs = next;
+    }
+
     function autoFocusInput(node: HTMLElement) {
         const timer = setTimeout(() => {
             try { node.focus(); } catch {}
@@ -2062,7 +2092,11 @@
             if (isAnswerCorrect) sessionQuizCorrect++;
             playSfx(g.suggested as any);
             triggerHaptic(isAnswerCorrect ? 15 : 25);
-            showMessage(isAnswerCorrect ? "填空正确！" : "填空已对比，查看答案", 1800, isAnswerCorrect ? "info" : "error");
+            if (g.isTypo) {
+                showMessage("拼写微瑕（1 字之差），智能容错放行通过！", 2200, "info");
+            } else {
+                showMessage(isAnswerCorrect ? "填空正确！" : "填空已对比，查看答案", 1800, isAnswerCorrect ? "info" : "error");
+            }
         }
         revealAnswer();
     }
@@ -2183,6 +2217,7 @@
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 <div
     class="lv-review"
+    class:lv-review--zen={zenMode}
     class:lv-keyboard-open={isKeyboardOpen}
     style={isKeyboardOpen ? `--lv-keyboard-inset:${keyboardInset}px;` : undefined}
     bind:this={rootEl}
@@ -2194,6 +2229,11 @@
     ontouchend={onTouchEnd}
     tabindex="-1"
 >
+    {#if zenMode}
+        <button type="button" class="b3-button b3-button--small lv-btn-ghost lv-zen-exit-pill" onclick={() => (zenMode = false)}>
+            ⤢ 退出专注 (z)
+        </button>
+    {/if}
     <!-- AS-4：读屏播报区域（视觉隐藏） -->
     <LvLive message={liveMsg} tone={liveTone} />
     {#if sessionPaused}
@@ -2514,6 +2554,14 @@
                                 </button>
                             </div>
                         {/if}
+                        {#if starredCardIDs.size > 0}
+                            <div class="lv-next-row" style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                                <span>⭐ 本场共星标了 {starredCardIDs.size} 张重点卡片</span>
+                                <button type="button" class="b3-button b3-button--small lv-btn-primary" onclick={() => { cramActive = true; void loadQueue(); }}>
+                                    <LvIcon name="star" size={13} /> 立即专项练习星标卡
+                                </button>
+                            </div>
+                        {/if}
                     </div>
                 {/if}
                 <div class="fn__flex lv-done-actions" style="justify-content: center; gap: var(--lv-sp-2)">
@@ -2630,6 +2678,7 @@
                     <button type="button" class="b3-button b3-button--small lv-btn-ghost lv-font-btn" title="放大卡面字号" onclick={() => adjustFontScale(0.1)}>A+</button>
                 </div>
                 <button class="b3-button b3-button--small lv-btn-ghost lv-tool-btn" title={t.review.sessionOptionsTitle} aria-label={t.review.sessionOptionsTitle} onclick={openSessionOptions}><LvIcon name="zap" size={14} /><span class="lv-tool-btn-label"> {t.review.sessionOptionsTitle.slice(0, 4)}</span></button>
+                <button class="b3-button b3-button--small lv-btn-ghost lv-tool-btn" class:lv-btn-starred={starredCardIDs.has(current?.cardID ?? '')} title="星标重点卡片 (*)" aria-label="星标重点卡片" aria-pressed={starredCardIDs.has(current?.cardID ?? '')} disabled={!current || actionBusy} onclick={toggleStarCurrent}><LvIcon name="star" size={14} /><span class="lv-tool-btn-label"> {starredCardIDs.has(current?.cardID ?? '') ? "已星标" : "星标"}</span></button>
                 <button class="b3-button b3-button--small lv-btn-ghost lv-tool-btn" class:lv-btn-primary={markedIssueCardIDs.has(current?.cardID ?? '')} title={markedIssueCardIDs.has(current?.cardID ?? '') ? t.review.issueMarked : t.review.tbMarkIssue} aria-label={t.review.tbMarkIssue} aria-pressed={markedIssueCardIDs.has(current?.cardID ?? '')} disabled={!current || actionBusy || markedIssueCardIDs.has(current?.cardID ?? '')} onclick={toggleMarkIssue}><LvIcon name="flag" size={14} /><span class="lv-tool-btn-label"> {markedIssueCardIDs.has(current?.cardID ?? '') ? t.review.issueChip : t.review.tbMarkIssue}</span></button>
                 <button class="b3-button b3-button--small lv-btn-ghost lv-tool-btn" title={t.review.pauseTitle} aria-label={t.review.pauseTitle} disabled={actionBusy} onclick={() => (showPauseModal = true)}><LvIcon name="moon" size={14} /><span class="lv-tool-btn-label"> {t.review.tbPause}</span></button>
                 <button class="b3-button b3-button--small lv-btn-ghost lv-tool-btn" title={t.review.undoTitle} aria-label={t.review.undoTitle} disabled={actionBusy || history.length === 0} onclick={undoHistory}>{t.review.tbUndo}</button>
@@ -2651,6 +2700,9 @@
                         <div class="lv-toolbar-more-menu" role="menu">
                             <button type="button" class="lv-toolbar-menu-item" class:lv-active={reversedRecall} title={t.review.enableReversed ?? "翻转问答自测 (R)"} onclick={() => { reversedRecall = !reversedRecall; showMoreToolbar = false; }}>
                                 <span class="lv-menu-icon"><LvIcon name="refresh" size={16} /></span><span>{reversedRecall ? (t.review.cancelReversed ?? "恢复正常顺序") : (t.review.enableReversed ?? "翻转问答自测 (R)")}</span>
+                            </button>
+                            <button type="button" class="lv-toolbar-menu-item" class:lv-active={zenMode} title="沉浸专注模式 (z)" onclick={() => { zenMode = !zenMode; showMoreToolbar = false; }}>
+                                <span class="lv-menu-icon"><LvIcon name="eye" size={16} /></span><span>{zenMode ? "退出专注模式 (z)" : "沉浸专注模式 (z)"}</span>
                             </button>
                             <button type="button" class="lv-toolbar-menu-item" class:lv-active={ctxOpen} title={t.review.ctxToggle} onclick={() => { toggleContext(); showMoreToolbar = false; }}>
                                 <span class="lv-menu-icon"><LvIcon name="book" size={16} /></span><span>{t.review.tbCtx}</span>
@@ -3036,9 +3088,9 @@
             {/if}
             {#if typingGrade}
                 <div class="lv-typing-diff">
-                    <span class="ft__smaller ft__on-surface">{t.review.typingSuggested}</span>
-                    <LvChip tone={typingGrade.suggested === 3 ? "primary" : typingGrade.suggested === 2 ? "warn" : "error"}>
-                        {typingGrade.suggested}
+                    <span class="ft__smaller ft__on-surface">{typingGrade.isTypo ? "拼写微瑕容错" : t.review.typingSuggested}</span>
+                    <LvChip tone={typingGrade.isTypo ? "warn" : typingGrade.suggested === 3 ? "primary" : typingGrade.suggested === 2 ? "warn" : "error"}>
+                        {typingGrade.isTypo ? "微瑕 · 建议: 3" : typingGrade.suggested}
                     </LvChip>
                     <span class="lv-diff">
                         {#each typingGrade.chars as c, i (i)}

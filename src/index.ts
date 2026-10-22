@@ -1199,6 +1199,14 @@ export default class LvCardsPlugin extends Plugin {
                                 const items = leechCards(plugin.revlog, plugin.settings.leechThreshold);
                                 return items.map(i => ({ blockID: i.blockID, lapses: i.lapses }));
                             },
+                            getStarredCardIDs: () => plugin.settings.starredCards ?? [],
+                            toggleStarCard: async (blockID: string) => {
+                                const list = plugin.settings.starredCards ?? [];
+                                const has = list.includes(blockID);
+                                plugin.settings.starredCards = has ? list.filter(id => id !== blockID) : [...list, blockID];
+                                plugin.saveSettingsSoon();
+                                return !has;
+                            },
                             // 状态过滤（M6·FR2）：新卡=本地 revlog 无记录；到期=内核到期清单交集（经版本索引缓存为 O(1) 检索）
                             isNewBlock: (blockID: string) => !plugin.getRevlogBlockIndex().reviewedSet.has(blockID),
                             // 遗忘次数映射（272）：管理器 lapses 排序用（版本索引缓存加速，免除高频重算）

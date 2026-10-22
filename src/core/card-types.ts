@@ -14,6 +14,8 @@ export interface TypingGrade {
     ratio: number;
     /** 逐字符对齐结果（用户输入视角）：ok=该字符命中期望 */
     chars: { ch: string; ok: boolean }[];
+    /** 拼写容错（Typo Tolerance，Quizlet/RemNote 规范）：仅 1 处微瑕笔误放行 */
+    isTypo?: boolean;
 }
 
 export interface CardTypeRegistration {
@@ -55,8 +57,28 @@ function normalize(s: string, strict: boolean): string {
     return out;
 }
 
+/** 计算两个字符数组的 Levenshtein 编辑距离 */
+export function calcLevenshteinDistance(a: string[], b: string[]): number {
+    const m = a.length, n = b.length;
+    const d: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+    for (let i = 0; i <= m; i++) d[i][0] = i;
+    for (let j = 0; j <= n; j++) d[0][j] = j;
+    for (let i = 1; i <= m; i++) {
+        for (let j = 1; j <= n; j++) {
+            const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+            d[i][j] = Math.min(
+                d[i - 1][j] + 1,
+                d[i][j - 1] + 1,
+                d[i - 1][j - 1] + cost,
+            );
+        }
+    }
+    return d[m][n];
+}
+
 /** LCS 对齐：标出用户输入中命中期望的字符，并给出相似度。
  * E-09：分母取 max(期望长度, 作答长度)——作答里塞额外错误命题会拉低相似度而不是被无视；
+ * 融入 Quizlet/RemNote 智能拼写容错（Typo Tolerance）：非严格模式下 1 字微瑕放行建议 3。
  * 空期望答案 ratio=0（不产「完美匹配」误导），正式评分始终由用户决定。 */
 export function gradeTyping(expected: string, actual: string, strict: boolean): TypingGrade {
     const e = [...normalize(expected, strict)];
@@ -82,8 +104,11 @@ export function gradeTyping(expected: string, actual: string, strict: boolean): 
     }
     const denom = Math.max(m, n);
     const ratio = denom > 0 ? dp[m][n] / denom : 0;
-    const suggested: Rating1to4 = ratio >= 0.9 ? 3 : ratio >= 0.6 ? 2 : 1;
-    return { suggested, ratio, chars: a.map((ch, idx) => ({ ch, ok: matched[idx] })) };
+    const editDist = calcLevenshteinDistance(e, a);
+    const hasNumericKeep = e.some(ch => LENIENT_KEEP.has(ch)) || a.some(ch => LENIENT_KEEP.has(ch));
+    const isTypo = !strict && !hasNumericKeep && editDist === 1 && denom >= 3;
+    const suggested: Rating1to4 = (ratio >= 0.9 || isTypo) ? 3 : ratio >= 0.6 ? 2 : 1;
+    return { suggested, ratio, chars: a.map((ch, idx) => ({ ch, ok: matched[idx] })), isTypo };
 }
 
 // ---- 注册表 ----

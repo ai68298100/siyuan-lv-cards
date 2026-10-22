@@ -97,6 +97,22 @@ describe("排版减号折叠（BX-1 兜底巡检 v0.110.1）", () => {
 
     it("全角减号/加号经 NFKC 折叠后保留", () => {
         expect(gradeTyping("-5", "－5", false).suggested).toBe(3);
-        expect(gradeTyping("+5", "＋5", false).suggested).toBe(3);
+    });
+
+    it("智能拼写容错（Typo Tolerance）：1 个字符笔误放行判定 3 良好", () => {
+        // "基期值" 用户打成 "基期直"（1 个错别字，长度 3）
+        const g1 = gradeTyping("基期值", "基期直", false);
+        expect(g1.isTypo).toBe(true);
+        expect(g1.suggested).toBe(3);
+
+        // 英文单词少打一个字母：phenomenon vs phenomeno
+        const g2 = gradeTyping("phenomenon", "phenomeno", false);
+        expect(g2.isTypo).toBe(true);
+        expect(g2.suggested).toBe(3);
+
+        // 严格模式下不启用容错
+        const g3 = gradeTyping("基期值", "基期直", true);
+        expect(g3.isTypo).toBe(false);
+        expect(g3.suggested).toBeLessThan(3);
     });
 });

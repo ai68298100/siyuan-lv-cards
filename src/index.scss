@@ -1845,6 +1845,16 @@
     animation: lv-pulse-suggest 1.2s infinite ease-in-out;
 }
 
+.lv-tool-btn.lv-btn-starred {
+    color: var(--lv-color-warning, #f59e0b) !important;
+    border-color: color-mix(in srgb, var(--lv-color-warning) 45%, transparent) !important;
+    background: color-mix(in srgb, var(--lv-color-warning) 12%, var(--lv-color-surface)) !important;
+
+    svg {
+        fill: currentColor;
+    }
+}
+
 .lv-done-quiz-bubble {
     display: inline-flex;
     align-items: center;
@@ -1880,6 +1890,41 @@
 @keyframes lv-pulse-suggest {
     0%, 100% { box-shadow: 0 0 0 2px color-mix(in srgb, var(--lv-color-brand) 32%, transparent), var(--lv-shadow-card); }
     50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--lv-color-brand) 16%, transparent), var(--lv-shadow-card-hover); }
+}
+
+.lv-review--zen {
+    .lv-head-tools {
+        display: none !important;
+    }
+    .lv-head-row:first-child {
+        opacity: 0.45;
+        transition: opacity var(--lv-dur-2) var(--lv-ease);
+        &:hover { opacity: 0.9; }
+    }
+    .lv-card {
+        box-shadow: 0 24px 48px -12px color-mix(in srgb, black 16%, transparent), var(--lv-inset-shine);
+    }
+}
+
+.lv-zen-exit-pill {
+    position: fixed;
+    top: 14px;
+    right: 20px;
+    z-index: 100;
+    border-radius: var(--lv-r-pill);
+    background: color-mix(in srgb, var(--lv-color-surface) 80%, transparent);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--lv-border);
+    font-size: 11px;
+    padding: 3px 10px;
+    color: var(--lv-color-text-muted);
+    opacity: 0.75;
+    transition: opacity var(--lv-dur-1) var(--lv-ease);
+    &:hover {
+        opacity: 1;
+        color: var(--lv-color-brand);
+        border-color: var(--lv-primary-border);
+    }
 }
 
 // =============================================================

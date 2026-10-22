@@ -90,6 +90,8 @@ export interface LvCardsSettings {
     examEnabled: boolean;
     /** 考试日期 YYYY-MM-DD，空为未设置 */
     examDate: string;
+    /** 星标重点卡片 ID 集合（对标 Anki Flag / Quizlet Starred） */
+    starredCards: string[];
     /** 已存筛选（管理器命名收藏，M6） */
     savedFilters: { name: string; filter: string }[];
     /** BI-14：界面模式（简单=隐藏高级入口；切换不删除配置，高级功能仍可经命令面板/设置访问） */
@@ -135,6 +137,7 @@ export interface ManagerViewState {
     filter: string;
     sort: string;
     leechOnly: boolean;
+    starredOnly?: boolean;
     status: string;
     page: number;
     scrollTop: number;
@@ -151,11 +154,14 @@ export function parseManagerView(raw: string | undefined): ManagerViewState | nu
         const filter = typeof v.filter === "string" ? v.filter.slice(0, 500) : "";
         const sort = typeof v.sort === "string" && ["default", "path", "content", "lapses"].includes(v.sort) ? v.sort : "default";
         const leechOnly = v.leechOnly === true;
+        const starredOnly = v.starredOnly === true;
         const status = typeof v.status === "string" && ["all", "new", "review", "due"].includes(v.status) ? v.status : "all";
         const page = typeof v.page === "number" && Number.isInteger(v.page) && v.page > 0 ? Math.min(v.page, 100_000) : 1;
         const scrollTop = typeof v.scrollTop === "number" && Number.isFinite(v.scrollTop) && v.scrollTop >= 0 ? Math.min(v.scrollTop, 5_000_000) : 0;
         const focusId = typeof v.focusId === "string" ? v.focusId.slice(0, 256) : "";
-        return { filter, sort, leechOnly, status, page, scrollTop, focusId };
+        const res: ManagerViewState = { filter, sort, leechOnly, status, page, scrollTop, focusId };
+        if (v.starredOnly === true) res.starredOnly = true;
+        return res;
     } catch {
         return null;
     }
@@ -213,6 +219,7 @@ export function defaultSettings(): LvCardsSettings {
         answerTimeCapSec: 60,
         examEnabled: false,
         examDate: "",
+        starredCards: [],
         savedFilters: [],
         uiMode: "advanced",
         aiMode: "siyuan",
@@ -296,6 +303,7 @@ export function normalizeSettings(raw: unknown): LvCardsSettings {
         quietEnd: toHHMM(obj.quietEnd, def.quietEnd),
         reminderTime: toHHMM(obj.reminderTime, def.reminderTime),
         examDate: toDateStr(obj.examDate),
+        starredCards: Array.isArray(obj.starredCards) ? obj.starredCards.filter(id => typeof id === "string" && id.length < 64) : [],
         savedFilters: toFilters(obj.savedFilters),
         ankiClientUrl: toStr(obj.ankiClientUrl, def.ankiClientUrl),
     } as LvCardsSettings;

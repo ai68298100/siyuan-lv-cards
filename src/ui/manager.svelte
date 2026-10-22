@@ -34,6 +34,9 @@ import { confirmDialog } from "@/libs/dialog";
         acceptContentAt?: (blockID: string, at: number) => void;
         deleteFilter: (name: string) => void;
         getLeechCards: () => { blockID: string; lapses: number }[];
+        /** 星标收藏卡片 ID 集合（对标 Quizlet Starred / Anki Flagged） */
+        getStarredCardIDs?: () => string[];
+        toggleStarCard?: (blockID: string) => Promise<boolean>;
         /** 状态过滤（M6·FR2）：新卡=本地 revlog 无记录 */
         isNewBlock: (blockID: string) => boolean;
         /** 遗忘次数映射（272）：lapses 排序用 */
@@ -129,6 +132,7 @@ import { confirmDialog } from "@/libs/dialog";
     });
     let sortMode = $state<"default" | "path" | "content" | "lapses">("default");
     let leechOnly = $state(false);
+    let starredOnly = $state(false);
     let statusFilter = $state<"all" | "new" | "review" | "due">("all");
     let dueSet = $state(new Set<string>());
     let loadSeq = 0;  // AR-6：分页/刷新请求序号
@@ -157,6 +161,10 @@ import { confirmDialog } from "@/libs/dialog";
             if (leechOnly) {
                 const leechSet = new Set(ctx.getLeechCards().map(l => l.blockID));
                 arr = arr.filter(b => leechSet.has(b.id));
+            }
+            if (starredOnly) {
+                const starredSet = new Set(ctx.getStarredCardIDs?.() ?? []);
+                arr = arr.filter(b => starredSet.has(b.id));
             }
             if (statusFilter === "new") {
                 arr = arr.filter(b => ctx.isNewBlock(b.id));
@@ -256,6 +264,7 @@ import { confirmDialog } from "@/libs/dialog";
             filter: filterText,
             sort: sortMode,
             leechOnly,
+            starredOnly,
             status: statusFilter,
             page,
             scrollTop: liveScrollTop,
@@ -356,6 +365,14 @@ import { confirmDialog } from "@/libs/dialog";
         void load();
     }
 
+    function toggleStarredFilter() {
+        starredOnly = !starredOnly;
+        selected = [];
+        page = 1;
+        resetScrollPosition();
+        void load();
+    }
+
     function clearFilters() {
         if (filterTimer) {
             clearTimeout(filterTimer);
@@ -366,6 +383,7 @@ import { confirmDialog } from "@/libs/dialog";
         deferredFilter = "";
         statusFilter = "all";
         leechOnly = false;
+        starredOnly = false;
         selected = [];
         page = 1;
         resetScrollPosition();
@@ -664,6 +682,7 @@ import { confirmDialog } from "@/libs/dialog";
             deferredFilter = v.filter;
             sortMode = v.sort as typeof sortMode;
             leechOnly = v.leechOnly;
+            starredOnly = v.starredOnly === true;
             statusFilter = v.status as typeof statusFilter;
             page = v.page;
             restoreScrollTop = v.scrollTop;
@@ -808,6 +827,12 @@ import { confirmDialog } from "@/libs/dialog";
                 title={t.manager.leechFilter}
                 onclick={toggleLeechFilter}
             >{t.manager.leechFilter}</button>
+            <button
+                class="lv-chipbtn"
+                class:lv-chipbtn-active={starredOnly}
+                title={t.manager.starredFilter ?? "只看星标收藏卡片"}
+                onclick={toggleStarredFilter}
+            >⭐ {t.manager.starredFilter ?? "星标卡"}</button>
         {/if}
         <div class="lv-toolbar-right">
             <span class="lv-toolbar-caption">{t.manager.total}: {total}</span>
@@ -942,6 +967,12 @@ import { confirmDialog } from "@/libs/dialog";
                         <span class="lv-content">
                             <span class="lv-text">{@html highlightSearchHit(stripHtml(b.content) || t.manager.emptyContentFallback, filterText)}</span>
                             <span class="lv-meta ft__smaller ft__on-surface">
+                                {#if (ctx.getStarredCardIDs?.() ?? []).includes(b.id)}
+                                    <span class="lv-chip2 lv-chip2--warn" title="星标重点卡">⭐ 星标</span>
+                                {/if}
+                                {#if !stripHtml(b.content)}
+                                    <span class="lv-chip2 lv-chip2--error" title="原笔记块内容为空或已丢失">⚠️ 内容缺失</span>
+                                {/if}
                                 {#if ctx.isNewBlock(b.id)}
                                     <span class="lv-chip2 lv-chip2--primary">{t.manager.statusNew ?? "新"}</span>
                                 {:else if dueSet.has(b.id)}

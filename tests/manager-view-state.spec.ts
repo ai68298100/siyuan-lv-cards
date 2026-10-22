@@ -166,4 +166,23 @@ describe("manager view state", () => {
         await confirm();
         expect(removeRiffCards).toHaveBeenCalledWith("", ["card-a"]);
     });
+
+    it("restores and serializes starredOnly filter state", async () => {
+        const save = vi.fn();
+        const initial = JSON.stringify({
+            filter: "",
+            sort: "default",
+            leechOnly: false,
+            starredOnly: true,
+            status: "all",
+            page: 1,
+            scrollTop: 0,
+            focusId: "",
+        });
+        const getStarredCardIDs = vi.fn().mockReturnValue(["card-a"]);
+        render(Manager, { ctx: managerContext({ view: { initial, save }, getStarredCardIDs }) });
+        await screen.findByRole("button", { name: /可恢复现场测试卡/ });
+        const starBtn = screen.getByRole("button", { name: /星标卡/ });
+        expect(starBtn.classList.contains("lv-chipbtn-active")).toBe(true);
+    });
 });

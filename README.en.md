@@ -19,9 +19,20 @@ The full-lifecycle flashcard learning platform for SiYuan — local-first, nativ
 
 > **Note**: The primary README and all design docs are in Chinese. This page covers the essentials; see [docs/](./docs/README.md) for full design material.
 
-Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.26** (2026-10-23), delivering quiz accuracy recap badges, WAI-ARIA accessibility states, and tactile keyboard hints. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.26) for the package and publishing status.
+Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.27** (2026-10-23), delivering typo tolerance grading, manager starred card filtering, and zen review mode. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.27) for the package and publishing status.
 
-## What's New in v0.210.26
+## What's New in v0.210.27
+
+- **Smart Typo Tolerance (Levenshtein Distance)**:
+  - Grants credit (suggested rating 3 Good) for minor 1-character typos/omissions while strictly preserving BX-1 numeric precision.
+- **Manager Starred Filter & Orphan Card Badges**:
+  - Filter card databases with `[ ⭐ Starred Only ]`, view status indicators, and locate missing/orphan blocks.
+- **Zen Focus Review Mode**:
+  - Hide toolbars and distractions with `z` or via the menu for deep flow review.
+- **Multi-Round Verification**:
+  - 1938 tests across 241 test suites 100% passing; zero TypeScript/Svelte errors and warnings; production build and smoke tests green.
+
+## Previous Update: v0.210.26
 
 - **Done Panel Quiz Accuracy Badge**:
   - Automatically tallies interactive quiz attempts and accuracy percentage (e.g. 80% 4/5) with a glowing status bubble (`.lv-done-quiz-bubble`).
