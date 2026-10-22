@@ -19,9 +19,21 @@ The full-lifecycle flashcard learning platform for SiYuan — local-first, nativ
 
 > **Note**: The primary README and all design docs are in Chinese. This page covers the essentials; see [docs/](./docs/README.md) for full design material.
 
-Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.9** (2026-10-22), delivering native card non-destructive presentation, batch deck organization, and quick cloze wrapping in card editing. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.9) for the package and publishing status.
+Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.10** (2026-10-22), delivering topbar silent graceful tooltips and Review Ready Hub Bento elevation. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.10) for the package and publishing status.
 
-## What's New in v0.210.9
+## What's New in v0.210.10
+
+- **Silent Topbar & Removal of Intrusive Badge Numbers**:
+  - Removed the loud red badge ball from the topbar icon to eliminate notification stress;
+  - Due card counts and goal status are now gracefully presented in the native hover tooltip (`title` / `aria-label`).
+- **Review Ready Hub & Bento Action Grid**:
+  - Transformed the desolate empty queue state into an elegant Review Ready Dashboard;
+  - Quarantined cards are cohesively embedded inside the dashboard with clear diagnostics and one-click repair actions;
+  - Bento matrix: Ahead-of-Time Cram practice, new cards practice, authoring studio, inbox, card manager, and maintenance.
+- **Verification**:
+  - 1928 tests across 240 test suites 100% passing; zero TypeScript/Svelte errors and warnings; production build and smoke tests green.
+
+## Previous Update: v0.210.9
 
 - **Native & Ecosystem Card Review Presentation Elevation**:
   - Enhanced review interface for native SiYuan prompt cards, block memo answers, third-party plugin attributes, and delimited syntax.

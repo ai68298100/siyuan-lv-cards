@@ -1951,19 +1951,21 @@ export default class LvCardsPlugin extends Plugin {
     private renderBadge(desc: ReturnType<typeof computeBadgeDescriptor>, plan?: ExamPlan, topBar?: HTMLElement | null) {
         const bar = topBar ?? this.ensureTopBarElement();
         if (!bar) return;
-        let badge = bar.querySelector<HTMLElement>(".lv-badge");
-        if (!desc.visible) {
-            badge?.remove();
-            return;
+        // 去除顶栏刺眼的红底数字小球：彻底清理并阻止插入 .lv-badge 节点，避免视觉干扰与打扰
+        const badge = bar.querySelector<HTMLElement>(".lv-badge");
+        if (badge) {
+            badge.remove();
         }
-        if (!badge) {
-            badge = document.createElement("span");
-            badge.className = "lv-badge";
-            bar.appendChild(badge);
+
+        // 将到期卡数与状态优雅呈现在顶栏图标原生悬浮提示（title / aria-label）中，保持顶栏清爽干净
+        const baseTitle = this.i18n.topbarTitle || "小驴闪卡";
+        if (desc.visible && desc.title) {
+            bar.setAttribute("title", `${baseTitle} (${desc.title})`);
+            bar.setAttribute("aria-label", `${baseTitle}，${desc.title}`);
+        } else {
+            bar.setAttribute("title", baseTitle);
+            bar.setAttribute("aria-label", baseTitle);
         }
-        badge.textContent = desc.text;
-        badge.title = desc.title;
-        badge.classList.toggle("lv-badge--done", desc.isDone);
 
         // 里程碑提醒（30/7/1 天，每天每档一次，内存态）
         if (desc.milestoneDays && plan) {
