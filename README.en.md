@@ -19,9 +19,21 @@ The full-lifecycle flashcard learning platform for SiYuan — local-first, nativ
 
 > **Note**: The primary README and all design docs are in Chinese. This page covers the essentials; see [docs/](./docs/README.md) for full design material.
 
-Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.17** (2026-10-22), delivering goal editing completion, exam card visual hierarchy, and cross-module consistency. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.17) for the package and publishing status.
+Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.18** (2026-10-22), delivering native editor slash menu card creation, official Petal lifecycle compliance, and complete deck rename/removal actions. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.18) for the package and publishing status.
 
-## What's New in v0.210.17
+## What's New in v0.210.18
+
+- **Native Slash Menu (`protyleSlash`) Card Creation**:
+  - Type `/zk`, `/card`, or `/shanka` in any document block to instantly trigger card creation into target decks directly from the editor.
+- **Official Petal Lifecycle Alignment**:
+  - Implemented the official `uninstall()` plugin teardown hook to clean up topbar entries, heartbeats, and references on deletion;
+  - Conformed to SDK 1.2.9 native `addTopBar` `contextMenu` option.
+- **Deep Deck Management Integration**:
+  - Integrated official kernel `/api/riff/renameRiffDeck` and `/api/riff/removeRiffDeck` endpoints with inline renaming and confirmed deletion directly from the dashboard.
+- **Verification**:
+  - 1928 tests across 240 test suites 100% passing; zero TypeScript/Svelte errors and warnings; production build and smoke tests green.
+
+## Previous Update: v0.210.17
 
 - **Goal Editing & Modification Completion**:
   - Restored the missing **`[ Edit ]`** action on goal cards with complete state hydration (`startEdit(goal)`);

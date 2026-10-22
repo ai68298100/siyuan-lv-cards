@@ -965,6 +965,23 @@ export default class LvCardsPlugin extends Plugin {
             })
             .catch(() => { /* detectFlashcardV2 内部已兜底为 null，此处仅防御 */ });
 
+        // 接入思源官方斜杠菜单（protyleSlash）原生制卡通道
+        this.protyleSlash = [
+            {
+                filter: ["flashcard", "card", "shanka", "zhika", "sk", "zk", "小驴闪卡", "闪卡", "制作闪卡"],
+                html: `<div class="b3-list-item__first"><span class="b3-list-item__text">${this.i18n.slashMakeCard ?? "小驴闪卡：将当前块制卡"}</span><span class="b3-list-item__meta">Flashcard</span></div>`,
+                id: "lv-cards-slash-make",
+                callback: (_protyle, nodeElement) => {
+                    const blockID = nodeElement?.getAttribute("data-node-id");
+                    if (blockID) {
+                        void this.openDeckPicker([blockID]);
+                    } else {
+                        void this.openQuickCard();
+                    }
+                },
+            },
+        ];
+
         // 原生复习界面的评分事件 → 本地 revlog（宽容解析，事件结构变化不致崩）
         this.eventBus.on("click-flashcard-action", this.onNativeCardAction);
         // 块图标菜单 → 制卡入口（M2·FR1）
@@ -1883,6 +1900,17 @@ export default class LvCardsPlugin extends Plugin {
         if (this.badgeTimer) {
             clearInterval(this.badgeTimer);
             this.badgeTimer = null;
+        }
+    }
+
+    async uninstall(): Promise<void> {
+        lvLog("info", "[uninstall] Little Donkey Flashcards plugin is being uninstalled from workspace");
+        if (this.badgeTimer) {
+            clearInterval(this.badgeTimer);
+            this.badgeTimer = null;
+        }
+        if (this.topBarElement) {
+            try { this.removeTopBar(LvCardsPlugin.TOPBAR_ICON_ID); } catch {}
         }
     }
 

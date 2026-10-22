@@ -2,7 +2,7 @@
     import { onMount } from "svelte";
     import type { App } from "siyuan";
     import { fade } from "svelte/transition";
-    import { getRiffDecks, getRiffCards, getRiffDueCards, type RiffDeck } from "@/api/riff";
+    import { getRiffDecks, getRiffCards, getRiffDueCards, renameRiffDeck, removeRiffDeck, type RiffDeck } from "@/api/riff";
     import { dueCache } from "@/api/due-shared";
     import { isSessionLive, type EndReason } from "@/core/session-state";
     import { decideTodayAction } from "@/core/today-decision";
@@ -413,6 +413,30 @@
             }
         } finally {
             ddExportBusy = false;
+        }
+    }
+
+    async function renameDeckPrompt(deckID: string, currentName: string) {
+        const next = window.prompt(t.dashboard.renameDeckPrompt ?? "请输入卡组的新名称：", currentName);
+        if (!next || !next.trim() || next.trim() === currentName) return;
+        try {
+            await renameRiffDeck(deckID, next.trim());
+            showMessage(t.dashboard.renameDeckDone ?? "卡组已成功重命名", 2000, "info");
+            void refresh();
+        } catch (e: any) {
+            showMessage(friendlyError(e, t), 3000, "error");
+        }
+    }
+
+    async function removeDeckConfirm(deckID: string, currentName: string) {
+        const confirmed = window.confirm((t.dashboard.removeDeckConfirm ?? "确定删除卡组「${name}」？卡包内的笔记块本身不会受影响。").replace("${name}", currentName));
+        if (!confirmed) return;
+        try {
+            await removeRiffDeck(deckID);
+            showMessage(t.dashboard.removeDeckDone ?? "卡组已删除", 2000, "info");
+            void refresh();
+        } catch (e: any) {
+            showMessage(friendlyError(e, t), 3000, "error");
         }
     }
 
@@ -1075,7 +1099,15 @@
                                 <td style="text-align:right;font-variant-numeric:tabular-nums" title={row.passRate7 !== null ? `7 天复习 ${row.reviews7} 次 · 通过率 ${row.passRate7}%` : `7 天复习 ${row.reviews7} 次`}>{row.reviews7}</td>
                                 <td style="text-align:right;font-variant-numeric:tabular-nums" class:lv-dd-retention-good={row.retention !== null && row.retention >= 85} class:lv-dd-retention-low={row.retention !== null && row.retention < 70}>{row.retention === null ? t.dashboard.unknown : row.retention + "%"}</td>
                                 <td style="text-align:right;font-variant-numeric:tabular-nums" class:lv-dd-leech-warn={row.leeches > 0}>{#if row.leeches > 0}<LvIcon name="warning" size={14} /> {row.leeches}{:else}0{/if}</td>
-                                <td style="text-align:right"><button class="b3-button b3-button--small lv-btn-ghost" disabled={ddExportBusy} onclick={() => exportDeckShare(row.deckID, deckName)}>{t.dashboard.ddShareBtn}</button></td>
+                                <td style="text-align:right">
+                                    <div style="display: inline-flex; align-items: center; justify-content: flex-end; gap: 4px">
+                                        <button type="button" class="b3-button b3-button--small lv-btn-ghost" title={t.dashboard.renameDeck ?? "重命名卡组"} onclick={() => renameDeckPrompt(row.deckID, deckName)}>✎</button>
+                                        <button type="button" class="b3-button b3-button--small lv-btn-ghost" disabled={ddExportBusy} title={t.dashboard.ddShareBtn} onclick={() => exportDeckShare(row.deckID, deckName)}>
+                                            <LvIcon name="cards" size={13} />
+                                        </button>
+                                        <button type="button" class="b3-button b3-button--small lv-btn-ghost lv-menu-danger" title={t.dashboard.deleteDeck ?? "删除卡组"} onclick={() => removeDeckConfirm(row.deckID, deckName)}>🗑️</button>
+                                    </div>
+                                </td>
                             </tr>
                         {/each}
                     </tbody>
