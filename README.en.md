@@ -19,9 +19,20 @@ The full-lifecycle flashcard learning platform for SiYuan — local-first, nativ
 
 > **Note**: The primary README and all design docs are in Chinese. This page covers the essentials; see [docs/](./docs/README.md) for full design material.
 
-Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.24** (2026-10-22), delivering complete multiple-choice submission flows, partial-credit hints, and keyboard shortcut help overlays. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.24) for the package and publishing status.
+Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.25** (2026-10-22), delivering audio/haptic feedback on quiz answers, autofocus inputs, and analysis animations. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.25) for the package and publishing status.
 
-## What's New in v0.210.24
+## What's New in v0.210.25
+
+- **Multimodal Audio & Haptic Feedback on Quiz Responses**:
+  - Plays uplifting Web Audio synthesizer chimes and subtle haptics on correct answers; low gentle tones on errors.
+- **Autofocus Fill-in-the-Blank Inputs**:
+  - Automatically focuses the answer input when a fill-in card is loaded, allowing immediate typing without mouse interaction.
+- **Smooth Analysis Card Transitions**:
+  - Analysis explanations expand with fluid opacity and motion easing upon card flip.
+- **Verification**:
+  - 1936 tests across 241 test suites 100% passing; zero TypeScript/Svelte errors and warnings; production build and smoke tests green.
+
+## Previous Update: v0.210.24
 
 - **Full Multiple-Choice Submission Flow**:
   - Interactive multi-selection toggles with visual checkmark states and an inline `[ Submit Answers (Enter) ]` action.
