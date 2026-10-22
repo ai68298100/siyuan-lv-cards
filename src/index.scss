@@ -1492,7 +1492,9 @@
 
 .lv-card-content.has-interactive-choice {
     [data-type="NodeList"],
-    .list {
+    .list,
+    ul,
+    ol {
         display: none !important;
     }
 }
@@ -1767,6 +1769,38 @@
         line-height: var(--lv-lh-reading);
         color: var(--lv-color-text);
     }
+}
+
+.lv-budget-chip,
+.lv-card-timeout-chip {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    border-radius: var(--lv-r-pill);
+    font-size: 11px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    border: 1px solid var(--lv-border);
+    background: color-mix(in srgb, var(--lv-color-surface) 75%, var(--lv-color-canvas));
+    color: var(--lv-color-text);
+
+    small {
+        font-size: 10px;
+        opacity: 0.75;
+        font-weight: 500;
+    }
+}
+.lv-card-timeout-chip {
+    border-color: color-mix(in srgb, var(--lv-color-brand) 30%, transparent);
+    color: var(--lv-color-brand);
+    background: color-mix(in srgb, var(--lv-color-brand) 8%, var(--lv-color-surface));
+}
+.lv-card-timeout-chip.lv-timeout-low {
+    border-color: var(--lv-danger-border) !important;
+    color: var(--lv-color-danger) !important;
+    background: var(--lv-danger-soft) !important;
+    animation: lv-pulse-suggest 1.2s infinite ease-in-out;
 }
 
 .lv-btn-rate.lv-btn-suggested {

@@ -1841,6 +1841,14 @@
             return;
         }
 
+        // 答案揭晓后连击空格或回车：极速采用推荐评分提交并切下一张
+        if (showAnswer && (e.key === " " || e.key === "Enter") && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) {
+            e.preventDefault();
+            const ratingToSubmit = (suggestedRating as any) ?? 3;
+            void rate(ratingToSubmit);
+            return;
+        }
+
         switch (action) {
             case "close-peek":
                 peek = null;
@@ -2484,12 +2492,12 @@
                     {#if budgetExpired}
                         <span class="lv-chip2 lv-chip2--default" title={t.review.budgetDoneTip}>{t.review.budgetDone}</span>
                     {:else}
-                        <span class="lv-timeout" title={t.review.budgetLabel}><LvIcon name="timer" size={14} /> {budgetClockText()}</span>
+                        <span class="lv-timeout lv-budget-chip" title={t.review.budgetLabel}><LvIcon name="timer" size={13} /><small>总余</small> {budgetClockText()}</span>
                     {/if}
                 {/if}
                 {#if current.lvRequeue}<span class="lv-chip2 lv-chip2--warn" title={t.review.requeueTip}>{t.review.requeueChip}</span>{/if}
                 {#if eff().timeoutMode !== "off" && !showAnswer}
-                    <span class="lv-timeout" class:lv-timeout-low={timeoutLeft <= 10}><LvIcon name="timer" size={14} /> {timeoutText()}</span>
+                    <span class="lv-timeout lv-card-timeout-chip" class:lv-timeout-low={timeoutLeft <= 10} title="单卡作答限时"><LvIcon name="zap" size={13} /><small>限时</small> {timeoutText()}</span>
                 {/if}
                 <span class="lv-tags">
                     {#if !(eff().hideMetaUntilAnswer && !showAnswer)}

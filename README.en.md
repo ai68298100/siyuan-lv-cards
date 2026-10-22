@@ -19,9 +19,20 @@ The full-lifecycle flashcard learning platform for SiYuan — local-first, nativ
 
 > **Note**: The primary README and all design docs are in Chinese. This page covers the essentials; see [docs/](./docs/README.md) for full design material.
 
-Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.22** (2026-10-22), delivering interactive choice/judge/fill quiz interactions, elevated card aesthetics, and floating action docks. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.22) for the package and publishing status.
+Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.23** (2026-10-22), delivering one-key space speed flow, explicit dual-clock timer chips, and redundant option filtering. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.23) for the package and publishing status.
 
-## What's New in v0.210.22
+## What's New in v0.210.23
+
+- **One-Key Speed Flow (Space / Enter Instant Rating)**:
+  - Once revealed, pressing `Space` or `Enter` automatically submits the recommended rating (e.g. Good 3) and advances immediately to the next card.
+- **Explicit Dual-Clock Semantic Chips**:
+  - Clear distinctions between session budget time (`Total Left 14:38`) and single-card timeout (`Limit 0:39`), preventing timer confusion.
+- **Redundant Option Text Filtering**:
+  - Automatically hides raw `ul`/`ol` list text when interactive option cards are active, maintaining a clean stem presentation.
+- **Verification**:
+  - 1936 tests across 241 test suites 100% passing; zero TypeScript/Svelte errors and warnings; production build and smoke tests green.
+
+## Previous Update: v0.210.22
 
 - **Interactive Choice Option Matrix (Single & Multiple Choice)**:
   - Automatically parses options (A/B/C/D) and renders tactile choice cards with instant correctness feedback and automatic flip-to-analysis.
