@@ -19,9 +19,22 @@ The full-lifecycle flashcard learning platform for SiYuan — local-first, nativ
 
 > **Note**: The primary README and all design docs are in Chinese. This page covers the essentials; see [docs/](./docs/README.md) for full design material.
 
-Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.14** (2026-10-22), delivering Select All on page in manager and comprehensive shortcut help alignment. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.14) for the package and publishing status.
+Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.15** (2026-10-22), delivering search hit highlighting in manager, in-review live font zoom, and instant undo toasts. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.15) for the package and publishing status.
 
-## What's New in v0.210.14
+## What's New in v0.210.15
+
+- **Search Keyword Highlighting in Manager**:
+  - Matched search terms in card excerpts are highlighted with a gentle amber pill marker (`<mark class="lv-search-hit">`);
+  - Strictly preserves WAI-ARIA accessible text via `aria-label` for smooth screen reader compatibility.
+- **In-Review Live Font Zoom Control**:
+  - Added dedicated **`[ A− ] [ A+ ]`** font adjustment group directly on the review toolbar;
+  - Real-time scaling from 80% to 160% without leaving the active review session.
+- **Instant Undo Toast Feedback**:
+  - Pressing `z / p / u` triggers an immediate informative toast confirming that the previous card and queue state were restored.
+- **Verification**:
+  - 1928 tests across 240 test suites 100% passing; zero TypeScript/Svelte errors and warnings; production build and smoke tests green.
+
+## Previous Update: v0.210.14
 
 - **Manager Select All on Current Page**:
   - Added dedicated **`[ ☑ Select Page / Deselect All ]`** pill button in the manager toolbar;

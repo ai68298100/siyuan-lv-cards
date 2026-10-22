@@ -593,6 +593,29 @@ import { confirmDialog } from "@/libs/dialog";
         }
     }
 
+    function escapeHtmlText(str: string): string {
+        return str
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+    }
+
+    function highlightSearchHit(text: string, query: string): string {
+        const clean = text || "";
+        const q = query.trim();
+        if (!q) return escapeHtmlText(clean);
+        const escapedQuery = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const parts = clean.split(new RegExp(`(${escapedQuery})`, "gi"));
+        return parts.map(part => {
+            if (part.toLowerCase() === q.toLowerCase()) {
+                return `<mark class="lv-search-hit">${escapeHtmlText(part)}</mark>`;
+            }
+            return escapeHtmlText(part);
+        }).join("");
+    }
+
     function openDetail(b: SearchBlock) {
         detailRequestSeq += 1;
         detail = b;
@@ -908,13 +931,14 @@ import { confirmDialog } from "@/libs/dialog";
                         class="lv-row-main"
                         id={`lv-manager-card-${encodeURIComponent(b.id)}`}
                         data-manager-card-id
+                        aria-label={stripHtml(b.content) || t.manager.emptyContentFallback}
                         aria-keyshortcuts="ArrowUp ArrowDown Delete Enter"
                         disabled={batchBusy !== null}
                         onclick={() => openDetail(b)}
                         onkeydown={(event) => onRowKeydown(event, b, rowIndex)}
                     >
                         <span class="lv-content">
-                            <span class="lv-text">{stripHtml(b.content) || t.manager.emptyContentFallback}</span>
+                            <span class="lv-text">{@html highlightSearchHit(stripHtml(b.content) || t.manager.emptyContentFallback, filterText)}</span>
                             <span class="lv-meta ft__smaller ft__on-surface">
                                 {#if ctx.isNewBlock(b.id)}
                                     <span class="lv-chip2 lv-chip2--primary">{t.manager.statusNew ?? "新"}</span>
@@ -1266,6 +1290,14 @@ import { confirmDialog } from "@/libs/dialog";
                 box-shadow: var(--lv-shadow-card-hover), var(--lv-inset-shine);
                 &::before { opacity: 1; }
                 .lv-arrow { opacity: 1; transform: translateX(0); }
+            }
+
+            :global(.lv-search-hit) {
+                background: color-mix(in srgb, var(--lv-color-warning) 28%, transparent);
+                color: var(--lv-color-text);
+                font-weight: var(--lv-fw-semibold);
+                border-radius: var(--lv-r-track);
+                padding: 0 2px;
             }
 
             .lv-row-main {

@@ -592,6 +592,14 @@
     // 汲取自番茄插件：复习端就地移出卡组
     let showRetireModal = $state(false);
     let retireBusy = $state(false);
+    function adjustFontScale(delta: number) {
+        const cur = eff().cardFontScale || 1;
+        const next = Math.min(1.6, Math.max(0.8, Math.round((cur + delta) * 10) / 10));
+        setOverride("cardFontScale", next);
+        announce(`字号已调整至 ${Math.round(next * 100)}%`, "polite");
+        showMessage(`${t.review.fontScaleTitle ?? "卡面字号"}: ${Math.round(next * 100)}%`, 1200, "info");
+    }
+
     function toggleMarkIssue() {
         if (!current || actionBusy || markedIssueCardIDs.has(current.cardID)) return;
         const cardID = current.cardID;
@@ -2463,6 +2471,10 @@
                 </span>
                 <div class="fn__flex-1"></div>
                 <!-- docs/13 §4：图标可读、操作不依赖 hover；常驻核心高频操作，二级动作折叠进更多气泡 -->
+                <div class="lv-font-scale-group" title={t.review.fontScaleTitle ?? "调整卡面字号"}>
+                    <button type="button" class="b3-button b3-button--small lv-btn-ghost lv-font-btn" title="缩小卡面字号" onclick={() => adjustFontScale(-0.1)}>A−</button>
+                    <button type="button" class="b3-button b3-button--small lv-btn-ghost lv-font-btn" title="放大卡面字号" onclick={() => adjustFontScale(0.1)}>A+</button>
+                </div>
                 <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.sessionOptionsTitle} aria-label={t.review.sessionOptionsTitle} onclick={openSessionOptions}><LvIcon name="zap" size={15} /> {t.review.sessionOptionsTitle.slice(0, 4)}</button>
                 <button class="b3-button b3-button--small lv-btn-ghost" class:lv-btn-primary={markedIssueCardIDs.has(current?.cardID ?? '')} title={markedIssueCardIDs.has(current?.cardID ?? '') ? t.review.issueMarked : t.review.tbMarkIssue} aria-label={t.review.tbMarkIssue} aria-pressed={markedIssueCardIDs.has(current?.cardID ?? '')} disabled={!current || actionBusy || markedIssueCardIDs.has(current?.cardID ?? '')} onclick={toggleMarkIssue}><LvIcon name="flag" size={15} /> {markedIssueCardIDs.has(current?.cardID ?? '') ? t.review.issueChip : t.review.tbMarkIssue}</button>
                 <button class="b3-button b3-button--small lv-btn-ghost" title={t.review.pauseTitle} aria-label={t.review.pauseTitle} disabled={actionBusy} onclick={() => (showPauseModal = true)}><LvIcon name="moon" size={15} /> {t.review.tbPause}</button>
@@ -3598,6 +3610,28 @@
                 font-weight: 700;
             }
             .lv-tags { display: flex; gap: var(--lv-sp-1); }
+        }
+
+        .lv-font-scale-group {
+            display: inline-flex;
+            align-items: center;
+            border: 1px solid var(--lv-border);
+            border-radius: var(--lv-r-pill);
+            overflow: hidden;
+            background: color-mix(in srgb, var(--lv-color-surface) 60%, var(--lv-color-canvas));
+            flex-shrink: 0;
+
+            .lv-font-btn {
+                padding: 2px 7px;
+                font-size: 11px;
+                font-weight: var(--lv-fw-semibold);
+                border: none;
+                border-radius: 0;
+                line-height: 1.2;
+                &:first-child {
+                    border-right: 1px solid var(--lv-border);
+                }
+            }
         }
 
         .lv-err-tags {

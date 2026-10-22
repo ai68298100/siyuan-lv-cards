@@ -369,6 +369,8 @@
         "reversedBadge": "Reversed",
         "clozeRevealNext": "Reveal Next Slot",
         "clozeRevealAll": "Reveal All",
+        "fontScaleTitle": "Adjust font scale",
+        "undoSuccess": "Undo successful. Returned to previous card.",
         "pomodoroDoneTitle": "25-min Pomodoro Completed!",
         "pomodoroDoneDesc": "Focus session completed (${n} reviewed). Take a 5-minute break to consolidate memory.",
         "pomodoroRest": "Take a break & return",

@@ -369,6 +369,8 @@
         "reversedBadge": "逆向回忆",
         "clozeRevealNext": "揭晓下一空",
         "clozeRevealAll": "全部揭晓",
+        "fontScaleTitle": "调整卡面字号",
+        "undoSuccess": "已成功撤销上一张评分，回到上一题现场",
         "pomodoroDoneTitle": "25 分钟番茄专注达成！",
         "pomodoroDoneDesc": "已完成本轮专注复习（已评 ${n} 张），建议休息 5 分钟，让大脑巩固记忆再继续。",
         "pomodoroRest": "休息并返回今日",
