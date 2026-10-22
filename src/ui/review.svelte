@@ -1977,6 +1977,15 @@
         triggerHaptic(10);
     }
 
+    function autoFocusInput(node: HTMLElement) {
+        const timer = setTimeout(() => {
+            try { node.focus(); } catch {}
+        }, 60);
+        return {
+            destroy() { clearTimeout(timer); }
+        };
+    }
+
     function handleOptionPick(key: string) {
         if (!faceReady || showAnswer || !interactiveQuiz) return;
         if (interactiveQuiz.isMultiple) {
@@ -2002,14 +2011,20 @@
             if (allMatch) {
                 isAnswerCorrect = true;
                 suggestedRating = 3;
+                playSfx(3);
+                triggerHaptic(15);
                 showMessage(interactiveQuiz.isMultiple ? "多选全部正确！" : "回答正确！", 1800, "info");
             } else if (!hasWrong && selectedChoiceKeys.length < correctKeys.length) {
                 isAnswerCorrect = false;
                 suggestedRating = 2;
+                playSfx(2);
+                triggerHaptic(20);
                 showMessage("回答部分正确（多选漏选），已标出全部答案", 2000, "info");
             } else {
                 isAnswerCorrect = false;
                 suggestedRating = 1;
+                playSfx(1);
+                triggerHaptic(25);
                 showMessage("回答错误，已标出正确选项", 1800, "error");
             }
         }
@@ -2022,6 +2037,8 @@
         if (interactiveQuiz.judgeAnswer !== null) {
             isAnswerCorrect = val === interactiveQuiz.judgeAnswer;
             suggestedRating = isAnswerCorrect ? 3 : 1;
+            playSfx(isAnswerCorrect ? 3 : 1);
+            triggerHaptic(isAnswerCorrect ? 15 : 25);
             showMessage(isAnswerCorrect ? "判断正确！" : "判断错误，已标出正确答案", 1800, isAnswerCorrect ? "info" : "error");
         }
         revealAnswer();
@@ -2035,6 +2052,8 @@
             typingGrade = g;
             isAnswerCorrect = g.suggested >= 3;
             suggestedRating = g.suggested;
+            playSfx(g.suggested as any);
+            triggerHaptic(isAnswerCorrect ? 15 : 25);
             showMessage(isAnswerCorrect ? "填空正确！" : "填空已对比，查看答案", 1800, isAnswerCorrect ? "info" : "error");
         }
         revealAnswer();
@@ -2803,6 +2822,7 @@
                                 <input
                                     type="text"
                                     class="b3-text-field lv-fill-input"
+                                    use:autoFocusInput
                                     bind:value={typingInput}
                                     placeholder="在此输入你的填空答案，按 Enter 智能判定..."
                                     onkeydown={(e) => { if (e.key === "Enter") handleFillCheck(); }}
@@ -2816,7 +2836,7 @@
 
                     <!-- 翻面后参考解析卡片（若存在解析） -->
                     {#if showAnswer && interactiveQuiz?.analysis}
-                        <div class="lv-interactive-analysis-card">
+                        <div class="lv-interactive-analysis-card" in:fade={{ duration: getMotionDuration("normal") }}>
                             <div class="lv-analysis-head">
                                 <span class="lv-analysis-icon"><LvIcon name="lightbulb" size={16} /></span>
                                 <strong>参考解析</strong>
