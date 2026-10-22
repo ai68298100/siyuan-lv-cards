@@ -19,9 +19,25 @@ The full-lifecycle flashcard learning platform for SiYuan — local-first, nativ
 
 > **Note**: The primary README and all design docs are in Chinese. This page covers the essentials; see [docs/](./docs/README.md) for full design material.
 
-Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.21** (2026-10-22), delivering universal rich card scopes, mid-viewport stat grid hardening, and bento grid elasticity. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.21) for the package and publishing status.
+Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.22** (2026-10-22), delivering interactive choice/judge/fill quiz interactions, elevated card aesthetics, and floating action docks. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.22) for the package and publishing status.
 
-## What's New in v0.210.21
+## What's New in v0.210.22
+
+- **Interactive Choice Option Matrix (Single & Multiple Choice)**:
+  - Automatically parses options (A/B/C/D) and renders tactile choice cards with instant correctness feedback and automatic flip-to-analysis.
+  - Supports full keyboard shortcuts (A/B/C/D or 1/2/3/4).
+- **Interactive Judgment Cards (True / False)**:
+  - Renders prominent True/False interactive capsules with keyboard triggers (T/1 or F/2) and instant grading.
+- **Embedded Interactive Fill-in-the-Blank Box**:
+  - Provides an inline input box for fill-in-the-blank cards with instant Enter-to-check diff grading.
+- **Elevated Card Aesthetics & Floating Action Dock**:
+  - Balanced padding and multi-layered ambient shadows on `.lv-card` for an elevated quiz look;
+  - Transformed the reveal action into a modern floating action dock with keyboard badges;
+  - Recommended ratings (e.g. Good 3) feature an intelligent breathing pulse (`.lv-btn-suggested`) for effortless flow.
+- **Verification**:
+  - 1936 tests across 241 test suites 100% passing; zero TypeScript/Svelte errors and warnings; production build and smoke tests green.
+
+## Previous Update: v0.210.21
 
 - **Unified Rich Card Scopes (`.lv-unified-face` & `.lv-card-content`)**:
   - Unified review faces, detail drawer previews, and card authoring components under both scope classes;

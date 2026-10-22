@@ -49,6 +49,7 @@
     import { lvLog } from "@/libs/log";
     import { trapFocus } from "@/libs/focus-trap";
     import { parseHPathToBreadcrumbs, type ReviewBreadcrumbChain } from "@/core/review-breadcrumbs";
+    import { parseInteractiveQuiz, type InteractiveQuizData } from "@/core/quiz-interactive";
 
     export interface ReviewSettings {
         ratingStyle: "four" | "three";
@@ -670,6 +671,12 @@
     let choiceLoading = $state(false);
     // 当同队列没有任何可靠干扰项时，选择题退回正常自由回忆，避免伪造选项。
     let choiceFallbackMode = $state<"none" | "free-recall">("none");
+    // 交互式题型模型与作答状态（支持选择题选项卡片、判断题、填空打字与解析）
+    let interactiveQuiz = $state<InteractiveQuizData | null>(null);
+    let selectedChoiceKey = $state<string | null>(null);
+    let userJudgeChoice = $state<boolean | null>(null);
+    let isAnswerCorrect = $state<boolean | null>(null);
+    let suggestedRating = $state<number | null>(null);
 
     async function loadBlockDOM(blockID: string) {
         const seq = ++loadSeq;
@@ -717,6 +724,12 @@
                         expectedText = cardMemo;
                         answerCache.set(blockID, expectedText);
                     }
+                    interactiveQuiz = parseInteractiveQuiz({
+                        domHtml: cardHtml,
+                        attrs,
+                        cardMemo,
+                        expectedText,
+                    });
                 }
             } catch {
                 if (seq === loadSeq) {
@@ -1092,6 +1105,11 @@
         cardMemo = "";
         showMemoEditor = false;
         memoDraft = "";
+        interactiveQuiz = null;
+        selectedChoiceKey = null;
+        userJudgeChoice = null;
+        isAnswerCorrect = null;
+        suggestedRating = null;
         memoSaving = false;
         showRetireModal = false;
         retireBusy = false;
@@ -1791,6 +1809,32 @@
 
         if (!action) return;
 
+        // 交互式选择题键盘快捷键（A/B/C/D 或 1/2/3/4）
+        if (!showAnswer && interactiveQuiz?.kind === "choice" && interactiveQuiz.options.length >= 2) {
+            const keyUpper = e.key.toUpperCase();
+            const matchedOpt = interactiveQuiz.options.find(o => o.key === keyUpper)
+                || (Number(e.key) >= 1 && Number(e.key) <= interactiveQuiz.options.length ? interactiveQuiz.options[Number(e.key) - 1] : null);
+            if (matchedOpt) {
+                e.preventDefault();
+                handleOptionPick(matchedOpt.key);
+                return;
+            }
+        }
+
+        // 交互式判断题键盘快捷键（T/1 或 F/2）
+        if (!showAnswer && interactiveQuiz?.kind === "judge") {
+            const keyLower = e.key.toLowerCase();
+            if (keyLower === "t" || e.key === "1") {
+                e.preventDefault();
+                handleJudgePick(true);
+                return;
+            } else if (keyLower === "f" || e.key === "2") {
+                e.preventDefault();
+                handleJudgePick(false);
+                return;
+            }
+        }
+
         if ((e.key === "r" || e.key === "R") && !showAnswer && current && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) {
             e.preventDefault();
             reversedRecall = !reversedRecall;
@@ -1918,6 +1962,43 @@
         if (!faceReady || showAnswer) return;
         showAnswer = true;
         triggerHaptic(10);
+    }
+
+    function handleOptionPick(key: string) {
+        if (!faceReady || showAnswer || !interactiveQuiz) return;
+        selectedChoiceKey = key;
+        const option = interactiveQuiz.options.find(o => o.key === key);
+        const hasCorrect = interactiveQuiz.options.some(o => o.isAnswer);
+        if (hasCorrect) {
+            isAnswerCorrect = option?.isAnswer ?? false;
+            suggestedRating = isAnswerCorrect ? 3 : 1;
+            showMessage(isAnswerCorrect ? "回答正确！" : "回答错误，已标出正确答案", 1800, isAnswerCorrect ? "info" : "error");
+        }
+        revealAnswer();
+    }
+
+    function handleJudgePick(val: boolean) {
+        if (!faceReady || showAnswer || !interactiveQuiz) return;
+        userJudgeChoice = val;
+        if (interactiveQuiz.judgeAnswer !== null) {
+            isAnswerCorrect = val === interactiveQuiz.judgeAnswer;
+            suggestedRating = isAnswerCorrect ? 3 : 1;
+            showMessage(isAnswerCorrect ? "判断正确！" : "判断错误，已标出正确答案", 1800, isAnswerCorrect ? "info" : "error");
+        }
+        revealAnswer();
+    }
+
+    function handleFillCheck() {
+        if (!faceReady || showAnswer || !interactiveQuiz || !typingInput.trim()) return;
+        const target = interactiveQuiz.fillExpected || expectedText;
+        if (target) {
+            const g = gradeTyping(target, typingInput, eff().typingStrict);
+            typingGrade = g;
+            isAnswerCorrect = g.suggested >= 3;
+            suggestedRating = g.suggested;
+            showMessage(isAnswerCorrect ? "填空正确！" : "填空已对比，查看答案", 1800, isAnswerCorrect ? "info" : "error");
+        }
+        revealAnswer();
     }
 
     function onContainerClick(e: MouseEvent) {
@@ -2575,12 +2656,123 @@
             {:else}
                 {#key current?.cardID}
                     <!-- 灵动感（R53 纪律内）：切卡 140ms 单次淡入，只动 opacity；翻面淡入由 lv-anim-glow 承担 -->
-                    <div class="lv-card-content lv-unified-face" class:lv-masked={!showAnswer} onclick={onCardContentClick} style={`font-size: ${eff().cardFontScale || 1}em`} in:fade={{ duration: getMotionDuration("standard") }}>
+                    <div class="lv-card-content lv-unified-face" class:has-interactive-choice={interactiveQuiz?.kind === "choice" && interactiveQuiz.options.length >= 2} class:lv-masked={!showAnswer} onclick={onCardContentClick} style={`font-size: ${eff().cardFontScale || 1}em`} in:fade={{ duration: getMotionDuration("standard") }}>
                         {#if eff().customCardCss}
                             {@html `<style>${eff().customCardCss}</style>`}
                         {/if}
                         {@html showAnswer ? cardHtml : maskedCardHtml}
                     </div>
+
+                    <!-- 交互式选择题选项矩阵（点击或按 A/B/C/D 作答） -->
+                    {#if interactiveQuiz?.kind === "choice" && interactiveQuiz.options.length >= 2}
+                        <div class="lv-interactive-choice-container">
+                            <div class="lv-interactive-choice-prompt">
+                                <LvIcon name="check" size={14} />
+                                <span>{interactiveQuiz.isMultiple ? "多选作答（点击选项）" : "选择作答（点击或敲键盘 A/B/C/D）"}</span>
+                            </div>
+                            <div class="lv-interactive-choice-grid">
+                                {#each interactiveQuiz.options as opt (opt.key)}
+                                    <button
+                                        type="button"
+                                        class="lv-interactive-choice-card"
+                                        class:lv-choice-selected={selectedChoiceKey === opt.key}
+                                        class:lv-choice-correct={showAnswer && opt.isAnswer}
+                                        class:lv-choice-wrong={showAnswer && selectedChoiceKey === opt.key && !opt.isAnswer}
+                                        disabled={showAnswer}
+                                        onclick={() => handleOptionPick(opt.key)}
+                                    >
+                                        <span class="lv-choice-key-badge">{opt.key}</span>
+                                        <span class="lv-choice-text-body">{opt.text}</span>
+                                        {#if showAnswer}
+                                            {#if opt.isAnswer}
+                                                <span class="lv-choice-result-pill lv-result-correct">✓ 正确答案</span>
+                                            {:else if selectedChoiceKey === opt.key}
+                                                <span class="lv-choice-result-pill lv-result-wrong">✗ 你的选择</span>
+                                            {/if}
+                                        {/if}
+                                    </button>
+                                {/each}
+                            </div>
+                        </div>
+                    {/if}
+
+                    <!-- 交互式判断题按钮组（点击或按 T/F 作答） -->
+                    {#if interactiveQuiz?.kind === "judge"}
+                        <div class="lv-interactive-judge-container">
+                            <div class="lv-interactive-choice-prompt">
+                                <LvIcon name="target" size={14} />
+                                <span>判断作答（点击判定或敲键盘 T/F）</span>
+                            </div>
+                            <div class="lv-interactive-judge-grid">
+                                <button
+                                    type="button"
+                                    class="lv-interactive-judge-btn lv-judge-btn--true"
+                                    class:lv-judge-selected={userJudgeChoice === true}
+                                    class:lv-judge-correct={showAnswer && interactiveQuiz.judgeAnswer === true}
+                                    class:lv-judge-wrong={showAnswer && userJudgeChoice === true && interactiveQuiz.judgeAnswer === false}
+                                    disabled={showAnswer}
+                                    onclick={() => handleJudgePick(true)}
+                                >
+                                    <span class="lv-judge-circle-icon">✓</span>
+                                    <div class="lv-judge-text-wrap">
+                                        <strong class="lv-judge-main-label">正确 / 对</strong>
+                                        <small class="lv-judge-sub-label">True (T / 1)</small>
+                                    </div>
+                                    {#if showAnswer && interactiveQuiz.judgeAnswer === true}
+                                        <span class="lv-judge-result-badge lv-result-correct">✓ 正确结论</span>
+                                    {/if}
+                                </button>
+                                <button
+                                    type="button"
+                                    class="lv-interactive-judge-btn lv-judge-btn--false"
+                                    class:lv-judge-selected={userJudgeChoice === false}
+                                    class:lv-judge-correct={showAnswer && interactiveQuiz.judgeAnswer === false}
+                                    class:lv-judge-wrong={showAnswer && userJudgeChoice === false && interactiveQuiz.judgeAnswer === true}
+                                    disabled={showAnswer}
+                                    onclick={() => handleJudgePick(false)}
+                                >
+                                    <span class="lv-judge-circle-icon">✗</span>
+                                    <div class="lv-judge-text-wrap">
+                                        <strong class="lv-judge-main-label">错误 / 错</strong>
+                                        <small class="lv-judge-sub-label">False (F / 2)</small>
+                                    </div>
+                                    {#if showAnswer && interactiveQuiz.judgeAnswer === false}
+                                        <span class="lv-judge-result-badge lv-result-correct">✓ 正确结论</span>
+                                    {/if}
+                                </button>
+                            </div>
+                        </div>
+                    {/if}
+
+                    <!-- 交互式填空即时打字槽 -->
+                    {#if interactiveQuiz?.kind === "fill" && !showAnswer}
+                        <div class="lv-interactive-fill-container">
+                            <div class="lv-interactive-fill-inner">
+                                <span class="lv-fill-icon"><LvIcon name="edit" size={15} /></span>
+                                <input
+                                    type="text"
+                                    class="b3-text-field lv-fill-input"
+                                    bind:value={typingInput}
+                                    placeholder="在此输入你的填空答案，按 Enter 智能判定..."
+                                    onkeydown={(e) => { if (e.key === "Enter") handleFillCheck(); }}
+                                />
+                                <button type="button" class="b3-button lv-btn-primary lv-fill-submit-btn" onclick={handleFillCheck}>
+                                    判定 Enter
+                                </button>
+                            </div>
+                        </div>
+                    {/if}
+
+                    <!-- 翻面后参考解析卡片（若存在解析） -->
+                    {#if showAnswer && interactiveQuiz?.analysis}
+                        <div class="lv-interactive-analysis-card">
+                            <div class="lv-analysis-head">
+                                <span class="lv-analysis-icon"><LvIcon name="lightbulb" size={16} /></span>
+                                <strong>参考解析</strong>
+                            </div>
+                            <p class="lv-analysis-text">{interactiveQuiz.analysis}</p>
+                        </div>
+                    {/if}
                 {/key}
             {/if}
             {#if showAnswer}
@@ -2886,14 +3078,14 @@
                     <button class="b3-button lv-btn-primary lv-btn-wide" class:lv-btn-pressed={pressedKeyFeedback === " "} disabled={!faceReady} onclick={revealAnswer}>{t.review.showAnswer}<span class="lv-btn-wide-kbd">Space</span></button>
                 {/if}
             {:else if eff().ratingStyle === "three"}
-                <button class="b3-button lv-btn-rate lv-b1" class:lv-btn-pressed={pressedKeyFeedback === "1"} disabled={actionBusy} onclick={() => rate(1)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.unknown}</span><LvKbd k="1" /></span><small>{dueText("1")}</small></button>
-                <button class="b3-button lv-btn-rate lv-b2" class:lv-btn-pressed={pressedKeyFeedback === "2"} disabled={actionBusy} onclick={() => rate(2)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.vague}</span><LvKbd k="2" /></span><small>{dueText("2")}</small></button>
-                <button class="b3-button lv-btn-rate lv-b3" class:lv-btn-pressed={pressedKeyFeedback === "3"} disabled={actionBusy} onclick={() => rate(3)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.know}</span><LvKbd k="3" /></span><small>{dueText("3")}</small></button>
+                <button class="b3-button lv-btn-rate lv-b1" class:lv-btn-suggested={suggestedRating === 1} class:lv-btn-pressed={pressedKeyFeedback === "1"} disabled={actionBusy} onclick={() => rate(1)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.unknown}</span><LvKbd k="1" /></span><small>{dueText("1")}</small></button>
+                <button class="b3-button lv-btn-rate lv-b2" class:lv-btn-suggested={suggestedRating === 2} class:lv-btn-pressed={pressedKeyFeedback === "2"} disabled={actionBusy} onclick={() => rate(2)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.vague}</span><LvKbd k="2" /></span><small>{dueText("2")}</small></button>
+                <button class="b3-button lv-btn-rate lv-b3" class:lv-btn-suggested={suggestedRating === 3} class:lv-btn-pressed={pressedKeyFeedback === "3"} disabled={actionBusy} onclick={() => rate(3)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.know}</span><LvKbd k="3" /></span><small>{dueText("3")}</small></button>
             {:else}
-                <button class="b3-button lv-btn-rate lv-b1" class:lv-btn-pressed={pressedKeyFeedback === "1"} disabled={actionBusy} onclick={() => rate(1)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.againBtn}</span><LvKbd k="1" /></span><small>{dueText("1")}</small></button>
-                <button class="b3-button lv-btn-rate lv-b2" class:lv-btn-pressed={pressedKeyFeedback === "2"} disabled={actionBusy} onclick={() => rate(2)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.hard}</span><LvKbd k="2" /></span><small>{dueText("2")}</small></button>
-                <button class="b3-button lv-btn-rate lv-b3" class:lv-btn-pressed={pressedKeyFeedback === "3"} disabled={actionBusy} onclick={() => rate(3)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.good}</span><LvKbd k="3" /></span><small>{dueText("3")}</small></button>
-                <button class="b3-button lv-btn-rate lv-b4" class:lv-btn-pressed={pressedKeyFeedback === "4"} disabled={actionBusy} onclick={() => rate(4)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.easy}</span><LvKbd k="4" /></span><small>{dueText("4")}</small></button>
+                <button class="b3-button lv-btn-rate lv-b1" class:lv-btn-suggested={suggestedRating === 1} class:lv-btn-pressed={pressedKeyFeedback === "1"} disabled={actionBusy} onclick={() => rate(1)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.againBtn}</span><LvKbd k="1" /></span><small>{dueText("1")}</small></button>
+                <button class="b3-button lv-btn-rate lv-b2" class:lv-btn-suggested={suggestedRating === 2} class:lv-btn-pressed={pressedKeyFeedback === "2"} disabled={actionBusy} onclick={() => rate(2)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.hard}</span><LvKbd k="2" /></span><small>{dueText("2")}</small></button>
+                <button class="b3-button lv-btn-rate lv-b3" class:lv-btn-suggested={suggestedRating === 3} class:lv-btn-pressed={pressedKeyFeedback === "3"} disabled={actionBusy} onclick={() => rate(3)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.good}</span><LvKbd k="3" /></span><small>{dueText("3")}</small></button>
+                <button class="b3-button lv-btn-rate lv-b4" class:lv-btn-suggested={suggestedRating === 4} class:lv-btn-pressed={pressedKeyFeedback === "4"} disabled={actionBusy} onclick={() => rate(4)}><span class="lv-rate-top"><span class="lv-rate-label">{t.review.easy}</span><LvKbd k="4" /></span><small>{dueText("4")}</small></button>
             {/if}
         </div>
     {/if}
@@ -3720,13 +3912,15 @@
             border-radius: var(--lv-r-dialog);
             box-shadow: var(--lv-shadow-review-card), var(--lv-inset-shine);
             /* R54 卡面规范：48/44 内边距、min-height 320，窄屏收窄 */
-            padding: calc(var(--lv-space-unit) * 24) calc(var(--lv-space-unit) * 22);
-            min-height: 320px;
-            @media (max-width: 740px) { padding: calc(var(--lv-space-unit) * 13) calc(var(--lv-space-unit) * 11); }
+            padding: clamp(20px, 3.5vw, 36px) clamp(20px, 4vw, 40px);
+            min-height: 280px;
+            @media (max-width: 740px) { padding: 18px 16px; }
             position: relative;
+            background: linear-gradient(180deg, color-mix(in srgb, var(--lv-color-brand) 2.5%, var(--lv-color-surface)) 0%, var(--lv-color-surface) 80px);
+            box-shadow: 0 16px 36px -6px color-mix(in srgb, black 8%, transparent), 0 4px 16px color-mix(in srgb, black 4%, transparent), var(--lv-inset-shine);
             transition: box-shadow var(--lv-dur-2) var(--lv-ease), transform var(--lv-dur-2) var(--lv-ease), border-color var(--lv-dur-2) var(--lv-ease);
 
-            &:hover { box-shadow: var(--lv-shadow-card-hover), var(--lv-inset-shine); }
+            &:hover { box-shadow: 0 20px 40px -6px color-mix(in srgb, black 12%, transparent), var(--lv-inset-shine); }
 
             // 超长卡面底部柔和滚动指示羽化（防突兀截断）
             &::after {
@@ -4236,31 +4430,38 @@
 
         .lv-actions {
             display: flex; gap: var(--lv-sp-3); justify-content: center;
-            max-width: 760px; width: 100%; margin: 0 auto;
+            max-width: 640px; width: 100%; margin: var(--lv-sp-2) auto 0;
+            padding-bottom: var(--lv-sp-2);
             /* 紧凑密度（441）：评分按钮收窄高度与内边距 */
-            &.lv-actions-compact { gap: var(--lv-sp-2); .lv-btn-rate { max-width: 150px; padding: 10px 14px; min-height: 56px; } }
+            &.lv-actions-compact { gap: var(--lv-sp-2); .lv-btn-rate { max-width: 150px; padding: 10px 14px; min-height: 52px; } }
             .lv-btn-wide {
                 flex: 1;
-                min-height: 48px;
+                min-height: 46px;
+                border-radius: var(--lv-r-pill);
+                background: linear-gradient(135deg, var(--lv-color-brand), color-mix(in srgb, var(--lv-color-brand) 85%, #6366f1));
                 font-weight: var(--lv-fw-semibold);
-                box-shadow: var(--lv-shadow-card);
+                box-shadow: 0 4px 16px color-mix(in srgb, var(--lv-color-brand) 28%, transparent), var(--lv-inset-shine);
                 transition: transform var(--lv-dur-1) var(--lv-ease),
                     box-shadow var(--lv-dur-2) var(--lv-ease),
                     filter var(--lv-dur-1) var(--lv-ease);
 
                 &:hover {
-                    transform: translateY(-1px);
-                    box-shadow: var(--lv-shadow-card-hover);
+                    transform: translateY(-2px);
+                    box-shadow: 0 6px 20px color-mix(in srgb, var(--lv-color-brand) 38%, transparent);
                 }
                 &:active {
-                    transform: scale(0.98);
+                    transform: translateY(0.5px);
                 }
 
                 .lv-btn-wide-kbd {
-                    margin-left: calc(var(--lv-space-unit) * 5);
-                    font-size: var(--lv-type-meta-size);
-                    opacity: .75;
-                    font-weight: var(--lv-fw-normal);
+                    margin-left: 12px;
+                    padding: 2px 8px;
+                    border-radius: var(--lv-r-pill);
+                    background: rgba(255, 255, 255, 0.22);
+                    border: 1px solid rgba(255, 255, 255, 0.35);
+                    font-size: 11px;
+                    font-weight: 600;
+                    color: #fff;
                 }
             }
             @keyframes lv-rating-reveal {

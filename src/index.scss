@@ -1487,6 +1487,300 @@
 }
 
 // =============================================================
+// 交互式选择题、判断题与填空题选项卡片 (Interactive Quiz Matrix)
+// =============================================================
+
+.lv-card-content.has-interactive-choice {
+    [data-type="NodeList"],
+    .list {
+        display: none !important;
+    }
+}
+
+.lv-interactive-choice-container,
+.lv-interactive-judge-container {
+    margin-top: var(--lv-sp-4);
+    padding-top: var(--lv-sp-3);
+    border-top: 1px dashed var(--lv-border);
+}
+
+.lv-interactive-choice-prompt {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: var(--lv-type-control-size);
+    font-weight: var(--lv-fw-semibold);
+    color: var(--lv-color-brand);
+    margin-bottom: var(--lv-sp-3);
+    padding: 3px 10px;
+    border-radius: var(--lv-r-pill);
+    background: var(--lv-primary-soft);
+}
+
+.lv-interactive-choice-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: var(--lv-sp-3);
+}
+
+.lv-interactive-choice-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: var(--lv-r-m);
+    background: var(--lv-color-surface);
+    border: 1.5px solid var(--lv-border);
+    box-shadow: var(--lv-shadow-card), var(--lv-inset-shine);
+    text-align: left;
+    cursor: pointer;
+    transition: all var(--lv-dur-2) var(--lv-ease);
+    width: 100%;
+    box-sizing: border-box;
+
+    &:hover:not(:disabled) {
+        transform: translateY(-2px);
+        border-color: var(--lv-color-brand);
+        box-shadow: var(--lv-shadow-card-hover), 0 0 0 1px var(--lv-color-brand);
+        background: color-mix(in srgb, var(--lv-primary-soft) 25%, var(--lv-color-surface));
+
+        .lv-choice-key-badge {
+            background: var(--lv-color-brand);
+            color: #fff;
+        }
+    }
+
+    &:active:not(:disabled) {
+        transform: translateY(0.5px);
+    }
+
+    .lv-choice-key-badge {
+        width: 30px;
+        height: 30px;
+        border-radius: var(--lv-r-circle);
+        display: grid;
+        place-items: center;
+        flex-shrink: 0;
+        font-weight: 700;
+        font-size: 13px;
+        background: color-mix(in srgb, var(--lv-color-text) 8%, transparent);
+        color: var(--lv-color-text);
+        transition: all var(--lv-dur-1) var(--lv-ease);
+    }
+
+    .lv-choice-text-body {
+        flex: 1;
+        min-width: 0;
+        font-size: 15px;
+        line-height: var(--lv-lh-reading-tight);
+        color: var(--lv-color-text);
+        word-break: break-word;
+    }
+
+    .lv-choice-result-pill {
+        padding: 3px 8px;
+        border-radius: var(--lv-r-pill);
+        font-size: 11px;
+        font-weight: 600;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+
+    &.lv-choice-correct {
+        border-color: var(--lv-color-success, #22c55e) !important;
+        background: color-mix(in srgb, var(--lv-color-success, #22c55e) 12%, var(--lv-color-surface)) !important;
+        box-shadow: 0 0 0 1.5px var(--lv-color-success, #22c55e), var(--lv-shadow-card) !important;
+
+        .lv-choice-key-badge {
+            background: var(--lv-color-success, #22c55e) !important;
+            color: #fff !important;
+        }
+        .lv-result-correct {
+            background: var(--lv-color-success, #22c55e);
+            color: #fff;
+        }
+    }
+
+    &.lv-choice-wrong {
+        border-color: var(--lv-color-danger, #ef4444) !important;
+        background: color-mix(in srgb, var(--lv-color-danger, #ef4444) 10%, var(--lv-color-surface)) !important;
+        box-shadow: 0 0 0 1.5px var(--lv-color-danger, #ef4444) !important;
+
+        .lv-choice-key-badge {
+            background: var(--lv-color-danger, #ef4444) !important;
+            color: #fff !important;
+        }
+        .lv-result-wrong {
+            background: var(--lv-color-danger, #ef4444);
+            color: #fff;
+        }
+    }
+}
+
+.lv-interactive-judge-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--lv-sp-3);
+}
+
+.lv-interactive-judge-btn {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 20px;
+    border-radius: var(--lv-r-l);
+    background: var(--lv-color-surface);
+    border: 1.5px solid var(--lv-border);
+    box-shadow: var(--lv-shadow-card);
+    cursor: pointer;
+    transition: all var(--lv-dur-2) var(--lv-ease);
+
+    &:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: var(--lv-shadow-card-hover);
+    }
+
+    &.lv-judge-btn--true:hover:not(:disabled) {
+        border-color: var(--lv-color-success, #22c55e);
+        background: color-mix(in srgb, var(--lv-color-success, #22c55e) 8%, var(--lv-color-surface));
+    }
+    &.lv-judge-btn--false:hover:not(:disabled) {
+        border-color: var(--lv-color-danger, #ef4444);
+        background: color-mix(in srgb, var(--lv-color-danger, #ef4444) 8%, var(--lv-color-surface));
+    }
+
+    .lv-judge-circle-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: var(--lv-r-circle);
+        display: grid;
+        place-items: center;
+        font-size: 17px;
+        font-weight: 700;
+        background: color-mix(in srgb, var(--lv-color-text) 8%, transparent);
+        color: var(--lv-color-text);
+        flex-shrink: 0;
+    }
+
+    .lv-judge-text-wrap {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        flex: 1;
+
+        .lv-judge-main-label {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--lv-color-text);
+        }
+        .lv-judge-sub-label {
+            font-size: 11px;
+            color: var(--lv-color-text-muted);
+        }
+    }
+
+    .lv-judge-result-badge {
+        padding: 4px 10px;
+        border-radius: var(--lv-r-pill);
+        font-size: 11px;
+        font-weight: 600;
+        background: var(--lv-color-success, #22c55e);
+        color: #fff;
+    }
+
+    &.lv-judge-correct {
+        border-color: var(--lv-color-success, #22c55e) !important;
+        background: color-mix(in srgb, var(--lv-color-success, #22c55e) 12%, var(--lv-color-surface)) !important;
+        box-shadow: 0 0 0 1.5px var(--lv-color-success, #22c55e) !important;
+        .lv-judge-circle-icon {
+            background: var(--lv-color-success, #22c55e) !important;
+            color: #fff !important;
+        }
+    }
+
+    &.lv-judge-wrong {
+        border-color: var(--lv-color-danger, #ef4444) !important;
+        background: color-mix(in srgb, var(--lv-color-danger, #ef4444) 10%, var(--lv-color-surface)) !important;
+        box-shadow: 0 0 0 1.5px var(--lv-color-danger, #ef4444) !important;
+        .lv-judge-circle-icon {
+            background: var(--lv-color-danger, #ef4444) !important;
+            color: #fff !important;
+        }
+    }
+}
+
+.lv-interactive-fill-container {
+    margin-top: var(--lv-sp-4);
+    .lv-interactive-fill-inner {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px;
+        background: color-mix(in srgb, var(--lv-color-canvas) 70%, var(--lv-color-surface));
+        border: 1.5px solid var(--lv-primary-border);
+        border-radius: var(--lv-r-pill);
+        box-shadow: var(--lv-shadow-card), var(--lv-inset-shine);
+
+        .lv-fill-icon {
+            margin-left: 10px;
+            color: var(--lv-color-brand);
+            display: grid;
+            place-items: center;
+        }
+        .lv-fill-input {
+            flex: 1;
+            border: none;
+            background: transparent;
+            font-size: 14px;
+            padding: 6px 8px;
+            &:focus { outline: none; }
+        }
+        .lv-fill-submit-btn {
+            border-radius: var(--lv-r-pill);
+            padding: 6px 16px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+    }
+}
+
+.lv-interactive-analysis-card {
+    margin-top: var(--lv-sp-4);
+    padding: 14px 18px;
+    border-radius: var(--lv-r-m);
+    background: color-mix(in srgb, var(--lv-color-warning) 7%, var(--lv-color-surface));
+    border: 1px solid color-mix(in srgb, var(--lv-color-warning) 32%, transparent);
+    box-shadow: var(--lv-shadow-card);
+
+    .lv-analysis-head {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--lv-color-warning);
+        font-size: 13px;
+        font-weight: 700;
+        margin-bottom: 6px;
+    }
+    .lv-analysis-text {
+        margin: 0;
+        font-size: 14px;
+        line-height: var(--lv-lh-reading);
+        color: var(--lv-color-text);
+    }
+}
+
+.lv-btn-rate.lv-btn-suggested {
+    border-color: var(--lv-color-brand) !important;
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--lv-color-brand) 32%, transparent), var(--lv-shadow-card) !important;
+    transform: translateY(-2px);
+    animation: lv-pulse-suggest 2s infinite ease-in-out;
+}
+@keyframes lv-pulse-suggest {
+    0%, 100% { box-shadow: 0 0 0 2px color-mix(in srgb, var(--lv-color-brand) 32%, transparent), var(--lv-shadow-card); }
+    50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--lv-color-brand) 16%, transparent), var(--lv-shadow-card-hover); }
+}
+
+// =============================================================
 // 用户高对比度偏好 (prefers-contrast: more · Epoch 5)
 // =============================================================
 @media (prefers-contrast: more) {
