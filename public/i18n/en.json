@@ -362,6 +362,8 @@
         "readyManageTitle": "Browse & Organize",
         "readyManageSubtitle": "Take full control of your flashcard library",
         "readyManageDesc": "Search across decks, batch transfer, inspect review histories, and check lifecycle health.",
+        "doneRetention": "Retention",
+        "reinforceMistakes": "Reinforce Lapses",
         "pomodoroDoneTitle": "25-min Pomodoro Completed!",
         "pomodoroDoneDesc": "Focus session completed (${n} reviewed). Take a 5-minute break to consolidate memory.",
         "pomodoroRest": "Take a break & return",

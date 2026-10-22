@@ -2159,6 +2159,13 @@
                             {t.review.doneNew} {sessionNew} · {t.review.doneReview} {sessionReview} · {t.review.doneForget} {sessionForget} · {t.review.doneSkip} {sessionSkip}
                         </div>
                     </div>
+                    {#if (sessionNew + sessionReview) > 0}
+                        {@const ret = Math.round(Math.max(0, (sessionNew + sessionReview - sessionForget)) / (sessionNew + sessionReview) * 100)}
+                        <div class="lv-done-retention-bubble" class:lv-ret-high={ret >= 80} class:lv-ret-mid={ret >= 60 && ret < 80}>
+                            <LvIcon name="zap" size={13} />
+                            <span>{t.review.doneRetention ?? "留存率"} {ret}%</span>
+                        </div>
+                    {/if}
                 </div>
                 <div class="lv-done-stats">
                     <div class="lv-done-stat">
@@ -2211,7 +2218,12 @@
                             </div>
                         {/if}
                         {#if sessionForget > 0}
-                            <div class="lv-next-row"><span>{t.review.nextForgotten.replace("${n}", String(sessionForget))}</span></div>
+                            <div class="lv-next-row" style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                                <span>{t.review.nextForgotten.replace("${n}", String(sessionForget))}</span>
+                                <button type="button" class="b3-button b3-button--small lv-btn-primary" onclick={() => { cramActive = true; void loadQueue(); }}>
+                                    <LvIcon name="flame" size={13} /> {t.review.reinforceMistakes ?? "强化这批遗忘卡"}
+                                </button>
+                            </div>
                         {/if}
                     </div>
                 {/if}
@@ -3233,6 +3245,31 @@
         .lv-done-head {
             display: flex; align-items: center; gap: var(--lv-sp-3);
             margin-bottom: var(--lv-sp-4);
+            flex-wrap: wrap;
+        }
+        .lv-done-retention-bubble {
+            margin-left: auto;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 10px;
+            border-radius: var(--lv-r-pill);
+            font-size: 11px;
+            font-weight: var(--lv-fw-semibold);
+            background: var(--lv-primary-soft);
+            color: var(--lv-color-brand);
+            border: 1px solid var(--lv-primary-border);
+
+            &.lv-ret-high {
+                background: var(--lv-good-soft);
+                color: var(--lv-color-success);
+                border-color: color-mix(in srgb, var(--lv-color-success) 30%, transparent);
+            }
+            &.lv-ret-mid {
+                background: var(--lv-warn-soft);
+                color: var(--lv-color-warning);
+                border-color: color-mix(in srgb, var(--lv-color-warning) 30%, transparent);
+            }
         }
         .lv-done-check {
             width: 32px; height: 32px; border-radius: var(--lv-r-circle);

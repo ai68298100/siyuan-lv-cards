@@ -362,6 +362,8 @@
         "readyManageTitle": "卡片库浏览与整理",
         "readyManageSubtitle": "全面掌控沉淀的所有闪卡资产",
         "readyManageDesc": "跨卡组搜索检索、批量归组迁移、查看历史复习表现与生命周期健康度。",
+        "doneRetention": "留存率",
+        "reinforceMistakes": "强化这批遗忘卡",
         "pomodoroDoneTitle": "25 分钟番茄专注达成！",
         "pomodoroDoneDesc": "已完成本轮专注复习（已评 ${n} 张），建议休息 5 分钟，让大脑巩固记忆再继续。",
         "pomodoroRest": "休息并返回今日",

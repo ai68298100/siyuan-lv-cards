@@ -19,9 +19,18 @@ The full-lifecycle flashcard learning platform for SiYuan — local-first, nativ
 
 > **Note**: The primary README and all design docs are in Chinese. This page covers the essentials; see [docs/](./docs/README.md) for full design material.
 
-Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.10** (2026-10-22), delivering topbar silent graceful tooltips and Review Ready Hub Bento elevation. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.10) for the package and publishing status.
+Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.11** (2026-10-22), delivering retention rate indicators on review completion, mistake reinforcement, and visual polish. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.11) for the package and publishing status.
 
-## What's New in v0.210.10
+## What's New in v0.210.11
+
+- **Review Completion Elevation & Retention Indicator**:
+  - Added an illuminated retention rate bubble on session completion with visual performance badges;
+  - Added one-click **`[ 🔥 Reinforce Lapses ]`** action to immediately practice forgotten cards from the current session;
+  - Streamlined action bar layout for enhanced post-review accomplishment.
+- **Verification**:
+  - 1928 tests across 240 test suites 100% passing; zero TypeScript/Svelte errors and warnings; production build and smoke tests green.
+
+## Previous Update: v0.210.10
 
 - **Silent Topbar & Removal of Intrusive Badge Numbers**:
   - Removed the loud red badge ball from the topbar icon to eliminate notification stress;
