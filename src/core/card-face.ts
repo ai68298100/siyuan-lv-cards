@@ -23,7 +23,7 @@ export interface FaceRichness {
 
 const RICHNESS_RULES: { key: keyof FaceRichness; pattern: RegExp }[] = [
     { key: "formula", pattern: /class="katex"|class="MathJax"|language-math/i },
-    { key: "image", pattern: /<img\b|<svg\b/i },
+    { key: "image", pattern: /<img\b|<svg\b(?![\s\S]*?(?:iconDot|#icon))/i },
     { key: "embed", pattern: /NodeBlockQueryEmbed|<iframe\b/i },
     { key: "code", pattern: /<pre\b|<code\b/i },
     { key: "table", pattern: /<table\b/i },
@@ -135,7 +135,11 @@ export function formatMarkdownToSafeHtml(markdown: string): string {
     const protectedHtml: string[] = [];
 
     // 1. 保护并安全清洗内联 SVG 矢量画布与 Excalidraw 画布（Issue #14）
+    // 严格排除思源列表点（iconDot）与系统小图标，防止列表圆点被放大为巨大黑球
     text = text.replace(/<svg\b[^>]*>[\s\S]*?<\/svg>/gi, (svgRaw) => {
+        if (/<use\b[^>]*(?:iconDot|#icon)/i.test(svgRaw) || /class=["'][^"']*protyle-action/i.test(svgRaw)) {
+            return svgRaw;
+        }
         let cleanSvg = svgRaw
             .replace(/<script\b[\s\S]*?<\/script>/gi, "")
             .replace(/\son[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "")

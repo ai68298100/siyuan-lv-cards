@@ -19,9 +19,27 @@ The full-lifecycle flashcard learning platform for SiYuan — local-first, nativ
 
 > **Note**: The primary README and all design docs are in Chinese. This page covers the essentials; see [docs/](./docs/README.md) for full design material.
 
-Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.18** (2026-10-22), delivering native editor slash menu card creation, official Petal lifecycle compliance, and complete deck rename/removal actions. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.18) for the package and publishing status.
+Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.19** (2026-10-22), delivering fixes for list bullet oversized circles, deck card width squeezing, and friendly AI 404 troubleshooting. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.19) for the package and publishing status.
 
-## What's New in v0.210.18
+## What's New in v0.210.19
+
+- **Fixed Giant Black Circles in Multiple-Choice / Fill-in-the-Blank Cards**:
+  - Excluded `#iconDot` list bullets and `.protyle-action` SVG elements from vector canvas expansion;
+  - Added strict 10px bullet and flex-aligned layout to restore clean multiple-choice options.
+- **Fixed Deck Grid Column Squeezing on Ultra-Wide Displays**:
+  - Increased deck card min-width from 180px to 280px with clean text truncation to prevent single-character vertical text wraps.
+- **Unified Hero Time Budget & Week Habit Strip**:
+  - Grouped "Time Budget" with status tags into a cohesive pill group, removing awkward empty space;
+  - Aligned checked-in week day styling with clear filled checkmark badges.
+- **Polished Review Scope Toolbar & Objective Badges**:
+  - Styled session completion criteria as a styled badge (`.lv-purpose-end-chip`) with an explicit target icon, eliminating confusion with action buttons.
+- **AI 404 Error Guidance & URL Normalization**:
+  - Automatically strips trailing `/chat/completions` from endpoint URLs;
+  - Provides clear troubleshooting instructions for HTTP 404 (checking `/v1` prefix or model name).
+- **Verification**:
+  - 1928 tests across 240 test suites 100% passing; zero TypeScript/Svelte errors and warnings; production build and smoke tests green.
+
+## Previous Update: v0.210.18
 
 - **Native Slash Menu (`protyleSlash`) Card Creation**:
   - Type `/zk`, `/card`, or `/shanka` in any document block to instantly trigger card creation into target decks directly from the editor.

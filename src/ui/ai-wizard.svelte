@@ -259,14 +259,17 @@
             return [eligibility["not-configured"], eligibility.alt?.["not-configured"]].filter(Boolean).join(" ")
                 || (dict.unknown ?? raw.slice(0, 300));
         }
+        if (/HTTP 404/i.test(raw)) {
+            return dict.endpoint ?? "AI 基础地址（Base URL）或模型不存在 (HTTP 404)。请核对设置中的 API 地址是否缺少 /v1，或模型名称是否拼写正确。";
+        }
         const key = v.cls === "rate-limit" ? "rateLimit"
             : v.cls === "server" ? "server"
-                : v.cls === "auth" ? "auth"
-                    : v.cls === "quota" ? "quota"
-                        : v.cls === "privacy" ? "privacy"
-                            : v.cls === "parse" ? "parse"
-                                : v.cls === "network" ? "network"
-                                    : v.cls === "canceled" ? "canceled" : "unknown";
+            : v.cls === "auth" ? "auth"
+            : v.cls === "quota" ? "quota"
+            : v.cls === "privacy" ? "privacy"
+            : v.cls === "parse" ? "parse"
+            : v.cls === "network" ? "network"
+            : v.cls === "canceled" ? "canceled" : "unknown";
         // 前置 eligibility、停用开关和格式拒答会用本地化的可操作说明，
         // 它们不属于网络错误分类；保留原文，避免把“未配置/预算超限”抹成笼统失败。
         const text = v.cls === "unknown"

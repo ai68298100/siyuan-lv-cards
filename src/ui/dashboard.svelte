@@ -760,22 +760,22 @@
         <div class="lv-hero">
             <div class="lv-hero-text">
                 <div class="lv-hero-badge-row">
-                    <span class="lv-tag lv-tag--brand">{todayDecision.tag}</span>
-                    <!-- T01 可用时间（R52 hero「可用时间 [15 分钟▾]」）：选择落偏好，复习开场生效；
-                         日期 eyebrow 已上移页头，无续场时徽章行只留预算选择（不重复日期） -->
-                    <div class="fn__flex" style="gap: calc(var(--lv-space-unit) * 3); align-items: center">
-                        <span class="ft__smaller ft__on-surface">{t.dashboard.heroTimeBudget}</span>
-                        <select
-                            class="b3-select"
-                            style="font-size: var(--lv-type-control-size); padding: 2px 8px"
-                            aria-label={t.dashboard.heroTimeBudget}
-                            value={String(sessionBudget)}
-                            onchange={(e) => ctx.setSessionBudget?.(Number((e.currentTarget as HTMLSelectElement).value))}
-                        >
-                            {#each BUDGET_CHOICES as m (m)}
-                                <option value={String(m)}>{m === 0 ? t.dashboard.heroTimeOff : t.dashboard.heroTimeMin.replace("${n}", String(m))}</option>
-                            {/each}
-                        </select>
+                    <div class="lv-hero-tags-group">
+                        <span class="lv-tag lv-tag--brand">{todayDecision.tag}</span>
+                        <!-- T01 可用时间（R52 hero「可用时间 [15 分钟▾]」）：选择落偏好，复习开场生效 -->
+                        <div class="lv-hero-budget-pill">
+                            <span class="lv-hero-budget-label"><LvIcon name="timer" size={13} /> {t.dashboard.heroTimeBudget}</span>
+                            <select
+                                class="b3-select lv-hero-budget-select"
+                                aria-label={t.dashboard.heroTimeBudget}
+                                value={String(sessionBudget)}
+                                onchange={(e) => ctx.setSessionBudget?.(Number((e.currentTarget as HTMLSelectElement).value))}
+                            >
+                                {#each BUDGET_CHOICES as m (m)}
+                                    <option value={String(m)}>{m === 0 ? t.dashboard.heroTimeOff : t.dashboard.heroTimeMin.replace("${n}", String(m))}</option>
+                                {/each}
+                            </select>
+                        </div>
                     </div>
                 </div>
                 <div class="lv-hero-title">
@@ -846,6 +846,7 @@
             <div class="lv-stat-cell">
                 <LvStat
                     label={t.dashboard.todayDone}
+                    detail={targets.review > 0 ? `目标达成率 ${targetPct()}%` : t.dashboard.dueCountDetail}
                     value={todayReview}
                     denom={targets.review > 0 ? String(targets.review) : ""}
                     tone="primary"
@@ -1525,24 +1526,23 @@
             transition: all var(--lv-dur-1) var(--lv-ease);
         }
 
-        &.lv-today-week-day-active i {
-            background: var(--lv-color-brand);
-            color: #FFFFFF;
-            font-weight: 700;
-            box-shadow: 0 2px 6px color-mix(in srgb, var(--lv-color-brand) 36%, transparent);
-        }
-
         &.lv-today-week-day-today {
             border-color: var(--lv-color-brand);
             background: color-mix(in srgb, var(--lv-color-brand) 8%, var(--lv-color-surface));
             box-shadow: 0 0 0 1px var(--lv-primary-border);
             i {
-                outline: 2px solid var(--lv-color-brand);
-                outline-offset: 1px;
                 background: var(--lv-primary-soft);
                 color: var(--lv-color-brand);
                 font-weight: 700;
             }
+        }
+
+        &.lv-today-week-day-active i {
+            background: var(--lv-color-brand) !important;
+            color: #FFFFFF !important;
+            font-weight: 700;
+            box-shadow: 0 2px 6px color-mix(in srgb, var(--lv-color-brand) 36%, transparent);
+            outline: none !important;
         }
 
         &.lv-today-week-day-future {
@@ -1647,6 +1647,39 @@
         font-weight: 700;
         box-shadow: 0 2px 6px color-mix(in srgb, var(--lv-color-brand) 18%, transparent);
     }
+    .lv-hero-tags-group {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--lv-sp-2);
+        flex-wrap: wrap;
+    }
+    .lv-hero-budget-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 2px 8px;
+        border-radius: var(--lv-r-pill);
+        background: color-mix(in srgb, var(--lv-color-text) 6%, transparent);
+        border: 1px solid var(--lv-border);
+        font-size: 11px;
+        color: var(--lv-color-text-muted);
+
+        .lv-hero-budget-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+        }
+        .lv-hero-budget-select {
+            border: none;
+            background: transparent;
+            font-size: 11px;
+            font-weight: var(--lv-fw-semibold);
+            color: var(--lv-color-brand);
+            padding: 1px 2px;
+            cursor: pointer;
+            &:focus { outline: none; }
+        }
+    }
     .lv-first-use-steps p {
         margin: 0;
         color: var(--lv-color-text);
@@ -1657,15 +1690,19 @@
     .lv-today-decks { margin: var(--lv-sp-4) 0; }
     .lv-today-decks-head { display: flex; align-items: center; justify-content: space-between; gap: var(--lv-sp-2); margin-bottom: var(--lv-sp-2); }
     .lv-today-decks-head h3 { margin: 0; font-size: 14px; }
-    .lv-today-decks-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--lv-sp-2); }
+    .lv-today-decks-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: var(--lv-sp-3);
+    }
     .lv-today-deck {
         display: flex;
         min-width: 0;
-        min-height: 56px;
+        min-height: 54px;
         align-items: center;
         justify-content: space-between;
-        gap: var(--lv-sp-2);
-        padding: calc(var(--lv-space-unit) * 4) calc(var(--lv-space-unit) * 5);
+        gap: var(--lv-sp-3);
+        padding: 10px 14px;
         border: 1px solid var(--lv-border);
         border-radius: var(--lv-r-m);
         background: var(--lv-color-surface);
@@ -1674,8 +1711,7 @@
         cursor: default;
         transition: transform var(--lv-dur-2) var(--lv-ease),
             box-shadow var(--lv-dur-2) var(--lv-ease),
-            border-color var(--lv-dur-1) var(--lv-ease),
-            background var(--lv-dur-1) var(--lv-ease);
+            border-color var(--lv-dur-1) var(--lv-ease);
 
         &:hover {
             transform: translateY(-2px);
@@ -1699,19 +1735,28 @@
                 color: var(--lv-color-brand);
             }
         }
+        .lv-today-deck-name {
+            min-width: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-size: var(--lv-type-body-size);
+            font-weight: 600;
+        }
         .lv-today-deck-actions {
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
             flex-shrink: 0;
         }
         .lv-deck-quick-btn {
             border-radius: var(--lv-r-pill);
-            padding: 2px 8px;
+            padding: 3px 10px;
             font-size: 11px;
             font-weight: var(--lv-fw-semibold);
             color: var(--lv-color-brand);
             border-color: var(--lv-primary-border);
+            white-space: nowrap;
             &:hover {
                 background: var(--lv-primary-soft);
             }
@@ -1739,8 +1784,6 @@
         }
     }
     .lv-today-deck:focus-visible { outline: 2px solid var(--lv-color-brand); outline-offset: 2px; }
-    .lv-today-deck-name { min-width: 0; overflow-wrap: anywhere; font-size: var(--lv-type-body-size); font-weight: 600; }
-    .lv-today-deck-count { flex: none; color: var(--lv-color-text-muted); font-size: var(--lv-type-control-size); font-variant-numeric: tabular-nums; }
 
     @container lv-hub (max-width: 900px) {
         .lv-today-overview { grid-template-columns: minmax(0, 1fr) 250px; gap: var(--lv-sp-4); }

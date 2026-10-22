@@ -1234,6 +1234,75 @@
         &:hover { transform: scale(1.01); }
     }
 
+    // 思源列表项（.li / .protyle-action）样式对齐，杜绝列表点被放大为巨大黑球
+    .protyle-action,
+    [data-type="NodeListItem"] > .protyle-action,
+    .li > .protyle-action {
+        width: 18px !important;
+        height: 18px !important;
+        min-width: 18px !important;
+        max-width: 18px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        flex-shrink: 0 !important;
+        margin-top: 2px !important;
+        padding: 0 !important;
+        border: none !important;
+        background: transparent !important;
+        box-shadow: none !important;
+
+        svg {
+            width: 10px !important;
+            height: 10px !important;
+            max-width: 10px !important;
+            max-height: 10px !important;
+            min-width: 10px !important;
+            min-height: 10px !important;
+            flex-shrink: 0 !important;
+            box-shadow: none !important;
+            border-radius: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            display: inline-block !important;
+            vertical-align: middle !important;
+            cursor: default !important;
+            fill: currentColor !important;
+            color: var(--lv-color-text-muted) !important;
+        }
+    }
+
+    // 任何包含 #iconDot 的 SVG 严格约束尺寸为 8px-10px 小圆点
+    svg:has(use[*|href*="iconDot"]),
+    svg:has(use[xlink\:href*="iconDot"]) {
+        width: 10px !important;
+        height: 10px !important;
+        max-width: 10px !important;
+        max-height: 10px !important;
+        min-width: 10px !important;
+        min-height: 10px !important;
+        display: inline-block !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        cursor: default !important;
+        margin: 0 4px 0 0 !important;
+        vertical-align: middle !important;
+    }
+
+    [data-type="NodeListItem"],
+    .li {
+        display: flex !important;
+        align-items: flex-start !important;
+        gap: 6px !important;
+        margin: 4px 0 !important;
+
+        .p, [data-type="NodeParagraph"] {
+            flex: 1 !important;
+            min-width: 0 !important;
+            margin: 0 !important;
+        }
+    }
+
     // 块级公式横向自适应（移动端与窄屏防溢出）
     .language-math,
     .katex-display {

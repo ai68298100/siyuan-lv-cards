@@ -146,5 +146,10 @@
         line-height: var(--lv-lh-meta);
     }
     .lv-stat .lv-stat-progress { margin-top: var(--lv-sp-2); }
-    .lv-stat .lv-stat-spark { display: block; margin-top: var(--lv-sp-1); }
+    .lv-stat .lv-stat-spark {
+        display: block;
+        margin-top: 6px;
+        width: 100%;
+        max-height: 26px;
+    }
 </style>

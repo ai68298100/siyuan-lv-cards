@@ -2871,6 +2871,7 @@
         "rateLimit": "Too many AI requests. Please try again later.",
         "retryAfter": "Suggested wait: about ${n} seconds.",
         "auth": "AI authentication failed. Check the endpoint, key, and permissions.",
+        "endpoint": "AI base URL or model not found (HTTP 404). Please check whether the API endpoint is missing /v1, or if the model name is correct.",
         "quota": "The AI quota or balance is insufficient. Check the service account or budget.",
         "privacy": "The AI service rejected this material. Remove sensitive content or use local manual cards.",
         "parse": "The AI response could not be parsed. Narrow the material and retry.",

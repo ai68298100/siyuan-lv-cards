@@ -2465,9 +2465,9 @@
                         <option value={p}>{t.purpose[p].name}</option>
                     {/each}
                 </select>
-                <!-- R53 主色即动作：结束条件章是信息不是按钮——中性章 + title 解释 -->
-                <span class="lv-chip2" title={PURPOSE_PROFILES[purpose].grading === "formal" ? t.review.purposeFormal : t.review.purposeInformal}>
-                    {t.purpose[purpose].end}
+                <!-- R53 主色即动作：结束条件章是信息不是按钮——优雅胶囊态 + 目标语义前缀 + 提示解释 -->
+                <span class="lv-chip2 lv-chip2--default lv-purpose-end-chip" title={PURPOSE_PROFILES[purpose].grading === "formal" ? t.review.purposeFormal : t.review.purposeInformal}>
+                    <LvIcon name="target" size={12} /> {t.purpose[purpose].end}
                 </span>
                 <div class="fn__flex-1"></div>
                 <!-- docs/13 §4：图标可读、操作不依赖 hover；常驻核心高频操作，二级动作折叠进更多气泡 -->
@@ -3610,6 +3610,16 @@
                 font-weight: 700;
             }
             .lv-tags { display: flex; gap: var(--lv-sp-1); }
+        }
+
+        .lv-purpose-end-chip {
+            padding: 3px 8px;
+            font-size: 11px;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            white-space: nowrap;
         }
 
         .lv-font-scale-group {

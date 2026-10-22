@@ -38,7 +38,13 @@ export interface AICallOptions {
     timeoutMs?: number;
 }
 
-const normalizeEndpoint = (url: string) => url.trim().replace(/\/+$/, "");
+export function normalizeEndpoint(url: string): string {
+    let clean = (url ?? "").trim().replace(/\/+$/, "");
+    if (clean.toLowerCase().endsWith("/chat/completions")) {
+        clean = clean.slice(0, -"/chat/completions".length).replace(/\/+$/, "");
+    }
+    return clean;
+}
 
 export async function aiChat(cfg: AIConfig, system: string, user: string, opts: AICallOptions = {}): Promise<string> {
     // AbortSignal 可能在调用前已触发；必须在创建 fetch/回退链前立即短路。
