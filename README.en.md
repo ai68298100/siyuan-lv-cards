@@ -19,9 +19,19 @@ The full-lifecycle flashcard learning platform for SiYuan — local-first, nativ
 
 > **Note**: The primary README and all design docs are in Chinese. This page covers the essentials; see [docs/](./docs/README.md) for full design material.
 
-Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.13** (2026-10-22), delivering one-click deck review from the dashboard and enhanced deck ecosystem integration. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.13) for the package and publishing status.
+Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.14** (2026-10-22), delivering Select All on page in manager and comprehensive shortcut help alignment. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.14) for the package and publishing status.
 
-## What's New in v0.210.13
+## What's New in v0.210.14
+
+- **Manager Select All on Current Page**:
+  - Added dedicated **`[ ☑ Select Page / Deselect All ]`** pill button in the manager toolbar;
+  - Instantly toggles selection across all cards on the loaded page, dramatically speeding up batch deck assignment, migration, and export.
+- **Review Shortcut Help Overlay Alignment**:
+  - Fully updated the in-review shortcut modal with `Shift+Space` (reveal all), `r` (reverse Q&A recall), and `z / p / u` (undo).
+- **Verification**:
+  - 1928 tests across 240 test suites 100% passing; zero TypeScript/Svelte errors and warnings; production build and smoke tests green.
+
+## Previous Update: v0.210.13
 
 - **Dashboard One-Click Deck Review Action**:
   - Added dedicated **`[ 🗂️ Review ]`** action pill directly beside each deck card in the "My Decks" dashboard section;

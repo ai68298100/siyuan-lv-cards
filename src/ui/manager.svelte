@@ -298,6 +298,16 @@ import { confirmDialog } from "@/libs/dialog";
         selected = selected.includes(id) ? selected.filter(x => x !== id) : [...selected, id];
     }
 
+    const isAllSelected = $derived(filteredBlocks.length > 0 && filteredBlocks.every(b => selected.includes(b.id)));
+
+    function toggleSelectAll() {
+        if (isAllSelected) {
+            selected = [];
+        } else {
+            selected = filteredBlocks.map(b => b.id);
+        }
+    }
+
     /** 「今日到期」切换过滤项时拉取内核到期清单（AR-6：每次切入都重拉，评分后 due 集不陈旧） */
     async function onStatusChange() {
         const seq = ++dueSeq;
@@ -777,6 +787,16 @@ import { confirmDialog } from "@/libs/dialog";
             >{t.manager.leechFilter}</button>
         {/if}
         <span class="lv-toolbar-caption">{t.manager.total}: {total}</span>
+        {#if filteredBlocks.length > 0}
+            <button
+                type="button"
+                class="b3-button b3-button--small b3-button--outline lv-select-all-btn"
+                onclick={toggleSelectAll}
+                title={isAllSelected ? (t.manager.unselectAll ?? "取消全选") : (t.manager.selectAll ?? "全选本页")}
+            >
+                {isAllSelected ? (t.manager.unselectAll ?? "取消全选") : (t.manager.selectAll ?? "全选本页")}
+            </button>
+        {/if}
     </div>
     {#if deckScope}
         <div class="lv-mgr-deck-scope" role="status">
@@ -1025,6 +1045,18 @@ import { confirmDialog } from "@/libs/dialog";
 {/if}
 
 <style lang="scss">
+    .lv-select-all-btn {
+        border-radius: var(--lv-r-pill);
+        padding: 2px 10px;
+        font-size: 11px;
+        font-weight: var(--lv-fw-semibold);
+        color: var(--lv-color-brand);
+        border-color: var(--lv-primary-border);
+        white-space: nowrap;
+        &:hover {
+            background: var(--lv-primary-soft);
+        }
+    }
     .lv-filter-wrap {
         position: relative;
         display: inline-flex;

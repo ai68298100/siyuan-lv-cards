@@ -2914,8 +2914,10 @@
             <div class="lv-help-body">
                 {#each [
                     { k: "Space / Enter", d: t.review.helpFlipRate },
+                    { k: "Shift+Space", d: t.review.helpRevealAll ?? "全部揭晓（跳过逐步回忆）" },
                     { k: "1-4", d: t.review.helpRate },
-                    { k: "p / q / u", d: t.review.helpUndo },
+                    { k: "r", d: t.review.helpReverse ?? "翻转问答自测" },
+                    { k: "z / p / u", d: t.review.helpUndo },
                     { k: "x / 0", d: t.review.helpSkip },
                     { k: "s", d: t.review.helpSuspend },
                     { k: "m", d: t.review.tbMemo ?? "助记便签" },
