@@ -931,6 +931,9 @@
         <LvRow label={t.settings.randomOrder}>
             <LvSwitch bind:checked={draft.randomOrder} />
         </LvRow>
+        <LvRow label={t.settings.burySiblings ?? "同源兄弟卡防剧透推迟"} hint={t.settings.burySiblingsHint}>
+            <LvSwitch bind:checked={draft.burySiblings} />
+        </LvRow>
         <LvRow label={t.settings.reverseOrder} hint={t.settings.reverseOrderHint}>
             <LvSwitch bind:checked={draft.reverseOrder} />
         </LvRow>

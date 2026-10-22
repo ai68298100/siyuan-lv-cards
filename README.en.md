@@ -19,9 +19,18 @@ The full-lifecycle flashcard learning platform for SiYuan — local-first, nativ
 
 > **Note**: The primary README and all design docs are in Chinese. This page covers the essentials; see [docs/](./docs/README.md) for full design material.
 
-Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.28** (2026-10-23), delivering Anki-grade Bury Siblings spoiler prevention and robust deck queue management. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.28) for the package and publishing status.
+Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.29** (2026-10-23), delivering explicit settings toggles for burying siblings, fully aligned i18n keys, and bundle governance. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.29) for the package and publishing status.
 
-## What's New in v0.210.28
+## What's New in v0.210.29
+
+- **Settings Center Bury Siblings Toggle**:
+  - Added dedicated toggle and bilingual explanations in the Review settings panel.
+- **Complete Internationalization (i18n) Key Alignment**:
+  - Resolved missing keys for `starredFilter` and aligned 2609 bilingual keys across 1046 code sites.
+- **Verification**:
+  - 1941 tests across 242 test suites 100% passing; zero TypeScript/Svelte errors and warnings; production build and smoke tests green.
+
+## Previous Update: v0.210.28
 
 - **Bury Siblings Spoiler Prevention (Anki-grade)**:
   - Intelligently detects and buries sibling cards derived from the same source block (`blockID`) within the same session.

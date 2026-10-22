@@ -21,11 +21,20 @@
 
 小驴闪卡（内测版）的定位是**思源笔记里的全生命周期记忆引擎**：让笔记里每一段值得记的内容，都能可回源地变成卡片，用内核原生 FSRS 排期，用可审计的 AI 提效；数据本地优先，方便带走。
 
-当前版本为 **v0.210.28（2026-10-23）**，落地同源兄弟卡防剧透推迟（Anki Bury Siblings）与卡库深度加固。安装包与发布状态见 [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.28)。
+当前版本为 **v0.210.29（2026-10-23）**，落地设置中心兄弟卡防剧透独立配置项、i18n 完备对齐与治理收口。安装包与发布状态见 [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.29)。
 
 [下载最新版](https://github.com/ai68298100/siyuan-lv-cards/releases/latest) · [提交问题](https://github.com/ai68298100/siyuan-lv-cards/issues/new/choose) · [贡献指南](./CONTRIBUTING.md)
 
-## 本次更新（v0.210.28）
+## 本次更新（v0.210.29）
+
+- **设置中心（Settings）补齐兄弟卡防剧透推迟独立控制项**：
+  - 在复习基础设置栏中增设「同源兄弟卡防剧透推迟（Anki Bury Siblings）」切换开关；
+  - 配套中英文专属解释提示（`burySiblingsHint`），让用户自主决定是否开启会话内同源卡推迟。
+- **国际化与全链路规范治理**：
+  - 补充 `manager.starredFilter` 等缺失的中英文语言项，2609 个双语键与 1046 处源码引用 100% 严密对齐；
+  - 生产主包体积严密锁定在 58 KiB gzip 门禁以内，烟雾测试与规范契约全绿通过。
+
+## 上一版本（v0.210.28）
 
 - **落地同源兄弟卡防剧透推迟机制（Anki Bury Siblings）**：
   - 深度引入科学记忆体系中的兄弟卡埋藏算法（`filterBurySiblings` & `disperseSiblings`）；
