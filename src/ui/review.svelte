@@ -2865,8 +2865,9 @@
                                     <span class="lv-judge-circle-icon">✓</span>
                                     <div class="lv-judge-text-wrap">
                                         <strong class="lv-judge-main-label">正确 / 对</strong>
-                                        <small class="lv-judge-sub-label">True (T / 1)</small>
+                                        <small class="lv-judge-sub-label">True</small>
                                     </div>
+                                    <span class="lv-judge-kbd-badge" aria-hidden="true">T / 1</span>
                                     {#if showAnswer && interactiveQuiz.judgeAnswer === true}
                                         <span class="lv-judge-result-badge lv-result-correct">✓ 正确结论</span>
                                     {/if}
@@ -2885,8 +2886,9 @@
                                     <span class="lv-judge-circle-icon">✗</span>
                                     <div class="lv-judge-text-wrap">
                                         <strong class="lv-judge-main-label">错误 / 错</strong>
-                                        <small class="lv-judge-sub-label">False (F / 2)</small>
+                                        <small class="lv-judge-sub-label">False</small>
                                     </div>
+                                    <span class="lv-judge-kbd-badge" aria-hidden="true">F / 2</span>
                                     {#if showAnswer && interactiveQuiz.judgeAnswer === false}
                                         <span class="lv-judge-result-badge lv-result-correct">✓ 正确结论</span>
                                     {/if}

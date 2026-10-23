@@ -1723,6 +1723,25 @@
         }
     }
 
+    .lv-judge-kbd-badge {
+        font-size: 10px;
+        font-family: var(--lv-font-mono, monospace);
+        padding: 1px 6px;
+        border-radius: var(--lv-r-tag);
+        background: color-mix(in srgb, var(--lv-color-text) 5%, transparent);
+        border: 1px solid var(--lv-border);
+        color: var(--lv-color-text-muted);
+        opacity: 0.6;
+        transition: all var(--lv-dur-1) var(--lv-ease);
+        margin-left: auto;
+    }
+    &:hover:not(:disabled) .lv-judge-kbd-badge {
+        opacity: 1;
+        border-color: var(--lv-primary-border);
+        color: var(--lv-color-brand);
+        background: var(--lv-primary-soft);
+    }
+
     .lv-judge-result-badge {
         padding: 4px 10px;
         border-radius: var(--lv-r-pill);
