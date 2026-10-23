@@ -1884,13 +1884,25 @@
     animation: lv-pulse-suggest 1.2s infinite ease-in-out;
 }
 
-.lv-tool-btn.lv-btn-starred {
+.lv-tool-btn.lv-btn-starred,
+.lv-mgr-star-btn.lv-btn-starred {
     color: var(--lv-color-warning, #f59e0b) !important;
     border-color: color-mix(in srgb, var(--lv-color-warning) 45%, transparent) !important;
     background: color-mix(in srgb, var(--lv-color-warning) 12%, var(--lv-color-surface)) !important;
 
     svg {
         fill: currentColor;
+    }
+}
+
+.lv-mgr-star-btn {
+    padding: 0 6px;
+    height: 28px;
+    color: var(--lv-color-text-muted);
+    border-radius: var(--lv-r-pill);
+    &:hover {
+        color: var(--lv-color-warning, #f59e0b);
+        background: color-mix(in srgb, var(--lv-color-warning) 12%, transparent);
     }
 }
 

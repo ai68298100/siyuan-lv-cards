@@ -832,7 +832,7 @@ import { confirmDialog } from "@/libs/dialog";
                 class:lv-chipbtn-active={starredOnly}
                 title={t.manager.starredFilter ?? "只看星标收藏卡片"}
                 onclick={toggleStarredFilter}
-            >⭐ {t.manager.starredFilter ?? "星标卡"}</button>
+            ><LvIcon name="star" size={12} /> {t.manager.starredFilter ?? "星标卡"}</button>
         {/if}
         <div class="lv-toolbar-right">
             <span class="lv-toolbar-caption">{t.manager.total}: {total}</span>
@@ -968,10 +968,10 @@ import { confirmDialog } from "@/libs/dialog";
                             <span class="lv-text">{@html highlightSearchHit(stripHtml(b.content) || t.manager.emptyContentFallback, filterText)}</span>
                             <span class="lv-meta ft__smaller ft__on-surface">
                                 {#if (ctx.getStarredCardIDs?.() ?? []).includes(b.id)}
-                                    <span class="lv-chip2 lv-chip2--warn" title="星标重点卡">⭐ 星标</span>
+                                    <span class="lv-chip2 lv-chip2--warn" title="星标重点卡"><LvIcon name="star" size={11} /> 星标</span>
                                 {/if}
                                 {#if !stripHtml(b.content)}
-                                    <span class="lv-chip2 lv-chip2--error" title="原笔记块内容为空或已丢失">⚠️ 内容缺失</span>
+                                    <span class="lv-chip2 lv-chip2--error" title="原笔记块内容为空或已丢失"><LvIcon name="warning" size={11} /> 内容缺失</span>
                                 {/if}
                                 {#if ctx.isNewBlock(b.id)}
                                     <span class="lv-chip2 lv-chip2--primary">{t.manager.statusNew ?? "新"}</span>
@@ -986,6 +986,22 @@ import { confirmDialog } from "@/libs/dialog";
                         </span>
                         <span class="lv-arrow" aria-hidden="true">›</span>
                     </button>
+                    {#if ctx.toggleStarCard}
+                        <button
+                            type="button"
+                            class="b3-button b3-button--small lv-btn-ghost lv-mgr-star-btn"
+                            class:lv-btn-starred={(ctx.getStarredCardIDs?.() ?? []).includes(b.id)}
+                            title={(ctx.getStarredCardIDs?.() ?? []).includes(b.id) ? "取消星标" : "加入星标重点"}
+                            onclick={async (e) => {
+                                e.stopPropagation();
+                                if (ctx.toggleStarCard) {
+                                    await ctx.toggleStarCard(b.id);
+                                }
+                            }}
+                        >
+                            <LvIcon name="star" size={13} />
+                        </button>
+                    {/if}
                     <button class="b3-button b3-button--small" onclick={(e: Event) => { e.stopPropagation(); openDoc(b); }}>{t.manager.openDoc}</button>
                 </div>
             {/each}

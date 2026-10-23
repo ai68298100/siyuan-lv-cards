@@ -19,9 +19,18 @@ The full-lifecycle flashcard learning platform for SiYuan — local-first, nativ
 
 > **Note**: The primary README and all design docs are in Chinese. This page covers the essentials; see [docs/](./docs/README.md) for full design material.
 
-Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.37** (2026-10-23), delivering complete SCSS bare class elimination, reinforced dialog lifecycle tests, and refined micro-interactions. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.37) for the package and publishing status.
+Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.38** (2026-10-23), delivering quick star toggles in manager rows, complete UI vectorization, and polished interactive states. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.38) for the package and publishing status.
 
-## What's New in v0.210.37
+## What's New in v0.210.38
+
+- **Instant Star Toggles in Manager Rows**:
+  - Direct one-click starring on any card row in the Flashcard Manager without opening details.
+- **UI/UX Pro-Max Full Vector Hygiene**:
+  - Replaced legacy text emojis with theme-reactive monochrome SVG vector chips across the Manager.
+- **Verification**:
+  - 1941 tests across 242 test suites 100% passing; zero TypeScript/Svelte errors and warnings; production build and smoke tests green.
+
+## Previous Update: v0.210.37
 
 - **Strict SCSS Scoping & Global CSS Sanitization**:
   - Encapsulated dialog content under `.lv-cards-dialog-content` and wrapped choice list hiding under `:is([data-type="NodeList"], .list, ul, ol)`.
