@@ -144,12 +144,16 @@ describe("review-shortcuts 键盘调度解析器", () => {
             expect(resolveReviewKeyAction({ key: "p" }, ctx)).toBeNull();
         });
 
-        it("四档模式：1~4 映射对应评分", () => {
+        it("四档模式：1~4 与方向键映射对应评分", () => {
             const ctx = baseContext({ showAnswer: true, ratingStyle: "four" });
             expect(resolveReviewKeyAction({ key: "1" }, ctx)).toBe("rate-1");
+            expect(resolveReviewKeyAction({ key: "ArrowLeft" }, ctx)).toBe("rate-1");
             expect(resolveReviewKeyAction({ key: "2" }, ctx)).toBe("rate-2");
+            expect(resolveReviewKeyAction({ key: "ArrowDown" }, ctx)).toBe("rate-2");
             expect(resolveReviewKeyAction({ key: "3" }, ctx)).toBe("rate-3");
+            expect(resolveReviewKeyAction({ key: "ArrowRight" }, ctx)).toBe("rate-3");
             expect(resolveReviewKeyAction({ key: "4" }, ctx)).toBe("rate-4");
+            expect(resolveReviewKeyAction({ key: "ArrowUp" }, ctx)).toBe("rate-4");
             expect(resolveReviewKeyAction({ key: "5" }, ctx)).toBeNull();
         });
 

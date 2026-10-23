@@ -19,9 +19,18 @@ The full-lifecycle flashcard learning platform for SiYuan — local-first, nativ
 
 > **Note**: The primary README and all design docs are in Chinese. This page covers the essentials; see [docs/](./docs/README.md) for full design material.
 
-Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.31** (2026-10-23), delivering input breathing focus rings, refined states, and tactile polish. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.31) for the package and publishing status.
+Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.32** (2026-10-23), delivering Arrow Keys one-hand rating flow and comprehensive keyboard help overlays. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.32) for the package and publishing status.
 
-## What's New in v0.210.31
+## What's New in v0.210.32
+
+- **Arrow Keys One-Hand Rating Flow**:
+  - Rate cards seamlessly with arrow keys (`← Again`, `↓ Hard`, `→ Good`, `↑ Easy`) for ergonomic one-hand keyboard mastery.
+- **Comprehensive Shortcut Guide**:
+  - Fully updated the `?` help overlay with arrow ratings, zen mode `z`, starring `*`, and undo `p / q`.
+- **Verification**:
+  - 1941 tests across 242 test suites 100% passing; zero TypeScript/Svelte errors and warnings; production build and smoke tests green.
+
+## Previous Update: v0.210.31
 
 - **Focus-within Breathing Ring on Blank Input**:
   - Emits a gentle 3px brand-tinted glow on focus, anchoring attention and giving tangible feedback while typing.

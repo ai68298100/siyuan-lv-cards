@@ -147,16 +147,16 @@ export function resolveReviewKeyAction(
         return null;
     }
 
-    // 10. 评分按键（1~4 或 1~3）
+    // 10. 评分按键（1~4 或 1~3，以及方向键 ←/→/↓/↑ 单手盲打流）
     if (ctx.ratingStyle === "three") {
-        if (e.key === "1") return "rate-1";
-        if (e.key === "2") return "rate-2";
-        if (e.key === "3") return "rate-3";
+        if (e.key === "1" || e.key === "ArrowLeft") return "rate-1";
+        if (e.key === "2" || e.key === "ArrowDown") return "rate-2";
+        if (e.key === "3" || e.key === "ArrowRight") return "rate-3";
     } else {
-        if (e.key === "1") return "rate-1";
-        if (e.key === "2") return "rate-2";
-        if (e.key === "3") return "rate-3";
-        if (e.key === "4") return "rate-4";
+        if (e.key === "1" || e.key === "ArrowLeft") return "rate-1";
+        if (e.key === "2" || e.key === "ArrowDown") return "rate-2";
+        if (e.key === "3" || e.key === "ArrowRight") return "rate-3";
+        if (e.key === "4" || e.key === "ArrowUp") return "rate-4";
     }
 
     // 11. p / q: 撤销上一张评分
