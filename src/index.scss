@@ -1386,14 +1386,20 @@
         }
     }
 
-    // 表格卡面自适应
+    // 表格卡面自适应（超宽表格卡内滚动，保护 880px 舞台不被撑破）
     table {
         width: 100%;
+        max-width: 100%;
+        display: block;
+        overflow-x: auto;
+        scrollbar-width: thin;
         border-collapse: collapse;
         margin: var(--lv-sp-3) 0;
+        border-radius: var(--lv-r-m);
         th, td {
             padding: var(--lv-sp-2) var(--lv-sp-3);
             border: 1px solid var(--lv-border);
+            white-space: nowrap;
         }
         th {
             background: var(--lv-color-canvas);

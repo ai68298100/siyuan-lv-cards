@@ -1860,14 +1860,14 @@
             }
         }
 
-        // 交互式判断题键盘快捷键（T/1 或 F/2）
+        // 交互式判断题键盘快捷键（T/1/Y 或 F/2/N）
         if (!showAnswer && interactiveQuiz?.kind === "judge") {
             const keyLower = e.key.toLowerCase();
-            if (keyLower === "t" || e.key === "1") {
+            if (keyLower === "t" || keyLower === "y" || e.key === "1") {
                 e.preventDefault();
                 handleJudgePick(true);
                 return;
-            } else if (keyLower === "f" || e.key === "2") {
+            } else if (keyLower === "f" || keyLower === "n" || e.key === "2") {
                 e.preventDefault();
                 handleJudgePick(false);
                 return;
@@ -2111,10 +2111,16 @@
     }
 
     function handleFillCheck() {
-        if (!faceReady || showAnswer || !interactiveQuiz || !typingInput.trim()) return;
+        if (!faceReady || showAnswer || !interactiveQuiz) return;
+        const text = typingInput.trim();
+        if (!text) {
+            // 输入为空敲 Enter 直接翻面查看答案（放弃思考/不输入直接揭晓）
+            revealAnswer();
+            return;
+        }
         const target = interactiveQuiz.fillExpected || expectedText;
         if (target) {
-            const g = gradeTyping(target, typingInput, eff().typingStrict);
+            const g = gradeTyping(target, text, eff().typingStrict);
             typingGrade = g;
             isAnswerCorrect = g.suggested >= 3;
             suggestedRating = g.suggested;
