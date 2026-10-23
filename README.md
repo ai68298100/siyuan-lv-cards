@@ -21,11 +21,21 @@
 
 小驴闪卡（内测版）的定位是**思源笔记里的全生命周期记忆引擎**：让笔记里每一段值得记的内容，都能可回源地变成卡片，用内核原生 FSRS 排期，用可审计的 AI 提效；数据本地优先，方便带走。
 
-当前版本为 **v0.210.34（2026-10-23）**，落地小驴生态联邦 Epoch 6 架构升级、FSRS闪电双卡图标与全局样式污染治理。安装包与发布状态见 [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.34)。
+当前版本为 **v0.210.35（2026-10-23）**，落地设置中心智能感知小驴打卡项目、一键下拉绑定与生态体验闭环。安装包与发布状态见 [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.35)。
 
 [下载最新版](https://github.com/ai68298100/siyuan-lv-cards/releases/latest) · [提交问题](https://github.com/ai68298100/siyuan-lv-cards/issues/new/choose) · [贡献指南](./CONTRIBUTING.md)
 
-## 本次更新（v0.210.34）
+## 本次更新（v0.210.35）
+
+- **设置中心小驴打卡项目智能感知与一键绑定**：
+  - 打开设置时通过公开桥自动探测小驴打卡插件并获取已建打卡项目列表（`queryItems`）；
+  - 已安装小驴打卡时，以直观的原生下拉单选框呈现（如 `每日闪卡 (计数)`），支持用户一键点选绑定；
+  - 未安装小驴打卡时优雅降级为 ID 文本输入槽，未配置或未安装时静默放行，零强依赖；
+  - 搜索栏新增 `checkinIntegration` 关键词匹配，搜索“打卡”即可直达配置。
+- **全量门禁与质量验证**：
+  - 全库扩展至 242 个测试文件、1941 项测试 100% 通过；TypeScript 与 Svelte-check 0 错误 0 警告；构建与烟雾测试全绿。
+
+## 上一版本（v0.210.34）
 
 - **跨插件生态联邦联动（Epoch 6 标准）**：
   - 对外服务桥 `CardsBridgeApi` 全面支持四别名挂载与安全注销：`window.xiaolvCards`、`window.lvCards`、`window.LvCards`、`window.siyuanCards`（First-Instance-Wins）；

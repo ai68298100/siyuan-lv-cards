@@ -19,9 +19,17 @@ The full-lifecycle flashcard learning platform for SiYuan — local-first, nativ
 
 > **Note**: The primary README and all design docs are in Chinese. This page covers the essentials; see [docs/](./docs/README.md) for full design material.
 
-Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.34** (2026-10-23), delivering Ecosystem Federation Epoch 6 standards, FSRS Lightning dual-card topbar icon, and global CSS hygiene. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.34) for the package and publishing status.
+Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.35** (2026-10-23), delivering automatic Little Donkey Check-in item detection, one-click dropdown binding, and ecosystem synergy. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.35) for the package and publishing status.
 
-## What's New in v0.210.34
+## What's New in v0.210.35
+
+- **Automatic Check-in Item Probing & Dropdown Binding**:
+  - Automatically queries available check-in items from Little Donkey Check-in via the public bridge (`queryItems`).
+  - Renders a native select dropdown when installed for effortless one-click binding, with graceful input fallback.
+- **Verification**:
+  - 1941 tests across 242 test suites 100% passing; zero TypeScript/Svelte errors and warnings; production build and smoke tests green.
+
+## Previous Update: v0.210.34
 
 - **Ecosystem Federation (Epoch 6 Standards)**:
   - Quad-alias mounting and safe teardown: `xiaolvCards`, `lvCards`, `LvCards`, `siyuanCards`.

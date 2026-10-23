@@ -31,6 +31,7 @@
     import { inspectLvCardsImportDiff, buildImportExecutionPlan } from "@/core/lvcards-diff-inspector";
     // Obsidian SR 导入（v0.202.0）：块级解析 → 计划（去重/剥 tag）→ 一卡一段落落库 → 按序对位
     import { planObsidianImport, composeObsidianImportMarkdown, deckNameFor, groupByDeckHint, partitionByLedger, normalizeObLedger, mergeObLedger, type ObLedgerEntry } from "@/core/obsidian-import";
+    import { getBridgeSafely, type CheckinBridgeApi, type CheckinItem } from "@/libs/ecosystem-bridge-kit";
 
     export interface SettingsCtx {
         i18n: any;
@@ -122,6 +123,8 @@
     let ankiStatus = $state<{ kind: "info" | "warn" | "error"; text: string } | null>(null);
     // Anki M3：损失明细（导入完成时可一键复制）
     let ankiLosses = $state<string[]>([]);
+    let checkinItems = $state<CheckinItem[]>([]);
+    let checkinInstalled = $state(false);
     function escapeDialogHtml(value: string): string {
         return value.replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]!);
     }
@@ -459,7 +462,7 @@
     const SECTION_KEYWORDS: Record<string, string[]> = {
         persona: ["personaSection", "personaManage", "personaActive", "personaImport"],
         modules: ["modules", "gateway", "review", "stats"],
-        studyRhythm: ["studyRhythm", "dailyNewTarget", "dailyReviewTarget"],
+        studyRhythm: ["studyRhythm", "dailyNewTarget", "dailyReviewTarget", "checkinIntegration"],
         studyAnswer: ["studyAnswer", "ratingStyle", "timeoutMode", "timeoutForget", "typingEnabled", "dictationEnabled", "choiceEnabled"],
         studyVoice: ["studyVoice", "ttsEnabled", "ttsRate"],
         studyNotify: ["studyNotify", "notifyDue", "dailyTipEnabled"],
@@ -532,6 +535,13 @@
                 onVoicesChanged = () => (voices = voiceSynthesis?.getVoices().map(v => ({ name: v.name })) ?? []);
                 onVoicesChanged();
                 voiceSynthesis.addEventListener("voiceschanged", onVoicesChanged);
+            }
+        } catch { /* 旁路 */ }
+        try {
+            const checkinBridge = getBridgeSafely<CheckinBridgeApi>("checkin");
+            if (checkinBridge && typeof checkinBridge.queryItems === "function") {
+                checkinItems = checkinBridge.queryItems();
+                checkinInstalled = true;
             }
         } catch { /* 旁路 */ }
         void loadNotebooks();
@@ -933,6 +943,18 @@
         </LvRow>
         <LvRow label={t.settings.burySiblings ?? "同源兄弟卡防剧透推迟"} hint={t.settings.burySiblingsHint}>
             <LvSwitch bind:checked={draft.burySiblings} />
+        </LvRow>
+        <LvRow label={t.settings.checkinIntegration ?? "小驴打卡生态联动"} hint={t.settings.checkinIntegrationHint}>
+            {#if checkinInstalled && checkinItems.length > 0}
+                <select class="b3-select fn__flex-1" bind:value={draft.checkinItemId}>
+                    <option value="">{t.settings.checkinNone ?? "不联动打卡"}</option>
+                    {#each checkinItems as item (item.id)}
+                        <option value={item.id}>{item.name} ({item.kind || "计数"})</option>
+                    {/each}
+                </select>
+            {:else}
+                <input class="b3-text-field fn__size-200" type="text" placeholder={t.settings.checkinPlaceholder ?? "输入小驴打卡项目 ID（如 chk-xxx）"} bind:value={draft.checkinItemId} />
+            {/if}
         </LvRow>
         <LvRow label={t.settings.reverseOrder} hint={t.settings.reverseOrderHint}>
             <LvSwitch bind:checked={draft.reverseOrder} />
