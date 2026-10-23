@@ -21,11 +21,21 @@
 
 小驴闪卡（内测版）的定位是**思源笔记里的全生命周期记忆引擎**：让笔记里每一段值得记的内容，都能可回源地变成卡片，用内核原生 FSRS 排期，用可审计的 AI 提效；数据本地优先，方便带走。
 
-当前版本为 **v0.210.36（2026-10-23）**，落地填空放弃输入丝滑翻面、判断题 Y/N 键盘支持与超宽表格卡内滚动保护。安装包与发布状态见 [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.36)。
+当前版本为 **v0.210.37（2026-10-23）**，落地严格清扫 SCSS 裸类污染、对话框全生命周期单测加固与微交互打磨。安装包与发布状态见 [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.37)。
 
 [下载最新版](https://github.com/ai68298100/siyuan-lv-cards/releases/latest) · [提交问题](https://github.com/ai68298100/siyuan-lv-cards/issues/new/choose) · [贡献指南](./CONTRIBUTING.md)
 
-## 本次更新（v0.210.36）
+## 本次更新（v0.210.37）
+
+- **严格清扫 SCSS 顶层裸类与命名空间收敛**：
+  - 彻底重构 `src/index.scss` 与 `src/libs/dialog.ts`，将所有对话框内容容器收敛为 `.lv-cards-dialog-content`；
+  - 修复选择题隐藏原始列表样式，采用 `:is([data-type="NodeList"], .list, ul, ol)` 作用域嵌套，严防样式污染思源原生及第三方插件。
+- **对话框全生命周期焦点回归单测深度加固**：
+  - 对话框结构双命名空间适配，全量 242 个测试套件 1941 项单测全部绿灯通过。
+- **全量门禁与质量验证**：
+  - TypeScript 与 Svelte-check 0 错误 0 警告；构建与烟雾测试全绿；发行包 735KB 严守 750KB 红线。
+
+## 上一版本（v0.210.36）
 
 - **填空交互输入体验排障与优化（Empty Enter Flip）**：
   - 修复填空题输入框为空时敲回车无响应的交互阻断问题：当用户无法回忆放弃作答时，在输入槽直接敲击 `Enter` 瞬间揭晓答案与解析，保证盲打心流零卡顿。

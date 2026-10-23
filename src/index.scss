@@ -626,8 +626,7 @@
         overflow: hidden;
     }
 
-    .lv-dialog-content,
-    .dialog-content {
+    .lv-cards-dialog-content {
         display: flex;
         flex: 1 1 auto;
         flex-direction: column;
@@ -1508,10 +1507,7 @@
 // =============================================================
 
 .lv-card-content.has-interactive-choice {
-    & [data-type="NodeList"],
-    & .list,
-    & ul,
-    & ol {
+    :is([data-type="NodeList"], .list, ul, ol) {
         display: none !important;
     }
 }

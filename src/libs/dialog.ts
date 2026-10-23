@@ -112,12 +112,12 @@ export const simpleDialog = (args: {
 }) => {
     const dialog = new Dialog({
         title: `<div class="lv-dialog-title-wrap">${args.title}</div>`,
-        content: `<div class="lv-dialog-content dialog-content" style="display: flex; height: 100%;"/>`,
+        content: `<div class="lv-cards-dialog-content dialog-content" style="display: flex; height: 100%;"/>`,
         width: args.width,
         height: args.height,
         destroyCallback: args.callback
     });
-    const contentEl = dialog.element.querySelector(".lv-dialog-content") || dialog.element.querySelector(".dialog-content");
+    const contentEl = dialog.element.querySelector(".lv-cards-dialog-content") || dialog.element.querySelector(".dialog-content");
     if (contentEl) {
         contentEl.appendChild(args.ele);
     }
