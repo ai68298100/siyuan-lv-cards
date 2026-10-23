@@ -21,11 +21,19 @@
 
 小驴闪卡（内测版）的定位是**思源笔记里的全生命周期记忆引擎**：让笔记里每一段值得记的内容，都能可回源地变成卡片，用内核原生 FSRS 排期，用可审计的 AI 提效；数据本地优先，方便带走。
 
-当前版本为 **v0.210.32（2026-10-23）**，落地单手十字方向键评分流（Arrow Keys Flow）与全快捷键气泡更新。安装包与发布状态见 [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.32)。
+当前版本为 **v0.210.33（2026-10-23）**，落地连击勋章精密矢量化、首屏质感重塑与规范收口。安装包与发布状态见 [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.33)。
 
 [下载最新版](https://github.com/ai68298100/siyuan-lv-cards/releases/latest) · [提交问题](https://github.com/ai68298100/siyuan-lv-cards/issues/new/choose) · [贡献指南](./CONTRIBUTING.md)
 
-## 本次更新（v0.210.32）
+## 本次更新（v0.210.33）
+
+- **连击勋章（Streak Card）精密矢量化与去 Emoji**：
+  - 首页连续学习连击徽标（Streak Badge）全面升级为精密 SVG 矢量微标（`<LvIcon name="flame" />` 与 `<LvIcon name="zap" />`）；
+  - 彻底摆脱不同平台操作系统 Emoji 颜色渲染不一、暗黑模式低对比度的瑕疵，视觉层级更具科技感与品牌凝聚力。
+- **全量门禁与质量验证**：
+  - 全库扩展至 242 个测试文件、1941 项测试 100% 通过；TypeScript 与 Svelte-check 0 错误 0 警告；构建与烟雾测试全绿。
+
+## 上一版本（v0.210.32）
 
 - **全面支持单手十字方向键评分（Arrow Keys One-Hand Flow）**：
   - 针对键盘流与手托操作习惯，答案揭晓后支持直接敲击键盘方向键完成自评：

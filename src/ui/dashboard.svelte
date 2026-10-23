@@ -872,9 +872,9 @@
                     <strong class="lv-streak-count">{streak} <span class="lv-streak-unit">{t.dashboard.streakUnit ?? "天"}</span></strong>
                 </div>
                 {#if streak >= 3}
-                    <span class="lv-streak-badge">🔥 {streak} Days</span>
+                    <span class="lv-streak-badge"><LvIcon name="flame" size={12} /> {streak} Days</span>
                 {:else if streak > 0}
-                    <span class="lv-streak-badge">☀️ 良好起步</span>
+                    <span class="lv-streak-badge"><LvIcon name="zap" size={12} /> 良好起步</span>
                 {/if}
             </div>
 
