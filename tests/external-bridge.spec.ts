@@ -36,7 +36,18 @@ describe("小驴闪卡对外窗口桥与事件总线（Epoch 6）", () => {
         const bridge = buildCardsBridge(makeHost());
         expect(bridge.protocol).toBe(1);
         expect(bridge.protocolName).toBe("xiaolv-cards");
-        expect(bridge.capabilities).toEqual(["whenReady", "stats", "due", "openHub", "openReview"]);
+        expect(bridge.capabilities).toContain("whenReady");
+        expect(bridge.capabilities).toContain("stats");
+        expect(bridge.capabilities).toContain("due");
+        expect(bridge.capabilities).toContain("openHub");
+        expect(bridge.capabilities).toContain("openReview");
+        expect(bridge.capabilities).toContain("hasCapability");
+        expect(bridge.capabilities).toContain("getOverview");
+        expect(bridge.hasCapability("stats")).toBe(true);
+        expect(bridge.hasCapability("unknown-xyz")).toBe(false);
+        const overview = bridge.getOverview() as Record<string, unknown>;
+        expect(overview.name).toBe("siyuan-lv-cards");
+        expect(overview.maturity).toBe("stable");
     });
 
     it("whenReady：探针就绪直接返回 true", async () => {
@@ -106,14 +117,17 @@ describe("小驴闪卡对外窗口桥与事件总线（Epoch 6）", () => {
         expect(openReviewSpy).toHaveBeenCalledWith({ scope: "deck-123", cram: true });
     });
 
-    it("mountCardsBridge：挂载双命名空间别名，遵循首实例独占与安全卸载", () => {
+    it("mountCardsBridge：挂载四命名空间别名，遵循首实例独占与安全卸载", () => {
         const fakeWindow: Record<string, unknown> = {};
         const host = makeHost();
 
         const unmount = mountCardsBridge(host, fakeWindow as any);
         expect(fakeWindow.xiaolvCards).toBeDefined();
         expect(fakeWindow.lvCards).toBeDefined();
+        expect(fakeWindow.LvCards).toBeDefined();
+        expect(fakeWindow.siyuanCards).toBeDefined();
         expect(fakeWindow.xiaolvCards).toBe(fakeWindow.lvCards);
+        expect(fakeWindow.LvCards).toBe(fakeWindow.siyuanCards);
 
         // 重复挂载不覆盖已存在的桥（首个实例独占）
         const secondHost = makeHost({ openHub: vi.fn() });
@@ -124,6 +138,8 @@ describe("小驴闪卡对外窗口桥与事件总线（Epoch 6）", () => {
         unmount();
         expect(fakeWindow.xiaolvCards).toBeUndefined();
         expect(fakeWindow.lvCards).toBeUndefined();
+        expect(fakeWindow.LvCards).toBeUndefined();
+        expect(fakeWindow.siyuanCards).toBeUndefined();
 
         // 次级 unmount 不应误删已清空的环境
         unmountSecond();

@@ -30,6 +30,7 @@ import { getRiffCards, getRiffCardsByBlockIDs } from "./api/riff";
 // AT-4：addRiffCards 取经 due-shared 的包装版（建卡成功即失效共享 due 缓存），badge/提醒走共享缓存
 import { addRiffCards, cachedDueBlockIDs, cachedDueCount, dueCache, formatRiffCardEntryError, invalidateDueCache } from "./api/due-shared";
 import { mountCardsBridge, dispatchCardReviewedEvent } from "./api/external-bridge";
+import { registerRaikiriModuleSafely } from "./libs/ecosystem-bridge-kit";
 import { createPerf } from "./libs/perf";
 import { cardsCreatedEvent, gatewayChangedEvent, LV_EVENTS, reviewedEvent, sessionFinishedEvent, settingsChangedEvent, storesChangedEvent, streakChangedEvent } from "./libs/events";
 import { deriveInstance, emptyKnowledgeObjects, findBySource, normalizeKnowledgeObjects, registerObject, removeInstance, toggleInstance, type KnowledgeObjectsData } from "./core/knowledge-objects";
@@ -333,7 +334,9 @@ function cloneStore<T>(value: T): T {
     }
 }
 
-const ICON_LV_CARDS_SVG = '<symbol id="iconLvCards" viewBox="0 0 32 32"><path d="M6 10h16v16H6zM10 6h16v16M11 16h6M11 20h10" fill="none" stroke="currentColor" stroke-width="2"/></symbol>';
+const ICON_LV_CARDS_SVG = '<symbol id="iconLvCards" viewBox="0 0 32 32"><rect x="10.5" y="6" width="14" height="17" rx="3.5" transform="rotate(8 17.5 14.5)" fill="none" stroke="currentColor" stroke-width="1.8" stroke-opacity="0.4"/><rect x="6" y="9" width="15" height="18" rx="3.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="m14.5 12-3.5 5h3l-1.5 5 4.5-5.5h-3z" fill="currentColor"/><circle cx="22" cy="24" r="3" fill="currentColor"/></symbol>';
+
+const noop = () => {};
 
 export default class LvCardsPlugin extends Plugin {
     declare i18n: Record<string, any>;
@@ -405,6 +408,7 @@ export default class LvCardsPlugin extends Plugin {
     private examPlansSequence = 0;
     private examKernelWasRunning = false;
     private disposeCardsBridge?: () => void;
+    private unregisterRaikiri?: () => void;
     private aiBatches: AIBatchesData = { version: 1, batches: [] };
     private aiBatchesMutationVersion = 0;
     private costLedgerMutationVersion = 0;
@@ -1013,6 +1017,29 @@ export default class LvCardsPlugin extends Plugin {
             openReview: opts => this.openTabOf(TAB_REVIEW, opts as Record<string, unknown>),
         });
 
+        // 向小驴雷切工作台安全注册待复习闪卡组件（Ecosystem Federation Epoch 6）
+        this.unregisterRaikiri = registerRaikiriModuleSafely({
+            moduleId: "cards-due-summary",
+            title: "待复习闪卡",
+            icon: "iconLvCards",
+            category: "learning",
+            supportedDevices: ["desktop", "sidebar", "mobile"],
+            sizes: ["small", "medium", "wide"],
+            description: "待复习统计",
+            source: { pluginId: "siyuan-lv-cards", name: "小驴闪卡" },
+            read: async () => {
+                const due = await dueCache.get("").catch(() => null);
+                return {
+                    items: [
+                        { label: "待复习", value: String(due?.unreviewedOldCardCount ?? 0) },
+                        { label: "新卡", value: String(due?.unreviewedNewCardCount ?? 0) },
+                        { label: "已复习", value: String(this.revlog.days[todayDate()]?.review ?? 0) },
+                    ],
+                };
+            },
+            open: () => this.openTabOf(TAB_REVIEW),
+        });
+
         const plugin = this;
         this.addTab({
             type: TAB_DASHBOARD,
@@ -1199,13 +1226,14 @@ export default class LvCardsPlugin extends Plugin {
                                 const items = leechCards(plugin.revlog, plugin.settings.leechThreshold);
                                 return items.map(i => ({ blockID: i.blockID, lapses: i.lapses }));
                             },
-                            getStarredCardIDs: () => plugin.settings.starredCards ?? [],
-                            toggleStarCard: async (blockID: string) => {
-                                const list = plugin.settings.starredCards ?? [];
-                                const has = list.includes(blockID);
-                                plugin.settings.starredCards = has ? list.filter(id => id !== blockID) : [...list, blockID];
+                            getStarredCardIDs: () => plugin.settings.starredCards,
+                            toggleStarCard: async (id: string) => {
+                                const s = new Set(plugin.settings.starredCards);
+                                const added = !s.delete(id);
+                                if (added) s.add(id);
+                                plugin.settings.starredCards = [...s];
                                 plugin.saveSettingsSoon();
-                                return !has;
+                                return added;
                             },
                             // 状态过滤（M6·FR2）：新卡=本地 revlog 无记录；到期=内核到期清单交集（经版本索引缓存为 O(1) 检索）
                             isNewBlock: (blockID: string) => !plugin.getRevlogBlockIndex().reviewedSet.has(blockID),
@@ -1227,14 +1255,14 @@ export default class LvCardsPlugin extends Plugin {
                             addRelation: async (from: string, to: string, type: string) => {
                                 await plugin.cardRelationsMutations(next => {
                                     if (!addRelation(next, from, to, type as RelationType)) {
-                                        throw new Error((plugin.i18n as any).review?.relations?.errDuplicate ?? "这条关系已存在，或关系目标无效。请刷新后重试。");
+                                        throw new Error((plugin.i18n as any).review?.relations?.errDuplicate ?? "关系已存在");
                                     }
                                 });
                             },
                             removeRelation: async (from: string, to: string, type: string) => {
                                 await plugin.cardRelationsMutations(next => {
                                     if (!removeRelation(next, from, to, type as RelationType)) {
-                                        throw new Error((plugin.i18n as any).review?.relations?.errMissing ?? "关系已不存在，请刷新后重试。");
+                                        throw new Error((plugin.i18n as any).review?.relations?.errMissing ?? "关系不存在");
                                     }
                                 });
                             },
@@ -1249,7 +1277,7 @@ export default class LvCardsPlugin extends Plugin {
                                 register: async (blockID: string, fact: string) => {
                                     await plugin.knowledgeObjectsMutations(next => {
                                         if (findBySource(next, blockID)) {
-                                            throw new Error((plugin.i18n as any).review?.ko?.alreadyRegistered ?? "该笔记已登记为知识对象，请刷新后重试。");
+                                            throw new Error((plugin.i18n as any).review?.ko?.alreadyRegistered ?? "已登记对象");
                                         }
                                         registerObject(next, fact, blockID);
                                     });
@@ -1258,7 +1286,7 @@ export default class LvCardsPlugin extends Plugin {
                                     await plugin.knowledgeObjectsMutations(next => {
                                         const obj = findBySource(next, blockID);
                                         if (!obj || !toggleInstance(obj, cardID, disabled)) {
-                                            throw new Error((plugin.i18n as any).review?.ko?.instanceChanged ?? "卡片实例已变化，请刷新后重试。");
+                                            throw new Error((plugin.i18n as any).review?.ko?.instanceChanged ?? "实例已变化");
                                         }
                                     });
                                 },
@@ -1266,22 +1294,22 @@ export default class LvCardsPlugin extends Plugin {
                                     await plugin.knowledgeObjectsMutations(next => {
                                         const obj = findBySource(next, blockID);
                                         if (!obj || !removeInstance(obj, cardID)) {
-                                            throw new Error((plugin.i18n as any).review?.ko?.instanceChanged ?? "卡片实例已变化，请刷新后重试。");
+                                            throw new Error((plugin.i18n as any).review?.ko?.instanceChanged ?? "实例已变化");
                                         }
                                     });
                                 },
                                 derive: async (blockID: string, cardType: string) => {
                                     if (!findBySource(plugin.knowledgeObjects, blockID)) {
-                                        throw new Error((plugin.i18n as any).review?.ko?.instanceChanged ?? "知识对象已不存在，请刷新后重试。");
+                                        throw new Error((plugin.i18n as any).review?.ko?.instanceChanged ?? "对象不存在");
                                     }
                                     const { blocks } = await getRiffCardsByBlockIDs([blockID]);
                                     const cardID = blocks?.[0]?.id;
-                                    if (!cardID) throw new Error((plugin.i18n as any).review?.ko?.deriveSourceMissing ?? "未找到可派生的闪卡实例，请确认原卡仍存在后重试。");
+                                    if (!cardID) throw new Error((plugin.i18n as any).review?.ko?.deriveSourceMissing ?? "未找到实例");
                                     await plugin.knowledgeObjectsMutations(next => {
                                         const obj = findBySource(next, blockID);
-                                        if (!obj) throw new Error((plugin.i18n as any).review?.ko?.instanceChanged ?? "知识对象已不存在，请刷新后重试。");
+                                        if (!obj) throw new Error((plugin.i18n as any).review?.ko?.instanceChanged ?? "对象不存在");
                                         if (!deriveInstance(obj, { cardID, cardType })) {
-                                            throw new Error((plugin.i18n as any).review?.ko?.deriveDuplicate ?? "该卡型已有实例，请刷新后检查。");
+                                            throw new Error((plugin.i18n as any).review?.ko?.deriveDuplicate ?? "卡型已有实例");
                                         }
                                     });
                                 },
@@ -1864,6 +1892,10 @@ export default class LvCardsPlugin extends Plugin {
             this.disposeCardsBridge();
             this.disposeCardsBridge = undefined;
         }
+        if (this.unregisterRaikiri) {
+            this.unregisterRaikiri();
+            this.unregisterRaikiri = undefined;
+        }
         const palette = this.paletteState;
         this.paletteState = undefined;
         palette?.close?.();
@@ -1901,7 +1933,7 @@ export default class LvCardsPlugin extends Plugin {
         // AQ-4：卸载前尽力等在途写入落盘（Petal dispose 预算约 5s，上限 3s 不阻塞卸载）
         void this.persist.waitAll(3000).then(ok => {
             if (!ok) {
-                lvLog("warn", "unload: pending writes did not settle in 3s");
+                lvLog("warn", "unload: writes not settled");
             }
             lvLog("info", "[unload] done: " + (Date.now() - unloadStart) + "ms");
         });
@@ -1912,7 +1944,7 @@ export default class LvCardsPlugin extends Plugin {
     }
 
     async uninstall(): Promise<void> {
-        lvLog("info", "[uninstall] Little Donkey Flashcards plugin is being uninstalled from workspace");
+        lvLog("info", "[uninstall] done");
         if (this.badgeTimer) {
             clearInterval(this.badgeTimer);
             this.badgeTimer = null;
@@ -2109,7 +2141,7 @@ export default class LvCardsPlugin extends Plugin {
                     }
                     opts.onPicked?.(deckID);
                 },
-                onClose: () => { /* svelteDialog 自理销毁 */ },
+                onClose: noop,
             },
         });
     }
@@ -2151,7 +2183,7 @@ export default class LvCardsPlugin extends Plugin {
                     await this.rememberSourceFingerprint(blockID);
                     showMessage((this.i18n as any).occlusion.occlusionSaved, 2000, "info");
                 },
-                onClose: () => { /* svelteDialog 自理销毁 */ },
+                onClose: noop,
             },
         });
     }
@@ -2474,7 +2506,7 @@ export default class LvCardsPlugin extends Plugin {
                     }
                     showMessage(this.i18n.markerCreated.replace("${n}", String(all.length)), 2500, "info");
                 },
-                onClose: () => { /* svelteDialog 自理销毁 */ },
+                onClose: noop,
             },
         });
     }
@@ -2610,7 +2642,7 @@ export default class LvCardsPlugin extends Plugin {
     private reportDialogOpenFailure(kind: string, error: unknown): void {
         const detail = error instanceof Error ? error.message : String(error);
         lvLog("error", `[dialog] ${kind} open failed: ${detail}`);
-        const prefix = this.i18n.chunkLoadFailedDetail ?? "界面模块加载失败，请重试。";
+        const prefix = this.i18n.chunkLoadFailedDetail ?? "加载失败";
         showMessage(`${prefix}\n${detail}`, 4000, "error");
     }
 
@@ -2628,7 +2660,7 @@ export default class LvCardsPlugin extends Plugin {
             title: this.i18n.drillTitle,
             component: Drill,
             width: "min(720px, 94vw)",
-            props: { i18n: this.i18n, onClose: () => { /* svelteDialog 自理销毁 */ } },
+            props: { i18n: this.i18n, onClose: noop },
         });
     }
 
@@ -2639,7 +2671,7 @@ export default class LvCardsPlugin extends Plugin {
                 title: (this.i18n as any).challenge.title,
                 component: ChallengeMode,
                 width: "min(560px, 94vw)",
-                props: { i18n: this.i18n, onExit: () => { /* svelteDialog 自理销毁 */ } },
+                props: { i18n: this.i18n, onExit: noop },
             });
         } catch (e) {
             this.reportDialogOpenFailure((this.i18n as any).challenge?.title ?? "challenge", e);
@@ -2653,7 +2685,7 @@ export default class LvCardsPlugin extends Plugin {
                 title: (this.i18n as any).pairing.title,
                 component: PairingGame,
                 width: "min(720px, 94vw)",
-                props: { i18n: this.i18n, onExit: () => { /* svelteDialog 自理销毁 */ } },
+                props: { i18n: this.i18n, onExit: noop },
             });
         } catch (e) {
             this.reportDialogOpenFailure((this.i18n as any).pairing?.title ?? "pairing", e);
@@ -3000,7 +3032,7 @@ export default class LvCardsPlugin extends Plugin {
                         i18n: this.i18n,
                     });
                 },
-                onClose: () => { /* svelteDialog 自理销毁 */ },
+                onClose: noop,
             },
         };
     }
@@ -3204,15 +3236,15 @@ export default class LvCardsPlugin extends Plugin {
             const normalized = normalizeNativeCardAction(event?.detail, Date.now());
             // 非法评分（5、-1、2.5）或缺卡 ID：丢弃并进诊断，不产生脏 revlog
             if (!normalized) {
-                lvLog("warn", "[native] dropped: bad shape");
+                lvLog("warn", "[native] dropped");
                 return;
             }
             if (this.nativeDeduper.seen((event?.detail as any)?.eid, normalized.cardID, normalized.ts)) {
-                lvLog("info", "[native] deduped: " + normalized.cardID);
+                lvLog("info", "[native] deduped");
                 return;
             }
             if (normalized.timeEstimated) {
-                lvLog("info", "[native] time estimated");
+                lvLog("info", "[native] estimated");
             }
             this.appendRevlog({
                 ts: normalized.ts,
@@ -3558,10 +3590,10 @@ export default class LvCardsPlugin extends Plugin {
         const state = this.presentationPrivacyController.getState();
         if (state.enabled) {
             this.presentationPrivacyController.exit();
-            showMessage(this.i18n.presentationPrivacyTipExited ?? "已退出演示模式，恢复正常显示", 2500, "info");
+            showMessage(this.i18n.presentationPrivacyTipExited ?? "已退出演示模式", 2500, "info");
         } else {
             this.presentationPrivacyController.enter("screen-sharing");
-            showMessage(this.i18n.presentationPrivacyTipActive ?? "私密演示模式已启用：敏感文档路径、块ID与用户名已安全遮蔽", 3500, "info");
+            showMessage(this.i18n.presentationPrivacyTipActive ?? "私密演示模式已启用", 3500, "info");
         }
     }
 
@@ -3889,7 +3921,7 @@ export default class LvCardsPlugin extends Plugin {
         await this.applyLoadedStores(await this.readAllStores());
         this.refreshDueBadge();
         showMessage(dict.restoreDone ?? "restored", 2500, "info");
-        lvLog("info", "[backup] restored " + Object.keys(preview.files).length + " files");
+        lvLog("info", "[backup] restored");
     }
 
     /** 学习报告写入思源文档（M5·FR6 深化） */

@@ -111,13 +111,16 @@ export const simpleDialog = (args: {
     callback?: () => void;
 }) => {
     const dialog = new Dialog({
-        title: args.title,
-        content: `<div class="dialog-content" style="display: flex; height: 100%;"/>`,
+        title: `<div class="lv-dialog-title-wrap">${args.title}</div>`,
+        content: `<div class="lv-dialog-content dialog-content" style="display: flex; height: 100%;"/>`,
         width: args.width,
         height: args.height,
         destroyCallback: args.callback
     });
-    dialog.element.querySelector(".dialog-content").appendChild(args.ele);
+    const contentEl = dialog.element.querySelector(".lv-dialog-content") || dialog.element.querySelector(".dialog-content");
+    if (contentEl) {
+        contentEl.appendChild(args.ele);
+    }
     return {
         dialog,
         close: dialog.destroy.bind(dialog)

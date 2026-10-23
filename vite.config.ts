@@ -53,6 +53,9 @@ export default defineConfig(buildTarget === "kernel" ? {
                     patterns: ["i18n/*.yaml", "i18n/*.md"],
                     distDir: outputDir
                 }),
+                syncZhCnAlias({
+                    distDir: outputDir
+                }),
                 zipPack({
                     inDir: "./dist",
                     outDir: "./",
@@ -144,8 +147,6 @@ export default defineConfig(buildTarget === "kernel" ? {
     build: {
         outDir: outputDir,
         emptyOutDir: false,
-        // AT-15 实测定案（v0.151.0）：terser（含 toplevel mangle + drop_console）98.41KB，
-        // 不敌 esbuild 96.97KB——本代码库 esbuild 压缩率更优，维持 esbuild
         minify: true,
         sourcemap: isSrcmap ? "inline" : false,
 
@@ -189,6 +190,27 @@ function watchExternalFiles(patterns: string[]): Plugin {
             const files = await fg(patterns);
             for (const file of files) {
                 this.addWatchFile(file);
+            }
+        }
+    };
+}
+
+function syncZhCnAlias(options: { distDir: string }): Plugin {
+    return {
+        name: "sync-zh-cn-alias",
+        enforce: "post",
+        writeBundle: {
+            sequential: true,
+            order: "post" as "post",
+            async handler() {
+                const fs = await import("fs");
+                const path = await import("path");
+                const srcPath = path.resolve(options.distDir, "i18n/zh-CN.json");
+                const destPath = path.resolve(options.distDir, "i18n/zh_CN.json");
+                if (fs.existsSync(srcPath)) {
+                    fs.copyFileSync(srcPath, destPath);
+                    console.log(`Synced: ${destPath}`);
+                }
             }
         }
     };

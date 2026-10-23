@@ -19,9 +19,27 @@ The full-lifecycle flashcard learning platform for SiYuan — local-first, nativ
 
 > **Note**: The primary README and all design docs are in Chinese. This page covers the essentials; see [docs/](./docs/README.md) for full design material.
 
-Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.33** (2026-10-23), delivering vector streak badges, clean typography, and UI/UX Pro-Max standards. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.33) for the package and publishing status.
+Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.34** (2026-10-23), delivering Ecosystem Federation Epoch 6 standards, FSRS Lightning dual-card topbar icon, and global CSS hygiene. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.34) for the package and publishing status.
 
-## What's New in v0.210.33
+## What's New in v0.210.34
+
+- **Ecosystem Federation (Epoch 6 Standards)**:
+  - Quad-alias mounting and safe teardown: `xiaolvCards`, `lvCards`, `LvCards`, `siyuanCards`.
+  - Added `hasCapability` and `getOverview` contract methods (promoted from `design` to `stable`).
+  - Automated check-in integration with Little Donkey Checkin on review completion (`logCheckinEventSafely`).
+  - Registered `cards-due-summary` widget with Little Donkey Raikiri.
+- **Topbar Vector Icon Overhaul (FSRS Lightning & Diamond Star)**:
+  - Upgraded from generic double boxes to custom 32×32 monochrome vector: 8° tilted flipped cards with FSRS memory lightning and star badge.
+- **CSS Hygiene & Aesthetic Tokens**:
+  - Eliminated bare class pollution (`.dialog-content`, `.list`) by strictly scoping within `.lv-cards-*`.
+  - Injected brand colors: Burgundy Red (`#E11D48`) and Starlight Gold (`#FACC15`).
+- **Engineering & Distribution Optimization**:
+  - Added `"settingsWindow": true`, elevated `minAppVersion` to `"3.8.4"`.
+  - Slimmed `package.zip` down to 732KB (below 750KB ceiling) with automated `zh_CN.json` compatibility.
+- **Verification**:
+  - 1941 tests across 242 test suites 100% passing; zero TypeScript/Svelte errors and warnings; production build and smoke tests green.
+
+## Previous Update: v0.210.33
 
 - **Vector Streak Badges (No Emoji)**:
   - Replaced emojis with crisp, theme-aware `<LvIcon />` SVG badges on the streak and overview cards.

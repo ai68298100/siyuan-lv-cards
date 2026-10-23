@@ -45,7 +45,7 @@ export interface EcosystemEventEnvelope<T = Record<string, unknown>> {
     idempotencyKey: string;
 }
 
-export const ECOSYSTEM_EVENTS = Object.freeze({
+export const ECOSYSTEM_EVENTS = {
     // 打卡
     CHECKIN_RECORDED: "checkin:event-recorded",
     CHECKIN_DELETED: "checkin:event-deleted",
@@ -73,7 +73,7 @@ export const ECOSYSTEM_EVENTS = Object.freeze({
     // 快门
     QUICKGATE_COMMAND_EXECUTED: "lv-quickgate:command-executed",
     QUICKGATE_DATA_CHANGED: "lv-quickgate:data-changed",
-} as const);
+} as const;
 
 /* ========================================================================= */
 /* 3. 各插件公开桥类型定义 (Public Bridge Interfaces)                        */
@@ -302,7 +302,7 @@ export interface QuickGateBridgeApi {
 /* 4. 统一别名检索表 (Ecosystem Bridge Aliases Registry)                      */
 /* ========================================================================= */
 
-export const BRIDGE_ALIASES = Object.freeze({
+export const BRIDGE_ALIASES = {
     checkin: ["siyuanCheckin", "LvCheckin", "lvCheckin", "xiaolvCheckin"],
     contacts: ["LvContacts", "lvContacts", "xiaolvContacts", "siyuanContacts"],
     home: ["LvHome", "lvHome", "xiaolvHome", "siyuanHome"],
@@ -312,7 +312,7 @@ export const BRIDGE_ALIASES = Object.freeze({
     cards: ["xiaolvCards", "lvCards", "LvCards", "siyuanCards"],
     common: ["xiaolvCommon", "LvCommon", "lvCommon", "siyuanCommon"],
     quickgate: ["LvQuickgate", "lvQuickgate", "xiaolvQuickgate", "siyuanQuickgate"],
-} as const);
+} as const;
 
 /* ========================================================================= */
 /* 5. 核心工具函数：安全探测、调用与优雅降级                                 */
@@ -416,14 +416,15 @@ export async function logCheckinEventSafely(options: {
  */
 export function registerRaikiriModuleSafely(options: RaikiriHomeModuleOptions): () => void {
     if (typeof window === "undefined") return () => {};
-    const raikiri = getBridgeSafely<RaikiriBridgeApi>("raikiri");
+    const w = window as any;
+    const raikiri = (w.siyuanSpeedSwitch || w.xiaolvSpeedSwitch || w.xiaolvRaikiri || w.lvRaikiri) as RaikiriBridgeApi | undefined;
     if (!raikiri || typeof raikiri.registerHomeModule !== "function") return () => {};
     try {
         const handle = raikiri.registerHomeModule(options);
         if (typeof handle === "function") return handle;
         if (handle && typeof handle.unregister === "function") return () => handle.unregister!();
     } catch (e) {
-        console.warn("[小驴生态联邦] 注册雷切小组件失败:", e);
+        console.warn("[LvCards] raikiri reg failed:", e);
     }
     return () => {};
 }

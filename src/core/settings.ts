@@ -94,6 +94,8 @@ export interface LvCardsSettings {
     examDate: string;
     /** 星标重点卡片 ID 集合（对标 Anki Flag / Quizlet Starred） */
     starredCards: string[];
+    /** 联动小驴打卡目标条目 ID（可选，空=不联动） */
+    checkinItemId: string;
     /** 已存筛选（管理器命名收藏，M6） */
     savedFilters: { name: string; filter: string }[];
     /** BI-14：界面模式（简单=隐藏高级入口；切换不删除配置，高级功能仍可经命令面板/设置访问） */
@@ -223,6 +225,7 @@ export function defaultSettings(): LvCardsSettings {
         examEnabled: false,
         examDate: "",
         starredCards: [],
+        checkinItemId: "",
         savedFilters: [],
         uiMode: "advanced",
         aiMode: "siyuan",
@@ -282,7 +285,7 @@ const BOOL_FIELDS: (keyof LvCardsSettings)[] = [
     "sfxEnabled", "examEnabled", "dailyTipEnabled", "onboarded", "aiCostBudgetEnabled", "weeklyReportEnabled",
 ];
 const STR_FIELDS: (keyof LvCardsSettings)[] = [
-    "weeklyReportLast", "customCardCss",
+    "weeklyReportLast", "customCardCss", "checkinItemId",
     "gatewayState", "ttsVoice", "aiEndpoint", "aiKey", "aiModel", "aiFallbackEndpoint", "aiFallbackKey",
     "aiFallbackModel", "aiSensitiveTerms", "aiPromptTemplate", "targetNotebookId", "ankiClientKey", "lastHubTab", "lastReviewScope", "lastManagerView",
 ];

@@ -51,6 +51,7 @@
     import { parseHPathToBreadcrumbs, type ReviewBreadcrumbChain } from "@/core/review-breadcrumbs";
     import { parseInteractiveQuiz, type InteractiveQuizData } from "@/core/quiz-interactive";
     import { filterBurySiblings } from "@/core/sibling-cards";
+    import { logCheckinEventSafely } from "@/libs/ecosystem-bridge-kit";
 
     export interface ReviewSettings {
         ratingStyle: "four" | "three";
@@ -91,6 +92,8 @@
         leechThreshold?: number;
         /** 每日一语（375） */
         dailyTipEnabled: boolean;
+        /** 联动小驴打卡目标条目 ID（可选，空=不联动） */
+        checkinItemId?: string;
     }
 
     export interface ReviewCtx {
@@ -1043,6 +1046,26 @@
                 // so the dashboard refreshes after a skip-only session.
                 if (finished && (reviewedIDs.length > 0 || sessionSkipped.length > 0)) {
                     ctx.emitSessionFinished({ new: sessionNew, review: sessionReview, forget: sessionForget, skip: sessionSkip });
+                }
+                // 联动小驴打卡（Ecosystem Federation Epoch 6）
+                if (finished && reviewedIDs.length > 0) {
+                    const checkinItemId = eff().checkinItemId;
+                    const reviewedCount = reviewedIDs.length;
+                    if (checkinItemId && reviewedCount > 0) {
+                        const today = new Date().toISOString().slice(0, 10);
+                        const accuracy = sessionQuizTotal > 0
+                            ? Math.round((sessionQuizCorrect / sessionQuizTotal) * 100)
+                            : (sessionNew + sessionReview > 0
+                                ? Math.round(Math.max(0, (sessionNew + sessionReview - sessionForget)) / (sessionNew + sessionReview) * 100)
+                                : 100);
+                        void logCheckinEventSafely({
+                            itemId: checkinItemId,
+                            value: reviewedCount,
+                            unit: "张",
+                            externalRef: `cards:${checkinItemId}:${today}`,
+                            note: `完成闪卡复习 ${reviewedCount} 张（命中率 ${accuracy}%）`,
+                        });
+                    }
                 }
                 // BI-8/BI-12：预算到点自动记「时间到」收工原因（中性事实；用户手动点选的原因优先）
                 if (finished && budgetExpired && !ctx.getSessionState()?.endReason) {

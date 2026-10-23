@@ -10,6 +10,22 @@
 
 export const CARDS_BRIDGE_PROTOCOL = 1;
 export const CARDS_BRIDGE_NAME = "xiaolv-cards" as const;
+export const CARDS_BRIDGE_CAPABILITIES = [
+    "whenReady",
+    "stats",
+    "due",
+    "openHub",
+    "openReview",
+    "hasCapability",
+    "getOverview",
+] as const;
+
+export const CARDS_BRIDGE_ALIASES = [
+    "xiaolvCards",
+    "lvCards",
+    "LvCards",
+    "siyuanCards",
+] as const;
 
 export interface ActionSuccess<T> {
     ok: true;
@@ -52,6 +68,8 @@ export interface CardsBridgeApi {
     readonly protocolName: string;
     readonly capabilities: readonly string[];
     whenReady(): Promise<boolean>;
+    hasCapability(name: string): boolean;
+    getOverview(): unknown;
     getStats(): Promise<ActionResult<FlashcardStats>>;
     getDueSummary(): Promise<ActionResult<FlashcardDueSummary>>;
     openHub(tab?: string): Promise<ActionResult<boolean>>;
@@ -111,11 +129,21 @@ const wrap = async <T>(code: string, fn: () => Promise<T> | T): Promise<ActionRe
 };
 
 export function buildCardsBridge(host: CardsBridgeHost): CardsBridgeApi {
+    const capabilities = CARDS_BRIDGE_CAPABILITIES;
     return {
         protocol: CARDS_BRIDGE_PROTOCOL,
         protocolName: CARDS_BRIDGE_NAME,
-        capabilities: ["whenReady", "stats", "due", "openHub", "openReview"],
+        capabilities,
         whenReady: async () => true,
+        hasCapability: (name: string) => capabilities.includes(name as any) || name === "cards" || name === "siyuan-lv-cards",
+        getOverview: () => ({
+            name: "siyuan-lv-cards",
+            title: "小驴闪卡",
+            maturity: "stable",
+            protocol: CARDS_BRIDGE_PROTOCOL,
+            protocolName: CARDS_BRIDGE_NAME,
+            capabilities,
+        }),
         getStats: () => wrap("stats-error", () => host.getStats()),
         getDueSummary: () => wrap("due-error", () => host.getDueSummary()),
         openHub: (tab?: string) => wrap("open-hub-failed", () => (host.openHub(tab), true)),
@@ -125,17 +153,22 @@ export function buildCardsBridge(host: CardsBridgeHost): CardsBridgeApi {
 
 export function mountCardsBridge(
     host: CardsBridgeHost,
-    win: { xiaolvCards?: unknown; lvCards?: unknown } = typeof window !== "undefined" ? window as any : undefined
+    win: Record<string, unknown> = typeof window !== "undefined" ? (window as any) : undefined
 ): () => void {
-    if (!win || win.xiaolvCards || win.lvCards) return () => undefined;
+    if (!win) return () => undefined;
     const bridge = buildCardsBridge(host);
-    win.xiaolvCards = bridge;
-    win.lvCards = bridge;
+
+    for (const alias of CARDS_BRIDGE_ALIASES) {
+        if (!win[alias]) {
+            win[alias] = bridge;
+        }
+    }
 
     return () => {
-        if (win.xiaolvCards === bridge) {
-            delete win.xiaolvCards;
-            delete win.lvCards;
+        for (const alias of CARDS_BRIDGE_ALIASES) {
+            if (win[alias] === bridge) {
+                delete win[alias];
+            }
         }
     };
 }

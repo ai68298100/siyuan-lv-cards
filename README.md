@@ -21,11 +21,31 @@
 
 小驴闪卡（内测版）的定位是**思源笔记里的全生命周期记忆引擎**：让笔记里每一段值得记的内容，都能可回源地变成卡片，用内核原生 FSRS 排期，用可审计的 AI 提效；数据本地优先，方便带走。
 
-当前版本为 **v0.210.33（2026-10-23）**，落地连击勋章精密矢量化、首屏质感重塑与规范收口。安装包与发布状态见 [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.33)。
+当前版本为 **v0.210.34（2026-10-23）**，落地小驴生态联邦 Epoch 6 架构升级、FSRS闪电双卡图标与全局样式污染治理。安装包与发布状态见 [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.34)。
 
 [下载最新版](https://github.com/ai68298100/siyuan-lv-cards/releases/latest) · [提交问题](https://github.com/ai68298100/siyuan-lv-cards/issues/new/choose) · [贡献指南](./CONTRIBUTING.md)
 
-## 本次更新（v0.210.33）
+## 本次更新（v0.210.34）
+
+- **跨插件生态联邦联动（Epoch 6 标准）**：
+  - 对外服务桥 `CardsBridgeApi` 全面支持四别名挂载与安全注销：`window.xiaolvCards`、`window.lvCards`、`window.LvCards`、`window.siyuanCards`（First-Instance-Wins）；
+  - 补齐 `hasCapability` 与 `getOverview` 标准契约方法，使小驴快门中枢将闪卡成熟度由 `design` 正式晋升为 `stable`；
+  - 复习完成屏（Done Panel）自动联动小驴打卡记录行为事实（`logCheckinEventSafely`），未安装时静默优雅降级；
+  - 启动阶段向小驴雷切工作台安全注册 `cards-due-summary` 待复习闪卡组件，卸载时干净注销。
+- **顶栏矢量图标重大升级（带 FSRS 闪电与星光）**：
+  - 弃用简陋空白双框，升级为全新设计语言 32×32 单色矢量图标：8度倾斜翻转双卡 + FSRS 记忆闪电 ⚡ + 白金钻石星光点。
+- **UI 规范统一与 CSS 全局样式污染治理**：
+  - 彻底治理 `src/index.scss` 中的 `.dialog-content` 与 `.list` 裸类污染，所有样式严格收敛在 `.lv-cards-*` 作用域内；
+  - 注入专属品牌色彩变量：勃艮第心智红（`--lv-brand: #E11D48`）与星光金（`--lv-accent-gold: #FACC15`）；
+  - 统一 Dialog 标题栏采用 `.lv-dialog-title-wrap`。
+- **工程加固与发行包瘦身优化**：
+  - `plugin.json` 新增 `"settingsWindow": true`，最低宿主版本提升为 `"3.8.4"`，前置包含小驴品牌关键词；
+  - 构建产出自动兼容生成 `dist/i18n/zh_CN.json` 下划线格式语言包；
+  - 优化预览图资源，发行包 `package.zip` 显著瘦身至 732KB（严守 750KB 红线）；主包 gzip 保持在 58 KiB 门禁内。
+- **全量门禁与质量验证**：
+  - 全库扩展至 242 个测试文件、1941 项测试 100% 通过；TypeScript 与 Svelte-check 0 错误 0 警告；构建与烟雾测试全绿。
+
+## 上一版本（v0.210.33）
 
 - **连击勋章（Streak Card）精密矢量化与去 Emoji**：
   - 首页连续学习连击徽标（Streak Badge）全面升级为精密 SVG 矢量微标（`<LvIcon name="flame" />` 与 `<LvIcon name="zap" />`）；

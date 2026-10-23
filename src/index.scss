@@ -6,6 +6,9 @@
 
 :root {
     // 颜色语义层：基础色由思源主题提供，派生色在本文件统一维护。
+    --lv-brand: #E11D48; /* 勃艮第心智红 */
+    --lv-brand-soft: color-mix(in srgb, var(--lv-brand) 12%, transparent);
+    --lv-accent-gold: #FACC15; /* 星光金 */
     --lv-color-brand: var(--b3-theme-primary);
     --lv-color-on-brand: var(--b3-theme-on-primary);
     --lv-color-text: var(--b3-theme-on-background);
@@ -623,6 +626,7 @@
         overflow: hidden;
     }
 
+    .lv-dialog-content,
     .dialog-content {
         display: flex;
         flex: 1 1 auto;
@@ -631,6 +635,13 @@
         min-width: 0;
         width: 100%;
     }
+}
+
+.lv-dialog-title-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
 }
 
 // 细滚动条（插件容器内）：半透明药丸滑块，悬停加深
@@ -1491,10 +1502,10 @@
 // =============================================================
 
 .lv-card-content.has-interactive-choice {
-    [data-type="NodeList"],
-    .list,
-    ul,
-    ol {
+    & [data-type="NodeList"],
+    & .list,
+    & ul,
+    & ol {
         display: none !important;
     }
 }
