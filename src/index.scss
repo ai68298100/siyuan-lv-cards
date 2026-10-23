@@ -1783,6 +1783,13 @@
         border: 1.5px solid var(--lv-primary-border);
         border-radius: var(--lv-r-pill);
         box-shadow: var(--lv-shadow-card), var(--lv-inset-shine);
+        transition: border-color var(--lv-dur-1) var(--lv-ease),
+            box-shadow var(--lv-dur-2) var(--lv-ease);
+
+        &:focus-within {
+            border-color: var(--lv-color-brand);
+            box-shadow: 0 0 0 3px color-mix(in srgb, var(--lv-color-brand) 22%, transparent), var(--lv-shadow-card);
+        }
 
         .lv-fill-icon {
             margin-left: 10px;
