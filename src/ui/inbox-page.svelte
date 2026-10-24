@@ -11,6 +11,7 @@
     import LvEmpty from "./kit/LvEmpty.svelte";
     import LvSkeleton from "./kit/LvSkeleton.svelte";
     import LvChip from "./kit/LvChip.svelte";
+    import LvIcon from "./kit/LvIcon.svelte";
     import LvLive from "./kit/LvLive.svelte";
     import type { InboxData, InboxItem, InboxStatus } from "@/core/inbox";
 
@@ -226,7 +227,7 @@
             ariaLabel={t.filterGroupLabel}
         />
         <button class="b3-button b3-button--small lv-btn-ghost" title={t.selectAll} disabled={visible.length === 0} onclick={toggleAll}>{allChecked ? t.unselectAll : t.selectAll}</button>
-        <button class="b3-button b3-button--small lv-btn-ghost" title={t.refresh} onclick={refresh}>{t.refresh}</button>
+        <button class="b3-button b3-button--small lv-btn-ghost" title={t.refresh} onclick={refresh}><LvIcon name="refresh" size={13} /> {t.refresh}</button>
     {/snippet}
 
     {#if makeError}<div class="lv-inbox-error" role="alert">{makeError}</div>{/if}

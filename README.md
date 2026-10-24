@@ -21,11 +21,22 @@
 
 小驴闪卡（内测版）的定位是**思源笔记里的全生命周期记忆引擎**：让笔记里每一段值得记的内容，都能可回源地变成卡片，用内核原生 FSRS 排期，用可审计的 AI 提效；数据本地优先，方便带走。
 
-当前版本为 **v0.210.40（2026-10-24）**，落地卡片详情版本采纳矢量化、AI向导版本链字符净化与无障碍语义适配。安装包与发布状态见 [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.40)。
+当前版本为 **v0.210.41（2026-10-24）**，落地接入最新殿堂级 Logo (勃艮第深酒红底配翻转双卡与黄金钻石星光核) 与学习页回源微排版。安装包与发布状态见 [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.41)。
 
 [下载最新版](https://github.com/ai68298100/siyuan-lv-cards/releases/latest) · [提交问题](https://github.com/ai68298100/siyuan-lv-cards/issues/new/choose) · [贡献指南](./CONTRIBUTING.md)
 
-## 本次更新（v0.210.40）
+## 本次更新（v0.210.41）
+
+- **核心品牌门面资产重大同步（Ecosystem Avatar v4 Distinctive Soul）**：
+  - 彻底淘汰蓝紫色旧版图标，同步小驴全生态最新的殿堂级 Logo（`icon.png` 54KB 与 `icon.svg`）；
+  - 采用 Superellipse 超椭圆外壳、勃艮第深酒红（Crimson Velvet）深邃底座、羊脂玉白立体主卡片、9度倾角毛玻璃背面翻折卡、红宝石渐变 FSRS 闪电心流符号 ⚡，以及右下角专属金框白金黄金钻石星光核（Diamond Starlight Topaz）灵魂宝珠；与小驴管家、考试、打卡等生态插件视觉严格齐平。
+- **学习页（Learning Page）与收件箱微排版质感提升**：
+  - 正式评分趋势与日期详情记录列表中的“回源”按钮嵌入精准单色 `<LvIcon name="target" size={12} />` 组件，指向感更强；
+  - 学习日历与收件箱右上角刷新按钮嵌入 `<LvIcon name="refresh" size={13} />`，视觉统一规范。
+- **全量门禁与质量验证**：
+  - 全库扩展至 242 个测试文件、1941 项测试 100% 通过；TypeScript 与 Svelte-check 0 错误 0 警告；构建与烟雾测试全绿。
+
+## 上一版本（v0.210.40）
 
 - **卡片详情（Card Detail）版本历史全方位矢量化升级**：
   - 历史版本采纳按钮升级为单色精密 `<LvIcon name="check" size={12} />` 组件，消除文本字符 `"✓"` 粗糙感；

@@ -9,6 +9,7 @@
     import LvStat from "./kit/LvStat.svelte";
     import LvCalendar from "./kit/LvCalendar.svelte";
     import LvTabs from "./kit/LvTabs.svelte";
+    import LvIcon from "./kit/LvIcon.svelte";
     import GoalsPage from "./goals-page.svelte";
 
     type LearningTab = "recap" | "plans" | "calendar";
@@ -216,7 +217,7 @@
                 </section>
                 <section class="lv-card2 lv-learning-records" aria-label={copy.recentTitle ?? "最近正式评分记录"}>
                     <div class="lv-section-heading"><h2>{copy.recentTitle ?? "最近正式评分记录"}</h2><span>{copy.formalOnly ?? "正式复习记录"}</span></div>
-                    {#if recentEntries.length === 0}<div class="lv-learning-empty"><p>{copy.recentEmpty ?? "暂无正式评分记录。"}</p><button type="button" class="b3-button b3-button--small" onclick={() => onGoToday?.()}>{copy.goToday ?? "回到今日"}</button></div>{:else}<ul class="lv-learning-entry-list">{#each recentEntries as entry (entry.ts + entry.cardID)}<li><div><strong>{dateLabel(localDate(entry.ts))}</strong><span>{timeLabel(entry)} · {ratingLabel(entry)}</span></div>{#if entry.blockID && onOpenBlock}<button type="button" class="lv-link-button" onclick={() => onOpenBlock?.(entry.blockID)}>{copy.openSource ?? "回源"}</button>{/if}</li>{/each}</ul>{/if}
+                    {#if recentEntries.length === 0}<div class="lv-learning-empty"><p>{copy.recentEmpty ?? "暂无正式评分记录。"}</p><button type="button" class="b3-button b3-button--small" onclick={() => onGoToday?.()}>{copy.goToday ?? "回到今日"}</button></div>{:else}<ul class="lv-learning-entry-list">{#each recentEntries as entry (entry.ts + entry.cardID)}<li><div><strong>{dateLabel(localDate(entry.ts))}</strong><span>{timeLabel(entry)} · {ratingLabel(entry)}</span></div>{#if entry.blockID && onOpenBlock}<button type="button" class="lv-link-button" onclick={() => onOpenBlock?.(entry.blockID)}><LvIcon name="target" size={12} /> <span>{copy.openSource ?? "回源"}</span></button>{/if}</li>{/each}</ul>{/if}
                 </section>
             </div>
             <div class="lv-learning-actions"><button type="button" class="b3-button b3-button--small" onclick={() => selectTab("plans")}>{copy.viewPlans ?? "查看目标与计划"}</button></div>
@@ -246,8 +247,8 @@
                     caption={calForecast ? `${dateLabel(selectedDate ?? localDate(Date.now()))} · ${copy.formalReviews ?? "正式评分"} ${selectedDay?.review ?? 0} · ${copy.forecastDue ?? "预测到期"} ${selectedForecast ? selectedForecast.reviews + selectedForecast.news : "—"}` : `${dateLabel(selectedDate ?? localDate(Date.now()))} · ${copy.forecastUnknown ?? "预测未知"} —`}
                 />
                 {#if calPartial}<p class="lv-learning-warning" role="status">{calPartialReason}</p>{/if}
-                <div class="lv-learning-calendar-foot"><span>{copy.calendarSub ?? t.calSub ?? "过去为复习热力，未来为到期预测——只读，不改变内核调度"}</span>{#if calError || (!calLoading && !calForecast)}<button type="button" class="b3-button b3-button--small" onclick={() => { invalidateCalendar(); void loadCalendar(); }}>{copy.retry ?? t.refresh ?? "刷新"}</button>{/if}</div>
-            </section><aside class="lv-card2 lv-learning-day" aria-label={copy.dayDetails ?? "日期详情"}><div class="lv-section-heading"><h2>{dateLabel(selectedDate ?? localDate(Date.now()))}</h2><span>{selectedEntries.length > 0 ? copy.formalOnly ?? "正式复习记录" : copy.noRecords ?? "暂无记录"}</span></div>{#if selectedEntries.length === 0}<p class="lv-learning-empty-copy">{copy.dayEmpty ?? "这一天没有正式评分记录。"}</p>{:else}<ul class="lv-learning-entry-list">{#each selectedEntries as entry (entry.ts + entry.cardID)}<li><div><strong>{timeLabel(entry)}</strong><span>{ratingLabel(entry)}</span></div>{#if entry.blockID && onOpenBlock}<button type="button" class="lv-link-button" onclick={() => onOpenBlock?.(entry.blockID)}>{copy.openSource ?? "回源"}</button>{/if}</li>{/each}</ul>{/if}</aside></div>
+                <div class="lv-learning-calendar-foot"><span>{copy.calendarSub ?? t.calSub ?? "过去为复习热力，未来为到期预测——只读，不改变内核调度"}</span>{#if calError || (!calLoading && !calForecast)}<button type="button" class="b3-button b3-button--small" onclick={() => { invalidateCalendar(); void loadCalendar(); }}><LvIcon name="refresh" size={13} /> {copy.retry ?? t.refresh ?? "刷新"}</button>{/if}</div>
+            </section><aside class="lv-card2 lv-learning-day" aria-label={copy.dayDetails ?? "日期详情"}><div class="lv-section-heading"><h2>{dateLabel(selectedDate ?? localDate(Date.now()))}</h2><span>{selectedEntries.length > 0 ? copy.formalOnly ?? "正式复习记录" : copy.noRecords ?? "暂无记录"}</span></div>{#if selectedEntries.length === 0}<p class="lv-learning-empty-copy">{copy.dayEmpty ?? "这一天没有正式评分记录。"}</p>{:else}<ul class="lv-learning-entry-list">{#each selectedEntries as entry (entry.ts + entry.cardID)}<li><div><strong>{timeLabel(entry)}</strong><span>{ratingLabel(entry)}</span></div>{#if entry.blockID && onOpenBlock}<button type="button" class="lv-link-button" onclick={() => onOpenBlock?.(entry.blockID)}><LvIcon name="target" size={12} /> <span>{copy.openSource ?? "回源"}</span></button>{/if}</li>{/each}</ul>{/if}</aside></div>
         {/if}
     </div>
 </LvPage>
@@ -268,7 +269,7 @@
     .lv-learning-trend-list strong { min-width: 26px; text-align: right; }
     .lv-learning-entry-list li > div { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
     .lv-learning-entry-list strong { font-size: var(--lv-type-body-size); }
-    .lv-link-button { flex: none; border: 0; background: transparent; color: var(--lv-color-brand); cursor: pointer; font-size: var(--lv-type-meta-size); }
+    .lv-link-button { flex: none; border: 0; background: transparent; color: var(--lv-color-brand); cursor: pointer; font-size: var(--lv-type-meta-size); display: inline-flex; align-items: center; gap: 4px; }
     .lv-link-button:focus-visible { outline: 2px solid var(--lv-color-brand); outline-offset: 2px; }
     .lv-learning-empty, .lv-learning-empty-copy { color: var(--lv-color-text-muted); }
     .lv-learning-empty { display: grid; gap: var(--lv-sp-3); justify-items: start; padding: var(--lv-sp-5) 0; }

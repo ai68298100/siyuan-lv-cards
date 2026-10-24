@@ -1,0 +1,144 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <!-- 1. 殿堂级四段式深邃渐变底座 -->
+    <radialGradient id="baseRadial" cx="50%" cy="0%" r="90%">
+      <stop offset="0%" stop-color="#9F1239" stop-opacity="0.9"/>
+      <stop offset="50%" stop-color="#4C0519"/>
+      <stop offset="100%" stop-color="#1F020A"/>
+    </radialGradient>
+
+    <!-- 2. 广角顶部光幕天窗 (Top Specular Skylight) -->
+    <linearGradient id="skylightGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="white" stop-opacity="0.42"/>
+      <stop offset="25%" stop-color="white" stop-opacity="0.12"/>
+      <stop offset="70%" stop-color="white" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- 3. 双层精密倒角发丝光泽描边 -->
+    <linearGradient id="rimStrokeLight" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="white" stop-opacity="0.6"/>
+      <stop offset="35%" stop-color="white" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="white" stop-opacity="0.05"/>
+    </linearGradient>
+    <linearGradient id="crystalStroke" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="white" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="white" stop-opacity="0.25"/>
+    </linearGradient>
+
+    <!-- 4. 羊脂玉陶瓷白微质感渐变 -->
+    <linearGradient id="porcelainWhite" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="60%" stop-color="#F8FAFC"/>
+      <stop offset="100%" stop-color="#E2E8F0"/>
+    </linearGradient>
+
+    <!-- 5. 专属灵魂宝珠着色器 (Unique Soul Gem Shader) -->
+    <radialGradient id="soulJewel" cx="32%" cy="28%" r="70%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="22%" stop-color="#FEF08A"/>
+      <stop offset="60%" stop-color="#FACC15"/>
+      <stop offset="100%" stop-color="#A16207"/>
+    </radialGradient>
+    <linearGradient id="bezelRing" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.95"/>
+      <stop offset="50%" stop-color="#FEF08A" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#854D0E" stop-opacity="0.5"/>
+    </linearGradient>
+
+    <!-- 专用业务微渐变 -->
+    <linearGradient id="emeraldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10B981"/>
+      <stop offset="100%" stop-color="#047857"/>
+    </linearGradient>
+    <linearGradient id="walnutWood" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#B45309"/>
+      <stop offset="100%" stop-color="#78350F"/>
+    </linearGradient>
+    <linearGradient id="lightningGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FEF08A"/>
+      <stop offset="50%" stop-color="#FACC15"/>
+      <stop offset="100%" stop-color="#EAB308"/>
+    </linearGradient>
+    <linearGradient id="rubyGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FB7185"/>
+      <stop offset="100%" stop-color="#E11D48"/>
+    </linearGradient>
+    <linearGradient id="amethystGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#C084FC"/>
+      <stop offset="100%" stop-color="#7E22CE"/>
+    </linearGradient>
+    <linearGradient id="portalVoid" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1E40AF"/>
+      <stop offset="100%" stop-color="#0F172A"/>
+    </linearGradient>
+
+    <!-- 电影级多重阴影与焦散滤镜 -->
+    <filter id="bloomFilter" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="28"/>
+    </filter>
+    <filter id="masterShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#020617" flood-opacity="0.38"/>
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#020617" flood-opacity="0.22"/>
+    </filter>
+    <filter id="jewelShadow" x="-60%" y="-60%" width="220%" height="220%">
+      <feDropShadow dx="0" dy="6" stdDeviation="7" flood-color="#422006" flood-opacity="0.5"/>
+      <feDropShadow dx="0" dy="1" stdDeviation="2" flood-color="#000000" flood-opacity="0.3"/>
+    </filter>
+    <filter id="bladeGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#EAB308" flood-opacity="0.6"/>
+    </filter>
+    <filter id="subtleInner" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="1.5" stdDeviation="1.5" flood-color="#000000" flood-opacity="0.12"/>
+    </filter>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#000000" flood-opacity="0.2"/>
+    </filter>
+  </defs>
+
+  <!-- 1. Superellipse 连续曲率高奢底座 -->
+  <rect width="256" height="256" rx="58" ry="58" fill="url(#baseRadial)"/>
+
+  <!-- 2. 广角顶部光幕天窗 (Top Skylight Arc) -->
+  <path d="M 0 58 C 0 26 26 0 58 0 L 198 0 C 230 0 256 26 256 58 L 256 125 C 190 142 66 142 0 125 Z" 
+        fill="url(#skylightGrad)"/>
+
+  <!-- 3. 外缘 1.5px 极细发丝精密倒角描边 -->
+  <rect width="254" height="254" x="1" y="1" rx="57" ry="57" fill="none" stroke="url(#rimStrokeLight)" stroke-width="1.5"/>
+
+  <!-- 4. 核心功能剪影 (羊脂玉陶瓷与光学晶体) -->
+  
+        <circle cx="128" cy="130" r="80" fill="#E11D48" fill-opacity="0.25" filter="url(#bloomFilter)"/>
+        
+        <g filter="url(#masterShadow)">
+            <!-- 背面翻转卡 (9度 FSRS 翻转立体动感) -->
+            <g transform="rotate(9, 140, 130)">
+                <rect x="82" y="62" width="102" height="124" rx="24" 
+                      fill="white" fill-opacity="0.24" stroke="url(#crystalStroke)" stroke-width="1.2"/>
+            </g>
+            
+            <!-- 正面主闪卡 -->
+            <rect x="64" y="76" width="106" height="126" rx="24" 
+                  fill="url(#porcelainWhite)" stroke="url(#crystalStroke)" stroke-width="1.5"/>
+                  
+            <!-- FSRS 闪电心流记忆符号 -->
+            <path d="M 124 94 L 96 142 L 118 142 L 106 184 L 142 134 L 118 134 Z" 
+                  fill="url(#rubyGradient)" filter="url(#subtleInner)"/>
+        </g>
+        
+
+  <!-- 5. 腕表级精工镶嵌专属灵魂宝石 (Unique Gemstone Anchor) -->
+  <g filter="url(#jewelShadow)">
+    <!-- 专属金属倒角镶嵌环 -->
+    <circle cx="184" cy="182" r="16.5" fill="url(#bezelRing)" stroke="rgba(255,255,255,0.7)" stroke-width="0.8"/>
+    <!-- 凹陷阴影衬垫 -->
+    <circle cx="184" cy="182" r="14" fill="#422006" opacity="0.4"/>
+    <!-- 3D 凸面宝石主体 -->
+    <circle cx="184" cy="182" r="13" fill="url(#soulJewel)"/>
+    <!-- 顶部高精度弧形镜面反光 (Caustic Reflection) -->
+    <ellipse cx="180.2" cy="178.2" rx="4.2" ry="2.6" 
+             transform="rotate(-35, 180.2, 178.2)" fill="white" fill-opacity="0.95"/>
+    <!-- 底部环境折射光斑 -->
+    <ellipse cx="187.5" cy="186.5" rx="3" ry="1.8" 
+             transform="rotate(-20, 187.5, 186.5)" fill="#FFFFFF" fill-opacity="0.6"/>
+  </g>
+</svg>
