@@ -19,9 +19,16 @@ The full-lifecycle flashcard learning platform for SiYuan — local-first, nativ
 
 > **Note**: The primary README and all design docs are in Chinese. This page covers the essentials; see [docs/](./docs/README.md) for full design material.
 
-Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.42** (2026-10-24), delivering multi-tier block menu icon size containment, closure of Issue #12, and zero-open-issue status. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.42) for the package and publishing status.
+Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.43** (2026-10-24), delivering complete UI vectorization and micro-interaction polish across the Exam and Cram workflow. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.43) for the package and publishing status.
 
-## What's New in v0.210.42
+## What's New in v0.210.43
+
+- **Exam & Cram Workflow Full Vectorization**:
+  - Replaced text glyphs with precision SVG components (`plus`, `cards`, `edit`, `trash`) across exam plans.
+- **Verification**:
+  - 1941 tests across 242 test suites 100% passing; zero TypeScript/Svelte errors and warnings; production build and smoke tests green.
+
+## Previous Update: v0.210.42
 
 - **Menu Icon Size Multi-tier Containment (Issue #12 & #13 Full Closure)**:
   - Reinforced CSS sizing rules to constrain `.b3-menu__item svg:has(use[*|href*="iconLvCards"])` alongside `.lv-cards-menu-icon`, preventing foreign theme blow-ups.

@@ -14,6 +14,7 @@
     import LvEmpty from "./kit/LvEmpty.svelte";
     import LvError from "./kit/LvError.svelte";
     import LvRow from "./kit/LvRow.svelte";
+    import LvIcon from "./kit/LvIcon.svelte";
 
     let { i18n, plans, onSavePlan, onDeletePlan, onReviewScope, onReport, onWriteReport, onError, getRevlog, getDailyCap }: {
         i18n: any;
@@ -255,8 +256,14 @@
         </div>
         <div class="lv-pagehead-actions">
             {#if loadBusy}<span class="ft__smaller ft__on-surface" role="status" aria-busy="true">{isChinese ? "加载中…" : "Loading…"}</span>{/if}
-            <button class="b3-button b3-button--outline" disabled={actionBusy || savingPlan} onclick={() => { editing = newPlan(); formError = ""; fieldErrors = {}; }}>
-                + {t.exam.newPlan}
+            <button
+                class="b3-button b3-button--outline lv-btn-new-plan"
+                aria-label={`+ ${t.exam.newPlan}`}
+                disabled={actionBusy || savingPlan}
+                onclick={() => { editing = newPlan(); formError = ""; fieldErrors = {}; }}
+            >
+                <LvIcon name="plus" size={13} />
+                <span>{t.exam.newPlan}</span>
             </button>
         </div>
     </div>
@@ -285,7 +292,8 @@
                     <div class="fn__flex-1"></div>
                     {#if plan.enabled}
                         <button class="b3-button lv-btn-primary" onclick={() => onReviewScope(plan.scopeKind, plan.scopeId, cram, plan.id)}>
-                            {t.exam.startToday}
+                            <LvIcon name="cards" size={13} />
+                            <span>{t.exam.startToday}</span>
                         </button>
                     {:else}
                         <button class="b3-button b3-button--outline" disabled={actionBusy || savingPlan} onclick={() => void runPlanAction(() => onSavePlan({ ...plan, enabled: true }))}>
@@ -333,7 +341,10 @@
                     </div>
                 {/if}
                 <div class="fn__flex lv-plan-actions">
-                    <button class="b3-button b3-button--small lv-btn-ghost" disabled={actionBusy || savingPlan} onclick={() => { editing = { ...plan }; formError = ""; fieldErrors = {}; }}>{t.exam.edit}</button>
+                    <button class="b3-button b3-button--small lv-btn-ghost" disabled={actionBusy || savingPlan} onclick={() => { editing = { ...plan }; formError = ""; fieldErrors = {}; }}>
+                        <LvIcon name="edit" size={12} />
+                        <span>{t.exam.edit}</span>
+                    </button>
                     <button class="b3-button b3-button--small lv-btn-ghost" onclick={() => onReport(plan)}>{t.exam.report}</button>
                     <!-- AR-5：写入中禁点，失败 toast 给原因（文档写入失败可重试） -->
                     <button class="b3-button b3-button--small lv-btn-ghost" disabled={reportBusyId === plan.id} onclick={() => writeDoc(plan)}>
@@ -343,7 +354,10 @@
                     <button class="b3-button b3-button--small lv-btn-ghost" disabled={actionBusy || savingPlan} onclick={() => void runPlanAction(() => onSavePlan({ ...plan, enabled: !plan.enabled, archived: false }))}>
                         {plan.enabled ? t.exam.pause : t.exam.enable}
                     </button>
-                    <button class="b3-button b3-button--small lv-btn-ghost" disabled={actionBusy || savingPlan} onclick={() => deletePlan(plan)}>{t.exam.delete}</button>
+                    <button class="b3-button b3-button--small lv-btn-ghost lv-menu-danger" disabled={actionBusy || savingPlan} onclick={() => deletePlan(plan)}>
+                        <LvIcon name="trash" size={12} />
+                        <span>{t.exam.delete}</span>
+                    </button>
                 </div>
             </div>
         {/each}

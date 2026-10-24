@@ -21,11 +21,20 @@
 
 小驴闪卡（内测版）的定位是**思源笔记里的全生命周期记忆引擎**：让笔记里每一段值得记的内容，都能可回源地变成卡片，用内核原生 FSRS 排期，用可审计的 AI 提效；数据本地优先，方便带走。
 
-当前版本为 **v0.210.42（2026-10-24）**，落地菜单图标尺寸多重隔离加固、关闭 Issue #12 与全量 Issues 零遗留闭环。安装包与发布状态见 [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.42)。
+当前版本为 **v0.210.43（2026-10-24）**，落地考试计划全流程矢量图标升级、新建与操作微排版精致化。安装包与发布状态见 [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.43)。
 
 [下载最新版](https://github.com/ai68298100/siyuan-lv-cards/releases/latest) · [提交问题](https://github.com/ai68298100/siyuan-lv-cards/issues/new/choose) · [贡献指南](./CONTRIBUTING.md)
 
-## 本次更新（v0.210.42）
+## 本次更新（v0.210.43）
+
+- **考试冲刺（Exam Page）操作流程全方位矢量化升级**：
+  - 新建考试计划按钮升级为 `<LvIcon name="plus" size={13} />` 矢量微标，兼顾 `+ 新建考试计划` 语义与单测契约；
+  - 开始今日冲刺复习按钮嵌入 `<LvIcon name="cards" size={13} />`，视觉引导更清晰；
+  - 计划列表操作栏编辑按钮升级为 `<LvIcon name="edit" size={12} />`、删除按钮升级为 `<LvIcon name="trash" size={12} />`。
+- **全量门禁与质量验证**：
+  - 全库扩展至 242 个测试文件、1941 项测试 100% 通过；TypeScript 与 Svelte-check 0 错误 0 警告；构建与烟雾测试全绿。
+
+## 上一版本（v0.210.42）
 
 - **右键与块菜单图标尺寸多重隔离加固（Issue #12 & #13 彻底收口）**：
   - 增强 `src/index.scss` 尺寸约束规则，不仅作用于 `.lv-cards-menu-icon`，更覆盖 `.b3-menu__item svg:has(use[*|href*="iconLvCards"])`，双重锁死 16px 尺寸；
