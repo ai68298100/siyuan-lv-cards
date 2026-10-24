@@ -198,7 +198,9 @@
 // ---- 共享组件类 ----
 
 // Issue #12/#13：防止宿主/主题的宽泛 SVG 规则放大图标；只约束自己的图标，保留宿主行布局。
-.b3-menu__icon.lv-cards-menu-icon {
+.b3-menu__icon.lv-cards-menu-icon,
+.b3-menu__item .lv-cards-menu-icon,
+.b3-menu__item svg:has(use[*|href*="iconLvCards"]) {
     width: 16px !important;
     height: 16px !important;
     min-width: 16px !important;

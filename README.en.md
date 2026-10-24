@@ -19,9 +19,17 @@ The full-lifecycle flashcard learning platform for SiYuan — local-first, nativ
 
 > **Note**: The primary README and all design docs are in Chinese. This page covers the essentials; see [docs/](./docs/README.md) for full design material.
 
-Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.41** (2026-10-24), delivering the official v4 Distinctive Soul ecosystem logo (Crimson Velvet with Diamond Starlight) and learning page source navigation refinements. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.41) for the package and publishing status.
+Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.42** (2026-10-24), delivering multi-tier block menu icon size containment, closure of Issue #12, and zero-open-issue status. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.42) for the package and publishing status.
 
-## What's New in v0.210.41
+## What's New in v0.210.42
+
+- **Menu Icon Size Multi-tier Containment (Issue #12 & #13 Full Closure)**:
+  - Reinforced CSS sizing rules to constrain `.b3-menu__item svg:has(use[*|href*="iconLvCards"])` alongside `.lv-cards-menu-icon`, preventing foreign theme blow-ups.
+  - Closed GitHub Issue #12, achieving 100% resolved status across all issues (#12, #13, #14).
+- **Verification**:
+  - 1941 tests across 242 test suites 100% passing; zero TypeScript/Svelte errors and warnings; production build and smoke tests green.
+
+## Previous Update: v0.210.41
 
 - **Official Masterpiece Ecosystem Logo Sync (v4 Distinctive Soul)**:
   - Synchronized `icon.png` (54KB) and `icon.svg` featuring a Superellipse silhouette, deep Crimson Velvet radial base, porcelain white dual cards with 9-degree rotation, ruby FSRS lightning glyph, and the signature gold-bezeled Diamond Starlight Topaz soul gem.

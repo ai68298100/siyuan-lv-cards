@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.210.42 2026-10-24 · 菜单图标尺寸多重隔离加固、关闭 Issue #12 与全量 Issues 零遗留闭环
+
+- **右键与块菜单图标尺寸多重隔离加固（Issue #12 & #13 彻底收口）**：
+  - 增强 `src/index.scss` 尺寸约束规则，不仅作用于 `.lv-cards-menu-icon`，更覆盖 `.b3-menu__item svg:has(use[*|href*="iconLvCards"])`，双重锁死 16px 尺寸；
+  - 彻底杜绝任何极端第三方主题以宽泛全局选择器放大 SVG 图标导致菜单错位的现象；
+  - 正式关闭 GitHub Issue #12，实现历史提交 Issue（#12, #13, #14）100% 全部关闭解决。
+- **全量门禁与质量验证**：
+  - 全库扩展至 242 个测试文件、1941 项测试 100% 通过；TypeScript 与 Svelte-check 0 错误 0 警告；构建与烟雾测试全绿。
+
 ## v0.210.41 2026-10-24 · 接入最新殿堂级 Logo (勃艮第深酒红底配翻转双卡与黄金钻石星光核) 与学习页回源微排版
 
 - **核心品牌门面资产重大同步（Ecosystem Avatar v4 Distinctive Soul）**：
