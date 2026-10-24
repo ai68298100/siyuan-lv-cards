@@ -1115,6 +1115,10 @@
     width: 100%;
     margin: var(--lv-sp-2) 0 var(--lv-sp-4);
     min-height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
     background: transparent;
     border: none;
     border-top: 1px solid var(--lv-border);

@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.210.39 2026-10-24 · 扩充 trash/chevron 矢量图标、首页与复习全界面去字符化排版升级
+
+- **扩充核心矢量图标库（LvIcon）**：
+  - 新增 `trash`（删除/垃圾桶）、`chevron-up`（折叠箭头）与 `chevron-down`（展开箭头）单色精密 SVG 矢量组件。
+- **首页仪表盘（Dashboard）全界面矢量化去字符**：
+  - 本周节奏活跃打卡标志用 `<LvIcon name="check" size={12} />` 替代 `"✓"`，消除跨平台字体渲染不对齐；
+  - 深度统计展开/折叠按钮用 `<LvIcon name={deepOpen ? "chevron-up" : "chevron-down"} size={13} />` 替代 `"▴"` / `"▾"`，并优化 Flex 居中对齐；
+  - 卡组管理列表操作按钮用 `<LvIcon name="edit" size={13} />` 替代 `"✎"`、用 `<LvIcon name="trash" size={13} />` 替代 `"🗑️"`。
+- **复习端助记便签（Memo）编辑入口升级**：
+  - 复习翻面后的助记编辑按钮升级为 `<LvIcon name="edit" size={13} />`，消除字符粗糙感，与星轨设计系统高度一致。
+- **全量门禁与质量验证**：
+  - 全库扩展至 242 个测试文件、1941 项测试 100% 通过；TypeScript 与 Svelte-check 0 错误 0 警告；构建与烟雾测试全绿。
+
 ## v0.210.38 2026-10-23 · 管理器列表行快速星标切换、全界面矢量化去 Emoji 与状态反馈升级
 
 - **闪卡管理器（Manager）列表行即时星标快速切换**：

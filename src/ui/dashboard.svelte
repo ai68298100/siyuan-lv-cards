@@ -883,7 +883,15 @@
                     {@const label = t.dashboard.weekdays[day.index]}
                     <div class="lv-today-week-day" class:lv-today-week-day-active={day.active} class:lv-today-week-day-today={day.today} class:lv-today-week-day-future={day.future} role="listitem" aria-label={t.dashboard.weekDayAria.replace("${weekday}", label).replace("${date}", String(day.date.getDate())).replace("${state}", day.active ? t.dashboard.weekDayActivity.replace("${review}", String(day.reviews)).replace("${new}", String(day.newCards)) : day.future ? t.dashboard.weekFuture : t.dashboard.weekDayEmpty)}>
                         <span class="lv-week-day-label">{label}</span>
-                        <i aria-hidden="true">{day.active ? "✓" : day.today ? day.date.getDate() : "·"}</i>
+                        <i aria-hidden="true">
+                            {#if day.active}
+                                <LvIcon name="check" size={12} />
+                            {:else if day.today}
+                                {day.date.getDate()}
+                            {:else}
+                                ·
+                            {/if}
+                        </i>
                     </div>
                 {/each}
             </div>
@@ -980,7 +988,8 @@
 
         <!-- T01 渐进展开（docs/13 §1.3）：行动与今日统计留在首屏，深度统计默认折叠 -->
         <button class="b3-button b3-button--outline lv-deep-toggle" onclick={() => { deepOpen = !deepOpen; ctx.setDeepStatsOpen?.(deepOpen); }}>
-            {t.dashboard.deepToggle} {deepOpen ? "▴" : "▾"}
+            <span>{t.dashboard.deepToggle}</span>
+            <LvIcon name={deepOpen ? "chevron-up" : "chevron-down"} size={13} />
         </button>
         {#if deepOpen}
         <!-- 展开入场：180ms 单次淡入（R53 动效纪律），折叠即时收起不打断 -->
@@ -1102,11 +1111,15 @@
                                 <td style="text-align:right;font-variant-numeric:tabular-nums" class:lv-dd-leech-warn={row.leeches > 0}>{#if row.leeches > 0}<LvIcon name="warning" size={14} /> {row.leeches}{:else}0{/if}</td>
                                 <td style="text-align:right">
                                     <div style="display: inline-flex; align-items: center; justify-content: flex-end; gap: 4px">
-                                        <button type="button" class="b3-button b3-button--small lv-btn-ghost" title={t.dashboard.renameDeck ?? "重命名卡组"} onclick={() => renameDeckPrompt(row.deckID, deckName)}>✎</button>
+                                        <button type="button" class="b3-button b3-button--small lv-btn-ghost" title={t.dashboard.renameDeck ?? "重命名卡组"} onclick={() => renameDeckPrompt(row.deckID, deckName)}>
+                                            <LvIcon name="edit" size={13} />
+                                        </button>
                                         <button type="button" class="b3-button b3-button--small lv-btn-ghost" disabled={ddExportBusy} title={t.dashboard.ddShareBtn} onclick={() => exportDeckShare(row.deckID, deckName)}>
                                             <LvIcon name="cards" size={13} />
                                         </button>
-                                        <button type="button" class="b3-button b3-button--small lv-btn-ghost lv-menu-danger" title={t.dashboard.deleteDeck ?? "删除卡组"} onclick={() => removeDeckConfirm(row.deckID, deckName)}>🗑️</button>
+                                        <button type="button" class="b3-button b3-button--small lv-btn-ghost lv-menu-danger" title={t.dashboard.deleteDeck ?? "删除卡组"} onclick={() => removeDeckConfirm(row.deckID, deckName)}>
+                                            <LvIcon name="trash" size={13} />
+                                        </button>
                                     </div>
                                 </td>
                             </tr>

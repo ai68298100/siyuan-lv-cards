@@ -19,9 +19,20 @@ The full-lifecycle flashcard learning platform for SiYuan — local-first, nativ
 
 > **Note**: The primary README and all design docs are in Chinese. This page covers the essentials; see [docs/](./docs/README.md) for full design material.
 
-Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.38** (2026-10-23), delivering quick star toggles in manager rows, complete UI vectorization, and polished interactive states. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.38) for the package and publishing status.
+Lv Cards turns blocks worth remembering into traceable flashcards, scheduled by SiYuan's native FSRS algorithm with optional, auditable AI assistance. The current version is **v0.210.39** (2026-10-24), delivering expanded trash/chevron vector icons and typography vectorization across the Dashboard and Reviewer. See [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.39) for the package and publishing status.
 
-## What's New in v0.210.38
+## What's New in v0.210.39
+
+- **Expanded Vector Icon Library (LvIcon)**:
+  - Added monochrome precision SVGs for `trash`, `chevron-up`, and `chevron-down`.
+- **Dashboard UI Vectorization**:
+  - Replaced legacy text glyphs (`✓`, `▴`/`▾`, `✎`, `🗑️`) with crisp SVG icons.
+- **Reviewer Memo Entry Polish**:
+  - Replaced text pencil with monochrome SVG `<LvIcon name="edit" />`.
+- **Verification**:
+  - 1941 tests across 242 test suites 100% passing; zero TypeScript/Svelte errors and warnings; production build and smoke tests green.
+
+## Previous Update: v0.210.38
 
 - **Instant Star Toggles in Manager Rows**:
   - Direct one-click starring on any card row in the Flashcard Manager without opening details.

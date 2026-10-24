@@ -21,11 +21,24 @@
 
 小驴闪卡（内测版）的定位是**思源笔记里的全生命周期记忆引擎**：让笔记里每一段值得记的内容，都能可回源地变成卡片，用内核原生 FSRS 排期，用可审计的 AI 提效；数据本地优先，方便带走。
 
-当前版本为 **v0.210.38（2026-10-23）**，落地管理器列表行快速星标切换、全界面矢量化去 Emoji 与状态反馈升级。安装包与发布状态见 [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.38)。
+当前版本为 **v0.210.39（2026-10-24）**，落地扩充 trash/chevron 矢量图标、首页与复习全界面去字符化排版升级。安装包与发布状态见 [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.39)。
 
 [下载最新版](https://github.com/ai68298100/siyuan-lv-cards/releases/latest) · [提交问题](https://github.com/ai68298100/siyuan-lv-cards/issues/new/choose) · [贡献指南](./CONTRIBUTING.md)
 
-## 本次更新（v0.210.38）
+## 本次更新（v0.210.39）
+
+- **扩充核心矢量图标库（LvIcon）**：
+  - 新增 `trash`（删除/垃圾桶）、`chevron-up`（折叠箭头）与 `chevron-down`（展开箭头）单色精密 SVG 矢量组件。
+- **首页仪表盘（Dashboard）全界面矢量化去字符**：
+  - 本周节奏活跃打卡标志用 `<LvIcon name="check" size={12} />` 替代 `"✓"`，消除跨平台字体渲染不对齐；
+  - 深度统计展开/折叠按钮用 `<LvIcon name={deepOpen ? "chevron-up" : "chevron-down"} size={13} />` 替代 `"▴"` / `"▾"`，并优化 Flex 居中对齐；
+  - 卡组管理列表操作按钮用 `<LvIcon name="edit" size={13} />` 替代 `"✎"`、用 `<LvIcon name="trash" size={13} />` 替代 `"🗑️"`。
+- **复习端助记便签（Memo）编辑入口升级**：
+  - 复习翻面后的助记编辑按钮升级为 `<LvIcon name="edit" size={13} />`，消除字符粗糙感，与星轨设计系统高度一致。
+- **全量门禁与质量验证**：
+  - 全库扩展至 242 个测试文件、1941 项测试 100% 通过；TypeScript 与 Svelte-check 0 错误 0 警告；构建与烟雾测试全绿。
+
+## 上一版本（v0.210.38）
 
 - **闪卡管理器（Manager）列表行即时星标快速切换**：
   - 列表行右侧增设一键星标快捷按钮（`<LvIcon name="star" />`），鼠标悬浮点亮琥珀金；

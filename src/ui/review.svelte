@@ -2972,7 +2972,9 @@
                             class="b3-button b3-button--text b3-button--small lv-memo-edit-btn"
                             title={t.review.memoEdit ?? "修改助记线索"}
                             onclick={() => (showMemoEditor = true)}
-                        >✎</button>
+                        >
+                            <LvIcon name="edit" size={13} />
+                        </button>
                     </div>
                 {:else if !occl && !cardHtml?.includes("data-type=\"mark\"") && !hasDelimitedQa(cardHtml)}
                     <!-- 思源原生整块闪卡无损自评引导 -->
