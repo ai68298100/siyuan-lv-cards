@@ -21,11 +21,21 @@
 
 小驴闪卡（内测版）的定位是**思源笔记里的全生命周期记忆引擎**：让笔记里每一段值得记的内容，都能可回源地变成卡片，用内核原生 FSRS 排期，用可审计的 AI 提效；数据本地优先，方便带走。
 
-当前版本为 **v0.210.39（2026-10-24）**，落地扩充 trash/chevron 矢量图标、首页与复习全界面去字符化排版升级。安装包与发布状态见 [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.39)。
+当前版本为 **v0.210.40（2026-10-24）**，落地卡片详情版本采纳矢量化、AI向导版本链字符净化与无障碍语义适配。安装包与发布状态见 [GitHub Release](https://github.com/ai68298100/siyuan-lv-cards/releases/tag/v0.210.40)。
 
 [下载最新版](https://github.com/ai68298100/siyuan-lv-cards/releases/latest) · [提交问题](https://github.com/ai68298100/siyuan-lv-cards/issues/new/choose) · [贡献指南](./CONTRIBUTING.md)
 
-## 本次更新（v0.210.39）
+## 本次更新（v0.210.40）
+
+- **卡片详情（Card Detail）版本历史全方位矢量化升级**：
+  - 历史版本采纳按钮升级为单色精密 `<LvIcon name="check" size={12} />` 组件，消除文本字符 `"✓"` 粗糙感；
+  - 版本历史展开/收起按钮升级为 `<LvIcon name={versionsOpen ? "chevron-up" : "chevron-down"} size={12} />`，并绑定精确 WAI-ARIA 动态可访问性标签。
+- **AI 智能制卡向导（AI Wizard）版本链字符净化**：
+  - 清除版本链条目中冗余的 `"⚙ "` / `"✎ "` 字符拼接，依托现有 `LvChip` 语义徽标优雅呈现，消除视觉噪点。
+- **全量门禁与质量验证**：
+  - 全库扩展至 242 个测试文件、1941 项测试 100% 通过；TypeScript 与 Svelte-check 0 错误 0 警告；构建与烟雾测试全绿。
+
+## 上一版本（v0.210.39）
 
 - **扩充核心矢量图标库（LvIcon）**：
   - 新增 `trash`（删除/垃圾桶）、`chevron-up`（折叠箭头）与 `chevron-down`（展开箭头）单色精密 SVG 矢量组件。

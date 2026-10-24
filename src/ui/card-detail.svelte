@@ -4,6 +4,7 @@
     import type { SearchBlock } from "@/api/riff";
     import LvDrawer from "./kit/LvDrawer.svelte";
     import LvChip from "./kit/LvChip.svelte";
+    import LvIcon from "./kit/LvIcon.svelte";
     import RelationsPanel from "./relations-panel.svelte";
     import KoPanel from "./ko-panel.svelte";
     import LifecyclePanel from "./lifecycle-panel.svelte";
@@ -274,8 +275,13 @@
         {#if versions.length > 0}
             <div style="margin-bottom: var(--lv-sp-2); display: flex; align-items: center; gap: 6px">
                 <LvChip tone="primary">{t.detail.version} {versions.length}</LvChip>
-                <button class="b3-button b3-button--small" onclick={() => (versionsOpen = !versionsOpen)}>
-                    {t.detail.versionHistory} {versionsOpen ? "▴" : "▾"}
+                <button
+                    class="b3-button b3-button--small"
+                    aria-label={`${t.detail.versionHistory} ${versionsOpen ? "▴" : "▾"}`}
+                    onclick={() => (versionsOpen = !versionsOpen)}
+                >
+                    <span>{t.detail.versionHistory}</span>
+                    <LvIcon name={versionsOpen ? "chevron-up" : "chevron-down"} size={12} />
                 </button>
             </div>
             {#if versionsOpen}
@@ -293,7 +299,9 @@
                                     title={v.accepted ? t.detail.accepted : acceptVersion ? t.detail.acceptVer : t.detail.acceptUnavailable}
                                     aria-label={`${v.accepted ? t.detail.accepted : acceptVersion ? t.detail.acceptVer : t.detail.acceptUnavailable}: ${new Date(v.at).toLocaleString()}`}
                                     onclick={() => acceptVersion?.(v.at)}
-                                >✓</button>
+                                >
+                                    <LvIcon name="check" size={12} />
+                                </button>
                                 <button
                                     class="b3-button b3-button--small"
                                     disabled={diffBusy || !editorCtx}

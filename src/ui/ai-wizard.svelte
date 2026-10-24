@@ -1084,7 +1084,7 @@
                                             {#each [...prov[i].versions].reverse() as v, vi (prov[i].versions.length - 1 - vi)}
                                                 <div class="fn__flex" style="gap: calc(var(--lv-space-unit) * 4); align-items: center">
                                                     <LvChip tone={v.via === "ai" ? "default" : "primary"}>{v.via === "ai" ? t.aiScore.viaAI : t.aiScore.viaUser}</LvChip>
-                                                    <span class="ft__smaller" style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{(v.via === "ai" ? "⚙ " : "✎ ") + v.q.slice(0, 40)}</span>
+                                                    <span class="ft__smaller" style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{v.q.slice(0, 40)}</span>
                                                     {#if v.q !== c.q || v.a !== c.a}
                                                         <button class="b3-button b3-button--small" disabled={creating || regenBusy !== null} onclick={() => restoreVersion(i, v)}>{t.aiScore.restore}</button>
                                                     {/if}
